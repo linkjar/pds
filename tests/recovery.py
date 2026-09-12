@@ -173,6 +173,23 @@ class RecoveryTests(unittest.TestCase):
                 if process.poll() is not None or time.monotonic() > deadline:
                     self.fail('Litestream directory replication did not complete')
                 time.sleep(.2)
+            # A replica file existing does not prove the shared DB has caught up
+            # with newly discovered actors. Confirm the uploaded account state
+            # before the deliberate crash, without asking for a final sync.
+            while True:
+                probe = self.root / 'account-probe.sqlite'
+                try:
+                    r.checked([litestream, 'restore', '-o', str(probe), (self.replica / 'account.sqlite').as_uri()])
+                    with sqlite3.connect(probe) as db:
+                        if db.execute('SELECT count(*) FROM actor').fetchone()[0] == 3:
+                            break
+                except (RuntimeError, sqlite3.Error):
+                    pass
+                finally:
+                    probe.unlink(missing_ok=True)
+                if process.poll() is not None or time.monotonic() > deadline:
+                    self.fail('Shared account replica did not catch up')
+                time.sleep(.2)
             with contextlib.redirect_stdout(io.StringIO()) as printed:
                 with unittest.mock.patch.dict(os.environ, self.env, clear=True):
                     r.checked([restic, 'init'])
