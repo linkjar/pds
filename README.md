@@ -79,10 +79,30 @@ DNS and registry failures never count as absence. Existing release tags are neve
 promoted over. Failed promotions can leave a uniquely named candidate for diagnosis.
 
 Every Monday the updater checks stable upstream PDS tags, resolves annotated tags,
-copies that release's service Dockerfile, and opens/updates one bump PR. Configure
-`UPSTREAM_PR_TOKEN` with a narrowly scoped GitHub App token or fine-grained PAT
-allowing contents and pull-request writes for this repository, so its PR triggers
-normal CI (GitHub's default workflow token does not). A patch conflict or parity
+copies that release's service Dockerfile, and opens/updates one bump PR using the
+repository's `GITHUB_TOKEN`; no personal token secret is required. Enable the
+repository setting allowing GitHub Actions to create pull requests. Keep the
+default token read-only: only the updater job requests contents, pull-request and
+Actions write permissions. When the PR is created or updated, the updater explicitly
+dispatches `build.yml` on the fixed `codex/upstream-pds` branch. That run verifies
+the bump; its non-main ref cannot pass the publish job's main-only guard.
+
+GitHub documents that `workflow_dispatch` triggered with `GITHUB_TOKEN` always
+creates a workflow run; token-created or updated pull-request events instead
+create approval-required runs. The explicit dispatch keeps scheduled verification
+automatic without relying on that approval. See [GitHub workflow trigger behavior](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
+
+**Current activation blocker (12 September 2026):** LinkJar's organization policy
+disallows GitHub Actions from creating or approving pull requests. Enabling the
+repository setting returned HTTP 409, so it remains disabled and the default
+token permissions remain read-only. An organization owner must explicitly
+authorize the supported policy setting before weekly PR creation can run. This
+workflow reports PR-creation failures and does not dispatch verification after
+one; do not bypass the organization policy with another credential. Until the
+policy is authorized, run the pin update locally and create a reviewed PR through
+the normal human workflow.
+
+A patch conflict or parity
 version mismatch keeps the PR red. Update `officialImage` to the corresponding
 official digest after checking its package version; do not weaken the parity gate.
 Release commits cannot be silently selected by a lexicographic tag sort.

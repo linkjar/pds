@@ -174,5 +174,11 @@
     "Latest stable upstream tag check",
     "actionlint 1.7.11",
     "docker compose config --quiet"
-  ]
+  ],
+  "automationStatus": {
+    "weeklyPrCreation": "Blocked by LinkJar organization policy as of 2026-09-12; repository setting enablement returned HTTP 409. Requires explicit organization-owner authorization. No credential workaround.",
+    "credential": "Repository GITHUB_TOKEN only; no personal-token secret.",
+    "verificationDispatch": "Explicit build.yml workflow_dispatch on fixed codex/upstream-pds ref after created/updated PR; publish remains main-only.",
+    "remoteValidation": "Not exercised; policy unchanged, default token read-only, create/approve setting disabled."
+  }
 }
