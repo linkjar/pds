@@ -29,6 +29,9 @@ RUN sh /apply-patches.sh "$PATCH_PROFILE"
     # Only replace build-context COPYs. Runtime COPY --from=build remains upstream.
     body = re.sub(r'^COPY (\./\S+) (.+)$',
                   lambda m: 'COPY --from=source /source/' + m[1][2:] + ' ' + m[2], upstream, flags=re.M)
+    gate = "# install only prod deps, hoisted to root node_modules dir"
+    assert gate in body
+    body = body.replace(gate, "RUN if test -f packages/oauth/oauth-provider/src/external/external-provider.test.ts; then cd packages/oauth/oauth-provider && pnpm test src/external src/router/create-external-middleware.test.ts src/account/account-manager.external.test.ts; fi\n" + gate)
     return preamble + body
 
 if __name__ == '__main__':

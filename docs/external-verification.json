@@ -1,0 +1,23 @@
+{
+  "verifiedAt": "2026-09-12T13:22:30.019492+00:00",
+  "upstreamCommit": "7ca16cc6989f8247637615aca17c5abb911b8fb1",
+  "handlePatchSha256": "7c8a47197cbba2f450a2889308e95eb217ddb510bf4c5dd70cfadf58e20ed9bf",
+  "providerPatchSha256": "a5b323a69a29127d009305c7672479913fa775c41c4f588989225a823d2534b9",
+  "image": "sha256:fed1e8a68250d1d795bd232ed3b75889b5752c39435d1f68a48a932273de4305",
+  "architecture": "linux/arm64",
+  "providerTestsPassed": 102,
+  "sqliteGroupsPassed": 5,
+  "pdsTypes": "passed",
+  "uiTypes": "passed",
+  "providerTestTypes": "passed",
+  "compiledBrowser": [
+    "provider signup/sign-in buttons and email folds",
+    "standalone account sign-in without PAR",
+    "canonical authorization URL before actual consent/reactivation API validation",
+    "request/device/DID and ephemeral bearer binding"
+  ],
+  "stagingVerified": false,
+  "limits": "No public identities, actual provider credentials, TLS/DNS, live web/iOS tap-count or seed acceptance; fixed browser signer payload with crypto verified separately by signed provider fixtures.",
+  "productionStartup": "health and OAuth metadata passed",
+  "officialUnpatchedParity": "six bounded API probes passed"
+}
