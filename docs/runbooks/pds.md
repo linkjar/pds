@@ -117,6 +117,9 @@ Callback URLs are exactly
 the literal provider name in place of the braces. Apple uses a Services ID
 associated with the primary app and a form POST callback. Google uses a Web
 application client. GitHub uses an OAuth App with only identity/email access.
+Register the exact outgoing mail domain/address in Apple's Sign in with Apple
+for Email Communication service, with aligned SPF/DKIM. Keep bounce notifications
+enabled and test password-reset delivery to a Hide My Email address.
 No provider is linked to an existing DID based on matching email.
 
 #94 must supply the approved branding, support and published policy URLs, plus
@@ -150,7 +153,8 @@ Record date, operator, image digest and redacted evidence for each check:
    limits or contact relay operators implicitly.
 9. After #99, exercise web and iOS Apple/Google/GitHub authorization with real
    credentials. Verify fresh signup versus existing sign-in, recorded consent,
-   passwordless login restrictions and expired/invalid provider callbacks.
+   passwordless login restrictions, Hide My Email password-reset delivery and
+   expired/invalid provider callbacks.
 
 Keep #90 open until the required live account, R2, email, hCaptcha, custody and
 runbook acceptance is recorded. This repository's tests cannot establish those
@@ -162,7 +166,7 @@ external results.
 - [AT Protocol production guidance](https://atproto.com/guides/going-to-production).
 - [Cloudflare DNS records](https://developers.cloudflare.com/dns/manage-dns-records/how-to/create-dns-records/) and [R2 tokens](https://developers.cloudflare.com/r2/api/tokens/).
 - [Resend SMTP](https://resend.com/docs/send-with-smtp) and [hCaptcha](https://docs.hcaptcha.com/).
-- [Apple web configuration](https://developer.apple.com/help/account/capabilities/configure-sign-in-with-apple-for-the-web/) and [private keys](https://developer.apple.com/help/account/capabilities/create-a-sign-in-with-apple-private-key/).
+- [Apple web configuration](https://developer.apple.com/help/account/capabilities/configure-sign-in-with-apple-for-the-web/) , [private keys](https://developer.apple.com/help/account/capabilities/create-a-sign-in-with-apple-private-key/) and [private email relay](https://developer.apple.com/help/account/capabilities/configure-private-email-relay-service/).
 - [Google Web clients](https://developers.google.com/identity/protocols/oauth2/web-server) and [GitHub OAuth Apps](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app).
 - [Docker raw env files](https://docs.docker.com/reference/compose-file/services/#env_file).
 

@@ -292,6 +292,9 @@ step 'Configure its web domain pds.linkjar.social and return URL https://pds.lin
 open_url 'https://developer.apple.com/account/resources/authkeys/list'
 step 'Create a Sign in with Apple key linked to the primary app. Download the .p8 once and store it in the operator vault; record its key ID there.'
 step 'Generate the client-secret JWT with the protected key per Apple documentation. #99 consumes the signed JWT, not the private key.'
+open_url 'https://developer.apple.com/help/account/capabilities/configure-private-email-relay-service/'
+step 'In Certificates, Identifiers & Profiles → Services → Sign in with Apple for Email Communication, register the exact outbound sender domain/address. Verify SPF/DKIM alignment and retain relay bounce notifications.'
+step 'Test a password-reset email to a Hide My Email address before launch; ordinary Resend delivery alone does not prove Apple relay delivery.'
 if confirm 'Store Apple credentials now?'; then
   capture PDS_EXTERNAL_APPLE_CLIENT_ID 'Services ID:'
   capture PDS_EXTERNAL_APPLE_CLIENT_SECRET 'Signed client-secret JWT:' true '^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$'
