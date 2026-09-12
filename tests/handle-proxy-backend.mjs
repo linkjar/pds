@@ -33,3 +33,14 @@ app.get('/account', (_req, res) =>
     .send('canonical PDS account UI'),
 )
 app.listen(3000, '0.0.0.0', () => console.log('fixture ready'))
+
+// Separate fake mail listener makes accidental routing to metrics detectable.
+const mail = express()
+mail.use(express.raw({ type: '*/*', limit: '1mb' }))
+mail.post('/webhooks/resend', (req, res) => res
+  .set('Set-Cookie', 'mail-fixture=unsafe')
+  .json({ body: req.body.toString(), cookie: req.headers.cookie ?? null,
+    signature: req.headers['svix-signature'] ?? null }))
+mail.get('/metrics', (_req, res) => res.send('private-mail-metrics'))
+mail.get('/heartbeat', (_req, res) => res.send('private-mail-heartbeat'))
+mail.listen(3001, '0.0.0.0')

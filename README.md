@@ -197,3 +197,10 @@ required before opening signup.
 revision 7's explicit provider linking, last-method unlink protection and durable
 security mail. Automatic email linking and Apple account-deletion support remain
 separate work under #100.
+
+## Recovery preparation
+
+[Recovery tooling and runbook](recovery/README.md) implements #91's pinned
+Litestream/restic setup, encrypted actor-key/configuration inventory, isolated
+restore checks and aggregate alert rules. Local crash tests pass; the fresh-VM
+R2 drill and live acceptance remain required before opening accounts.

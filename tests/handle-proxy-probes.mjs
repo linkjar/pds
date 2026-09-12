@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import { request } from 'node:http'
 const origin = process.argv[2]
-const probe = (host, path, method = 'GET') =>
+const probe = (host, path, method = 'GET', payload = '', extraHeaders = {}) =>
   new Promise((resolve, reject) => {
     const req = request(
       new URL(path, origin),
-      { method, headers: { Host: host, Cookie: 'attempt=1' } },
+      { method, headers: { Host: host, Cookie: 'attempt=1', 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload), ...extraHeaders } },
       (res) => {
         let body = ''
         res.setEncoding('utf8')
@@ -16,7 +16,7 @@ const probe = (host, path, method = 'GET') =>
       },
     )
     req.on('error', reject)
-    req.end()
+    req.end(payload)
   })
 for (let i = 0; i < 50; i++) {
   try {
@@ -76,3 +76,19 @@ assert.match(blob.body, /user-controlled/)
 console.log(
   'PASS Caddy: DID resolution, DID-based302 (GET/HEAD/arbitrarypaths), reserved/unknownhost404, no handle-host content/cookies, unchanged canonical PDS routes',
 )
+
+const signedBody = '{"type": "email.bounced", "raw":true}'
+const mail = await probe('pds.linkjar.social', '/ops/mail-events', 'POST', signedBody, { 'svix-signature': 'v1,fixture' })
+assert.equal(mail.status, 200)
+assert.deepEqual(JSON.parse(mail.body), { body: signedBody, cookie: null, signature: 'v1,fixture' })
+assert.equal(mail.headers['set-cookie'], undefined)
+const oversized = await probe('pds.linkjar.social', '/ops/mail-events', 'POST', 'x'.repeat(65537))
+assert.equal(oversized.status, 413)
+for (const path of ['/metrics', '/heartbeat', '/webhooks/resend', '/ops/mail-events']) {
+  const reply = await probe('pds.linkjar.social', path)
+  assert.equal(reply.status, 404)
+  assert.doesNotMatch(reply.body, /private-mail/)
+}
+const handleMail = await probe('stribog.linkjar.social', '/ops/mail-events', 'POST', signedBody)
+assert.notEqual(handleMail.status, 200)
+console.log('PASS Caddy: only canonical POST reaches mail receiver, raw signature/body preserved, 64 KiB limit, cookies stripped, monitor routes private')

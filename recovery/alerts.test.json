@@ -1,0 +1,500 @@
+{
+  "rule_files": [
+    "alerts.yml"
+  ],
+  "evaluation_interval": "1m",
+  "tests": [
+    {
+      "name": "Healthy telemetry stays quiet",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "probe_success{job=\"linkjar-pds-public\"}",
+          "values": "1x10"
+        },
+        {
+          "series": "up{job=\"linkjar-pds-recovery\"}",
+          "values": "1x10"
+        },
+        {
+          "series": "linkjar_pds_backup_heartbeat_seconds",
+          "values": "0+60x10"
+        },
+        {
+          "series": "linkjar_pds_key_capture_seconds",
+          "values": "0+60x10"
+        },
+        {
+          "series": "linkjar_pds_backup_inventory_matches",
+          "values": "1x10"
+        },
+        {
+          "series": "linkjar_pds_recovery_inventory_ok",
+          "values": "1x10"
+        },
+        {
+          "series": "linkjar_pds_disk_used_ratio",
+          "values": "0.4x10"
+        },
+        {
+          "series": "linkjar_pds_accounts_created_5m",
+          "values": "2x10"
+        },
+        {
+          "series": "linkjar_pds_security_mail_oldest_age_seconds",
+          "values": "10x10"
+        },
+        {
+          "series": "linkjar_pds_mail_webhook_configured",
+          "values": "1x10"
+        },
+        {
+          "series": "linkjar_pds_mail_telemetry_ok",
+          "values": "1x10"
+        },
+        {
+          "series": "linkjar_pds_mail_bounced_5m",
+          "values": "0x10"
+        },
+        {
+          "series": "linkjar_pds_mail_sent_5m",
+          "values": "20x10"
+        },
+        {
+          "series": "linkjar_pds_mail_failed_5m",
+          "values": "0x10"
+        },
+        {
+          "series": "linkjar_pds_mail_complained_5m",
+          "values": "0x10"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsDown",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsRecoveryMonitorMissing",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsReplicationUnhealthy",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsKeyBackupStale",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsBackupInventoryMismatch",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsDiskPressure",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsSignupSpike",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsSecurityMailDelayed",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsMailWebhookUnavailable",
+          "exp_alerts": []
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsMailDeliveryProblems",
+          "exp_alerts": []
+        }
+      ]
+    },
+    {
+      "name": "Failure thresholds fire",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "probe_success{job=\"linkjar-pds-public\"}",
+          "values": "0x10"
+        },
+        {
+          "series": "up{job=\"linkjar-pds-recovery\"}",
+          "values": "0x10"
+        },
+        {
+          "series": "linkjar_pds_backup_heartbeat_seconds",
+          "values": "0x10"
+        },
+        {
+          "series": "linkjar_pds_key_capture_seconds",
+          "values": "0x10"
+        },
+        {
+          "series": "linkjar_pds_backup_inventory_matches",
+          "values": "0x10"
+        },
+        {
+          "series": "linkjar_pds_recovery_inventory_ok",
+          "values": "1x10"
+        },
+        {
+          "series": "linkjar_pds_disk_used_ratio",
+          "values": "0.8x10"
+        },
+        {
+          "series": "linkjar_pds_accounts_created_5m",
+          "values": "26x10"
+        },
+        {
+          "series": "linkjar_pds_security_mail_oldest_age_seconds",
+          "values": "600x10"
+        },
+        {
+          "series": "linkjar_pds_mail_webhook_configured",
+          "values": "0x10"
+        },
+        {
+          "series": "linkjar_pds_mail_telemetry_ok",
+          "values": "0x10"
+        },
+        {
+          "series": "linkjar_pds_mail_bounced_5m",
+          "values": "3x10"
+        },
+        {
+          "series": "linkjar_pds_mail_sent_5m",
+          "values": "20x10"
+        },
+        {
+          "series": "linkjar_pds_mail_failed_5m",
+          "values": "0x10"
+        },
+        {
+          "series": "linkjar_pds_mail_complained_5m",
+          "values": "0x10"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsDown",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "severity": "critical",
+                "job": "linkjar-pds-public"
+              },
+              "exp_annotations": {
+                "summary": "PDS public health check is failing or missing"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsRecoveryMonitorMissing",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "severity": "critical",
+                "job": "linkjar-pds-recovery"
+              },
+              "exp_annotations": {
+                "summary": "PDS recovery telemetry is missing"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsReplicationUnhealthy",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "severity": "critical"
+              },
+              "exp_annotations": {
+                "summary": "Litestream has not confirmed a healthy sync heartbeat"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsKeyBackupStale",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "severity": "critical"
+              },
+              "exp_annotations": {
+                "summary": "Actor keys and online configuration exceed the recovery target"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsBackupInventoryMismatch",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "severity": "critical"
+              },
+              "exp_annotations": {
+                "summary": "Current databases are not covered by a healthy backup inventory"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsDiskPressure",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "PDS data filesystem is more than 70 percent full"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsSignupSpike",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "More than 25 accounts were created in five minutes; check abuse and campaign activity"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsSecurityMailDelayed",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Security mail has remained queued for more than five minutes"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsMailWebhookUnavailable",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Signed mail-provider telemetry is unconfigured or unavailable"
+              }
+            }
+          ]
+        },
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsMailDeliveryProblems",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Mail bounces, delivery failures or complaints exceed the initial threshold"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Low volume still detects three bounces",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "probe_success{job=\"linkjar-pds-public\"}",
+          "values": "1x10"
+        },
+        {
+          "series": "up{job=\"linkjar-pds-recovery\"}",
+          "values": "1x10"
+        },
+        {
+          "series": "linkjar_pds_backup_heartbeat_seconds",
+          "values": "0+60x10"
+        },
+        {
+          "series": "linkjar_pds_key_capture_seconds",
+          "values": "0+60x10"
+        },
+        {
+          "series": "linkjar_pds_backup_inventory_matches",
+          "values": "1x10"
+        },
+        {
+          "series": "linkjar_pds_recovery_inventory_ok",
+          "values": "1x10"
+        },
+        {
+          "series": "linkjar_pds_disk_used_ratio",
+          "values": "0.4x10"
+        },
+        {
+          "series": "linkjar_pds_accounts_created_5m",
+          "values": "2x10"
+        },
+        {
+          "series": "linkjar_pds_security_mail_oldest_age_seconds",
+          "values": "10x10"
+        },
+        {
+          "series": "linkjar_pds_mail_webhook_configured",
+          "values": "1x10"
+        },
+        {
+          "series": "linkjar_pds_mail_telemetry_ok",
+          "values": "1x10"
+        },
+        {
+          "series": "linkjar_pds_mail_bounced_5m",
+          "values": "3x10"
+        },
+        {
+          "series": "linkjar_pds_mail_sent_5m",
+          "values": "0x10"
+        },
+        {
+          "series": "linkjar_pds_mail_failed_5m",
+          "values": "0x10"
+        },
+        {
+          "series": "linkjar_pds_mail_complained_5m",
+          "values": "0x10"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsMailDeliveryProblems",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Mail bounces, delivery failures or complaints exceed the initial threshold"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Ratio detects two bounces in twenty sends",
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "probe_success{job=\"linkjar-pds-public\"}",
+          "values": "1x10"
+        },
+        {
+          "series": "up{job=\"linkjar-pds-recovery\"}",
+          "values": "1x10"
+        },
+        {
+          "series": "linkjar_pds_backup_heartbeat_seconds",
+          "values": "0+60x10"
+        },
+        {
+          "series": "linkjar_pds_key_capture_seconds",
+          "values": "0+60x10"
+        },
+        {
+          "series": "linkjar_pds_backup_inventory_matches",
+          "values": "1x10"
+        },
+        {
+          "series": "linkjar_pds_recovery_inventory_ok",
+          "values": "1x10"
+        },
+        {
+          "series": "linkjar_pds_disk_used_ratio",
+          "values": "0.4x10"
+        },
+        {
+          "series": "linkjar_pds_accounts_created_5m",
+          "values": "2x10"
+        },
+        {
+          "series": "linkjar_pds_security_mail_oldest_age_seconds",
+          "values": "10x10"
+        },
+        {
+          "series": "linkjar_pds_mail_webhook_configured",
+          "values": "1x10"
+        },
+        {
+          "series": "linkjar_pds_mail_telemetry_ok",
+          "values": "1x10"
+        },
+        {
+          "series": "linkjar_pds_mail_bounced_5m",
+          "values": "2x10"
+        },
+        {
+          "series": "linkjar_pds_mail_sent_5m",
+          "values": "20x10"
+        },
+        {
+          "series": "linkjar_pds_mail_failed_5m",
+          "values": "0x10"
+        },
+        {
+          "series": "linkjar_pds_mail_complained_5m",
+          "values": "0x10"
+        }
+      ],
+      "alert_rule_test": [
+        {
+          "eval_time": "10m",
+          "alertname": "LinkJarPdsMailDeliveryProblems",
+          "exp_alerts": [
+            {
+              "exp_labels": {
+                "severity": "warning"
+              },
+              "exp_annotations": {
+                "summary": "Mail bounces, delivery failures or complaints exceed the initial threshold"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

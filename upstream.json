@@ -2,6 +2,6 @@
   "repository": "https://github.com/bluesky-social/atproto.git",
   "tag": "@atproto/pds@0.5.34",
   "commit": "7ca16cc6989f8247637615aca17c5abb911b8fb1",
-  "revision": 7,
+  "revision": 8,
   "officialImage": "ghcr.io/bluesky-social/pds@sha256:05e164855fa1a3cf251c002210c46f8c86e7ae27bddc7a96045da25483840826"
 }

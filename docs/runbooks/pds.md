@@ -184,3 +184,13 @@ containing literal dollars, hashes, quotes and backslashes byte-for-byte through
 Compose's raw env-file mode; the test container and network were removed.
 The three existing pipeline checks pass. The interactive wizard itself was not
 run end to end, and no real credential or external setup action was exercised.
+
+## Recovery tooling (#91)
+
+[Backup configuration, pinned tools, restore gates and alert rules](../../recovery/README.md)
+cover the local preparation for losing the PDS host. The disposable local crash
+drill includes dynamically discovered SQLite files and encrypted actor/config
+material. Fresh-VM R2 restoration, key/DID and sequencer reconciliation, signed
+writes, blobs, OAuth, real alert routing and signed Resend webhook registration/delivery remain pending.
+Use a new replication epoch on a replacement host and keep public routing fenced
+until those checks pass. Local fixture timings are not the deployment RTO/RPO.

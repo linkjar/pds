@@ -1,0 +1,23 @@
+[Unit]
+Description=LinkJar PDS continuous SQLite replication
+After=network-online.target linkjar-pds-recovery-monitor.service
+Wants=network-online.target linkjar-pds-recovery-monitor.service
+
+[Service]
+Type=simple
+User=1000
+Group=1000
+UMask=0077
+ExecStartPre=/usr/bin/python3 /opt/linkjar-pds/recovery/run-with-env.py /etc/linkjar-pds-backup/backup.env -- /usr/bin/python3 /opt/linkjar-pds/recovery/pds-recovery.py config --data /var/lib/linkjar-pds/staging --output /var/lib/linkjar-pds-backup/litestream.json
+ExecStart=/usr/bin/python3 /opt/linkjar-pds/recovery/run-with-env.py /etc/linkjar-pds-backup/backup.env -- /opt/linkjar-pds-tools/litestream replicate -config /var/lib/linkjar-pds-backup/litestream.json -no-expand-env
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=45
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/linkjar-pds/staging /var/lib/linkjar-pds-backup
+
+[Install]
+WantedBy=multi-user.target
