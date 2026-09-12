@@ -1,0 +1,1914 @@
+diff --git a/packages/oauth/oauth-provider-api/src/api-endpoints.ts b/packages/oauth/oauth-provider-api/src/api-endpoints.ts
+index b933949..e210454 100644
+--- a/packages/oauth/oauth-provider-api/src/api-endpoints.ts
++++ b/packages/oauth/oauth-provider-api/src/api-endpoints.ts
+@@ -9,10 +9,36 @@ import type { Account, DeviceMetadata, Session } from './types.js'
+ 
+ export type { DidString }
+ 
++export type ExternalSignInMethod = {
++  provider: 'apple' | 'google' | 'github'
++  subject: string
++  email?: string
++  emailVerified: boolean
++}
++export type SignInMethods = {
++  hasPassword: boolean
++  identities: ExternalSignInMethod[]
++}
++export type UnlinkSignInMethodInput = {
++  did: DidString
++  provider: ExternalSignInMethod['provider']
++  subject: string
++}
++
+ // These are the endpoints implemented by the OAuth provider, for its UI to
+ // call.
+ 
+ export type ApiEndpoints = {
++  '/sign-in-methods': {
++    method: 'GET'
++    params: { did: DidString }
++    output: SignInMethods
++  }
++  '/unlink-sign-in-method': {
++    method: 'POST'
++    input: UnlinkSignInMethodInput
++    output: { success: true }
++  }
+   '/verify-handle-availability': {
+     method: 'POST'
+     input: VerifyHandleAvailabilityInput
+diff --git a/packages/oauth/oauth-provider-ui/src/data/password.ts b/packages/oauth/oauth-provider-ui/src/data/password.ts
+index eab92a9..3acd497 100644
+--- a/packages/oauth/oauth-provider-ui/src/data/password.ts
++++ b/packages/oauth/oauth-provider-ui/src/data/password.ts
+@@ -1,5 +1,5 @@
+ import { msg } from '@lingui/core/macro'
+-import { useMutation } from '@tanstack/react-query'
++import { useMutation, useQueryClient } from '@tanstack/react-query'
+ import type {
+   ConfirmResetPasswordInput,
+   InitiatePasswordResetInput,
+@@ -33,6 +33,7 @@ export function useResetPasswordRequest() {
+ 
+ export function useResetPasswordConfirm() {
+   const api = useApi()
++  const queryClient = useQueryClient()
+   const { notify, notifyError } = useNotificationsContext()
+ 
+   return useMutation({
+@@ -40,6 +41,7 @@ export function useResetPasswordConfirm() {
+       return api.confirmResetPassword(data)
+     },
+     onSuccess(_data, _variables, _context) {
++      queryClient.invalidateQueries({ queryKey: ['sign-in-methods'] })
+       notify({
+         title: msg`Password reset successful`,
+         description: msg`You can now sign in with your new password.`,
+diff --git a/packages/oauth/oauth-provider-ui/src/data/sign-in-methods.ts b/packages/oauth/oauth-provider-ui/src/data/sign-in-methods.ts
+new file mode 100644
+index 0000000..d1e9431
+--- /dev/null
++++ b/packages/oauth/oauth-provider-ui/src/data/sign-in-methods.ts
+@@ -0,0 +1,35 @@
++import { msg } from '@lingui/core/macro'
++import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
++import type {
++  DidString,
++  UnlinkSignInMethodInput,
++} from '@atproto/oauth-provider-api'
++import { useNotificationsContext } from '#/contexts/notifications.tsx'
++import { useApi } from '#/contexts/session.tsx'
++
++export function useSignInMethods(did: DidString) {
++  const api = useApi()
++  return useQuery({
++    queryKey: ['sign-in-methods', did],
++    staleTime: 0,
++    refetchOnWindowFocus: 'always',
++    queryFn: ({ signal }) => api.signInMethods(did, { signal }),
++  })
++}
++
++export function useUnlinkSignInMethod() {
++  const api = useApi()
++  const queryClient = useQueryClient()
++  const { notify, notifyError } = useNotificationsContext()
++  return useMutation({
++    mutationFn: (input: UnlinkSignInMethodInput) =>
++      api.unlinkSignInMethod(input),
++    onSuccess(_data, { did }) {
++      queryClient.invalidateQueries({ queryKey: ['sign-in-methods', did] })
++      notify({ title: msg`Sign-in method removed` })
++    },
++    onError(error) {
++      notifyError(error, { title: msg`Could not remove sign-in method` })
++    },
++  })
++}
+diff --git a/packages/oauth/oauth-provider-ui/src/lib/api.ts b/packages/oauth/oauth-provider-ui/src/lib/api.ts
+index 30b4840..a37fb9c 100644
+--- a/packages/oauth/oauth-provider-ui/src/lib/api.ts
++++ b/packages/oauth/oauth-provider-ui/src/lib/api.ts
+@@ -21,6 +21,7 @@ import type {
+   SignInInput,
+   SignOutInput,
+   SignUpInput,
++  UnlinkSignInMethodInput,
+   UpdateHandleInput,
+   VerifyHandleAvailabilityInput,
+ } from '@atproto/oauth-provider-api'
+@@ -102,6 +103,14 @@ export class Api extends JsonClient<ApiEndpoints> {
+ 
+   // Account sessions
+ 
++  async signInMethods(did: DidString, options?: Options) {
++    return this.fetch('GET', '/sign-in-methods', { did }, options)
++  }
++
++  async unlinkSignInMethod(input: UnlinkSignInMethodInput, options?: Options) {
++    return this.fetch('POST', '/unlink-sign-in-method', input, options)
++  }
++
+   async accountSessions({ did }: AccountSessionsInput, options?: Options) {
+     return this.fetch('GET', '/account-sessions', { did }, options)
+   }
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/en/messages.po b/packages/oauth/oauth-provider-ui/src/locales/en/messages.po
+index ab6773f..fe1fea6 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/en/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/en/messages.po
+@@ -372,6 +372,10 @@ msgstr "Copied"
+ msgid "Copy to clipboard"
+ msgstr "Copy to clipboard"
+ 
++#: src/data/sign-in-methods.ts
++msgid "Could not remove sign-in method"
++msgstr "Could not remove sign-in method"
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Create"
+ msgstr "Create"
+@@ -384,6 +388,10 @@ msgstr "Create a new account"
+ msgid "Create, update, and delete any public data linked to your account"
+ msgstr "Create, update, and delete any public data linked to your account"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Currently unavailable"
++msgstr "Currently unavailable"
++
+ #: src/lib/api.ts
+ msgid "Custom domains are not supported"
+ msgstr "Custom domains are not supported"
+@@ -742,6 +750,14 @@ msgstr "Later"
+ msgid "Let's get your password reset!"
+ msgstr "Let's get your password reset!"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Link {label}"
++msgstr "Link {label}"
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Loading sign-in methods…"
++msgstr "Loading sign-in methods…"
++
+ #: src/components/layouts/account-shell.tsx
+ #: src/components/layouts/auth-shell.tsx
+ msgid "Logo"
+@@ -833,6 +849,10 @@ msgstr "Next"
+ msgid "No matches"
+ msgstr "No matches"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Not set"
++msgstr "Not set"
++
+ #: src/components/reset-password-view.tsx
+ msgid "Okay"
+ msgstr "Okay"
+@@ -986,6 +1006,7 @@ msgstr "Reset your password"
+ #: src/components/feedback/error-notice.tsx
+ #: src/routes/account/u/$accountId/apps.tsx
+ #: src/routes/account/u/$accountId/devices.tsx
++#: src/routes/account/u/$accountId/manage.tsx
+ msgid "Retry"
+ msgstr "Retry"
+ 
+@@ -1026,6 +1047,14 @@ msgstr "Send email"
+ msgid "Send verification code"
+ msgstr "Send verification code"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Set"
++msgstr "Set"
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Set a password or link another method first."
++msgstr "Set a password or link another method first."
++
+ #: src/components/sign-in-view.tsx
+ msgctxt "AuthenticationPage"
+ msgid "Sign in"
+@@ -1072,11 +1101,27 @@ msgstr "Sign-in canceled"
+ msgid "Sign-in complete"
+ msgstr "Sign-in complete"
+ 
++#: src/data/sign-in-methods.ts
++msgid "Sign-in method removed"
++msgstr "Sign-in method removed"
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Sign-in methods"
++msgstr "Sign-in methods"
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Sign-in methods could not be loaded."
++msgstr "Sign-in methods could not be loaded."
++
+ #: src/components/feedback/error-details.tsx
+ msgctxt "Error"
+ msgid "Stack"
+ msgstr "Stack"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Status unavailable"
++msgstr "Status unavailable"
++
+ #: src/components/forms/sign-up-wizard.tsx
+ msgid "Step {currentPosition} of {count}"
+ msgstr "Step {currentPosition} of {count}"
+@@ -1253,6 +1298,10 @@ msgctxt "device list"
+ msgid "Unknown user agent"
+ msgstr "Unknown user agent"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Unlink {label}"
++msgstr "Unlink {label}"
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Update"
+ msgstr "Update"
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/es/messages.po b/packages/oauth/oauth-provider-ui/src/locales/es/messages.po
+index cf6067a..39e2b69 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/es/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/es/messages.po
+@@ -372,6 +372,10 @@ msgstr ""
+ msgid "Copy to clipboard"
+ msgstr ""
+ 
++#: src/data/sign-in-methods.ts
++msgid "Could not remove sign-in method"
++msgstr ""
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Create"
+ msgstr "Crear"
+@@ -384,6 +388,10 @@ msgstr "Crear una nueva cuenta"
+ msgid "Create, update, and delete any public data linked to your account"
+ msgstr ""
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Currently unavailable"
++msgstr ""
++
+ #: src/lib/api.ts
+ msgid "Custom domains are not supported"
+ msgstr ""
+@@ -733,6 +741,14 @@ msgstr ""
+ msgid "Let's get your password reset!"
+ msgstr "¡Vamos a restablecer tu contraseña!"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Link {label}"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Loading sign-in methods…"
++msgstr ""
++
+ #: src/components/layouts/account-shell.tsx
+ #: src/components/layouts/auth-shell.tsx
+ msgid "Logo"
+@@ -824,6 +840,10 @@ msgstr "Siguiente"
+ msgid "No matches"
+ msgstr ""
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Not set"
++msgstr ""
++
+ #: src/components/reset-password-view.tsx
+ msgid "Okay"
+ msgstr "Aceptar"
+@@ -977,6 +997,7 @@ msgstr "Restablecer tu contraseña"
+ #: src/components/feedback/error-notice.tsx
+ #: src/routes/account/u/$accountId/apps.tsx
+ #: src/routes/account/u/$accountId/devices.tsx
++#: src/routes/account/u/$accountId/manage.tsx
+ msgid "Retry"
+ msgstr ""
+ 
+@@ -1017,6 +1038,14 @@ msgstr ""
+ msgid "Send verification code"
+ msgstr ""
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Set"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Set a password or link another method first."
++msgstr ""
++
+ #: src/components/sign-in-view.tsx
+ msgctxt "AuthenticationPage"
+ msgid "Sign in"
+@@ -1063,11 +1092,27 @@ msgstr ""
+ msgid "Sign-in complete"
+ msgstr ""
+ 
++#: src/data/sign-in-methods.ts
++msgid "Sign-in method removed"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Sign-in methods"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Sign-in methods could not be loaded."
++msgstr ""
++
+ #: src/components/feedback/error-details.tsx
+ msgctxt "Error"
+ msgid "Stack"
+ msgstr ""
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Status unavailable"
++msgstr ""
++
+ #: src/components/forms/sign-up-wizard.tsx
+ msgid "Step {currentPosition} of {count}"
+ msgstr "Paso {currentPosition} de {count}"
+@@ -1244,6 +1289,10 @@ msgctxt "device list"
+ msgid "Unknown user agent"
+ msgstr ""
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Unlink {label}"
++msgstr ""
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Update"
+ msgstr "Actualizar"
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/fr/messages.po b/packages/oauth/oauth-provider-ui/src/locales/fr/messages.po
+index fca9e8d..b7715c5 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/fr/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/fr/messages.po
+@@ -372,6 +372,10 @@ msgstr "Copié"
+ msgid "Copy to clipboard"
+ msgstr "Copier dans le presse-papiers"
+ 
++#: src/data/sign-in-methods.ts
++msgid "Could not remove sign-in method"
++msgstr ""
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Create"
+ msgstr "Créer"
+@@ -384,6 +388,10 @@ msgstr "Créer un nouveau compte"
+ msgid "Create, update, and delete any public data linked to your account"
+ msgstr "Créer, mettre à jour et supprimer toutes les données publiques de votre compte"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Currently unavailable"
++msgstr ""
++
+ #: src/lib/api.ts
+ msgid "Custom domains are not supported"
+ msgstr "Les domaines personnalisés ne sont pas pris en charge"
+@@ -742,6 +750,14 @@ msgstr "Plus tard"
+ msgid "Let's get your password reset!"
+ msgstr "Réinitialisons votre mot de passe !"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Link {label}"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Loading sign-in methods…"
++msgstr ""
++
+ #: src/components/layouts/account-shell.tsx
+ #: src/components/layouts/auth-shell.tsx
+ msgid "Logo"
+@@ -833,6 +849,10 @@ msgstr "Suivant"
+ msgid "No matches"
+ msgstr "Aucun résultat"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Not set"
++msgstr ""
++
+ #: src/components/reset-password-view.tsx
+ msgid "Okay"
+ msgstr "OK"
+@@ -986,6 +1006,7 @@ msgstr "Réinitialisez votre mot de passe"
+ #: src/components/feedback/error-notice.tsx
+ #: src/routes/account/u/$accountId/apps.tsx
+ #: src/routes/account/u/$accountId/devices.tsx
++#: src/routes/account/u/$accountId/manage.tsx
+ msgid "Retry"
+ msgstr "Réessayer"
+ 
+@@ -1026,6 +1047,14 @@ msgstr "Envoyer l'email"
+ msgid "Send verification code"
+ msgstr "Envoyer le code de vérification"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Set"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Set a password or link another method first."
++msgstr ""
++
+ #: src/components/sign-in-view.tsx
+ msgctxt "AuthenticationPage"
+ msgid "Sign in"
+@@ -1072,11 +1101,27 @@ msgstr "Connexion annulée"
+ msgid "Sign-in complete"
+ msgstr "Connexion terminée"
+ 
++#: src/data/sign-in-methods.ts
++msgid "Sign-in method removed"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Sign-in methods"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Sign-in methods could not be loaded."
++msgstr ""
++
+ #: src/components/feedback/error-details.tsx
+ msgctxt "Error"
+ msgid "Stack"
+ msgstr "Trace"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Status unavailable"
++msgstr ""
++
+ #: src/components/forms/sign-up-wizard.tsx
+ msgid "Step {currentPosition} of {count}"
+ msgstr "Étape {currentPosition} sur {count}"
+@@ -1253,6 +1298,10 @@ msgctxt "device list"
+ msgid "Unknown user agent"
+ msgstr "Agent utilisateur inconnu"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Unlink {label}"
++msgstr ""
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Update"
+ msgstr "Modifier"
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/ja/messages.po b/packages/oauth/oauth-provider-ui/src/locales/ja/messages.po
+index 4b401d2..69bb6a7 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/ja/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/ja/messages.po
+@@ -372,6 +372,10 @@ msgstr "コピーされました"
+ msgid "Copy to clipboard"
+ msgstr "クリップボードにコピー"
+ 
++#: src/data/sign-in-methods.ts
++msgid "Could not remove sign-in method"
++msgstr ""
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Create"
+ msgstr "作成"
+@@ -384,6 +388,10 @@ msgstr "新規アカウントの作成"
+ msgid "Create, update, and delete any public data linked to your account"
+ msgstr "あなたのアカウントにリンクされたすべての公開データを作成、更新、および削除"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Currently unavailable"
++msgstr ""
++
+ #: src/lib/api.ts
+ msgid "Custom domains are not supported"
+ msgstr "カスタムドメインはサポートされていません"
+@@ -742,6 +750,14 @@ msgstr "後で"
+ msgid "Let's get your password reset!"
+ msgstr "パスワードをリセットしましょう！"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Link {label}"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Loading sign-in methods…"
++msgstr ""
++
+ #: src/components/layouts/account-shell.tsx
+ #: src/components/layouts/auth-shell.tsx
+ msgid "Logo"
+@@ -833,6 +849,10 @@ msgstr "次へ"
+ msgid "No matches"
+ msgstr "一致なし"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Not set"
++msgstr ""
++
+ #: src/components/reset-password-view.tsx
+ msgid "Okay"
+ msgstr "OK"
+@@ -986,6 +1006,7 @@ msgstr "パスワードをリセット"
+ #: src/components/feedback/error-notice.tsx
+ #: src/routes/account/u/$accountId/apps.tsx
+ #: src/routes/account/u/$accountId/devices.tsx
++#: src/routes/account/u/$accountId/manage.tsx
+ msgid "Retry"
+ msgstr "再試行"
+ 
+@@ -1026,6 +1047,14 @@ msgstr "メールを送信"
+ msgid "Send verification code"
+ msgstr "確認コードを送信"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Set"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Set a password or link another method first."
++msgstr ""
++
+ #: src/components/sign-in-view.tsx
+ msgctxt "AuthenticationPage"
+ msgid "Sign in"
+@@ -1072,11 +1101,27 @@ msgstr "サインインキャンセル"
+ msgid "Sign-in complete"
+ msgstr "サインイン完了"
+ 
++#: src/data/sign-in-methods.ts
++msgid "Sign-in method removed"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Sign-in methods"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Sign-in methods could not be loaded."
++msgstr ""
++
+ #: src/components/feedback/error-details.tsx
+ msgctxt "Error"
+ msgid "Stack"
+ msgstr "スタック"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Status unavailable"
++msgstr ""
++
+ #: src/components/forms/sign-up-wizard.tsx
+ msgid "Step {currentPosition} of {count}"
+ msgstr "ステップ {currentPosition} / {count}"
+@@ -1253,6 +1298,10 @@ msgctxt "device list"
+ msgid "Unknown user agent"
+ msgstr "不明なユーザーエージェント"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Unlink {label}"
++msgstr ""
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Update"
+ msgstr "更新"
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/ko/messages.po b/packages/oauth/oauth-provider-ui/src/locales/ko/messages.po
+index c00b57f..97d5cd6 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/ko/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/ko/messages.po
+@@ -372,6 +372,10 @@ msgstr ""
+ msgid "Copy to clipboard"
+ msgstr ""
+ 
++#: src/data/sign-in-methods.ts
++msgid "Could not remove sign-in method"
++msgstr ""
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Create"
+ msgstr "생성"
+@@ -384,6 +388,10 @@ msgstr "새 계정 만들기"
+ msgid "Create, update, and delete any public data linked to your account"
+ msgstr "계정에 연결된 공개 데이터를 생성, 갱신, 삭제할 수 있습니다"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Currently unavailable"
++msgstr ""
++
+ #: src/lib/api.ts
+ msgid "Custom domains are not supported"
+ msgstr ""
+@@ -733,6 +741,14 @@ msgstr ""
+ msgid "Let's get your password reset!"
+ msgstr "비밀번호를 재설정해 봅시다!"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Link {label}"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Loading sign-in methods…"
++msgstr ""
++
+ #: src/components/layouts/account-shell.tsx
+ #: src/components/layouts/auth-shell.tsx
+ msgid "Logo"
+@@ -824,6 +840,10 @@ msgstr "다음"
+ msgid "No matches"
+ msgstr ""
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Not set"
++msgstr ""
++
+ #: src/components/reset-password-view.tsx
+ msgid "Okay"
+ msgstr "확인"
+@@ -977,6 +997,7 @@ msgstr "비밀번호 재설정"
+ #: src/components/feedback/error-notice.tsx
+ #: src/routes/account/u/$accountId/apps.tsx
+ #: src/routes/account/u/$accountId/devices.tsx
++#: src/routes/account/u/$accountId/manage.tsx
+ msgid "Retry"
+ msgstr "다시 시도"
+ 
+@@ -1017,6 +1038,14 @@ msgstr ""
+ msgid "Send verification code"
+ msgstr ""
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Set"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Set a password or link another method first."
++msgstr ""
++
+ #: src/components/sign-in-view.tsx
+ msgctxt "AuthenticationPage"
+ msgid "Sign in"
+@@ -1063,11 +1092,27 @@ msgstr ""
+ msgid "Sign-in complete"
+ msgstr ""
+ 
++#: src/data/sign-in-methods.ts
++msgid "Sign-in method removed"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Sign-in methods"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Sign-in methods could not be loaded."
++msgstr ""
++
+ #: src/components/feedback/error-details.tsx
+ msgctxt "Error"
+ msgid "Stack"
+ msgstr ""
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Status unavailable"
++msgstr ""
++
+ #: src/components/forms/sign-up-wizard.tsx
+ msgid "Step {currentPosition} of {count}"
+ msgstr "{count}단계 중 {currentPosition}단계"
+@@ -1244,6 +1289,10 @@ msgctxt "device list"
+ msgid "Unknown user agent"
+ msgstr "알 수 없는 사용자 에이전트"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Unlink {label}"
++msgstr ""
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Update"
+ msgstr "갱신"
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/ro/messages.po b/packages/oauth/oauth-provider-ui/src/locales/ro/messages.po
+index 98c83d8..98c03e2 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/ro/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/ro/messages.po
+@@ -377,6 +377,10 @@ msgstr "Copiat"
+ msgid "Copy to clipboard"
+ msgstr "Copiere în clipboard"
+ 
++#: src/data/sign-in-methods.ts
++msgid "Could not remove sign-in method"
++msgstr ""
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Create"
+ msgstr "Creează"
+@@ -389,6 +393,10 @@ msgstr "Creare cont nou"
+ msgid "Create, update, and delete any public data linked to your account"
+ msgstr "Creează, actualizează și șterge orice date publice legate de contul dvs."
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Currently unavailable"
++msgstr ""
++
+ #: src/lib/api.ts
+ msgid "Custom domains are not supported"
+ msgstr "Domeniile personalizate nu sunt acceptate."
+@@ -747,6 +755,14 @@ msgstr "Mai târziu"
+ msgid "Let's get your password reset!"
+ msgstr "Hai să vă resetăm parola!"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Link {label}"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Loading sign-in methods…"
++msgstr ""
++
+ #: src/components/layouts/account-shell.tsx
+ #: src/components/layouts/auth-shell.tsx
+ msgid "Logo"
+@@ -838,6 +854,10 @@ msgstr "Următorul"
+ msgid "No matches"
+ msgstr "Nicio potrivire"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Not set"
++msgstr ""
++
+ #: src/components/reset-password-view.tsx
+ msgid "Okay"
+ msgstr "Ok"
+@@ -991,6 +1011,7 @@ msgstr "Resetați-vă parola"
+ #: src/components/feedback/error-notice.tsx
+ #: src/routes/account/u/$accountId/apps.tsx
+ #: src/routes/account/u/$accountId/devices.tsx
++#: src/routes/account/u/$accountId/manage.tsx
+ msgid "Retry"
+ msgstr "Încercați din nou"
+ 
+@@ -1031,6 +1052,14 @@ msgstr "Trimitere e-mail"
+ msgid "Send verification code"
+ msgstr "Trimitere cod de verificare"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Set"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Set a password or link another method first."
++msgstr ""
++
+ #: src/components/sign-in-view.tsx
+ msgctxt "AuthenticationPage"
+ msgid "Sign in"
+@@ -1077,11 +1106,27 @@ msgstr "Conectare anulată"
+ msgid "Sign-in complete"
+ msgstr "Conectare finalizată"
+ 
++#: src/data/sign-in-methods.ts
++msgid "Sign-in method removed"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Sign-in methods"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Sign-in methods could not be loaded."
++msgstr ""
++
+ #: src/components/feedback/error-details.tsx
+ msgctxt "Error"
+ msgid "Stack"
+ msgstr "Stivă"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Status unavailable"
++msgstr ""
++
+ #: src/components/forms/sign-up-wizard.tsx
+ msgid "Step {currentPosition} of {count}"
+ msgstr "Pasul {currentPosition} din {count}"
+@@ -1258,6 +1303,10 @@ msgctxt "device list"
+ msgid "Unknown user agent"
+ msgstr "Agent utilizator necunoscut"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Unlink {label}"
++msgstr ""
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Update"
+ msgstr "Actualizare"
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/sv/messages.po b/packages/oauth/oauth-provider-ui/src/locales/sv/messages.po
+index f5df039..1d4f8ea 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/sv/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/sv/messages.po
+@@ -372,6 +372,10 @@ msgstr "Kopierat"
+ msgid "Copy to clipboard"
+ msgstr "Kopiera till urklipp"
+ 
++#: src/data/sign-in-methods.ts
++msgid "Could not remove sign-in method"
++msgstr ""
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Create"
+ msgstr "Skapa"
+@@ -384,6 +388,10 @@ msgstr "Skapa ett nytt konto"
+ msgid "Create, update, and delete any public data linked to your account"
+ msgstr "Skapa, ändra och radera vilken publik data som helst som är kopplad till ditt konto"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Currently unavailable"
++msgstr ""
++
+ #: src/lib/api.ts
+ msgid "Custom domains are not supported"
+ msgstr "Anpassade domäner stöds inte"
+@@ -742,6 +750,14 @@ msgstr "Senare"
+ msgid "Let's get your password reset!"
+ msgstr "Låt oss få ditt lösenord återställt!"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Link {label}"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Loading sign-in methods…"
++msgstr ""
++
+ #: src/components/layouts/account-shell.tsx
+ #: src/components/layouts/auth-shell.tsx
+ msgid "Logo"
+@@ -833,6 +849,10 @@ msgstr "Nästa"
+ msgid "No matches"
+ msgstr "Inga träffar"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Not set"
++msgstr ""
++
+ #: src/components/reset-password-view.tsx
+ msgid "Okay"
+ msgstr "OK"
+@@ -986,6 +1006,7 @@ msgstr "Återställ ditt lösenord"
+ #: src/components/feedback/error-notice.tsx
+ #: src/routes/account/u/$accountId/apps.tsx
+ #: src/routes/account/u/$accountId/devices.tsx
++#: src/routes/account/u/$accountId/manage.tsx
+ msgid "Retry"
+ msgstr "Försök igen"
+ 
+@@ -1026,6 +1047,14 @@ msgstr "Skicka e-postmeddelande"
+ msgid "Send verification code"
+ msgstr "Skicka verifieringskod"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Set"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Set a password or link another method first."
++msgstr ""
++
+ #: src/components/sign-in-view.tsx
+ msgctxt "AuthenticationPage"
+ msgid "Sign in"
+@@ -1072,11 +1101,27 @@ msgstr "Inloggningen avbröts"
+ msgid "Sign-in complete"
+ msgstr "Inloggningen är klar"
+ 
++#: src/data/sign-in-methods.ts
++msgid "Sign-in method removed"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Sign-in methods"
++msgstr ""
++
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Sign-in methods could not be loaded."
++msgstr ""
++
+ #: src/components/feedback/error-details.tsx
+ msgctxt "Error"
+ msgid "Stack"
+ msgstr "Stack"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Status unavailable"
++msgstr ""
++
+ #: src/components/forms/sign-up-wizard.tsx
+ msgid "Step {currentPosition} of {count}"
+ msgstr "Steg {currentPosition} av {count}"
+@@ -1253,6 +1298,10 @@ msgctxt "device list"
+ msgid "Unknown user agent"
+ msgstr "Okänd användaragent"
+ 
++#: src/routes/account/u/$accountId/manage.tsx
++msgid "Unlink {label}"
++msgstr ""
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Update"
+ msgstr "Ändra"
+diff --git a/packages/oauth/oauth-provider-ui/src/routes/account/u/$accountId/manage.tsx b/packages/oauth/oauth-provider-ui/src/routes/account/u/$accountId/manage.tsx
+index 6206120..a30de7e 100644
+--- a/packages/oauth/oauth-provider-ui/src/routes/account/u/$accountId/manage.tsx
++++ b/packages/oauth/oauth-provider-ui/src/routes/account/u/$accountId/manage.tsx
+@@ -49,6 +49,10 @@ import {
+   useResetPasswordConfirm,
+   useResetPasswordRequest,
+ } from '#/data/password.ts'
++import {
++  useSignInMethods,
++  useUnlinkSignInMethod,
++} from '#/data/sign-in-methods.ts'
+ import type { Override } from '#/lib/util.ts'
+ import { cn } from '#/lib/utils.ts'
+ 
+@@ -60,16 +64,14 @@ function ManagePage() {
+   return (
+     <div className="flex flex-col gap-4">
+       <EmailVerificationRow />
++      <SignInMethodsSection />
+ 
+       {/* @NOTE ItemGroup gives the rows role="list" and a consistent gap, and
+         ItemSeparator marks the section breaks. Both were previously faked with
+         a flex wrapper and invisible <hr className="border-none"> spacers, which
+         left the gaps looking arbitrary. */}
+       <ItemGroup>
+-        <EmailUpdateRow />
+-        <ItemSeparator />
+         <HandleUpdateRow />
+-        <PasswordUpdateRow />
+         <ItemSeparator />
+         <AccountStatusRow />
+         <AccountDeletionRow />
+@@ -78,6 +80,134 @@ function ManagePage() {
+   )
+ }
+ 
++function SignInMethodsSection() {
++  const { account } = useAuthenticatedSession()
++  const { externalProviders = [] } = useCustomizationData()
++  const methods = useSignInMethods(account.did)
++  const unlink = useUnlinkSignInMethod()
++  const enabled = externalProviders.map((provider) => provider.id)
++  const names = { apple: 'Apple', google: 'Google', github: 'GitHub' } as const
++  const identities = methods.data?.identities ?? []
++
++  return (
++    <section
++      id="sign-in-methods"
++      className="grid gap-3"
++      aria-labelledby="sign-in-methods-title"
++    >
++      <h2 id="sign-in-methods-title" className="text-lg font-semibold">
++        <Trans>Sign-in methods</Trans>
++      </h2>
++      {methods.isPending && (
++        <p role="status">
++          <Trans>Loading sign-in methods…</Trans>
++        </p>
++      )}
++      {methods.isError && (
++        <Notice role="warning">
++          <Trans>Sign-in methods could not be loaded.</Trans>{' '}
++          <Button
++            size="sm"
++            variant="secondary"
++            onClick={() => methods.refetch()}
++          >
++            <Trans>Retry</Trans>
++          </Button>
++        </Notice>
++      )}
++      {methods.data && (
++        <div className="grid gap-2">
++          {identities.map((identity) => {
++            const label = names[identity.provider]
++            const anotherMethod =
++              methods.data.hasPassword ||
++              identities.some(
++                (other) =>
++                  other !== identity && enabled.includes(other.provider),
++              )
++            return (
++              <div
++                key={`${identity.provider}:${identity.subject}`}
++                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3"
++              >
++                <div className="min-w-0 break-words">
++                  <p className="font-medium">{label}</p>
++                  {identity.email && (
++                    <p className="text-muted-foreground text-sm">
++                      {identity.email}
++                    </p>
++                  )}
++                  {!enabled.includes(identity.provider) && (
++                    <p className="text-sm">
++                      <Trans>Currently unavailable</Trans>
++                    </p>
++                  )}
++                  {!anotherMethod && (
++                    <p className="text-muted-foreground text-sm">
++                      <Trans>
++                        Set a password or link another method first.
++                      </Trans>
++                    </p>
++                  )}
++                </div>
++                <Button
++                  size="sm"
++                  variant="secondary"
++                  disabled={
++                    !anotherMethod || unlink.isPending || account.deactivated
++                  }
++                  onClick={() =>
++                    unlink.mutate({
++                      did: account.did,
++                      provider: identity.provider,
++                      subject: identity.subject,
++                    })
++                  }
++                >
++                  <Trans>Unlink {label}</Trans>
++                </Button>
++              </div>
++            )
++          })}
++          {!account.deactivated &&
++            externalProviders
++              .filter(
++                (provider) =>
++                  !identities.some(
++                    (identity) => identity.provider === provider.id,
++                  ),
++              )
++              .map(({ id, label }) => (
++                <a
++                  key={id}
++                  className="hover:bg-muted rounded-lg border px-4 py-3 text-center font-medium focus-visible:outline-2"
++                  href={`/oauth/external/${id}/start?link_did=${encodeURIComponent(account.did)}`}
++                >
++                  <Trans>Link {label}</Trans>
++                </a>
++              ))}
++        </div>
++      )}
++      <ItemGroup>
++        <EmailUpdateRow />
++        <PasswordUpdateRow
++          value={
++            methods.data ? (
++              methods.data.hasPassword ? (
++                <Trans>Set</Trans>
++              ) : (
++                <Trans>Not set</Trans>
++              )
++            ) : (
++              <Trans>Status unavailable</Trans>
++            )
++          }
++        />
++      </ItemGroup>
++    </section>
++  )
++}
++
+ function EmailVerificationRow() {
+   const { account } = useAuthenticatedSession()
+   const { did, email, emailVerified } = account
+@@ -159,7 +289,7 @@ function EmailUpdateRow(props: Omit<RowProps, 'icon' | 'value'>) {
+   )
+ }
+ 
+-function PasswordUpdateRow(props: Omit<RowProps, 'icon' | 'value'>) {
++function PasswordUpdateRow(props: Omit<RowProps, 'icon'>) {
+   const { account } = useAuthenticatedSession()
+   const { email } = account
+ 
+diff --git a/packages/oauth/oauth-provider/src/external/external-flow-store.ts b/packages/oauth/oauth-provider/src/external/external-flow-store.ts
+index b639608..08b0bb6 100644
+--- a/packages/oauth/oauth-provider/src/external/external-flow-store.ts
++++ b/packages/oauth/oauth-provider/src/external/external-flow-store.ts
+@@ -1,4 +1,5 @@
+ import { randomBytes } from 'node:crypto'
++import type { Did } from '@atproto/did'
+ import type { DeviceId } from '../device/device-id.js'
+ import { InvalidRequestError } from '../errors/invalid-request-error.js'
+ import type { RequestUri } from '../request/request-uri.js'
+@@ -8,6 +9,7 @@ type Flow = {
+   provider: ExternalProviderId
+   deviceId: DeviceId
+   requestUri?: RequestUri
++  linkDid?: Did
+   verifier: string
+   nonce: string
+   expiresAt: number
+@@ -52,7 +54,9 @@ export class ExternalFlowStore {
+     this.attempts.set(key, bucket)
+   }
+ 
+-  create(input: Pick<Flow, 'provider' | 'deviceId' | 'requestUri'>): {
++  create(
++    input: Pick<Flow, 'provider' | 'deviceId' | 'requestUri' | 'linkDid'>,
++  ): {
+     state: string
+     flow: Flow
+   } {
+diff --git a/packages/oauth/oauth-provider/src/external/external-identity-store.ts b/packages/oauth/oauth-provider/src/external/external-identity-store.ts
+index c2e5a56..99cadeb 100644
+--- a/packages/oauth/oauth-provider/src/external/external-identity-store.ts
++++ b/packages/oauth/oauth-provider/src/external/external-identity-store.ts
+@@ -1,5 +1,5 @@
+ import type { Did } from '@atproto/did'
+-import type { Account } from '@atproto/oauth-provider-api'
++import type { Account, SignInMethods } from '@atproto/oauth-provider-api'
+ import type { SignupAuthorization } from '../account/account-store.js'
+ import type {
+   ExternalIdentity,
+@@ -8,6 +8,7 @@ import type {
+ 
+ /** An external identity is keyed by provider and subject, never by email. */
+ export interface ExternalIdentityStore {
++  getSignInMethods(did: Did): Promise<SignInMethods>
+   findExternalIdentity(
+     provider: ExternalProviderId,
+     subject: string,
+@@ -18,6 +19,7 @@ export interface ExternalIdentityStore {
+     did: Did,
+     provider: ExternalProviderId,
+     subject: string,
++    enabledProviders: readonly ExternalProviderId[],
+   ): Promise<void>
+   createExternalAccount(
+     identity: ExternalIdentity,
+diff --git a/packages/oauth/oauth-provider/src/router/create-api-middleware.ts b/packages/oauth/oauth-provider/src/router/create-api-middleware.ts
+index 5a0fb00..a50b202 100644
+--- a/packages/oauth/oauth-provider/src/router/create-api-middleware.ts
++++ b/packages/oauth/oauth-provider/src/router/create-api-middleware.ts
+@@ -86,6 +86,53 @@ export function createApiMiddleware<
+   const issuerOrigin = issuerUrl.origin
+   const router = new Router<Ctx, Req, Res>(issuerUrl)
+ 
++  router.use(
++    apiRoute({
++      method: 'GET',
++      endpoint: '/sign-in-methods',
++      schema: z.object({ did: didSchema }).strict(),
++      async handler(req, res) {
++        const { account } = await authenticateAccountPage.call(this, req, res)
++        if (!server.externalIdentityStore)
++          throw new InvalidRequestError(
++            'External sign-in methods are unavailable',
++          )
++        return {
++          json: await server.externalIdentityStore.getSignInMethods(
++            account.did,
++          ),
++        }
++      },
++    }),
++  )
++  router.use(
++    apiRoute({
++      method: 'POST',
++      endpoint: '/unlink-sign-in-method',
++      schema: z
++        .object({
++          did: didSchema,
++          provider: z.enum(['apple', 'google', 'github']),
++          subject: z.string().min(1).max(255),
++        })
++        .strict(),
++      async handler(req, res) {
++        const { account } = await authenticateAccountPage.call(this, req, res)
++        if (!server.externalIdentityStore || account.deactivated)
++          throw new InvalidRequestError(
++            'Sign in to the active account before changing methods',
++          )
++        await server.externalIdentityStore.unlinkExternalIdentity(
++          account.did,
++          this.input.provider,
++          this.input.subject,
++          server.externalProviders.map((provider) => provider.id),
++        )
++        return { json: { success: true as const } }
++      },
++    }),
++  )
++
+   router.use(
+     apiRoute({
+       method: 'POST',
+@@ -829,6 +876,26 @@ export function createApiMiddleware<
+ 
+   return router.buildMiddleware()
+ 
++  async function authenticateAccountPage(
++    this: ApiContext<void, { did: Did }>,
++    req: Req,
++    res: Res,
++  ) {
++    const referrer = validateReferrer(req, { origin: issuerOrigin })
++    if (
++      this.requestUri ||
++      req.headers.authorization ||
++      !(
++        referrer.pathname === '/account' ||
++        referrer.pathname.startsWith('/account/')
++      )
++    )
++      throw new InvalidRequestError(
++        'Manage sign-in methods from the account page',
++      )
++    return authenticate.call(this, req, res)
++  }
++
+   async function authenticate(
+     this: ApiContext<void, { did: Did }>,
+     req: Req,
+diff --git a/packages/oauth/oauth-provider/src/router/create-external-middleware.test.ts b/packages/oauth/oauth-provider/src/router/create-external-middleware.test.ts
+index 392bf4a..c270304 100644
+--- a/packages/oauth/oauth-provider/src/router/create-external-middleware.test.ts
++++ b/packages/oauth/oauth-provider/src/router/create-external-middleware.test.ts
+@@ -20,10 +20,11 @@ vi.mock('./assets/send-authorization-page.js', () => ({
+     },
+ }))
+ vi.mock('./assets/send-error-page.js', () => ({
+-  sendErrorPageFactory: () => (_req: unknown, res: ServerResponse) => {
+-    res.statusCode = 400
+-    res.end('rejected')
+-  },
++  sendErrorPageFactory:
++    () => (_req: unknown, res: ServerResponse, error: Error) => {
++      res.statusCode = 400
++      res.end(error.message)
++    },
+ }))
+ 
+ const account = {
+@@ -117,6 +118,7 @@ async function fixture(
+     ),
+     externalIdentityStore: {
+       findExternalIdentity: vi.fn(async () => (existing ? account.did : null)),
++      linkExternalIdentity: vi.fn(async () => {}),
+       createExternalAccount,
+     },
+     deviceManager: {
+@@ -130,6 +132,10 @@ async function fixture(
+     },
+     requestManager: { get, setAuthorized },
+     accountManager: {
++      getDeviceAccount: vi.fn(async () => ({
++        account: fixtureAccount,
++        authorizedClients,
++      })),
+       upsertDeviceAccount: vi.fn(async () => {}),
+       getAccount: vi.fn(async () => ({
+         account: fixtureAccount,
+@@ -153,9 +159,11 @@ async function fixture(
+       })),
+     },
+     hooks: {
++      onExternalLink: vi.fn(async () => {}),
+       onExternalSignUp: vi.fn(async () => ({ authorizeClient: trust })),
+     },
+     checkConsentRequired: (_parameters: unknown, data: unknown) => !data,
++    checkLoginRequired: vi.fn(() => false),
+     signer: {
+       createEphemeralToken: vi.fn(async () => 'bound-ephemeral-token'),
+     },
+@@ -569,3 +577,117 @@ describe('external routes', () => {
+     },
+   )
+ })
++
++async function linkStart(f: Awaited<ReturnType<typeof fixture>>) {
++  return fetch(
++    `${f.origin}/oauth/external/google/start?link_did=${encodeURIComponent(account.did)}`,
++    {
++      headers: {
++        cookie: 'device-a',
++        'sec-fetch-site': 'same-origin',
++        referer: `${f.origin}/account/u/alice/manage`,
++      },
++      redirect: 'manual',
++    },
++  )
++}
++async function finishLink(
++  f: Awaited<ReturnType<typeof fixture>>,
++  start: Response,
++) {
++  const state = new URL(start.headers.get('location')!).searchParams.get(
++    'state',
++  )!
++  const callback = await f.callback(state)
++  return fetch(f.origin + callback.headers.get('location'), {
++    headers: { cookie: 'device-a' },
++    redirect: 'manual',
++  })
++}
++describe('explicit sign-in method linking', () => {
++  it('pins the active DID and device, adds only the proved identity and never grants client scopes', async () => {
++    const f = await fixture('google')
++    const start = await linkStart(f)
++    expect(start.status).toBe(303)
++    const complete = await finishLink(f, start)
++    expect(complete.status).toBe(303)
++    expect(complete.headers.get('location')).toBe(
++      `/account/u/${encodeURIComponent(account.did)}/manage#sign-in-methods`,
++    )
++    expect(
++      f.server.externalIdentityStore!.linkExternalIdentity,
++    ).toHaveBeenCalledWith(
++      account.did,
++      expect.objectContaining({
++        provider: 'google',
++        subject: 'stable-subject',
++      }),
++    )
++    expect(f.server.accountManager.getDeviceAccount).toHaveBeenCalledTimes(4)
++    expect(f.createExternalAccount).not.toHaveBeenCalled()
++    expect(f.setAuthorized).not.toHaveBeenCalled()
++    expect(f.server.accountManager.upsertDeviceAccount).not.toHaveBeenCalled()
++    expect(f.server.hooks.onExternalSignUp).not.toHaveBeenCalled()
++  })
++  it('refuses a subject belonging to B and shows only B’s public handle', async () => {
++    const f = await fixture('google')
++    const otherDid = 'did:plc:bbbbbbbbbbbbbbbbbbbbbbbb'
++    vi.mocked(
++      f.server.externalIdentityStore!.findExternalIdentity,
++    ).mockResolvedValueOnce(otherDid)
++    vi.mocked(f.server.accountManager.getAccount).mockResolvedValueOnce({
++      account: { ...account, did: otherDid, handle: 'bob.linkjar.social' },
++      authorizedClients: new Map(),
++    } as never)
++    const complete = await finishLink(f, await linkStart(f))
++    expect(complete.status).toBe(400)
++    const message = await complete.text()
++    expect(message).toContain('bob.linkjar.social')
++    expect(message).not.toContain(otherDid)
++    expect(message).not.toContain('alice@example.com')
++    expect(
++      f.server.externalIdentityStore!.linkExternalIdentity,
++    ).not.toHaveBeenCalled()
++    expect(f.createExternalAccount).not.toHaveBeenCalled()
++  })
++  it('requires an active device account before starting the provider round trip', async () => {
++    const f = await fixture('google')
++    vi.mocked(f.server.checkLoginRequired).mockReturnValue(true)
++    expect((await linkStart(f)).status).toBe(400)
++    expect(f.exchange).not.toHaveBeenCalled()
++  })
++  it('refuses linking if the account signs out during provider verification', async () => {
++    const f = await fixture('google')
++    f.exchange.mockImplementationOnce(async () => {
++      vi.mocked(f.server.accountManager.getDeviceAccount).mockRejectedValue(
++        new Error('signed out'),
++      )
++      return {
++        provider: 'google',
++        subject: 'stable-subject',
++        email: 'alice@example.com',
++        emailVerified: true,
++      }
++    })
++    expect((await finishLink(f, await linkStart(f))).status).toBe(400)
++    expect(
++      f.server.externalIdentityStore!.linkExternalIdentity,
++    ).not.toHaveBeenCalled()
++  })
++  it('does not turn an OAuth authorization page into an account-linking entry point', async () => {
++    const f = await fixture('google')
++    const reply = await fetch(
++      `${f.origin}/oauth/external/google/start?request_uri=${encodeURIComponent(requestUri)}&link_did=${encodeURIComponent(account.did)}`,
++      {
++        headers: {
++          cookie: 'device-a',
++          'sec-fetch-site': 'same-origin',
++          referer: `${f.origin}/oauth/authorize?request_uri=${encodeURIComponent(requestUri)}`,
++        },
++        redirect: 'manual',
++      },
++    )
++    expect(reply.status).toBe(400)
++    expect(f.exchange).not.toHaveBeenCalled()
++  })
++})
+diff --git a/packages/oauth/oauth-provider/src/router/create-external-middleware.ts b/packages/oauth/oauth-provider/src/router/create-external-middleware.ts
+index fee7e90..69ddc9a 100644
+--- a/packages/oauth/oauth-provider/src/router/create-external-middleware.ts
++++ b/packages/oauth/oauth-provider/src/router/create-external-middleware.ts
+@@ -1,6 +1,8 @@
+ import { createHash } from 'node:crypto'
+ import type { IncomingMessage, ServerResponse } from 'node:http'
+ import { z } from 'zod'
++import { type Did, didSchema } from '@atproto/did'
++import type { DeviceId } from '../device/device-id.js'
+ import { InvalidRequestError } from '../errors/invalid-request-error.js'
+ import { ExternalFlowStore } from '../external/external-flow-store.js'
+ import {
+@@ -30,6 +32,9 @@ const responseSchema = z
+     ]),
+   )
+ 
++/** Only controlled linking messages may be shown by the error page. */
++class LinkAccountError extends InvalidRequestError {}
++
+ export function createExternalMiddleware<
+   Ctx extends object | void = void,
+   Req extends IncomingMessage = IncomingMessage,
+@@ -63,6 +68,13 @@ export function createExternalMiddleware<
+         const requestUri = accountPage
+           ? undefined
+           : requestUriSchema.parse(url.searchParams.get('request_uri'))
++        const linkDid = url.searchParams.has('link_did')
++          ? didSchema.parse(url.searchParams.get('link_did'))
++          : undefined
++        if (linkDid && !accountPage)
++          throw new LinkAccountError(
++            'Link sign-in methods from the account page',
++          )
+         if (
+           accountPage
+             ? url.searchParams.has('request_uri')
+@@ -75,10 +87,12 @@ export function createExternalMiddleware<
+         )
+         flows.allow(deviceMetadata.ipAddress, 'start')
+         if (requestUri) await server.requestManager.get(requestUri, deviceId)
++        if (linkDid) await activeLinkAccount(deviceId, linkDid)
+         const { state, flow } = flows.create({
+           provider: provider.id,
+           deviceId,
+           requestUri,
++          linkDid,
+         })
+         const target = provider.authorizationUrl({
+           redirectUri,
+@@ -135,6 +149,7 @@ export function createExternalMiddleware<
+           : undefined
+         const clientId = request?.clientId
+         const parameters = request?.parameters
++        if (flow.linkDid) await activeLinkAccount(device.deviceId, flow.linkDid)
+         const identity = await provider.exchange({
+           redirectUri,
+           code: flow.response.code,
+@@ -147,6 +162,32 @@ export function createExternalMiddleware<
+           provider.id,
+           identity.subject,
+         )
++        if (flow.linkDid) {
++          // The original DID and device are pinned by the flow, never taken
++          // from callback parameters. Recheck after the provider round trip.
++          const account = await activeLinkAccount(device.deviceId, flow.linkDid)
++          if (did && did !== account.did) {
++            const owner = (await server.accountManager.getAccount(did)).account
++            throw new LinkAccountError(
++              `This sign-in method is already linked to ${owner.handle ?? 'another account'}`,
++            )
++          }
++          if (!did) {
++            await server.hooks.onExternalLink?.({
++              account,
++              identity,
++              ...device,
++            })
++            await activeLinkAccount(device.deviceId, flow.linkDid)
++            await store.linkExternalIdentity(account.did, identity)
++          }
++          res
++            .writeHead(303, {
++              Location: `/account/u/${encodeURIComponent(account.did)}/manage#sign-in-methods`,
++            })
++            .end()
++          return
++        }
+         const created = did === null
+         if (created && parameters?.login_hint)
+           throw new InvalidRequestError(
+@@ -246,6 +287,15 @@ export function createExternalMiddleware<
+   }
+   return router.buildMiddleware()
+ 
++  async function activeLinkAccount(deviceId: DeviceId, did: Did) {
++    const session = await server.accountManager.getDeviceAccount(deviceId, did)
++    if (server.checkLoginRequired(session) || session.account.deactivated)
++      throw new LinkAccountError(
++        'Sign in to the active account before linking a method',
++      )
++    return session.account
++  }
++
+   function handle(
+     fn: (req: Req, res: Res) => Promise<void>,
+   ): Middleware<void, Req, Res> {
+@@ -260,9 +310,11 @@ export function createExternalMiddleware<
+           await sendError(
+             req,
+             res,
+-            new InvalidRequestError(
+-              'External sign-in failed. Start again from your app or account page.',
+-            ),
++            error instanceof LinkAccountError
++              ? error
++              : new InvalidRequestError(
++                  'External sign-in failed. Start again from your app or account page.',
++                ),
+           )
+       }
+     }
+diff --git a/packages/pds/src/account-manager/account-manager.ts b/packages/pds/src/account-manager/account-manager.ts
+index 6681383..b5541c9 100644
+--- a/packages/pds/src/account-manager/account-manager.ts
++++ b/packages/pds/src/account-manager/account-manager.ts
+@@ -58,6 +58,7 @@ import {
+ import * as password from './helpers/password.js'
+ import * as repo from './helpers/repo.js'
+ import * as scrypt from './helpers/scrypt.js'
++import { enqueueSignInNotice } from './helpers/sign-in-notices.js'
+ import { registerSignupReceipt } from './helpers/signup-receipt.js'
+ import * as token from './helpers/token.js'
+ 
+@@ -961,6 +962,7 @@ export class AccountManager {
+         password.updateUserPassword(dbTxn, { did, passwordScrypt }),
+         emailToken.deleteEmailToken(dbTxn, did, 'reset_password'),
+         auth.revokeRefreshTokensByDid(dbTxn, did),
++        enqueueSignInNotice(dbTxn, did, 'password-set'),
+       ]),
+     )
+   }
+diff --git a/packages/pds/src/account-manager/db/migrations/007d-linkjar-signin-notices.ts b/packages/pds/src/account-manager/db/migrations/007d-linkjar-signin-notices.ts
+new file mode 100644
+index 0000000..4192ad2
+--- /dev/null
++++ b/packages/pds/src/account-manager/db/migrations/007d-linkjar-signin-notices.ts
+@@ -0,0 +1,25 @@
++import type { Kysely } from 'kysely'
++
++export async function up(db: Kysely<unknown>): Promise<void> {
++  await db.schema
++    .createTable('sign_in_notice')
++    .addColumn('id', 'varchar', (column) => column.primaryKey())
++    .addColumn('did', 'varchar', (column) =>
++      column.notNull().references('actor.did').onDelete('cascade'),
++    )
++    .addColumn('recipient', 'varchar', (column) => column.notNull())
++    .addColumn('action', 'varchar', (column) => column.notNull())
++    .addColumn('provider', 'varchar')
++    .addColumn('createdAt', 'integer', (column) => column.notNull())
++    .addColumn('nextAttemptAt', 'integer', (column) => column.notNull())
++    .addColumn('attempts', 'integer', (column) => column.notNull().defaultTo(0))
++    .execute()
++  await db.schema
++    .createIndex('sign_in_notice_ready')
++    .on('sign_in_notice')
++    .column('nextAttemptAt')
++    .execute()
++}
++export async function down(db: Kysely<unknown>): Promise<void> {
++  await db.schema.dropTable('sign_in_notice').execute()
++}
+diff --git a/packages/pds/src/account-manager/db/migrations/index.ts b/packages/pds/src/account-manager/db/migrations/index.ts
+index 74e59d9..e17ba80 100644
+--- a/packages/pds/src/account-manager/db/migrations/index.ts
++++ b/packages/pds/src/account-manager/db/migrations/index.ts
+@@ -8,8 +8,10 @@ import * as mig007 from './007-lexicon-failures-index.js'
+ import * as linkjar093 from './007a-linkjar-093.js'
+ import * as linkjar099 from './007b-linkjar-099.js'
+ import * as signupReceipt from './007c-linkjar-signup-receipt.js'
++import * as signInNotices from './007d-linkjar-signin-notices.js'
+ 
+ export default {
++  '007d-linkjar-signin-notices': signInNotices,
+   '007c-linkjar-signup-receipt': signupReceipt,
+   '007b-linkjar-099': linkjar099,
+   '007a-linkjar-093': linkjar093,
+diff --git a/packages/pds/src/account-manager/db/schema/index.ts b/packages/pds/src/account-manager/db/schema/index.ts
+index 28410d1..a6183f2 100644
+--- a/packages/pds/src/account-manager/db/schema/index.ts
++++ b/packages/pds/src/account-manager/db/schema/index.ts
+@@ -12,10 +12,12 @@ import type * as lexicon from './lexicon.js'
+ import type * as linkjarHandlePolicy from './linkjar-handle-policy.js'
+ import type * as refreshToken from './refresh-token.js'
+ import type * as repoRoot from './repo-root.js'
++import type * as signInNotices from './sign-in-notice.js'
+ import type * as token from './token.js'
+ import type * as usedRefreshToken from './used-refresh-token.js'
+ 
+-export type DatabaseSchema = externalIdentity.PartialDB &
++export type DatabaseSchema = signInNotices.PartialDB &
++  externalIdentity.PartialDB &
+   linkjarHandlePolicy.PartialDB &
+   actor.PartialDB &
+   account.PartialDB &
+diff --git a/packages/pds/src/account-manager/db/schema/sign-in-notice.ts b/packages/pds/src/account-manager/db/schema/sign-in-notice.ts
+new file mode 100644
+index 0000000..6eb9a64
+--- /dev/null
++++ b/packages/pds/src/account-manager/db/schema/sign-in-notice.ts
+@@ -0,0 +1,11 @@
++export type SignInNotice = {
++  id: string
++  did: string
++  recipient: string
++  action: 'linked' | 'unlinked' | 'password-set'
++  provider: string | null
++  createdAt: number
++  nextAttemptAt: number
++  attempts: number
++}
++export type PartialDB = { sign_in_notice: SignInNotice }
+diff --git a/packages/pds/src/account-manager/helpers/account.ts b/packages/pds/src/account-manager/helpers/account.ts
+index c959de1..4ccd9bc 100644
+--- a/packages/pds/src/account-manager/helpers/account.ts
++++ b/packages/pds/src/account-manager/helpers/account.ts
+@@ -178,6 +178,9 @@ export const deleteAccount = async (
+   await db.executeWithRetry(
+     db.db.deleteFrom('external_identity').where('did', '=', did),
+   )
++  await db.executeWithRetry(
++    db.db.deleteFrom('sign_in_notice').where('did', '=', did),
++  )
+   await db.executeWithRetry(
+     db.db.deleteFrom('linkjar_handle_policy').where('did', '=', did),
+   )
+diff --git a/packages/pds/src/account-manager/helpers/sign-in-notices.ts b/packages/pds/src/account-manager/helpers/sign-in-notices.ts
+new file mode 100644
+index 0000000..6c59d42
+--- /dev/null
++++ b/packages/pds/src/account-manager/helpers/sign-in-notices.ts
+@@ -0,0 +1,93 @@
++import { randomUUID } from 'node:crypto'
++import type { BackgroundQueue } from '../../background.js'
++import type { ServerMailer } from '../../mailer/index.js'
++import type { AccountDb } from '../db/index.js'
++import type { SignInNotice } from '../db/schema/sign-in-notice.js'
++
++/** Called inside the same transaction as the security-sensitive mutation. */
++export async function enqueueSignInNotice(
++  db: AccountDb,
++  did: string,
++  action: SignInNotice['action'],
++  provider?: string,
++) {
++  const account = await db.db
++    .selectFrom('account')
++    .select('email')
++    .where('did', '=', did)
++    .executeTakeFirstOrThrow()
++  const now = Date.now()
++  await db.db
++    .insertInto('sign_in_notice')
++    .values({
++      id: randomUUID(),
++      did,
++      recipient: account.email,
++      action,
++      provider: provider ?? null,
++      createdAt: now,
++      nextAttemptAt: now,
++      attempts: 0,
++    })
++    .execute()
++}
++
++export async function deliverSignInNotices(
++  db: AccountDb,
++  mailer: Pick<ServerMailer, 'sendSignInMethodChange'>,
++  now = Date.now(),
++) {
++  const rows = await db.db
++    .selectFrom('sign_in_notice')
++    .selectAll()
++    .where('nextAttemptAt', '<=', now)
++    .orderBy('createdAt')
++    .limit(100)
++    .execute()
++  for (const row of rows) {
++    try {
++      await mailer.sendSignInMethodChange(row)
++      await db.db
++        .deleteFrom('sign_in_notice')
++        .where('id', '=', row.id)
++        .execute()
++    } catch {
++      // Retain failures across restarts; no identity data or SMTP errors in logs.
++      await db.db
++        .updateTable('sign_in_notice')
++        .set({
++          attempts: row.attempts + 1,
++          nextAttemptAt:
++            now + Math.min(3_600_000, 60_000 * 2 ** Math.min(row.attempts, 6)),
++        })
++        .where('id', '=', row.id)
++        .execute()
++    }
++  }
++}
++
++/** One bounded dispatcher per PDS process, drained by its existing background queue. */
++export function startSignInNotices(
++  db: AccountDb,
++  mailer: ServerMailer,
++  queue: BackgroundQueue,
++) {
++  let running = false
++  const tick = () => {
++    if (running || queue.destroyed) return
++    running = true
++    queue.add(async () => {
++      try {
++        await deliverSignInNotices(db, mailer)
++      } finally {
++        running = false
++      }
++    })
++  }
++  const timer = setInterval(tick, 60_000)
++  timer.unref()
++  queue.signal.addEventListener('abort', () => clearInterval(timer), {
++    once: true,
++  })
++  tick()
++}
+diff --git a/packages/pds/src/account-manager/oauth-store.ts b/packages/pds/src/account-manager/oauth-store.ts
+index d50adb8..8561567 100644
+--- a/packages/pds/src/account-manager/oauth-store.ts
++++ b/packages/pds/src/account-manager/oauth-store.ts
+@@ -78,6 +78,7 @@ import * as authorizedClientHelper from './helpers/authorized-client.js'
+ import * as deviceHelper from './helpers/device.js'
+ import * as externalIdentityHelper from './helpers/external-identity.js'
+ import * as lexiconHelper from './helpers/lexicon.js'
++import { enqueueSignInNotice } from './helpers/sign-in-notices.js'
+ import * as tokenHelper from './helpers/token.js'
+ import * as usedRefreshTokenHelper from './helpers/used-refresh-token.js'
+ 
+@@ -173,24 +174,73 @@ export class OAuthStore
+     }))
+   }
+ 
++  async getSignInMethods(did: Did) {
++    const account = await this.db.db
++      .selectFrom('account')
++      .select('passwordScrypt')
++      .where('did', '=', did)
++      .executeTakeFirstOrThrow()
++    return {
++      hasPassword:
++        !!account.passwordScrypt &&
++        account.passwordScrypt !== '!external-identity',
++      identities: await this.listExternalIdentities(did),
++    }
++  }
++
+   async linkExternalIdentity(
+     did: Did,
+     identity: ExternalIdentity,
+   ): Promise<void> {
+-    await externalIdentityHelper.linkExternalIdentity(this.db, did, identity)
++    await this.db.transaction(async (tx) => {
++      await externalIdentityHelper.linkExternalIdentity(tx, did, identity)
++      await enqueueSignInNotice(tx, did, 'linked', identity.provider)
++    })
+   }
+ 
+   async unlinkExternalIdentity(
+     did: Did,
+     provider: ExternalProviderId,
+     subject: string,
++    enabledProviders: readonly ExternalProviderId[],
+   ): Promise<void> {
+-    await this.db.db
+-      .deleteFrom('external_identity')
+-      .where('did', '=', did)
+-      .where('provider', '=', provider)
+-      .where('subject', '=', subject)
+-      .execute()
++    await this.db.transaction(async (tx) => {
++      const account = await tx.db
++        .selectFrom('account')
++        .select('passwordScrypt')
++        .where('did', '=', did)
++        .executeTakeFirstOrThrow()
++      const identities = await tx.db
++        .selectFrom('external_identity')
++        .select(['provider', 'subject'])
++        .where('did', '=', did)
++        .execute()
++      const selected = identities.find(
++        (row) => row.provider === provider && row.subject === subject,
++      )
++      if (!selected) return
++      const hasPassword =
++        !!account.passwordScrypt &&
++        account.passwordScrypt !== '!external-identity'
++      const otherProvider = identities.some(
++        (row) =>
++          row !== selected &&
++          enabledProviders.includes(row.provider as ExternalProviderId),
++      )
++      if (!hasPassword && !otherProvider)
++        throw new InvalidRequestError(
++          'Add another sign-in method before unlinking this one',
++        )
++      // Check and delete in one transaction: simultaneous requests must not
++      // each count the method that the other request is about to remove.
++      await tx.db
++        .deleteFrom('external_identity')
++        .where('did', '=', did)
++        .where('provider', '=', provider)
++        .where('subject', '=', subject)
++        .execute()
++      await enqueueSignInNotice(tx, did, 'unlinked', provider)
++    })
+   }
+ 
+   async createExternalAccount(
+diff --git a/packages/pds/src/index.ts b/packages/pds/src/index.ts
+index b47e94b..759d5ef 100644
+--- a/packages/pds/src/index.ts
++++ b/packages/pds/src/index.ts
+@@ -17,6 +17,7 @@ import {
+   XRPCError,
+   createServer,
+ } from '@atproto/xrpc-server'
++import { startSignInNotices } from './account-manager/helpers/sign-in-notices.js'
+ import apiRoutes from './api/index.js'
+ import * as authRoutes from './auth-routes.js'
+ import * as basicRoutes from './basic-routes.js'
+@@ -220,6 +221,11 @@ export class PDS implements AsyncDisposable {
+     this.server.keepAliveTimeout = 90_000
+     this.terminator = createHttpTerminator({ server })
+     await events.once(server, 'listening')
++    startSignInNotices(
++      this.ctx.accountManager.db,
++      this.ctx.mailer,
++      this.ctx.backgroundQueue,
++    )
+     return server
+   }
+ 
+diff --git a/packages/pds/src/mailer/index.ts b/packages/pds/src/mailer/index.ts
+index 79bb95c..3f1e70c 100644
+--- a/packages/pds/src/mailer/index.ts
++++ b/packages/pds/src/mailer/index.ts
+@@ -1,5 +1,6 @@
+ import type { SendMailOptions, Transporter } from 'nodemailer'
+ import { htmlToText } from 'nodemailer-html-to-text'
++import type { SignInNotice } from '../account-manager/db/schema/sign-in-notice.js'
+ import type { BrandingConfig, EmailConfig } from '../config/index.js'
+ import { mailerLogger } from '../logger.js'
+ import * as templates from './templates.js'
+@@ -35,6 +36,28 @@ export class ServerMailer {
+     }
+   }
+ 
++  async sendSignInMethodChange(notice: SignInNotice) {
++    if (!this.email?.smtpUrl)
++      throw new Error('Security notification delivery requires SMTP')
++    const labels: Record<string, string> = {
++      apple: 'Apple',
++      google: 'Google',
++      github: 'GitHub',
++    }
++    const method = labels[notice.provider ?? ''] ?? 'An external sign-in method'
++    const change =
++      notice.action === 'password-set'
++        ? 'Your account password was set or changed.'
++        : `${method} was ${notice.action === 'linked' ? 'linked to' : 'unlinked from'} your account.`
++    await this.transporter.sendMail({
++      from: this.email.fromAddress,
++      to: notice.recipient,
++      messageId: `<${notice.id}@${new URL(this.config.homeUrl).hostname}>`,
++      subject: `${this.config.serviceName}: sign-in method changed`,
++      text: `${change}\n\nAccount: ${notice.did}\nTime: ${new Date(notice.createdAt).toISOString()}\n\nIf you did not make this change, open your account settings from the app and review your sign-in methods and sessions. Contact the service's support team if you need help. Never share your password or Private Jar recovery material.`,
++    })
++  }
++
+   async sendResetPassword(
+     params: { handle: string; token: string; locale?: string },
+     mailOpts: SendMailOptions,
