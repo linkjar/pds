@@ -1,0 +1,32 @@
+name: Check upstream PDS releases
+on:
+  schedule:
+    - cron: '23 8 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  update:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+      - run: python3 scripts/check-upstream.py --write
+      - uses: peter-evans/create-pull-request@c9f8b51aaac1dfba340a97878061732b0e738ec1
+        with:
+          # A narrowly scoped GitHub App/PAT is required: GITHUB_TOKEN-created
+          # PR events do not trigger the build workflow. Never silently skip CI.
+          token: ${{ secrets.UPSTREAM_PR_TOKEN }}
+          branch: codex/upstream-pds
+          title: Update pinned upstream PDS release
+          commit-message: Update pinned upstream PDS release
+          body: |
+            Update the stable PDS source tag and peeled commit, and regenerate its build instructions.
+
+            Review upstream release notes, rebased patches and both architecture builds. Update the official comparator digest to the matching release if parity CI reports a version mismatch. Do not merge until image parity and rendered branding tests pass. Staging deployment and account migration remain separately gated.
+          add-paths: |
+            upstream.json
+            Dockerfile
+            docs/upstream.Dockerfile

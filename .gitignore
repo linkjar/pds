@@ -1,0 +1,8 @@
+.upstream/
+.build/
+node_modules/
+staging/*.env
+!staging/example.env
+*.log
+__pycache__/
+*.pyc

@@ -1,0 +1,102 @@
+name: Build and verify PDS
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pds-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+      - uses: actions/setup-node@94196ee1d15439c1b6651cd87ef14e88ec435966
+        with:
+          node-version: '24'
+          cache: npm
+      - run: python3 scripts/check.py
+      - run: npm ci && npx playwright install --with-deps chromium
+      - uses: docker/setup-buildx-action@5ac4a31b15f1c45ec652b8af78c2096c3a08368c
+      - name: Build unpatched comparator
+        uses: docker/build-push-action@91670ba5a4df99a24efff8637a78c83fd1b0f6b1
+        with:
+          context: .
+          load: true
+          tags: linkjar-pds:unpatched
+          build-args: PATCH_PROFILE=none
+          cache-from: type=gha,scope=pds-none
+          cache-to: type=gha,mode=max,scope=pds-none
+      - name: Build reversible UI patch
+        uses: docker/build-push-action@91670ba5a4df99a24efff8637a78c83fd1b0f6b1
+        with:
+          context: .
+          load: true
+          tags: linkjar-pds:branding-smoke
+          build-args: PATCH_PROFILE=branding-smoke
+          cache-from: type=gha,scope=pds-brand
+          cache-to: type=gha,mode=max,scope=pds-brand
+      - name: Verify production patches build
+        uses: docker/build-push-action@91670ba5a4df99a24efff8637a78c83fd1b0f6b1
+        with:
+          context: .
+          load: true
+          tags: linkjar-pds:production
+          cache-from: type=gha,scope=pds-production
+          cache-to: type=gha,mode=max,scope=pds-production
+      - run: python3 scripts/smoke.py --browser
+  publish:
+    needs: verify
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+      - name: Release tag
+        id: release
+        run: |
+          python3 - <<'PY'
+          import json, os
+          p = json.load(open('upstream.json'))
+          version = p['tag'].split('@')[-1]
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"tag=atproto-pds-{version}-{p['revision']}\n")
+          PY
+      - uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a
+      - uses: docker/setup-buildx-action@5ac4a31b15f1c45ec652b8af78c2096c3a08368c
+      - uses: docker/login-action@0a596b2e7a325f0cedf8e9bd21ab002cbd3c9241
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish verified candidate under a unique run tag
+        id: candidate
+        uses: docker/build-push-action@91670ba5a4df99a24efff8637a78c83fd1b0f6b1
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          provenance: mode=max
+          sbom: true
+          tags: ghcr.io/${{ github.repository }}:build-${{ github.run_id }}-${{ github.run_attempt }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=pds-production
+          cache-to: type=gha,mode=max,scope=pds-production
+      - name: Promote the exact verified digest to an unused release tag
+        env:
+          RELEASE: ghcr.io/${{ github.repository }}:${{ steps.release.outputs.tag }}
+          CANDIDATE: ghcr.io/${{ github.repository }}@${{ steps.candidate.outputs.digest }}
+        run: |
+          python3 scripts/release-guard.py "$RELEASE"
+          docker buildx imagetools create --tag "$RELEASE" "$CANDIDATE"
+          actual=$(docker buildx imagetools inspect "$RELEASE" --format '{{.Manifest.Digest}}')
+          test "$actual" = "${CANDIDATE##*@}"
