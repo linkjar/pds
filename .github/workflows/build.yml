@@ -8,10 +8,19 @@ permissions:
   contents: read
 concurrency:
   group: pds-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 jobs:
   verify:
-    runs-on: ubuntu-24.04
+    name: Verify ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
@@ -29,8 +38,8 @@ jobs:
           load: true
           tags: linkjar-pds:unpatched
           build-args: PATCH_PROFILE=none
-          cache-from: type=gha,scope=pds-none
-          cache-to: type=gha,mode=max,scope=pds-none
+          cache-from: type=gha,scope=pds-none-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=pds-none-${{ matrix.arch }}
       - name: Build reversible UI patch
         uses: docker/build-push-action@91670ba5a4df99a24efff8637a78c83fd1b0f6b1
         with:
@@ -38,16 +47,16 @@ jobs:
           load: true
           tags: linkjar-pds:branding-smoke
           build-args: PATCH_PROFILE=branding-smoke
-          cache-from: type=gha,scope=pds-brand
-          cache-to: type=gha,mode=max,scope=pds-brand
+          cache-from: type=gha,scope=pds-brand-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=pds-brand-${{ matrix.arch }}
       - name: Verify production patches build
         uses: docker/build-push-action@91670ba5a4df99a24efff8637a78c83fd1b0f6b1
         with:
           context: .
           load: true
           tags: linkjar-pds:production
-          cache-from: type=gha,scope=pds-production
-          cache-to: type=gha,mode=max,scope=pds-production
+          cache-from: type=gha,scope=pds-production-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=pds-production-${{ matrix.arch }}
       - name: Verify hosted handles and Caddy boundary
         run: |
           scripts/test-handles.sh - linkjar-pds:production
@@ -57,11 +66,77 @@ jobs:
       - name: Verify authenticated account creation receipts
         run: docker run --rm --entrypoint node -v "$PWD/tests:/linkjar-tests:ro" linkjar-pds:production /linkjar-tests/signup-receipt.mjs
       - run: python3 scripts/smoke.py --browser
-  publish:
+  publish-amd64:
     needs: verify
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.candidate.outputs.digest }}
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+      - uses: docker/setup-buildx-action@5ac4a31b15f1c45ec652b8af78c2096c3a08368c
+      - uses: docker/login-action@0a596b2e7a325f0cedf8e9bd21ab002cbd3c9241
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish native amd64 candidate
+        id: candidate
+        uses: docker/build-push-action@91670ba5a4df99a24efff8637a78c83fd1b0f6b1
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64
+          provenance: mode=max
+          sbom: true
+          tags: ghcr.io/${{ github.repository }}:build-${{ github.run_id }}-${{ github.run_attempt }}-amd64
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=pds-production-amd64
+          cache-to: type=gha,mode=max,scope=pds-production-amd64
+  publish-arm64:
+    needs: verify
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.candidate.outputs.digest }}
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+      - uses: docker/setup-buildx-action@5ac4a31b15f1c45ec652b8af78c2096c3a08368c
+      - uses: docker/login-action@0a596b2e7a325f0cedf8e9bd21ab002cbd3c9241
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish native arm64 candidate
+        id: candidate
+        uses: docker/build-push-action@91670ba5a4df99a24efff8637a78c83fd1b0f6b1
+        with:
+          context: .
+          push: true
+          platforms: linux/arm64
+          provenance: mode=max
+          sbom: true
+          tags: ghcr.io/${{ github.repository }}:build-${{ github.run_id }}-${{ github.run_attempt }}-arm64
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=pds-production-arm64
+          cache-to: type=gha,mode=max,scope=pds-production-arm64
+  publish:
+    needs: [publish-amd64, publish-arm64]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: read
       packages: write
@@ -70,41 +145,42 @@ jobs:
       - name: Release tag
         id: release
         run: |
-          python3 - <<'PY'
+          python3 - <<'PYTAG'
           import json, os
           p = json.load(open('upstream.json'))
           version = p['tag'].split('@')[-1]
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f"tag=atproto-pds-{version}-{p['revision']}\n")
-          PY
-      - uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a
+          PYTAG
       - uses: docker/setup-buildx-action@5ac4a31b15f1c45ec652b8af78c2096c3a08368c
       - uses: docker/login-action@0a596b2e7a325f0cedf8e9bd21ab002cbd3c9241
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish verified candidate under a unique run tag
-        id: candidate
-        uses: docker/build-push-action@91670ba5a4df99a24efff8637a78c83fd1b0f6b1
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          provenance: mode=max
-          sbom: true
-          tags: ghcr.io/${{ github.repository }}:build-${{ github.run_id }}-${{ github.run_attempt }}
-          labels: |
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-          cache-from: type=gha,scope=pds-production
-          cache-to: type=gha,mode=max,scope=pds-production
+      - name: Assemble verified native image digests
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}
+          CANDIDATE_TAG: build-${{ github.run_id }}-${{ github.run_attempt }}
+          AMD64_DIGEST: ${{ needs.publish-amd64.outputs.digest }}
+          ARM64_DIGEST: ${{ needs.publish-arm64.outputs.digest }}
+        run: |
+          python3 - <<'PYDIGEST'
+          import os, re
+          for key in ('AMD64_DIGEST', 'ARM64_DIGEST'):
+              if not re.fullmatch(r'sha256:[0-9a-f]{64}', os.environ[key]):
+                  raise SystemExit('Missing or invalid verified image digest')
+          PYDIGEST
+          docker buildx imagetools create --tag "$IMAGE:$CANDIDATE_TAG" "$IMAGE@$AMD64_DIGEST" "$IMAGE@$ARM64_DIGEST"
+          docker buildx imagetools inspect "$IMAGE:$CANDIDATE_TAG" --raw > candidate.json
+          python3 scripts/release-platforms.py candidate.json
       - name: Promote the exact verified digest to an unused release tag
         env:
           RELEASE: ghcr.io/${{ github.repository }}:${{ steps.release.outputs.tag }}
-          CANDIDATE: ghcr.io/${{ github.repository }}@${{ steps.candidate.outputs.digest }}
+          CANDIDATE: ghcr.io/${{ github.repository }}:build-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
+          digest=$(docker buildx imagetools inspect "$CANDIDATE" --format '{{.Manifest.Digest}}')
           python3 scripts/release-guard.py "$RELEASE"
-          docker buildx imagetools create --tag "$RELEASE" "$CANDIDATE"
+          docker buildx imagetools create --tag "$RELEASE" "${CANDIDATE%:*}@$digest"
           actual=$(docker buildx imagetools inspect "$RELEASE" --format '{{.Manifest.Digest}}')
-          test "$actual" = "${CANDIDATE##*@}"
+          test "$actual" = "$digest"
