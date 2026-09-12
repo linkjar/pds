@@ -62,7 +62,10 @@ Record which path was chosen and its renewal owner before publishing DNS.
 Do not weaken Full (strict) to make a failing origin certificate work.
 
 Add proxied A records for `pds` and `*`; add AAAA only for working public IPv6.
-Integrate #93's reviewed handle routing when available. The canonical PDS host
+Import the reviewed [handle routing snippet](../../staging/Caddyfile.handles) into
+the TLS site. For the host-installed Caddy topology above, set
+`PDS_UPSTREAM=127.0.0.1:3000` in Caddy's service environment; its `pds:3000`
+default is for Caddy on the Compose network. The canonical PDS host
 must preserve protocol routes. Handle discovery must serve
 `/.well-known/atproto-did`; handle pages must redirect to the DID profile without
 serving app pages, app cookies or user-controlled blobs on handle hosts.

@@ -48,6 +48,10 @@ jobs:
           tags: linkjar-pds:production
           cache-from: type=gha,scope=pds-production
           cache-to: type=gha,mode=max,scope=pds-production
+      - name: Verify hosted handles and Caddy boundary
+        run: |
+          scripts/test-handles.sh - linkjar-pds:production
+          python3 scripts/test-handle-proxy.py --pds-image linkjar-pds:production
       - run: python3 scripts/smoke.py --browser
   publish:
     needs: verify
