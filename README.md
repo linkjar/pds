@@ -158,3 +158,6 @@ credentials are configured. Account creation and identity linkage are atomic;
 email is never used to discover an existing account. Revision 4 includes the
 provider patch after the revision 3 handle-policy dependency. Live provider
 registration and deployed acceptance remain part of #90/#99.
+
+See [account creation receipts](docs/signup-receipt.md) for the authenticated
+web/iOS onboarding extension following provider signup.
