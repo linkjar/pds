@@ -55,10 +55,11 @@ port. Containers use random local ports and are removed with their volumes.
 ## Patch lifecycle
 
 See [patches/README.md](patches/README.md). `production` is the default profile;
-`none` and `branding-smoke` exist only for verification. Production begins with no
-patches. The branding example changes a sign-in title, is rebuilt through Lingui
-and Vite, and is never published. Reserved handles (#93), provider (#99) and
-linking (#100) patches can land independently, each with an upstream/removal plan.
+`none` and `branding-smoke` exist only for verification. Production includes the
+[hosted handle policy](docs/handle-policy.md) from #93. The branding example changes
+a sign-in title, is rebuilt through Lingui and Vite, and is never published. The
+provider (#99) and linking (#100) patches consume this policy and keep their own
+upstream/removal plans.
 
 ## CI and releases
 

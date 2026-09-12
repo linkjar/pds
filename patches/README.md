@@ -1,5 +1,6 @@
 Production source patches go here, named `001-description.patch`, in bytewise order.
-There are deliberately no production patches until #93/#99/#100 land.
+Production currently includes `093-handle-policy.patch` for #93; provider patch
+`099-...` applies after it. See [the policy, tests and removal condition](../docs/handle-policy.md).
 
 Generate patches against the exact `upstream.json` commit with `git diff --binary`.
 Use `a/` and `b/` paths rooted in the atproto checkout. Include a rationale,

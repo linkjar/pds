@@ -1,0 +1,40 @@
+# Import inside the #90 TLS site covering pds.linkjar.social, *.linkjar.social.
+# Keep explicit service DNS/site definitions separate. Upstream is private HTTP.
+# Example site body: import linkjar_handle_hosts
+(linkjar_handle_hosts) {
+	@pds host pds.linkjar.social
+	handle @pds {
+		reverse_proxy {$PDS_UPSTREAM:pds:3000}
+	}
+
+	handle {
+		header {
+			Content-Security-Policy "default-src 'none'; sandbox"
+			X-Content-Type-Options nosniff
+			Referrer-Policy no-referrer
+		}
+
+		@did path /.well-known/atproto-did
+		handle @did {
+			reverse_proxy {$PDS_UPSTREAM:pds:3000} {
+				header_up -Cookie
+				header_down -Set-Cookie
+			}
+		}
+
+		# Protocol calls use the canonical PDS service from the DID document.
+		# Do not serve blobs, OAuth UI, or other user content on a handle host.
+		@protocol path /.well-known/* /xrpc/*
+		handle @protocol {
+			respond "Use the PDS service endpoint at pds.linkjar.social" 404
+		}
+
+		handle {
+			reverse_proxy {$PDS_UPSTREAM:pds:3000} {
+				rewrite /.well-known/linkjar-profile
+				header_up -Cookie
+				header_down -Set-Cookie
+			}
+		}
+	}
+}
