@@ -149,3 +149,12 @@ terminal. It collects private local inputs without deploying a server. See
 [`docs/runbooks/pds.md`](docs/runbooks/pds.md) for topology, secret inventory and
 the live checks that remain required. Staging Compose requires 2.30+ so raw
 secret values are not interpolated.
+
+## External sign-in
+
+[Provider setup and validation](docs/external-providers.md) covers the optional
+Apple, Google, and GitHub patch. Providers stay disabled until their complete
+credentials are configured. Account creation and identity linkage are atomic;
+email is never used to discover an existing account. Revision 4 includes the
+provider patch after the revision 3 handle-policy dependency. Live provider
+registration and deployed acceptance remain part of #90/#99.

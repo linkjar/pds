@@ -1,0 +1,3272 @@
+diff --git a/.changeset/fancy-squids-hide.md b/.changeset/fancy-squids-hide.md
+new file mode 100644
+index 0000000..35705a8
+--- /dev/null
++++ b/.changeset/fancy-squids-hide.md
+@@ -0,0 +1,8 @@
++---
++"@atproto/oauth-provider": patch
++"@atproto/oauth-provider-api": patch
++"@atproto/oauth-provider-ui": patch
++"@atproto/pds": patch
++---
++
++Add optional Apple, Google, and GitHub authentication with browser-bound callbacks, provider-subject identity storage, passwordless accounts, and host-controlled signup consent.
+diff --git a/packages/oauth/oauth-provider-api/src/customization-data.ts b/packages/oauth/oauth-provider-api/src/customization-data.ts
+index 72f0646..54758cf 100644
+--- a/packages/oauth/oauth-provider-api/src/customization-data.ts
++++ b/packages/oauth/oauth-provider-api/src/customization-data.ts
+@@ -4,6 +4,7 @@ import type { LinkDefinition } from './types.js'
+ // backend. They are used to configure the frontend.
+ 
+ export type CustomizationData = {
++  externalProviders?: { id: 'apple' | 'google' | 'github'; label: string }[]
+   // Functional customization
+   hcaptchaSiteKey?: string
+   inviteCodeRequired?: boolean
+diff --git a/packages/oauth/oauth-provider-ui/src/authorization-page.tsx b/packages/oauth/oauth-provider-ui/src/authorization-page.tsx
+index eec4950..3c34505 100644
+--- a/packages/oauth/oauth-provider-ui/src/authorization-page.tsx
++++ b/packages/oauth/oauth-provider-ui/src/authorization-page.tsx
+@@ -33,7 +33,7 @@ const {
+ // @TODO Actually do this on the backend through a redirect.
+ const url = new URL(window.location.href)
+ if (
+-  url.pathname === '/oauth/authorize' &&
++  url.pathname !== '/oauth/authorize' ||
+   !url.searchParams.has('request_uri')
+ ) {
+   url.search = ''
+@@ -42,7 +42,7 @@ if (
+   window.history.replaceState(
+     history.state,
+     '',
+-    url.pathname + url.search + url.hash,
++    '/oauth/authorize' + url.search,
+   )
+ }
+ 
+diff --git a/packages/oauth/oauth-provider-ui/src/components/external-sign-in.tsx b/packages/oauth/oauth-provider-ui/src/components/external-sign-in.tsx
+new file mode 100644
+index 0000000..d5bac18
+--- /dev/null
++++ b/packages/oauth/oauth-provider-ui/src/components/external-sign-in.tsx
+@@ -0,0 +1,45 @@
++import { Trans } from '@lingui/react/macro'
++import type { ReactNode } from 'react'
++import { useCustomizationData } from '#/contexts/customization.tsx'
++import { SignUpDisclaimer } from './sign-up-disclaimer.tsx'
++
++export function ExternalSignIn({
++  children,
++  signUp = false,
++}: {
++  children: ReactNode
++  signUp?: boolean
++}) {
++  const { externalProviders, links } = useCustomizationData()
++  const url = new URL(window.location.href)
++  const requestUri =
++    url.pathname === '/oauth/authorize'
++      ? url.searchParams.get('request_uri')
++      : null
++  const accountPage =
++    url.pathname === '/account' || url.pathname.startsWith('/account/')
++  if ((!requestUri && !accountPage) || !externalProviders?.length)
++    return <>{children}</>
++  return (
++    <div className="grid gap-4">
++      <div className="grid gap-2">
++        {externalProviders.map(({ id, label }) => (
++          <a
++            key={id}
++            className="hover:bg-muted rounded-lg border px-4 py-3 text-center font-medium focus-visible:outline-2"
++            href={`/oauth/external/${id}/start${requestUri ? `?request_uri=${encodeURIComponent(requestUri)}` : ''}`}
++          >
++            <Trans>Continue with {label}</Trans>
++          </a>
++        ))}
++      </div>
++      {signUp && <SignUpDisclaimer links={links} />}
++      <details>
++        <summary className="cursor-pointer py-2 text-center">
++          <Trans>Or use email</Trans>
++        </summary>
++        <div className="pt-4">{children}</div>
++      </details>
++    </div>
++  )
++}
+diff --git a/packages/oauth/oauth-provider-ui/src/components/sign-in-view.tsx b/packages/oauth/oauth-provider-ui/src/components/sign-in-view.tsx
+index 705558e..11bee6e 100644
+--- a/packages/oauth/oauth-provider-ui/src/components/sign-in-view.tsx
++++ b/packages/oauth/oauth-provider-ui/src/components/sign-in-view.tsx
+@@ -3,6 +3,7 @@ import { Trans } from '@lingui/react/macro'
+ import { type ReactNode, useCallback, useEffect, useState } from 'react'
+ import type { Session } from '@atproto/oauth-provider-api'
+ import { useCustomizationData } from '#/contexts/customization.tsx'
++import { ExternalSignIn } from './external-sign-in.tsx'
+ import { AuthShell } from './layouts/auth-shell.tsx'
+ import { type SignInData, SignInForm } from './sign-in-form.tsx'
+ import { SignInPicker } from './sign-in-picker.tsx'
+@@ -54,16 +55,18 @@ export function SignInView({
+         title={title}
+         subtitle={<Trans>Confirm your password to continue</Trans>}
+       >
+-        <SignInForm
+-          domains={availableUserDomains}
+-          disableRemember={disableRemember}
+-          onSignIn={onSignIn}
+-          onForgotPassword={onForgotPassword}
+-          onBack={clearSession}
+-          usernameDefault={session.account.handle || session.account.did}
+-          usernameReadonly={true}
+-          rememberDefault={true}
+-        />
++        <ExternalSignIn>
++          <SignInForm
++            domains={availableUserDomains}
++            disableRemember={disableRemember}
++            onSignIn={onSignIn}
++            onForgotPassword={onForgotPassword}
++            onBack={clearSession}
++            usernameDefault={session.account.handle || session.account.did}
++            usernameReadonly={true}
++            rememberDefault={true}
++          />
++        </ExternalSignIn>
+       </AuthShell>
+     )
+   }
+@@ -71,16 +74,18 @@ export function SignInView({
+   if (forcedIdentifier) {
+     return (
+       <AuthShell title={title} subtitle={<Trans>Enter your password</Trans>}>
+-        <SignInForm
+-          domains={availableUserDomains}
+-          disableRemember={disableRemember}
+-          onSignIn={onSignIn}
+-          onForgotPassword={onForgotPassword}
+-          onBack={onBack}
+-          backLabel={backLabel}
+-          usernameDefault={forcedIdentifier}
+-          usernameReadonly={true}
+-        />
++        <ExternalSignIn>
++          <SignInForm
++            domains={availableUserDomains}
++            disableRemember={disableRemember}
++            onSignIn={onSignIn}
++            onForgotPassword={onForgotPassword}
++            onBack={onBack}
++            backLabel={backLabel}
++            usernameDefault={forcedIdentifier}
++            usernameReadonly={true}
++          />
++        </ExternalSignIn>
+       </AuthShell>
+     )
+   }
+@@ -91,14 +96,16 @@ export function SignInView({
+         title={title}
+         subtitle={<Trans>Enter your username and password</Trans>}
+       >
+-        <SignInForm
+-          domains={availableUserDomains}
+-          disableRemember={disableRemember}
+-          onSignIn={onSignIn}
+-          onForgotPassword={onForgotPassword}
+-          onBack={onBack}
+-          backLabel={backLabel}
+-        />
++        <ExternalSignIn>
++          <SignInForm
++            domains={availableUserDomains}
++            disableRemember={disableRemember}
++            onSignIn={onSignIn}
++            onForgotPassword={onForgotPassword}
++            onBack={onBack}
++            backLabel={backLabel}
++          />
++        </ExternalSignIn>
+       </AuthShell>
+     )
+   }
+@@ -109,13 +116,15 @@ export function SignInView({
+         title={title}
+         subtitle={<Trans>Enter your username and password</Trans>}
+       >
+-        <SignInForm
+-          domains={availableUserDomains}
+-          disableRemember={disableRemember}
+-          onSignIn={onSignIn}
+-          onForgotPassword={onForgotPassword}
+-          onBack={() => setShowSignInForm(false)}
+-        />
++        <ExternalSignIn>
++          <SignInForm
++            domains={availableUserDomains}
++            disableRemember={disableRemember}
++            onSignIn={onSignIn}
++            onForgotPassword={onForgotPassword}
++            onBack={() => setShowSignInForm(false)}
++          />
++        </ExternalSignIn>
+       </AuthShell>
+     )
+   }
+diff --git a/packages/oauth/oauth-provider-ui/src/components/sign-up-view.tsx b/packages/oauth/oauth-provider-ui/src/components/sign-up-view.tsx
+index b6de4d0..632d463 100644
+--- a/packages/oauth/oauth-provider-ui/src/components/sign-up-view.tsx
++++ b/packages/oauth/oauth-provider-ui/src/components/sign-up-view.tsx
+@@ -2,6 +2,7 @@ import { msg } from '@lingui/core/macro'
+ import { Trans } from '@lingui/react/macro'
+ import { useState } from 'react'
+ import { useCustomizationData } from '#/contexts/customization.tsx'
++import { ExternalSignIn } from './external-sign-in.tsx'
+ import { SignUpWizard } from './forms/sign-up-wizard.tsx'
+ import { AuthShell } from './layouts/auth-shell.tsx'
+ import {
+@@ -58,81 +59,83 @@ export function SignUpView({
+       title={msg({ message: 'Sign up' })}
+       subtitle={<Trans>We're so excited to have you join us!</Trans>}
+     >
+-      <SignUpWizard
+-        onBack={onBack}
+-        doneLabel={<Trans>Sign up</Trans>}
+-        onDone={([handle, credentials, hcaptcha]: [
+-          SignUpHandleData,
+-          SignUpCredentialsData,
+-          SignUpHcaptchaData | null,
+-        ]) => {
+-          return onDone({
+-            ...credentials,
+-            ...handle,
+-            hcaptchaToken: hcaptcha?.verify.token,
+-          })
+-        }}
+-        steps={[
+-          // We use the handle input first since the "onValidateNewHandle" check
+-          // will make it less likely that the actual signup call will fail, and
+-          // will result in a better user experience, especially if there is an
+-          // issue with the email address (e.g. already in use).
+-          {
+-            titleRender: () => <Trans>Choose a username</Trans>,
+-            contentRender: ({ atLast, prev, prevLabel, next, nextLabel }) => (
+-              <SignUpHandleForm
+-                className="grow"
+-                domains={availableUserDomains}
+-                onBack={prev}
+-                backLabel={prevLabel}
+-                submitLabel={nextLabel}
+-                values={pending}
+-                onValues={(val) => setPending((old) => ({ ...old, ...val }))}
+-                handler={async (data) => {
+-                  await onValidateNewHandle(data)
+-                  next(data)
+-                }}
+-              >
+-                {atLast && disclaimer}
+-              </SignUpHandleForm>
+-            ),
+-          },
+-          {
+-            titleRender: () => <Trans>Your account</Trans>,
+-            contentRender: ({ atLast, prev, prevLabel, next, nextLabel }) => (
+-              <SignUpCredentialsForm
+-                className="grow"
+-                onBack={prev}
+-                backLabel={prevLabel}
+-                submitLabel={nextLabel}
+-                values={pending}
+-                onValues={(val) => setPending((old) => ({ ...old, ...val }))}
+-                handler={next}
+-                inviteCodeRequired={inviteCodeRequired}
+-              >
+-                {atLast && disclaimer}
+-              </SignUpCredentialsForm>
+-            ),
+-          },
+-          hcaptchaSiteKey != null && {
+-            titleRender: () => <Trans>Verify you are human</Trans>,
+-            contentRender: ({ atLast, prev, prevLabel, next, nextLabel }) => (
+-              <SignUpHcaptchaForm
+-                className="grow"
+-                siteKey={hcaptchaSiteKey}
+-                onBack={prev}
+-                backLabel={prevLabel}
+-                submitLabel={nextLabel}
+-                values={pending}
+-                onValues={(val) => setPending((old) => ({ ...old, ...val }))}
+-                handler={next}
+-              >
+-                {atLast && disclaimer}
+-              </SignUpHcaptchaForm>
+-            ),
+-          },
+-        ]}
+-      />
++      <ExternalSignIn signUp>
++        <SignUpWizard
++          onBack={onBack}
++          doneLabel={<Trans>Sign up</Trans>}
++          onDone={([handle, credentials, hcaptcha]: [
++            SignUpHandleData,
++            SignUpCredentialsData,
++            SignUpHcaptchaData | null,
++          ]) => {
++            return onDone({
++              ...credentials,
++              ...handle,
++              hcaptchaToken: hcaptcha?.verify.token,
++            })
++          }}
++          steps={[
++            // We use the handle input first since the "onValidateNewHandle" check
++            // will make it less likely that the actual signup call will fail, and
++            // will result in a better user experience, especially if there is an
++            // issue with the email address (e.g. already in use).
++            {
++              titleRender: () => <Trans>Choose a username</Trans>,
++              contentRender: ({ atLast, prev, prevLabel, next, nextLabel }) => (
++                <SignUpHandleForm
++                  className="grow"
++                  domains={availableUserDomains}
++                  onBack={prev}
++                  backLabel={prevLabel}
++                  submitLabel={nextLabel}
++                  values={pending}
++                  onValues={(val) => setPending((old) => ({ ...old, ...val }))}
++                  handler={async (data) => {
++                    await onValidateNewHandle(data)
++                    next(data)
++                  }}
++                >
++                  {atLast && disclaimer}
++                </SignUpHandleForm>
++              ),
++            },
++            {
++              titleRender: () => <Trans>Your account</Trans>,
++              contentRender: ({ atLast, prev, prevLabel, next, nextLabel }) => (
++                <SignUpCredentialsForm
++                  className="grow"
++                  onBack={prev}
++                  backLabel={prevLabel}
++                  submitLabel={nextLabel}
++                  values={pending}
++                  onValues={(val) => setPending((old) => ({ ...old, ...val }))}
++                  handler={next}
++                  inviteCodeRequired={inviteCodeRequired}
++                >
++                  {atLast && disclaimer}
++                </SignUpCredentialsForm>
++              ),
++            },
++            hcaptchaSiteKey != null && {
++              titleRender: () => <Trans>Verify you are human</Trans>,
++              contentRender: ({ atLast, prev, prevLabel, next, nextLabel }) => (
++                <SignUpHcaptchaForm
++                  className="grow"
++                  siteKey={hcaptchaSiteKey}
++                  onBack={prev}
++                  backLabel={prevLabel}
++                  submitLabel={nextLabel}
++                  values={pending}
++                  onValues={(val) => setPending((old) => ({ ...old, ...val }))}
++                  handler={next}
++                >
++                  {atLast && disclaimer}
++                </SignUpHcaptchaForm>
++              ),
++            },
++          ]}
++        />
++      </ExternalSignIn>
+     </AuthShell>
+   )
+ }
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/en/messages.po b/packages/oauth/oauth-provider-ui/src/locales/en/messages.po
+index 1afee00..ab6773f 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/en/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/en/messages.po
+@@ -356,6 +356,10 @@ msgstr "Confirmation email sent"
+ msgid "Continue"
+ msgstr "Continue"
+ 
++#: src/components/external-sign-in.tsx
++msgid "Continue with {label}"
++msgstr "Continue with {label}"
++
+ #: src/cookie-error-page.tsx
+ msgid "Cookie Error"
+ msgstr "Cookie Error"
+@@ -833,6 +837,10 @@ msgstr "No matches"
+ msgid "Okay"
+ msgstr "Okay"
+ 
++#: src/components/external-sign-in.tsx
++msgid "Or use email"
++msgstr "Or use email"
++
+ #: src/routes/__root.tsx
+ msgid "Page not found"
+ msgstr "Page not found"
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/es/messages.po b/packages/oauth/oauth-provider-ui/src/locales/es/messages.po
+index e34e2ec..cf6067a 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/es/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/es/messages.po
+@@ -356,6 +356,10 @@ msgstr ""
+ msgid "Continue"
+ msgstr ""
+ 
++#: src/components/external-sign-in.tsx
++msgid "Continue with {label}"
++msgstr ""
++
+ #: src/cookie-error-page.tsx
+ msgid "Cookie Error"
+ msgstr ""
+@@ -824,6 +828,10 @@ msgstr ""
+ msgid "Okay"
+ msgstr "Aceptar"
+ 
++#: src/components/external-sign-in.tsx
++msgid "Or use email"
++msgstr ""
++
+ #: src/routes/__root.tsx
+ msgid "Page not found"
+ msgstr ""
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/fr/messages.po b/packages/oauth/oauth-provider-ui/src/locales/fr/messages.po
+index 7ddcc77..fca9e8d 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/fr/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/fr/messages.po
+@@ -356,6 +356,10 @@ msgstr "Email de confirmation envoyé"
+ msgid "Continue"
+ msgstr "Continuer"
+ 
++#: src/components/external-sign-in.tsx
++msgid "Continue with {label}"
++msgstr ""
++
+ #: src/cookie-error-page.tsx
+ msgid "Cookie Error"
+ msgstr "Erreur de cookies"
+@@ -833,6 +837,10 @@ msgstr "Aucun résultat"
+ msgid "Okay"
+ msgstr "OK"
+ 
++#: src/components/external-sign-in.tsx
++msgid "Or use email"
++msgstr ""
++
+ #: src/routes/__root.tsx
+ msgid "Page not found"
+ msgstr "Page introuvable"
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/ja/messages.po b/packages/oauth/oauth-provider-ui/src/locales/ja/messages.po
+index 073736c..4b401d2 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/ja/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/ja/messages.po
+@@ -356,6 +356,10 @@ msgstr "確認メールが送信されました"
+ msgid "Continue"
+ msgstr "続行"
+ 
++#: src/components/external-sign-in.tsx
++msgid "Continue with {label}"
++msgstr ""
++
+ #: src/cookie-error-page.tsx
+ msgid "Cookie Error"
+ msgstr "Cookie エラー"
+@@ -833,6 +837,10 @@ msgstr "一致なし"
+ msgid "Okay"
+ msgstr "OK"
+ 
++#: src/components/external-sign-in.tsx
++msgid "Or use email"
++msgstr ""
++
+ #: src/routes/__root.tsx
+ msgid "Page not found"
+ msgstr ""
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/ko/messages.po b/packages/oauth/oauth-provider-ui/src/locales/ko/messages.po
+index c91d8d6..c00b57f 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/ko/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/ko/messages.po
+@@ -356,6 +356,10 @@ msgstr ""
+ msgid "Continue"
+ msgstr "계속"
+ 
++#: src/components/external-sign-in.tsx
++msgid "Continue with {label}"
++msgstr ""
++
+ #: src/cookie-error-page.tsx
+ msgid "Cookie Error"
+ msgstr "쿠키 오류"
+@@ -824,6 +828,10 @@ msgstr ""
+ msgid "Okay"
+ msgstr "확인"
+ 
++#: src/components/external-sign-in.tsx
++msgid "Or use email"
++msgstr ""
++
+ #: src/routes/__root.tsx
+ msgid "Page not found"
+ msgstr ""
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/ro/messages.po b/packages/oauth/oauth-provider-ui/src/locales/ro/messages.po
+index dc99c2a..98c83d8 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/ro/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/ro/messages.po
+@@ -361,6 +361,10 @@ msgstr "E-mailul de confirmare a fost trimis."
+ msgid "Continue"
+ msgstr "Continuare"
+ 
++#: src/components/external-sign-in.tsx
++msgid "Continue with {label}"
++msgstr ""
++
+ #: src/cookie-error-page.tsx
+ msgid "Cookie Error"
+ msgstr "Eroare cookie"
+@@ -838,6 +842,10 @@ msgstr "Nicio potrivire"
+ msgid "Okay"
+ msgstr "Ok"
+ 
++#: src/components/external-sign-in.tsx
++msgid "Or use email"
++msgstr ""
++
+ #: src/routes/__root.tsx
+ msgid "Page not found"
+ msgstr ""
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/sv/messages.po b/packages/oauth/oauth-provider-ui/src/locales/sv/messages.po
+index 539e3ab..f5df039 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/sv/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/sv/messages.po
+@@ -356,6 +356,10 @@ msgstr "Ett e-postmeddelande för bekräftelse har skickats"
+ msgid "Continue"
+ msgstr "Fortsätt"
+ 
++#: src/components/external-sign-in.tsx
++msgid "Continue with {label}"
++msgstr ""
++
+ #: src/cookie-error-page.tsx
+ msgid "Cookie Error"
+ msgstr "Cookie-fel"
+@@ -833,6 +837,10 @@ msgstr "Inga träffar"
+ msgid "Okay"
+ msgstr "OK"
+ 
++#: src/components/external-sign-in.tsx
++msgid "Or use email"
++msgstr ""
++
+ #: src/routes/__root.tsx
+ msgid "Page not found"
+ msgstr ""
+diff --git a/packages/oauth/oauth-provider/src/account/account-manager.external.test.ts b/packages/oauth/oauth-provider/src/account/account-manager.external.test.ts
+new file mode 100644
+index 0000000..6d6cac7
+--- /dev/null
++++ b/packages/oauth/oauth-provider/src/account/account-manager.external.test.ts
+@@ -0,0 +1,48 @@
++import { describe, expect, it, vi } from 'vitest'
++import type { DeviceId } from '../device/device-id.js'
++import { AccountManager } from './account-manager.js'
++import type { AccountStore } from './account-store.js'
++
++const account = {
++  did: 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa' as const,
++  pds: 'did:web:pds.test' as const,
++  deactivated: false,
++}
++const input = {
++  locale: 'en',
++  handle: 'alice.test' as const,
++  email: 'alice@example.com',
++  password: 'new-password',
++}
++describe('signup consent policy', () => {
++  it.each([true, false])(
++    'only preauthorizes when signup policy returns %s',
++    async (authorizeClient) => {
++      const store = {
++        createAccount: vi.fn(async () => account),
++      } as unknown as AccountStore
++      const preauthorize = vi.fn(async () => {})
++      const onSignedUp = vi.fn(async () => ({ authorizeClient }))
++      const manager = new AccountManager(
++        'https://pds.test',
++        store,
++        { onSignedUp },
++        { inviteCodeRequired: false },
++      )
++      await manager.createAccount(
++        'dev-a' as DeviceId,
++        { ipAddress: '127.0.0.1', port: 443 },
++        input,
++        'https://client.test/metadata.json',
++        preauthorize,
++      )
++      expect(onSignedUp).toHaveBeenCalledWith(
++        expect.objectContaining({
++          account,
++          clientId: 'https://client.test/metadata.json',
++        }),
++      )
++      expect(preauthorize).toHaveBeenCalledTimes(authorizeClient ? 1 : 0)
++    },
++  )
++})
+diff --git a/packages/oauth/oauth-provider/src/account/account-manager.ts b/packages/oauth/oauth-provider/src/account/account-manager.ts
+index 7a0406d..5091d5f 100644
+--- a/packages/oauth/oauth-provider/src/account/account-manager.ts
++++ b/packages/oauth/oauth-provider/src/account/account-manager.ts
+@@ -130,6 +130,7 @@ export class AccountManager {
+     deviceMetadata: RequestMetadata,
+     input: SignUpInput,
+     clientId?: ClientId,
++    authorizeClient?: (account: Account) => Promise<void>,
+   ): Promise<Account> {
+     return constantTime(BRUTE_FORCE_MITIGATION_DELAY, async () => {
+       await this.hooks.onSignUpAttempt?.call(null, {
+@@ -148,7 +149,7 @@ export class AccountManager {
+       })
+ 
+       try {
+-        await this.hooks.onSignedUp?.call(null, {
++        const policy = await this.hooks.onSignedUp?.call(null, {
+           data,
+           account,
+           deviceId,
+@@ -156,6 +157,7 @@ export class AccountManager {
+           clientId,
+         })
+ 
++        if (policy?.authorizeClient) await authorizeClient?.(account)
+         return account
+       } catch (err) {
+         await this.removeDeviceAccount(deviceId, account.did)
+diff --git a/packages/oauth/oauth-provider/src/customization/build-customization-data.ts b/packages/oauth/oauth-provider/src/customization/build-customization-data.ts
+index f9b7918..1d6a424 100644
+--- a/packages/oauth/oauth-provider/src/customization/build-customization-data.ts
++++ b/packages/oauth/oauth-provider/src/customization/build-customization-data.ts
+@@ -2,6 +2,7 @@ import type { CustomizationData } from '@atproto/oauth-provider-api'
+ import type { Customization } from './customization.js'
+ 
+ export function buildCustomizationData({
++  externalProviders,
+   branding,
+   availableUserDomains,
+   inviteCodeRequired,
+@@ -13,6 +14,7 @@ export function buildCustomizationData({
+   // @NOTE We only copy the values explicitly needed to avoid leaking sensitive
+   // data (in case the caller passed more than what we expect).
+   return {
++    externalProviders,
+     availableUserDomains,
+     inviteCodeRequired,
+     show2FaWarningOnEmailUpdate,
+diff --git a/packages/oauth/oauth-provider/src/customization/customization.ts b/packages/oauth/oauth-provider/src/customization/customization.ts
+index 83848c8..ed74c33 100644
+--- a/packages/oauth/oauth-provider/src/customization/customization.ts
++++ b/packages/oauth/oauth-provider/src/customization/customization.ts
+@@ -3,6 +3,14 @@ import { hcaptchaConfigSchema } from '../lib/hcaptcha.js'
+ import { brandingSchema } from './branding.js'
+ 
+ export const customizationSchema = z.object({
++  externalProviders: z
++    .array(
++      z.object({
++        id: z.enum(['apple', 'google', 'github']),
++        label: z.string(),
++      }),
++    )
++    .optional(),
+   /**
+    * Available user domains that can be used to sign up. A non-empty array
+    * is required to enable the sign-up feature.
+diff --git a/packages/oauth/oauth-provider/src/external/external-flow-store.test.ts b/packages/oauth/oauth-provider/src/external/external-flow-store.test.ts
+new file mode 100644
+index 0000000..ca4331e
+--- /dev/null
++++ b/packages/oauth/oauth-provider/src/external/external-flow-store.test.ts
+@@ -0,0 +1,63 @@
++import { describe, expect, it } from 'vitest'
++import type { DeviceId } from '../device/device-id.js'
++import type { RequestUri } from '../request/request-uri.js'
++import { ExternalFlowStore } from './external-flow-store.js'
++const input = {
++  provider: 'google' as const,
++  deviceId: 'dev_a' as DeviceId,
++  requestUri: 'urn:ietf:params:oauth:request_uri:abc' as RequestUri,
++}
++describe('external browser transactions', () => {
++  it('bounds per-IP work across device rotation and expires the rate window', () => {
++    let now = 0
++    const store = new ExternalFlowStore(() => now)
++    for (let i = 0; i < 20; i++) store.allow('127.0.0.1', 'start')
++    expect(() => store.allow('127.0.0.1', 'start')).toThrow('Too many')
++    for (let i = 0; i < 10; i++) store.allow('127.0.0.1', 'complete')
++    expect(() => store.allow('127.0.0.1', 'complete')).toThrow('Too many')
++    expect(() => store.allow('127.0.0.2', 'start')).not.toThrow()
++    now = 60_000
++    expect(() => store.allow('127.0.0.1', 'start')).not.toThrow()
++  })
++  it('consumes once, binds provider and original device, and hides verifier from state', () => {
++    const store = new ExternalFlowStore()
++    const { state, flow } = store.create(input)
++    expect(state).not.toBe(flow.verifier)
++    expect(flow.nonce).not.toBe(state)
++    expect(() => store.receive(state, 'apple', { code: 'x' })).toThrow()
++    store.receive(state, 'google', { code: 'x' })
++    expect(() => store.consume(state, 'google', 'dev_b' as DeviceId)).toThrow()
++    expect(store.consume(state, 'google', input.deviceId).response.code).toBe(
++      'x',
++    )
++    expect(() => store.consume(state, 'google', input.deviceId)).toThrow()
++  })
++  it('expires and bounds pending flows per device', () => {
++    let now = 0
++    const store = new ExternalFlowStore(() => now)
++    const { state } = store.create(input)
++    store.create(input)
++    store.create(input)
++    expect(() => store.create(input)).toThrow('Too many')
++    now = 600_000
++    expect(() => store.receive(state, 'google', { code: 'x' })).toThrow(
++      'expired',
++    )
++    expect(() => store.create(input)).not.toThrow()
++  })
++  it('cannot replace the first callback or complete before a callback', () => {
++    const store = new ExternalFlowStore()
++    const first = store.create(input)
++    expect(() => store.consume(first.state, 'google', input.deviceId)).toThrow(
++      'Missing',
++    )
++    const second = store.create(input)
++    store.receive(second.state, 'google', { code: 'first' })
++    expect(() =>
++      store.receive(second.state, 'google', { code: 'replacement' }),
++    ).toThrow()
++    expect(
++      store.consume(second.state, 'google', input.deviceId).response.code,
++    ).toBe('first')
++  })
++})
+diff --git a/packages/oauth/oauth-provider/src/external/external-flow-store.ts b/packages/oauth/oauth-provider/src/external/external-flow-store.ts
+new file mode 100644
+index 0000000..b639608
+--- /dev/null
++++ b/packages/oauth/oauth-provider/src/external/external-flow-store.ts
+@@ -0,0 +1,115 @@
++import { randomBytes } from 'node:crypto'
++import type { DeviceId } from '../device/device-id.js'
++import { InvalidRequestError } from '../errors/invalid-request-error.js'
++import type { RequestUri } from '../request/request-uri.js'
++import type { ExternalProviderId } from './external-provider.js'
++
++type Flow = {
++  provider: ExternalProviderId
++  deviceId: DeviceId
++  requestUri?: RequestUri
++  verifier: string
++  nonce: string
++  expiresAt: number
++  response?:
++    | { code: string; user?: string; error?: never }
++    | { error: string; code?: never; user?: never }
++}
++
++/** Bounded, one-use browser transactions. A restart cancels in-flight sign-ins. */
++export class ExternalFlowStore {
++  private readonly flows = new Map<string, Flow>()
++  private readonly attempts = new Map<
++    string,
++    { expiresAt: number; count: number }
++  >()
++  private nextCleanup = 0
++  constructor(private readonly now: () => number = Date.now) {}
++
++  /** Limit work before outbound identity-provider requests; keys come from trusted request metadata. */
++  allow(ip: string, stage: 'start' | 'complete'): void {
++    const now = this.now()
++    if (now >= this.nextCleanup) {
++      for (const [key, value] of this.attempts)
++        if (value.expiresAt <= now) this.attempts.delete(key)
++      this.nextCleanup = now + 60_000
++    }
++    const key = `${stage}:${ip}`
++    const previous = this.attempts.get(key)
++    const bucket =
++      previous && previous.expiresAt > now
++        ? previous
++        : { expiresAt: now + 60_000, count: 0 }
++    if (
++      (!previous && this.attempts.size >= 10_000) ||
++      bucket.count >= (stage === 'start' ? 20 : 10)
++    ) {
++      throw new InvalidRequestError(
++        'Too many external sign-in attempts. Try again shortly.',
++      )
++    }
++    bucket.count++
++    this.attempts.set(key, bucket)
++  }
++
++  create(input: Pick<Flow, 'provider' | 'deviceId' | 'requestUri'>): {
++    state: string
++    flow: Flow
++  } {
++    for (const [state, flow] of this.flows)
++      if (flow.expiresAt <= this.now()) this.flows.delete(state)
++    if (
++      this.flows.size >= 1000 ||
++      [...this.flows.values()].filter((f) => f.deviceId === input.deviceId)
++        .length >= 3
++    ) {
++      throw new InvalidRequestError('Too many pending external sign-ins')
++    }
++    const state = randomBytes(32).toString('base64url')
++    const flow: Flow = {
++      ...input,
++      verifier: randomBytes(32).toString('base64url'),
++      nonce: randomBytes(32).toString('base64url'),
++      expiresAt: this.now() + 600_000,
++    }
++    this.flows.set(state, flow)
++    return { state, flow }
++  }
++
++  receive(
++    state: string,
++    provider: ExternalProviderId,
++    response: NonNullable<Flow['response']>,
++  ): void {
++    const flow = this.get(state, provider)
++    if (flow.response)
++      throw new InvalidRequestError('External response already received')
++    flow.response = response
++  }
++
++  consume(
++    state: string,
++    provider: ExternalProviderId,
++    deviceId: DeviceId,
++  ): Flow & { response: NonNullable<Flow['response']> } {
++    const flow = this.get(state, provider)
++    if (flow.deviceId !== deviceId)
++      throw new InvalidRequestError(
++        'External sign-in belongs to another device',
++      )
++    this.flows.delete(state)
++    if (!flow.response)
++      throw new InvalidRequestError('Missing external response')
++    return { ...flow, response: flow.response }
++  }
++
++  private get(state: string, provider: ExternalProviderId): Flow {
++    const flow = this.flows.get(state)
++    if (!flow || flow.provider !== provider || flow.expiresAt <= this.now()) {
++      if (flow?.expiresAt && flow.expiresAt <= this.now())
++        this.flows.delete(state)
++      throw new InvalidRequestError('Unknown or expired external sign-in')
++    }
++    return flow
++  }
++}
+diff --git a/packages/oauth/oauth-provider/src/external/external-identity-store.ts b/packages/oauth/oauth-provider/src/external/external-identity-store.ts
+new file mode 100644
+index 0000000..c2e6eb6
+--- /dev/null
++++ b/packages/oauth/oauth-provider/src/external/external-identity-store.ts
+@@ -0,0 +1,22 @@
++import type { Did } from '@atproto/did'
++import type { Account } from '@atproto/oauth-provider-api'
++import type {
++  ExternalIdentity,
++  ExternalProviderId,
++} from './external-provider.js'
++
++/** An external identity is keyed by provider and subject, never by email. */
++export interface ExternalIdentityStore {
++  findExternalIdentity(
++    provider: ExternalProviderId,
++    subject: string,
++  ): Promise<Did | null>
++  listExternalIdentities(did: Did): Promise<ExternalIdentity[]>
++  linkExternalIdentity(did: Did, identity: ExternalIdentity): Promise<void>
++  unlinkExternalIdentity(
++    did: Did,
++    provider: ExternalProviderId,
++    subject: string,
++  ): Promise<void>
++  createExternalAccount(identity: ExternalIdentity): Promise<Account>
++}
+diff --git a/packages/oauth/oauth-provider/src/external/external-provider.test.ts b/packages/oauth/oauth-provider/src/external/external-provider.test.ts
+new file mode 100644
+index 0000000..af3d093
+--- /dev/null
++++ b/packages/oauth/oauth-provider/src/external/external-provider.test.ts
+@@ -0,0 +1,459 @@
++import { Buffer } from 'node:buffer'
++import { type JWTPayload, SignJWT, exportJWK, generateKeyPair } from 'jose'
++import { assert, beforeAll, describe, expect, it, test, vi } from 'vitest'
++import {
++  type ExternalProviderId,
++  createExternalProviders,
++} from './external-provider.js'
++
++const input = {
++  redirectUri: 'https://pds.example.com/oauth/external/google/callback',
++  code: 'provider-code',
++  verifier: 'v'.repeat(43),
++  nonce: 'random-nonce-bound-to-this-request',
++}
++const clientId = 'client-id'
++let keys: Awaited<ReturnType<typeof generateKeyPair>>
++let jwks: { keys: Awaited<ReturnType<typeof exportJWK>>[] }
++
++beforeAll(async () => {
++  keys = await generateKeyPair('RS256')
++  jwks = { keys: [{ ...(await exportJWK(keys.publicKey)), kid: 'test-key' }] }
++})
++
++function provider(id: ExternalProviderId) {
++  const value = createExternalProviders({
++    [id]: { clientId, clientSecret: 'client-secret' },
++  })[0]
++  assert(value)
++  return value
++}
++
++function claims(id: 'apple' | 'google'): JWTPayload {
++  const now = Math.floor(Date.now() / 1000)
++  return {
++    iss:
++      id === 'apple'
++        ? 'https://appleid.apple.com'
++        : 'https://accounts.google.com',
++    aud: clientId,
++    sub: `${id}-stable-subject`,
++    nonce: input.nonce,
++    iat: now,
++    exp: now + 300,
++    email: 'person@example.com',
++    email_verified: true,
++    name: 'A Person',
++  }
++}
++
++function sign(payload: JWTPayload, key = keys.privateKey) {
++  return new SignJWT(payload)
++    .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
++    .sign(key)
++}
++
++function oidcResponses(idToken: string): typeof fetch {
++  return async (url) => {
++    const address = String(url)
++    if (
++      address === 'https://oauth2.googleapis.com/token' ||
++      address === 'https://appleid.apple.com/auth/token'
++    ) {
++      return Response.json({ id_token: idToken, access_token: 'unused-access' })
++    }
++    if (
++      address === 'https://www.googleapis.com/oauth2/v3/certs' ||
++      address === 'https://appleid.apple.com/auth/keys'
++    ) {
++      return Response.json(jwks)
++    }
++    throw new Error(`Unexpected request: ${address}`)
++  }
++}
++
++function githubResponses(
++  emails: unknown,
++  user: unknown = {
++    id: 123456,
++    login: 'mutable-login',
++    name: 'A Person',
++    email: 'untrusted-profile@example.com',
++  },
++): typeof fetch {
++  return async (url) => {
++    switch (String(url)) {
++      case 'https://github.com/login/oauth/access_token':
++        return Response.json({
++          access_token: 'github-token',
++          token_type: 'bearer',
++        })
++      case 'https://api.github.com/user':
++        return Response.json(user)
++      case 'https://api.github.com/user/emails?per_page=100':
++        return Response.json(emails)
++      default:
++        throw new Error('Unexpected request')
++    }
++  }
++}
++
++describe(createExternalProviders, () => {
++  it('disables providers unless explicitly configured', () => {
++    expect(createExternalProviders({})).toEqual([])
++    expect(createExternalProviders({ google: undefined })).toEqual([])
++    expect(provider('apple').label).toBe('Apple')
++    expect(provider('google').label).toBe('Google')
++    expect(provider('github').label).toBe('GitHub')
++  })
++
++  test.each(['', ' ', 'secret\nvalue', 'x'.repeat(16_385)])(
++    'rejects malformed client secret %j',
++    (clientSecret) => {
++      expect(() =>
++        createExternalProviders({ google: { clientId, clientSecret } }),
++      ).toThrow()
++    },
++  )
++
++  test.each(['apple', 'google', 'github'] as const)(
++    '%s authorization preserves state and only requests code flow',
++    (id) => {
++      const url = provider(id).authorizationUrl({
++        ...input,
++        state: 'unpredictable-state',
++        codeChallenge: 'c'.repeat(43),
++      })
++      expect(url.protocol).toBe('https:')
++      expect(url.searchParams.get('client_id')).toBe(clientId)
++      expect(url.searchParams.get('redirect_uri')).toBe(input.redirectUri)
++      expect(url.searchParams.get('response_type')).toBe('code')
++      expect(url.searchParams.get('state')).toBe('unpredictable-state')
++      expect(url.searchParams.has('client_secret')).toBe(false)
++      if (id === 'apple') {
++        expect(url.searchParams.get('response_mode')).toBe('form_post')
++        expect(url.searchParams.get('scope')).toBe('name email')
++        expect(url.searchParams.get('nonce')).toBe(input.nonce)
++        expect(url.searchParams.has('code_challenge')).toBe(false)
++      } else {
++        expect(url.searchParams.get('code_challenge')).toBe('c'.repeat(43))
++        expect(url.searchParams.get('code_challenge_method')).toBe('S256')
++        if (id === 'google') {
++          expect(url.searchParams.get('scope')).toBe('openid email profile')
++          expect(url.searchParams.get('nonce')).toBe(input.nonce)
++        } else {
++          expect(url.searchParams.get('scope')).toBe('read:user user:email')
++        }
++      }
++    },
++  )
++
++  test.each([
++    'http://pds.example.com/callback',
++    'https://user:password@pds.example.com/callback',
++    'https://pds.example.com/callback#fragment',
++  ])('rejects unsafe redirect URI %s', async (redirectUri) => {
++    const google = provider('google')
++    expect(() =>
++      google.authorizationUrl({
++        ...input,
++        redirectUri,
++        state: 'state',
++        codeChallenge: 'c'.repeat(43),
++      }),
++    ).toThrow()
++    await expect(google.exchange({ ...input, redirectUri })).rejects.toThrow()
++  })
++
++  it('rejects missing nonce and malformed PKCE before network access', async () => {
++    using fetch = vi.spyOn(globalThis, 'fetch')
++    await expect(
++      provider('google').exchange({ ...input, nonce: '' }),
++    ).rejects.toThrow()
++    await expect(
++      provider('google').exchange({ ...input, verifier: 'short' }),
++    ).rejects.toThrow()
++    expect(fetch).not.toHaveBeenCalled()
++  })
++})
++
++describe.each(['apple', 'google'] as const)('%s ID tokens', (id) => {
++  it('verifies the signed subject and binds code exchange to the redirect URI', async () => {
++    const token = await sign(claims(id))
++    using fetch = vi
++      .spyOn(globalThis, 'fetch')
++      .mockImplementation(oidcResponses(token))
++    const identity = await provider(id).exchange(input)
++    expect(identity).toMatchObject({
++      provider: id,
++      subject: `${id}-stable-subject`,
++      email: 'person@example.com',
++      emailVerified: true,
++    })
++    const request = fetch.mock.calls[0]?.[1]
++    assert(request?.body instanceof URLSearchParams)
++    expect(request.body.get('code')).toBe(input.code)
++    expect(request.body.get('client_id')).toBe(clientId)
++    expect(request.body.get('client_secret')).toBe('client-secret')
++    expect(request.body.get('redirect_uri')).toBe(input.redirectUri)
++    expect(request.body.get('grant_type')).toBe('authorization_code')
++    expect(request.body.get('code_verifier')).toBe(
++      id === 'google' ? input.verifier : null,
++    )
++    expect(request.redirect).toBe('error')
++    expect(request.signal).toBeInstanceOf(AbortSignal)
++  })
++
++  test.each([
++    { name: 'wrong nonce', change: { nonce: 'another-request' } },
++    { name: 'wrong audience', change: { aud: 'another-client' } },
++    { name: 'wrong issuer', change: { iss: 'https://attacker.example.com' } },
++    { name: 'expired token', change: { exp: 1 } },
++    { name: 'stale issued-at', change: { iat: 1 } },
++    { name: 'future issued-at', change: { iat: 4_000_000_000 } },
++    { name: 'missing nonce', change: { nonce: undefined } },
++    { name: 'missing issued-at', change: { iat: undefined } },
++    { name: 'missing expiration', change: { exp: undefined } },
++    { name: 'missing subject', change: { sub: undefined } },
++    { name: 'empty subject', change: { sub: '' } },
++    { name: 'wrong authorized party', change: { azp: 'another-client' } },
++    { name: 'ambiguous audience', change: { aud: [clientId, 'other-client'] } },
++  ])('rejects $name', async ({ change }) => {
++    const token = await sign({ ...claims(id), ...change })
++    using fetch = vi
++      .spyOn(globalThis, 'fetch')
++      .mockImplementation(oidcResponses(token))
++    await expect(provider(id).exchange(input)).rejects.toThrow()
++    expect(fetch).toHaveBeenCalledTimes(2)
++  })
++
++  it('rejects a token signed by an attacker using a known key ID', async () => {
++    const attacker = await generateKeyPair('RS256')
++    const token = await sign(claims(id), attacker.privateKey)
++    using fetch = vi
++      .spyOn(globalThis, 'fetch')
++      .mockImplementation(oidcResponses(token))
++    await expect(provider(id).exchange(input)).rejects.toThrow()
++    expect(fetch).toHaveBeenCalledTimes(2)
++  })
++
++  it('rejects an unsigned token', async () => {
++    const token = `${Buffer.from('{"alg":"none"}').toString('base64url')}.${Buffer.from(JSON.stringify(claims(id))).toString('base64url')}.`
++    using fetch = vi
++      .spyOn(globalThis, 'fetch')
++      .mockImplementation(oidcResponses(token))
++    await expect(provider(id).exchange(input)).rejects.toThrow()
++    expect(fetch).toHaveBeenCalledTimes(2)
++  })
++
++  it('rejects a signed token using an algorithm outside the provider allowlist', async () => {
++    const token = await new SignJWT(claims(id))
++      .setProtectedHeader({ alg: 'RS512', kid: 'test-key' })
++      .sign(keys.privateKey)
++    using fetch = vi
++      .spyOn(globalThis, 'fetch')
++      .mockImplementation(oidcResponses(token))
++    await expect(provider(id).exchange(input)).rejects.toThrow()
++    expect(fetch).toHaveBeenCalledTimes(2)
++  })
++
++  test.each([false, 'false', undefined, 1])(
++    'does not treat email_verified=%j as verified',
++    async (email_verified) => {
++      const token = await sign({ ...claims(id), email_verified })
++      using fetch = vi
++        .spyOn(globalThis, 'fetch')
++        .mockImplementation(oidcResponses(token))
++      expect((await provider(id).exchange(input)).emailVerified).toBe(false)
++      expect(fetch).toHaveBeenCalledTimes(2)
++    },
++  )
++
++  it('allows a known subject to be returned without an email assertion', async () => {
++    const token = await sign({ ...claims(id), email: undefined })
++    using fetch = vi
++      .spyOn(globalThis, 'fetch')
++      .mockImplementation(oidcResponses(token))
++    expect(await provider(id).exchange(input)).toMatchObject({
++      subject: `${id}-stable-subject`,
++      email: undefined,
++      emailVerified: false,
++    })
++    expect(fetch).toHaveBeenCalledTimes(2)
++  })
++})
++
++describe('Apple first-login data', () => {
++  it('reads the initial name while ignoring the unsigned email field', async () => {
++    const token = await sign({ ...claims('apple'), email_verified: 'true' })
++    using fetch = vi
++      .spyOn(globalThis, 'fetch')
++      .mockImplementation(oidcResponses(token))
++    const identity = await provider('apple').exchange({
++      ...input,
++      user: JSON.stringify({
++        name: { firstName: 'A', lastName: 'Person' },
++        email: 'attacker@example.com',
++      }),
++    })
++    expect(identity).toMatchObject({
++      displayName: 'A Person',
++      email: 'person@example.com',
++      emailVerified: true,
++    })
++    expect(fetch).toHaveBeenCalledTimes(2)
++  })
++
++  test.each([
++    '{invalid',
++    'x'.repeat(4097),
++    JSON.stringify({ name: { firstName: ['not-a-name'] } }),
++    JSON.stringify({ name: { firstName: 'name\u0000' } }),
++    JSON.stringify({ name: { firstName: 'x'.repeat(257) } }),
++  ])('rejects malformed first-login data %j', async (user) => {
++    const token = await sign(claims('apple'))
++    using fetch = vi
++      .spyOn(globalThis, 'fetch')
++      .mockImplementation(oidcResponses(token))
++    await expect(
++      provider('apple').exchange({ ...input, user }),
++    ).rejects.toThrow()
++    expect(fetch).toHaveBeenCalledTimes(2)
++  })
++})
++
++describe('GitHub identity', () => {
++  it('uses immutable numeric ID and the verified primary email', async () => {
++    using fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(
++      githubResponses([
++        { email: 'secondary@example.com', primary: false, verified: true },
++        { email: 'primary@example.com', primary: true, verified: true },
++      ]),
++    )
++    expect(await provider('github').exchange(input)).toEqual({
++      provider: 'github',
++      subject: '123456',
++      email: 'primary@example.com',
++      emailVerified: true,
++      displayName: 'A Person',
++    })
++    const tokenRequest = fetch.mock.calls[0]?.[1]
++    assert(tokenRequest?.body instanceof URLSearchParams)
++    expect(tokenRequest.body.get('code_verifier')).toBe(input.verifier)
++    expect(fetch.mock.calls[1]?.[1]?.headers).toMatchObject({
++      Authorization: 'Bearer github-token',
++    })
++    expect(fetch.mock.calls[2]?.[1]?.headers).toMatchObject({
++      Authorization: 'Bearer github-token',
++    })
++  })
++
++  test.each([
++    [],
++    [{ email: 'secondary@example.com', primary: false, verified: true }],
++    [{ email: 'primary@example.com', primary: true, verified: false }],
++    [{ email: 'primary@example.com', primary: true, verified: 'true' }],
++  ])(
++    'does not trust a profile email or secondary/unverified address %j',
++    async (...entries) => {
++      using fetch = vi
++        .spyOn(globalThis, 'fetch')
++        .mockImplementation(githubResponses(entries))
++      expect(await provider('github').exchange(input)).toMatchObject({
++        email: undefined,
++        emailVerified: false,
++      })
++      expect(fetch).toHaveBeenCalledTimes(3)
++    },
++  )
++
++  test.each([0, -1, '123456', Number.MAX_SAFE_INTEGER + 1, null])(
++    'rejects invalid numeric subject %j',
++    async (id) => {
++      using fetch = vi
++        .spyOn(globalThis, 'fetch')
++        .mockImplementation(githubResponses([], { id }))
++      await expect(provider('github').exchange(input)).rejects.toThrow(
++        'Invalid GitHub subject',
++      )
++      expect(fetch).toHaveBeenCalledTimes(2)
++    },
++  )
++
++  it('fails closed for conflicting primary email assertions', async () => {
++    using fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(
++      githubResponses([
++        { email: 'one@example.com', primary: true, verified: true },
++        { email: 'two@example.com', primary: true, verified: true },
++      ]),
++    )
++    await expect(provider('github').exchange(input)).rejects.toThrow(
++      'Ambiguous GitHub primary email',
++    )
++    expect(fetch).toHaveBeenCalledTimes(3)
++  })
++})
++
++describe('External provider response limits', () => {
++  it('aborts a provider that never responds', async () => {
++    using fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(
++      async (_url, init) =>
++        new Promise<Response>((_resolve, reject) => {
++          assert(init?.signal)
++          const signal = init.signal
++          signal.addEventListener('abort', () => reject(signal.reason), {
++            once: true,
++          })
++        }),
++    )
++    await expect(provider('google').exchange(input)).rejects.toMatchObject({
++      name: 'TimeoutError',
++    })
++    expect(fetch).toHaveBeenCalledTimes(1)
++  }, 15_000)
++
++  it('bounds decoded streaming bytes without relying on content length', async () => {
++    let cancelled = false
++    using fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
++      new Response(
++        new ReadableStream({
++          pull(controller) {
++            controller.enqueue(new Uint8Array(65_536))
++          },
++          cancel() {
++            cancelled = true
++          },
++        }),
++      ),
++    )
++    await expect(provider('google').exchange(input)).rejects.toThrow(
++      'External provider response is too large',
++    )
++    expect(cancelled).toBe(true)
++    expect(fetch).toHaveBeenCalledTimes(1)
++  })
++
++  it('bounds signing-key responses as well as token responses', async () => {
++    const token = await sign(claims('google'))
++    using fetch = vi
++      .spyOn(globalThis, 'fetch')
++      .mockResolvedValueOnce(Response.json({ id_token: token }))
++      .mockResolvedValueOnce(new Response('x'.repeat(128 * 1024 + 1)))
++    await expect(provider('google').exchange(input)).rejects.toThrow(
++      'External provider response is too large',
++    )
++    expect(fetch).toHaveBeenCalledTimes(2)
++  })
++
++  it('does not expose provider errors or returned secrets', async () => {
++    using fetch = vi
++      .spyOn(globalThis, 'fetch')
++      .mockResolvedValue(
++        Response.json({ error: 'a-secret-error' }, { status: 400 }),
++      )
++    await expect(provider('github').exchange(input)).rejects.toThrow(
++      'External provider request failed',
++    )
++    expect(fetch).toHaveBeenCalledTimes(1)
++  })
++})
+diff --git a/packages/oauth/oauth-provider/src/external/external-provider.ts b/packages/oauth/oauth-provider/src/external/external-provider.ts
+new file mode 100644
+index 0000000..d1c723a
+--- /dev/null
++++ b/packages/oauth/oauth-provider/src/external/external-provider.ts
+@@ -0,0 +1,307 @@
++import { Buffer } from 'node:buffer'
++import { createLocalJWKSet, jwtVerify } from 'jose'
++
++export type ExternalProviderId = 'apple' | 'google' | 'github'
++
++export type ExternalIdentity = {
++  provider: ExternalProviderId
++  subject: string
++  email?: string
++  emailVerified: boolean
++  displayName?: string
++}
++
++export type ExternalProvider = {
++  id: ExternalProviderId
++  label: string
++  authorizationUrl(input: {
++    redirectUri: string
++    state: string
++    nonce: string
++    codeChallenge: string
++  }): URL
++  exchange(input: {
++    redirectUri: string
++    code: string
++    verifier: string
++    nonce: string
++    user?: string
++  }): Promise<ExternalIdentity>
++}
++
++export type ExternalProviderConfig = Partial<
++  Record<ExternalProviderId, { clientId: string; clientSecret: string }>
++>
++
++const providers = {
++  apple: {
++    label: 'Apple',
++    authorization: 'https://appleid.apple.com/auth/authorize',
++    token: 'https://appleid.apple.com/auth/token',
++    issuer: 'https://appleid.apple.com',
++    jwks: 'https://appleid.apple.com/auth/keys',
++    scope: 'name email',
++  },
++  google: {
++    label: 'Google',
++    authorization: 'https://accounts.google.com/o/oauth2/v2/auth',
++    token: 'https://oauth2.googleapis.com/token',
++    issuer: 'https://accounts.google.com',
++    jwks: 'https://www.googleapis.com/oauth2/v3/certs',
++    scope: 'openid email profile',
++  },
++  github: {
++    label: 'GitHub',
++    authorization: 'https://github.com/login/oauth/authorize',
++    token: 'https://github.com/login/oauth/access_token',
++    scope: 'read:user user:email',
++  },
++} as const
++
++/** Creates configured providers; identities are keyed by provider and subject, never email. */
++export function createExternalProviders(
++  config: ExternalProviderConfig,
++): ExternalProvider[] {
++  const result: ExternalProvider[] = []
++  for (const id of ['apple', 'google', 'github'] as const) {
++    const credentials = config[id]
++    if (credentials === undefined) continue
++    const clientId = requiredText(credentials.clientId, 512)
++    const clientSecret = requiredText(credentials.clientSecret, 16_384)
++    const spec = providers[id]
++    result.push({
++      id,
++      label: spec.label,
++      authorizationUrl({ redirectUri, state, nonce, codeChallenge }) {
++        validateRedirectUri(redirectUri)
++        const url = new URL(spec.authorization)
++        url.search = new URLSearchParams({
++          client_id: clientId,
++          redirect_uri: redirectUri,
++          response_type: 'code',
++          scope: spec.scope,
++          state: requiredText(state, 512),
++        }).toString()
++        if (id !== 'github') {
++          url.searchParams.set('nonce', requiredText(nonce, 512))
++        }
++        if (id === 'apple') {
++          url.searchParams.set('response_mode', 'form_post')
++        } else {
++          if (!/^[A-Za-z0-9_-]{43}$/.test(codeChallenge)) {
++            throw new Error('Invalid external provider PKCE challenge')
++          }
++          url.searchParams.set('code_challenge', codeChallenge)
++          url.searchParams.set('code_challenge_method', 'S256')
++        }
++        return url
++      },
++      async exchange({ redirectUri, code, verifier, nonce, user }) {
++        validateRedirectUri(redirectUri)
++        if (id !== 'github') requiredText(nonce, 512)
++        const body = new URLSearchParams({
++          grant_type: 'authorization_code',
++          client_id: clientId,
++          client_secret: clientSecret,
++          redirect_uri: redirectUri,
++          code: requiredText(code, 4096),
++        })
++        if (id !== 'apple') {
++          if (!/^[A-Za-z0-9._~-]{43,128}$/.test(verifier)) {
++            throw new Error('Invalid external provider PKCE verifier')
++          }
++          body.set('code_verifier', verifier)
++        }
++        const token = record(
++          await fetchJson(spec.token, { method: 'POST', body }),
++        )
++        if (token.error !== undefined) {
++          throw new Error('External provider rejected authorization code')
++        }
++        if (id === 'github') {
++          if (
++            typeof token.token_type !== 'string' ||
++            token.token_type.toLowerCase() !== 'bearer'
++          ) {
++            throw new Error('Invalid external provider token type')
++          }
++          return githubIdentity(requiredText(token.access_token, 4096))
++        }
++        const oidc = providers[id]
++        const keys = record(await fetchJson(oidc.jwks)).keys
++        if (!Array.isArray(keys) || keys.length === 0 || keys.length > 32) {
++          throw new Error('Invalid external provider signing keys')
++        }
++        const jwks = createLocalJWKSet({
++          keys: keys.map((value: unknown) => {
++            const key = record(value)
++            return { ...key, kty: requiredText(key.kty, 16) }
++          }),
++        })
++        const { payload } = await jwtVerify(
++          requiredText(token.id_token, 32_768),
++          jwks,
++          {
++            issuer: oidc.issuer,
++            audience: clientId,
++            algorithms: ['RS256'],
++            requiredClaims: ['iss', 'aud', 'sub', 'iat', 'exp', 'nonce'],
++            maxTokenAge: 600,
++          },
++        )
++        if (
++          payload.nonce !== nonce ||
++          (payload.azp !== undefined && payload.azp !== clientId) ||
++          (Array.isArray(payload.aud) &&
++            payload.aud.length > 1 &&
++            payload.azp !== clientId)
++        ) {
++          throw new Error('Invalid external provider token binding')
++        }
++        const email = optionalEmail(payload.email)
++        return {
++          provider: id,
++          subject: requiredText(payload.sub, 255),
++          email,
++          emailVerified:
++            email !== undefined &&
++            (payload.email_verified === true ||
++              (id === 'apple' && payload.email_verified === 'true')),
++          displayName:
++            id === 'apple'
++              ? appleDisplayName(user)
++              : optionalDisplayName(payload.name),
++        }
++      },
++    })
++  }
++  return result
++}
++
++async function githubIdentity(accessToken: string): Promise<ExternalIdentity> {
++  const headers = {
++    Authorization: `Bearer ${accessToken}`,
++    'X-GitHub-Api-Version': '2022-11-28',
++    'User-Agent': 'atproto-external-auth',
++  }
++  const user = record(
++    await fetchJson('https://api.github.com/user', { headers }),
++  )
++  if (
++    typeof user.id !== 'number' ||
++    !Number.isSafeInteger(user.id) ||
++    user.id <= 0
++  ) {
++    throw new Error('Invalid GitHub subject')
++  }
++  const emails = await fetchJson(
++    'https://api.github.com/user/emails?per_page=100',
++    { headers },
++  )
++  if (!Array.isArray(emails) || emails.length > 100) {
++    throw new Error('Invalid GitHub email list')
++  }
++  const primary = emails.map(record).filter((entry) => entry.primary === true)
++  if (primary.length > 1) throw new Error('Ambiguous GitHub primary email')
++  // @NOTE /user.email and verified secondary addresses are not primary-email evidence.
++  const email =
++    primary[0]?.verified === true ? optionalEmail(primary[0].email) : undefined
++  return {
++    provider: 'github',
++    subject: String(user.id),
++    email,
++    emailVerified: email !== undefined,
++    displayName: optionalDisplayName(user.name ?? user.login),
++  }
++}
++
++async function fetchJson(
++  url: string,
++  init: RequestInit = {},
++): Promise<unknown> {
++  const response = await fetch(url, {
++    ...init,
++    headers: { Accept: 'application/json', ...init.headers },
++    redirect: 'error',
++    signal: AbortSignal.timeout(10_000),
++  })
++  if (!response.ok || !response.body) {
++    await response.body?.cancel()
++    throw new Error('External provider request failed')
++  }
++  const reader = response.body.getReader()
++  const chunks: Uint8Array[] = []
++  let size = 0
++  try {
++    for (;;) {
++      const { done, value } = await reader.read()
++      if (done) break
++      size += value.byteLength
++      if (size > 128 * 1024) {
++        throw new Error('External provider response is too large')
++      }
++      chunks.push(value)
++    }
++    return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown
++  } finally {
++    await reader.cancel()
++    reader.releaseLock()
++  }
++}
++
++function record(value: unknown): Record<string, unknown> {
++  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
++    throw new Error('Invalid external provider response')
++  }
++  return value as Record<string, unknown>
++}
++
++function requiredText(value: unknown, maxLength: number): string {
++  if (
++    typeof value !== 'string' ||
++    value.length === 0 ||
++    value.length > maxLength ||
++    value.trim() !== value ||
++    /\p{Cc}/u.test(value)
++  ) {
++    throw new Error('Invalid external provider value')
++  }
++  return value
++}
++
++function optionalEmail(value: unknown): string | undefined {
++  if (value === undefined || value === null) return undefined
++  const email = requiredText(value, 254)
++  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
++    throw new Error('Invalid external provider email')
++  }
++  return email
++}
++
++function optionalDisplayName(value: unknown): string | undefined {
++  if (value === undefined || value === null || value === '') return undefined
++  return requiredText(value, 256)
++}
++
++function appleDisplayName(user: string | undefined): string | undefined {
++  if (user === undefined) return undefined
++  if (Buffer.byteLength(user, 'utf8') > 4096) {
++    throw new Error('Invalid Apple user data')
++  }
++  const data = record(JSON.parse(user) as unknown)
++  if (data.name === undefined) return undefined
++  const name = record(data.name)
++  // @NOTE Apple's form field is display data, never proof of email or identity.
++  return optionalDisplayName(
++    [optionalDisplayName(name.firstName), optionalDisplayName(name.lastName)]
++      .filter(Boolean)
++      .join(' '),
++  )
++}
++
++function validateRedirectUri(value: string): void {
++  const url = new URL(value)
++  if (url.protocol !== 'https:' || url.username || url.password || url.hash) {
++    throw new Error('Invalid external provider redirect URI')
++  }
++}
+diff --git a/packages/oauth/oauth-provider/src/oauth-hooks.ts b/packages/oauth/oauth-provider/src/oauth-hooks.ts
+index 4e9ba1f..bb8ac2a 100644
+--- a/packages/oauth/oauth-provider/src/oauth-hooks.ts
++++ b/packages/oauth/oauth-provider/src/oauth-hooks.ts
+@@ -29,6 +29,7 @@ import type { Client } from './client/client.js'
+ import type { DeviceId } from './device/device-id.js'
+ import type { DpopProof } from './dpop/dpop-proof.js'
+ import type { InvalidRequestError } from './errors/invalid-request-error.js'
++import type { ExternalIdentity } from './external/external-provider.js'
+ import type {
+   HcaptchaClientTokens,
+   HcaptchaConfig,
+@@ -73,6 +74,23 @@ export type {
+ }
+ 
+ export type OAuthHooks = {
++  /** Policy after a verified provider signup. Only this hook may pre-authorize the client. */
++  onExternalSignUp?: (data: {
++    account: Account
++    identity: ExternalIdentity
++    clientId: ClientId | undefined
++    deviceId: DeviceId
++    deviceMetadata: RequestMetadata
++  }) => Awaitable<void | { authorizeClient: boolean }>
++  /** Account linking policy; callers must authenticate the existing account first. */
++  onExternalLink?: (data: {
++    account: Account
++    identity: ExternalIdentity
++    clientId?: ClientId
++    deviceId: DeviceId
++    deviceMetadata: RequestMetadata
++  }) => Awaitable<void>
++
+   /**
+    * Use this to alter, override or validate the client metadata & jwks returned
+    * by the client store.
+@@ -363,7 +381,7 @@ export type OAuthHooks = {
+     deviceId: DeviceId
+     deviceMetadata: RequestMetadata
+     clientId: ClientId | undefined
+-  }) => Awaitable<void>
++  }) => Awaitable<void | { authorizeClient: boolean }>
+ 
+   /**
+    * `clientId` is populated when the sign-in is submitted in the context of
+diff --git a/packages/oauth/oauth-provider/src/oauth-middleware.ts b/packages/oauth/oauth-provider/src/oauth-middleware.ts
+index e04f0a4..574a2e4 100644
+--- a/packages/oauth/oauth-provider/src/oauth-middleware.ts
++++ b/packages/oauth/oauth-provider/src/oauth-middleware.ts
+@@ -6,6 +6,7 @@ import { assetsMiddleware } from './router/assets/assets.js'
+ import { createAccountPageMiddleware } from './router/create-account-page-middleware.js'
+ import { createApiMiddleware } from './router/create-api-middleware.js'
+ import { createAuthorizationPageMiddleware } from './router/create-authorization-page-middleware.js'
++import { createExternalMiddleware } from './router/create-external-middleware.js'
+ import { createOAuthMiddleware } from './router/create-oauth-middleware.js'
+ import type { ErrorHandler } from './router/error-handler.js'
+ import type { MiddlewareOptions } from './router/middleware-options.js'
+@@ -44,6 +45,7 @@ export function oauthMiddleware<
+   const middleware = combineMiddlewares([
+     assetsMiddleware,
+     createOAuthMiddleware(server, options),
++    createExternalMiddleware(server, options),
+     createApiMiddleware(server, options),
+     createAuthorizationPageMiddleware(server, options),
+     createAccountPageMiddleware(server, options),
+diff --git a/packages/oauth/oauth-provider/src/oauth-provider.ts b/packages/oauth/oauth-provider/src/oauth-provider.ts
+index a7daaed..9323c6e 100644
+--- a/packages/oauth/oauth-provider/src/oauth-provider.ts
++++ b/packages/oauth/oauth-provider/src/oauth-provider.ts
+@@ -64,6 +64,8 @@ import { InvalidDpopProofError } from './errors/invalid-dpop-proof-error.js'
+ import { InvalidGrantError } from './errors/invalid-grant-error.js'
+ import { InvalidRequestError } from './errors/invalid-request-error.js'
+ import { LoginRequiredError } from './errors/login-required-error.js'
++import type { ExternalIdentityStore } from './external/external-identity-store.js'
++import type { ExternalProvider } from './external/external-provider.js'
+ import { LexiconManager } from './lexicon/lexicon-manager.js'
+ import { type LexiconStore, asLexiconStore } from './lexicon/lexicon-store.js'
+ import type { HcaptchaConfig } from './lib/hcaptcha.js'
+@@ -110,6 +112,11 @@ export type * from '@atproto/lex-resolver'
+ export { LexResolver } from '@atproto/lex-resolver'
+ 
+ export { AccessTokenMode }
++export { createExternalProviders } from './external/external-provider.js'
++export type {
++  ExternalProvider,
++  ExternalProviderConfig,
++} from './external/external-provider.js'
+ export type {
+   AccessTokenPayload,
+   AuthorizationRedirectParameters,
+@@ -200,6 +207,8 @@ type OAuthProviderConfig = {
+    */
+   store?: Partial<OAuthStore>
+ 
++  externalProviders?: readonly ExternalProvider[]
++  externalIdentityStore?: ExternalIdentityStore
+   accountStore?: AccountStore
+   clientStore?: ClientStore
+   deviceStore?: DeviceStore
+@@ -243,7 +252,9 @@ export type OAuthProviderOptions = OAuthProviderConfig &
+ 
+ export class OAuthProvider extends OAuthVerifier {
+   protected readonly accessTokenMode: AccessTokenMode
+-  protected readonly hooks: OAuthHooks
++  public readonly hooks: OAuthHooks
++  public readonly externalProviders: readonly ExternalProvider[]
++  public readonly externalIdentityStore?: ExternalIdentityStore
+ 
+   public readonly metadata: OAuthAuthorizationServerMetadata
+   public readonly customization: Customization
+@@ -274,6 +285,8 @@ export class OAuthProvider extends OAuthVerifier {
+     store,
+ 
+     // Required stores
++    externalProviders = [],
++    externalIdentityStore = store as ExternalIdentityStore | undefined,
+     accountStore = asAccountStore(store),
+     deviceStore = asDeviceStore(store),
+     lexiconStore = asLexiconStore(store),
+@@ -307,11 +320,27 @@ export class OAuthProvider extends OAuthVerifier {
+     // validator for the provided function's return types, which we don't
+     // really need if types are respected.
+     this.hooks = rest
++    this.externalProviders = externalProviders
++    this.externalIdentityStore = externalIdentityStore
++    if (
++      externalProviders.length &&
++      (!externalIdentityStore ||
++        typeof externalIdentityStore.findExternalIdentity !== 'function' ||
++        typeof externalIdentityStore.createExternalAccount !== 'function')
++    ) {
++      throw new Error('External providers require an ExternalIdentityStore')
++    }
+ 
+     this.accessTokenMode = accessTokenMode
+     this.authenticationMaxAge = authenticationMaxAge
+     this.metadata = buildMetadata(this.issuer, this.keyset, metadata)
+-    this.customization = customizationSchema.parse(rest)
++    this.customization = customizationSchema.parse({
++      ...rest,
++      externalProviders: externalProviders.map(({ id, label }) => ({
++        id,
++        label,
++      })),
++    })
+ 
+     this.deviceManager = new DeviceManager(deviceStore, {
+       ...rest,
+diff --git a/packages/oauth/oauth-provider/src/oauth-store.ts b/packages/oauth/oauth-provider/src/oauth-store.ts
+index cdaf6c7..d78aa67 100644
+--- a/packages/oauth/oauth-provider/src/oauth-store.ts
++++ b/packages/oauth/oauth-provider/src/oauth-store.ts
+@@ -1,3 +1,8 @@
++export * from './external/external-identity-store.js'
++export type {
++  ExternalIdentity,
++  ExternalProviderId,
++} from './external/external-provider.js'
+ export * from './account/account-store.js'
+ export * from './client/client-store.js'
+ export * from './device/device-store.js'
+diff --git a/packages/oauth/oauth-provider/src/result/authorization-result-authorize-page.ts b/packages/oauth/oauth-provider/src/result/authorization-result-authorize-page.ts
+index c967815..b81fe25 100644
+--- a/packages/oauth/oauth-provider/src/result/authorization-result-authorize-page.ts
++++ b/packages/oauth/oauth-provider/src/result/authorization-result-authorize-page.ts
+@@ -11,7 +11,7 @@ export type AuthorizationResultAuthorizePage = {
+   permissionSets: Map<string, LexiconPermissionSet>
+ 
+   requestUri: RequestUri
+-  sessions: readonly Session[]
++  sessions: readonly (Session & { ephemeralToken?: string })[]
+   selectedDid?: Account['did']
+ 
+   /**
+diff --git a/packages/oauth/oauth-provider/src/router/create-api-middleware.ts b/packages/oauth/oauth-provider/src/router/create-api-middleware.ts
+index 7026f6c..18396f2 100644
+--- a/packages/oauth/oauth-provider/src/router/create-api-middleware.ts
++++ b/packages/oauth/oauth-provider/src/router/create-api-middleware.ts
+@@ -112,6 +112,25 @@ export function createApiMiddleware<
+           deviceMetadata,
+           input,
+           clientId,
++          requestUri
++            ? async (account) => {
++                const request = await server.requestManager.get(
++                  requestUri,
++                  deviceId,
++                )
++                const client = await server.clientManager.getClient(
++                  request.clientId,
++                )
++                await server.accountManager.setAuthorizedClient(
++                  account,
++                  client,
++                  {
++                    authorizedScopes:
++                      request.parameters.scope?.split(' ') ?? [],
++                  },
++                )
++              }
++            : undefined,
+         )
+ 
+         // Remember when not in the context of a request by default
+diff --git a/packages/oauth/oauth-provider/src/router/create-external-middleware.test.ts b/packages/oauth/oauth-provider/src/router/create-external-middleware.test.ts
+new file mode 100644
+index 0000000..be37a2b
+--- /dev/null
++++ b/packages/oauth/oauth-provider/src/router/create-external-middleware.test.ts
+@@ -0,0 +1,564 @@
++import { once } from 'node:events'
++import {
++  type IncomingMessage,
++  type ServerResponse,
++  createServer,
++} from 'node:http'
++import { afterEach, describe, expect, it, test, vi } from 'vitest'
++import type {
++  ExternalProvider,
++  ExternalProviderId,
++} from '../external/external-provider.js'
++import type { OAuthProvider } from '../oauth-provider.js'
++import { createExternalMiddleware } from './create-external-middleware.js'
++
++vi.mock('./assets/send-authorization-page.js', () => ({
++  sendAuthorizePageFactory:
++    () => (_req: unknown, res: ServerResponse, data: unknown) => {
++      res.setHeader('content-type', 'application/json')
++      res.end(JSON.stringify(data))
++    },
++}))
++vi.mock('./assets/send-error-page.js', () => ({
++  sendErrorPageFactory: () => (_req: unknown, res: ServerResponse) => {
++    res.statusCode = 400
++    res.end('rejected')
++  },
++}))
++
++const account = {
++  did: 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa',
++  handle: 'alice.linkjar.social',
++  pds: 'did:web:pds.test',
++  deactivated: false,
++}
++const requestUri =
++  'urn:ietf:params:oauth:request_uri:req-01234567890123456789012345678901'
++const servers: ReturnType<typeof createServer>[] = []
++afterEach(async () => {
++  await Promise.all(
++    servers
++      .splice(0)
++      .map((s) => new Promise<void>((resolve) => s.close(() => resolve()))),
++  )
++})
++
++async function fixture(
++  id: ExternalProviderId,
++  {
++    existing = false,
++    trust = false,
++    preauthorized = false,
++    loginHint = undefined,
++    deactivated = false,
++  }: {
++    existing?: boolean
++    trust?: boolean
++    preauthorized?: boolean
++    loginHint?: string
++    deactivated?: boolean
++  } = {},
++) {
++  let origin = ''
++  const fixtureAccount = { ...account, deactivated }
++  const authorizedClients = new Map(
++    preauthorized
++      ? [
++          [
++            'https://client.test/metadata.json',
++            { authorizedScopes: ['atproto'] },
++          ],
++        ]
++      : [],
++  )
++  const exchange = vi.fn(
++    async (_input: Parameters<ExternalProvider['exchange']>[0]) => ({
++      provider: id,
++      subject: 'stable-subject',
++      email: 'alice@example.com',
++      emailVerified: true,
++    }),
++  )
++  const createExternalAccount = vi.fn(async () => fixtureAccount)
++  const setAuthorized = vi.fn(async () => 'authorization-code')
++  const get = vi.fn(async () => ({
++    clientId: 'https://client.test/metadata.json',
++    parameters: {
++      scope: 'atproto',
++      redirect_uri: 'https://client.test/callback',
++      response_type: 'code',
++      state: 'client-state',
++      login_hint: loginHint,
++    },
++  }))
++  const server = {
++    get issuer() {
++      return origin
++    },
++    customization: { inviteCodeRequired: false },
++    externalProviders: (['apple', 'google', 'github'] as const).map(
++      (providerId) => ({
++        id: providerId,
++        label: providerId,
++        authorizationUrl: ({
++          state,
++          nonce,
++          codeChallenge,
++        }: {
++          state: string
++          nonce: string
++          codeChallenge: string
++        }) =>
++          new URL(
++            `https://idp.test/authorize?state=${state}&nonce=${nonce}&code_challenge=${codeChallenge}`,
++          ),
++        exchange,
++      }),
++    ),
++    externalIdentityStore: {
++      findExternalIdentity: vi.fn(async () => (existing ? account.did : null)),
++      createExternalAccount,
++    },
++    deviceManager: {
++      hasSession: vi.fn(async (req: IncomingMessage) =>
++        Boolean(req.headers.cookie),
++      ),
++      load: vi.fn(async (req: IncomingMessage) => ({
++        deviceId: req.headers.cookie || 'device-a',
++        deviceMetadata: { ipAddress: '127.0.0.1' },
++      })),
++    },
++    requestManager: { get, setAuthorized },
++    accountManager: {
++      upsertDeviceAccount: vi.fn(async () => {}),
++      getAccount: vi.fn(async () => ({
++        account: fixtureAccount,
++        authorizedClients,
++      })),
++      setAuthorizedClient: vi.fn(
++        async (
++          _a: unknown,
++          client: { id: string },
++          data: { authorizedScopes: string[] },
++        ) => {
++          authorizedClients.set(client.id, data)
++        },
++      ),
++    },
++    clientManager: {
++      getClient: vi.fn(async (id: string) => ({
++        id,
++        isTrusted: trust,
++        metadata: {},
++      })),
++    },
++    hooks: {
++      onExternalSignUp: vi.fn(async () => ({ authorizeClient: trust })),
++    },
++    checkConsentRequired: (_parameters: unknown, data: unknown) => !data,
++    signer: {
++      createEphemeralToken: vi.fn(async () => 'bound-ephemeral-token'),
++    },
++    lexiconManager: {
++      getPermissionSetsFromScope: vi.fn(async () => new Map()),
++    },
++  } as unknown as OAuthProvider
++  const http = createServer()
++  servers.push(http)
++  http.listen(0, '127.0.0.1')
++  await once(http, 'listening')
++  origin = `http://127.0.0.1:${(http.address() as { port: number }).port}`
++  http.on('request', (req, res) =>
++    createMiddleware(req, res, () => {
++      res.statusCode = 404
++      res.end()
++    }),
++  )
++  const createMiddleware = createExternalMiddleware(server, {})
++  async function start(cookie = 'device-a') {
++    return fetch(
++      `${origin}/oauth/external/${id}/start?request_uri=${encodeURIComponent(requestUri)}`,
++      {
++        headers: {
++          cookie,
++          'sec-fetch-site': 'same-origin',
++          referer: `${origin}/oauth/authorize?request_uri=${encodeURIComponent(requestUri)}`,
++        },
++        redirect: 'manual',
++      },
++    )
++  }
++  async function callback(state: string, providerId: ExternalProviderId = id) {
++    const values = new URLSearchParams({ state, code: 'provider-code' })
++    return fetch(
++      `${origin}/oauth/external/${providerId}/callback${providerId === 'apple' ? '' : '?' + values}`,
++      {
++        method: providerId === 'apple' ? 'POST' : 'GET',
++        ...(providerId === 'apple' ? { body: values } : {}),
++        redirect: 'manual',
++      },
++    )
++  }
++  return {
++    server,
++    origin,
++    start,
++    callback,
++    exchange,
++    createExternalAccount,
++    setAuthorized,
++    get,
++  }
++}
++
++describe('external routes', () => {
++  it('provider cancellation consumes only the bound device flow without token exchange', async () => {
++    const f = await fixture('apple')
++    const start = await f.start()
++    const state = new URL(start.headers.get('location')!).searchParams.get(
++      'state',
++    )!
++    const response = await fetch(`${f.origin}/oauth/external/apple/callback`, {
++      method: 'POST',
++      body: new URLSearchParams({ state, error: 'access_denied' }),
++      redirect: 'manual',
++    })
++    expect(response.status).toBe(303)
++    expect(
++      (
++        await fetch(f.origin + response.headers.get('location'), {
++          headers: { cookie: 'device-a' },
++        })
++      ).status,
++    ).toBe(400)
++    expect(f.exchange).not.toHaveBeenCalled()
++    expect(f.createExternalAccount).not.toHaveBeenCalled()
++    expect((await f.start()).status).toBe(303)
++  })
++  it('explicit account-page sign-in remembers the verified account without a PAR or consent grant', async () => {
++    const f = await fixture('google', { existing: true, trust: true })
++    const start = await fetch(`${f.origin}/oauth/external/google/start`, {
++      headers: {
++        cookie: 'device-a',
++        'sec-fetch-site': 'same-origin',
++        referer: `${f.origin}/account/sign-in`,
++      },
++      redirect: 'manual',
++    })
++    expect(start.status).toBe(303)
++    const state = new URL(start.headers.get('location')!).searchParams.get(
++      'state',
++    )!
++    const callback = await f.callback(state)
++    const complete = await fetch(f.origin + callback.headers.get('location'), {
++      headers: { cookie: 'device-a' },
++      redirect: 'manual',
++    })
++    expect(complete.status).toBe(303)
++    expect(complete.headers.get('location')).toBe('/account')
++    expect(f.server.accountManager.upsertDeviceAccount).toHaveBeenCalledWith(
++      'device-a',
++      account.did,
++    )
++    expect(f.get).not.toHaveBeenCalled()
++    expect(f.setAuthorized).not.toHaveBeenCalled()
++    expect(f.server.accountManager.setAuthorizedClient).not.toHaveBeenCalled()
++  })
++  it('cannot replace an authorization page request with an unbound account login', async () => {
++    const f = await fixture('google')
++    const response = await fetch(`${f.origin}/oauth/external/google/start`, {
++      headers: {
++        cookie: 'device-a',
++        'sec-fetch-site': 'same-origin',
++        referer: `${f.origin}/oauth/authorize?request_uri=${encodeURIComponent(requestUri)}`,
++      },
++      redirect: 'manual',
++    })
++    expect(response.status).toBe(400)
++    expect(f.exchange).not.toHaveBeenCalled()
++  })
++  for (const provider of ['apple', 'google', 'github'] as const) {
++    it(`${provider}: device-bound signup returns authorization code for trusted client`, async () => {
++      const f = await fixture(provider, { trust: true })
++      const start = await f.start()
++      expect(start.status).toBe(303)
++      const state = new URL(start.headers.get('location')!).searchParams.get(
++        'state',
++      )!
++      const response = await f.callback(state)
++      expect(response.status).toBe(303)
++      expect(f.exchange).not.toHaveBeenCalled()
++      const complete = await fetch(
++        f.origin + response.headers.get('location'),
++        { headers: { cookie: 'device-a' }, redirect: 'manual' },
++      )
++      expect(complete.status).toBe(303)
++      expect(complete.headers.get('location')).toContain(
++        'code=authorization-code',
++      )
++      expect(f.createExternalAccount).toHaveBeenCalledOnce()
++      expect(f.setAuthorized).toHaveBeenCalledOnce()
++      expect(f.exchange.mock.calls[0][0]).toMatchObject({
++        code: 'provider-code',
++        nonce: expect.any(String),
++        verifier: expect.any(String),
++      })
++      expect(
++        (
++          await fetch(f.origin + response.headers.get('location'), {
++            headers: { cookie: 'device-a' },
++          })
++        ).status,
++      ).toBe(400)
++    })
++  }
++  it('requires original device before token exchange, preserves legitimate completion', async () => {
++    const f = await fixture('apple')
++    const start = await f.start()
++    const state = new URL(start.headers.get('location')!).searchParams.get(
++      'state',
++    )!
++    const callback = await f.callback(state)
++    const path = f.origin + callback.headers.get('location')
++    expect(
++      (await fetch(path, { headers: { cookie: 'device-b' } })).status,
++    ).toBe(400)
++    expect(f.exchange).not.toHaveBeenCalled()
++    const complete = await fetch(path, { headers: { cookie: 'device-a' } })
++    expect(complete.status).toBe(200)
++    expect(complete.headers.get('referrer-policy')).toBe('same-origin')
++    expect(await complete.json()).toMatchObject({
++      selectedDid: account.did,
++      sessions: [{ ephemeralToken: 'bound-ephemeral-token', account }],
++    })
++    expect(f.setAuthorized).not.toHaveBeenCalled()
++  })
++  it('known subject signs in without creating or preauthorizing an existing account', async () => {
++    const f = await fixture('github', { existing: true, trust: true })
++    const start = await f.start()
++    const state = new URL(start.headers.get('location')!).searchParams.get(
++      'state',
++    )!
++    const callback = await f.callback(state)
++    expect(
++      (
++        await fetch(f.origin + callback.headers.get('location'), {
++          headers: { cookie: 'device-a' },
++        })
++      ).status,
++    ).toBe(200)
++    expect(f.createExternalAccount).not.toHaveBeenCalled()
++    expect(f.server.hooks.onExternalSignUp).not.toHaveBeenCalled()
++    expect(f.setAuthorized).not.toHaveBeenCalled()
++  })
++  it('rejects cross-origin starts and invalid or expired PAR before account mutation', async () => {
++    const f = await fixture('google')
++    expect(
++      (
++        await fetch(
++          `${f.origin}/oauth/external/google/start?request_uri=${encodeURIComponent(requestUri)}`,
++          { redirect: 'manual' },
++        )
++      ).status,
++    ).toBe(400)
++    f.get.mockRejectedValueOnce(new Error('expired'))
++    expect((await f.start()).status).toBe(400)
++    expect(f.exchange).not.toHaveBeenCalled()
++    expect(f.createExternalAccount).not.toHaveBeenCalled()
++  })
++
++  test.each(['did:plc:bbbbbbbbbbbbbbbbbbbbbbbb', 'bob.linkjar.social'])(
++    'rejects a linked account that does not match login_hint=%s',
++    async (loginHint) => {
++      const f = await fixture('google', {
++        existing: true,
++        preauthorized: true,
++        loginHint,
++      })
++      const start = await f.start()
++      const state = new URL(start.headers.get('location')!).searchParams.get(
++        'state',
++      )!
++      const callback = await f.callback(state)
++      const complete = await fetch(
++        f.origin + callback.headers.get('location'),
++        {
++          headers: { cookie: 'device-a' },
++          redirect: 'manual',
++        },
++      )
++      expect(complete.status).toBe(400)
++      expect(f.exchange).toHaveBeenCalledOnce()
++      expect(f.createExternalAccount).not.toHaveBeenCalled()
++      expect(f.setAuthorized).not.toHaveBeenCalled()
++      expect(f.server.accountManager.setAuthorizedClient).not.toHaveBeenCalled()
++      expect(f.server.signer.createEphemeralToken).not.toHaveBeenCalled()
++    },
++  )
++
++  test.each([account.did, account.handle])(
++    'refuses to create an unlinked account for login_hint=%s',
++    async (loginHint) => {
++      const f = await fixture('apple', { trust: true, loginHint })
++      const start = await f.start()
++      const state = new URL(start.headers.get('location')!).searchParams.get(
++        'state',
++      )!
++      const callback = await f.callback(state)
++      const complete = await fetch(
++        f.origin + callback.headers.get('location'),
++        {
++          headers: { cookie: 'device-a' },
++          redirect: 'manual',
++        },
++      )
++      expect(complete.status).toBe(400)
++      expect(f.exchange).toHaveBeenCalledOnce()
++      expect(f.createExternalAccount).not.toHaveBeenCalled()
++      expect(f.setAuthorized).not.toHaveBeenCalled()
++      expect(f.server.hooks.onExternalSignUp).not.toHaveBeenCalled()
++    },
++  )
++
++  test.each([account.did, account.handle])(
++    'preserves matching login_hint=%s in the consent session',
++    async (loginHint) => {
++      const f = await fixture('github', { existing: true, loginHint })
++      const start = await f.start()
++      const state = new URL(start.headers.get('location')!).searchParams.get(
++        'state',
++      )!
++      const callback = await f.callback(state)
++      const complete = await fetch(
++        f.origin + callback.headers.get('location'),
++        {
++          headers: { cookie: 'device-a' },
++          redirect: 'manual',
++        },
++      )
++      expect(complete.status).toBe(200)
++      expect(complete.headers.get('referrer-policy')).toBe('same-origin')
++      expect(await complete.json()).toMatchObject({
++        loginHint,
++        selectedDid: account.did,
++        sessions: [
++          {
++            account,
++            loginRequired: false,
++            ephemeralToken: 'bound-ephemeral-token',
++          },
++        ],
++      })
++      expect(f.setAuthorized).not.toHaveBeenCalled()
++    },
++  )
++
++  it('returns an authenticated deactivated account to the reactivation gate even when client consent exists', async () => {
++    const f = await fixture('apple', {
++      existing: true,
++      preauthorized: true,
++      deactivated: true,
++      loginHint: account.did,
++    })
++    const start = await f.start()
++    const state = new URL(start.headers.get('location')!).searchParams.get(
++      'state',
++    )!
++    const callback = await f.callback(state)
++    const complete = await fetch(f.origin + callback.headers.get('location'), {
++      headers: { cookie: 'device-a' },
++      redirect: 'manual',
++    })
++    expect(complete.status).toBe(200)
++    expect(complete.headers.get('referrer-policy')).toBe('same-origin')
++    expect(await complete.json()).toMatchObject({
++      loginHint: account.did,
++      selectedDid: account.did,
++      sessions: [
++        {
++          account: { ...account, deactivated: true },
++          loginRequired: false,
++          ephemeralToken: 'bound-ephemeral-token',
++        },
++      ],
++    })
++    expect(f.server.signer.createEphemeralToken).toHaveBeenCalledWith({
++      sub: account.did,
++      deviceId: 'device-a',
++      requestUri,
++    })
++    expect(f.setAuthorized).not.toHaveBeenCalled()
++    expect(f.createExternalAccount).not.toHaveBeenCalled()
++  })
++
++  it('revalidates a PAR that expires during the IdP interaction before exchanging the code', async () => {
++    const f = await fixture('google', { trust: true })
++    const start = await f.start()
++    const state = new URL(start.headers.get('location')!).searchParams.get(
++      'state',
++    )!
++    const callback = await f.callback(state)
++    const path = f.origin + callback.headers.get('location')
++    f.get.mockRejectedValueOnce(
++      new Error('PAR expired during external authentication'),
++    )
++    expect(
++      (
++        await fetch(path, {
++          headers: { cookie: 'device-a' },
++          redirect: 'manual',
++        })
++      ).status,
++    ).toBe(400)
++    expect(f.get).toHaveBeenCalledTimes(2)
++    expect(f.exchange).not.toHaveBeenCalled()
++    expect(f.createExternalAccount).not.toHaveBeenCalled()
++    expect(f.setAuthorized).not.toHaveBeenCalled()
++    expect(
++      (
++        await fetch(path, {
++          headers: { cookie: 'device-a' },
++          redirect: 'manual',
++        })
++      ).status,
++    ).toBe(400)
++    expect(f.get).toHaveBeenCalledTimes(2)
++  })
++
++  test.each(['apple', 'github'] as const)(
++    'rejects Google state at the %s callback and completion without destroying the original flow',
++    async (wrongProvider) => {
++      const f = await fixture('google', { trust: true })
++      const start = await f.start()
++      const state = new URL(start.headers.get('location')!).searchParams.get(
++        'state',
++      )!
++      expect((await f.callback(state, wrongProvider)).status).toBe(400)
++      expect(f.exchange).not.toHaveBeenCalled()
++      const callback = await f.callback(state)
++      expect(callback.status).toBe(303)
++      const wrongPath = `${f.origin}/oauth/external/${wrongProvider}/complete?state=${state}`
++      expect(
++        (
++          await fetch(wrongPath, {
++            headers: { cookie: 'device-a' },
++            redirect: 'manual',
++          })
++        ).status,
++      ).toBe(400)
++      expect(f.exchange).not.toHaveBeenCalled()
++      expect(f.createExternalAccount).not.toHaveBeenCalled()
++      const complete = await fetch(
++        f.origin + callback.headers.get('location'),
++        {
++          headers: { cookie: 'device-a' },
++          redirect: 'manual',
++        },
++      )
++      expect(complete.status).toBe(303)
++      expect(f.exchange).toHaveBeenCalledOnce()
++      expect(f.createExternalAccount).toHaveBeenCalledOnce()
++      expect(f.setAuthorized).toHaveBeenCalledOnce()
++    },
++  )
++})
+diff --git a/packages/oauth/oauth-provider/src/router/create-external-middleware.ts b/packages/oauth/oauth-provider/src/router/create-external-middleware.ts
+new file mode 100644
+index 0000000..b19749c
+--- /dev/null
++++ b/packages/oauth/oauth-provider/src/router/create-external-middleware.ts
+@@ -0,0 +1,261 @@
++import { createHash } from 'node:crypto'
++import type { IncomingMessage, ServerResponse } from 'node:http'
++import { z } from 'zod'
++import { InvalidRequestError } from '../errors/invalid-request-error.js'
++import { ExternalFlowStore } from '../external/external-flow-store.js'
++import {
++  type Middleware,
++  Router,
++  parseHttpRequest,
++  validateFetchSite,
++  validateReferrer,
++} from '../lib/http/index.js'
++import type { OAuthProvider } from '../oauth-provider.js'
++import { requestUriSchema } from '../request/request-uri.js'
++import { sendAuthorizePageFactory } from './assets/send-authorization-page.js'
++import { sendErrorPageFactory } from './assets/send-error-page.js'
++import { sendAuthorizationResultRedirect } from './assets/send-redirect.js'
++import type { MiddlewareOptions } from './middleware-options.js'
++
++const responseSchema = z
++  .object({ state: z.string().regex(/^[A-Za-z0-9_-]{43}$/) })
++  .and(
++    z.union([
++      z.object({
++        code: z.string().min(1).max(4096),
++        user: z.string().max(8192).optional(),
++        error: z.undefined(),
++      }),
++      z.object({ error: z.string().min(1).max(128), code: z.undefined() }),
++    ]),
++  )
++
++export function createExternalMiddleware<
++  Ctx extends object | void = void,
++  Req extends IncomingMessage = IncomingMessage,
++  Res extends ServerResponse = ServerResponse,
++>(
++  server: OAuthProvider,
++  { onError }: MiddlewareOptions<Req, Res>,
++): Middleware<Ctx, Req, Res> {
++  const origin = new URL(server.issuer)
++  const router = new Router<Ctx, Req, Res>(origin)
++  const flows = new ExternalFlowStore()
++  const sendError = sendErrorPageFactory(server.customization)
++  const sendAuthorize = sendAuthorizePageFactory(server.customization)
++
++  for (const provider of server.externalProviders) {
++    const base = `/oauth/external/${provider.id}`
++    const redirectUri = new URL(`${base}/callback`, origin).href
++    router.get(
++      `${base}/start`,
++      handle(async (req, res) => {
++        validateFetchSite(req, ['same-origin'])
++        const referrer = validateReferrer(req, {
++          origin: origin.origin,
++        })
++        const url = new URL(req.url!, origin)
++        const accountPage =
++          referrer.pathname === '/account' ||
++          referrer.pathname.startsWith('/account/')
++        if (!accountPage && referrer.pathname !== '/oauth/authorize')
++          throw new InvalidRequestError('Invalid external sign-in page')
++        const requestUri = accountPage
++          ? undefined
++          : requestUriSchema.parse(url.searchParams.get('request_uri'))
++        if (
++          accountPage
++            ? url.searchParams.has('request_uri')
++            : referrer.searchParams.get('request_uri') !== requestUri
++        )
++          throw new InvalidRequestError('Authorization request mismatch')
++        const { deviceId, deviceMetadata } = await server.deviceManager.load(
++          req,
++          res,
++        )
++        flows.allow(deviceMetadata.ipAddress, 'start')
++        if (requestUri) await server.requestManager.get(requestUri, deviceId)
++        const { state, flow } = flows.create({
++          provider: provider.id,
++          deviceId,
++          requestUri,
++        })
++        const target = provider.authorizationUrl({
++          redirectUri,
++          state,
++          nonce: flow.nonce,
++          codeChallenge: createHash('sha256')
++            .update(flow.verifier)
++            .digest('base64url'),
++        })
++        res.writeHead(303, { Location: target.href }).end()
++      }),
++    )
++
++    const callback = handle(async (req, res) => {
++      const input = responseSchema.parse(
++        req.method === 'POST'
++          ? await parseHttpRequest(req, ['urlencoded'], 16384)
++          : Object.fromEntries(new URL(req.url!, origin).searchParams),
++      )
++      flows.receive(
++        input.state,
++        provider.id,
++        input.error !== undefined
++          ? { error: input.error }
++          : {
++              code: input.code!,
++              user: 'user' in input ? input.user : undefined,
++            },
++      )
++      // @NOTE Apple posts cross-site. The same-origin GET restores the existing
++      // SameSite=Lax device cookie before any token exchange or account mutation.
++      res
++        .writeHead(303, {
++          Location: `${base}/complete?state=${encodeURIComponent(input.state)}`,
++        })
++        .end()
++    })
++    if (provider.id === 'apple') router.post(`${base}/callback`, callback)
++    else router.get(`${base}/callback`, callback)
++
++    router.get(
++      `${base}/complete`,
++      handle(async (req, res) => {
++        if (!(await server.deviceManager.hasSession(req)))
++          throw new InvalidRequestError('Original browser session is required')
++        const device = await server.deviceManager.load(req, res, true)
++        flows.allow(device.deviceMetadata.ipAddress, 'complete')
++        const state = new URL(req.url!, origin).searchParams.get('state') ?? ''
++        const flow = flows.consume(state, provider.id, device.deviceId)
++        if (flow.response.error !== undefined)
++          throw new InvalidRequestError('External sign-in canceled')
++        const request = flow.requestUri
++          ? await server.requestManager.get(flow.requestUri, device.deviceId)
++          : undefined
++        const clientId = request?.clientId
++        const parameters = request?.parameters
++        const identity = await provider.exchange({
++          redirectUri,
++          code: flow.response.code,
++          verifier: flow.verifier,
++          nonce: flow.nonce,
++          user: flow.response.user,
++        })
++        const store = server.externalIdentityStore!
++        const did = await store.findExternalIdentity(
++          provider.id,
++          identity.subject,
++        )
++        const created = did === null
++        if (created && parameters?.login_hint)
++          throw new InvalidRequestError(
++            'No linked account matches the requested account',
++          )
++        if (created && server.customization.inviteCodeRequired !== false)
++          throw new InvalidRequestError(
++            'External account creation is disabled while invites are required',
++          )
++        const account = did
++          ? (await server.accountManager.getAccount(did)).account
++          : await store.createExternalAccount(identity)
++        if (
++          parameters?.login_hint &&
++          parameters?.login_hint !== account.did &&
++          parameters?.login_hint !== account.handle
++        )
++          throw new InvalidRequestError(
++            'External account does not match the requested account',
++          )
++        const client = clientId
++          ? await server.clientManager.getClient(clientId)
++          : undefined
++        if (created) {
++          const policy = await server.hooks.onExternalSignUp?.({
++            account,
++            identity,
++            clientId,
++            ...device,
++          })
++          if (policy?.authorizeClient === true && client && parameters)
++            await server.accountManager.setAuthorizedClient(account, client, {
++              authorizedScopes: parameters.scope?.split(' ') ?? [],
++            })
++        }
++        if (!flow.requestUri || !parameters || !client || !clientId) {
++          await server.accountManager.upsertDeviceAccount(
++            device.deviceId,
++            account.did,
++          )
++          res.writeHead(303, { Location: '/account' }).end()
++          return
++        }
++        const { authorizedClients } = await server.accountManager.getAccount(
++          account.did,
++        )
++        if (
++          !account.deactivated &&
++          !server.checkConsentRequired(
++            parameters,
++            authorizedClients.get(clientId),
++          )
++        ) {
++          const code = await server.requestManager.setAuthorized(
++            flow.requestUri,
++            client,
++            account,
++            device.deviceId,
++            device.deviceMetadata,
++          )
++          return sendAuthorizationResultRedirect(res, {
++            issuer: server.issuer,
++            parameters,
++            redirect: { code },
++          })
++        }
++        const ephemeralToken = await server.signer.createEphemeralToken({
++          sub: account.did,
++          deviceId: device.deviceId,
++          requestUri: flow.requestUri,
++        })
++        res.setHeader('Referrer-Policy', 'same-origin')
++        return sendAuthorize(req, res, {
++          issuer: server.issuer,
++          client,
++          parameters: { ...parameters, prompt: undefined },
++          requestUri: flow.requestUri,
++          selectedDid: account.did,
++          loginHint: parameters?.login_hint,
++          sessions: [{ account, loginRequired: false, ephemeralToken }],
++          permissionSets:
++            await server.lexiconManager.getPermissionSetsFromScope(
++              parameters.scope,
++            ),
++        })
++      }),
++    )
++  }
++  return router.buildMiddleware()
++
++  function handle(
++    fn: (req: Req, res: Res) => Promise<void>,
++  ): Middleware<void, Req, Res> {
++    return async (req, res) => {
++      res.setHeader('Cache-Control', 'no-store')
++      res.setHeader('Referrer-Policy', 'no-referrer')
++      try {
++        await fn(req, res)
++      } catch (error) {
++        onError?.(req, res, error, 'External sign-in failed')
++        if (!res.headersSent)
++          await sendError(
++            req,
++            res,
++            new InvalidRequestError(
++              'External sign-in failed. Start again from your app or account page.',
++            ),
++          )
++      }
++    }
++  }
++}
+diff --git a/packages/pds/src/account-manager/account-manager.ts b/packages/pds/src/account-manager/account-manager.ts
+index db6ef7e..999973c 100644
+--- a/packages/pds/src/account-manager/account-manager.ts
++++ b/packages/pds/src/account-manager/account-manager.ts
+@@ -13,6 +13,7 @@ import {
+   isAtIdentifierString,
+ } from '@atproto/lex'
+ import type { Cid } from '@atproto/lex-data'
++import type { ExternalIdentity } from '@atproto/oauth-provider/store'
+ import {
+   INVALID_HANDLE,
+   currentDatetimeString,
+@@ -45,6 +46,7 @@ import { AccountStatus, type ActorAccount } from './helpers/account.js'
+ import * as auth from './helpers/auth.js'
+ import * as authorizedClientHelper from './helpers/authorized-client.js'
+ import * as emailToken from './helpers/email-token.js'
++import { linkExternalIdentity } from './helpers/external-identity.js'
+ import * as invite from './helpers/invite.js'
+ import {
+   claimInitialHandleRename,
+@@ -236,6 +238,7 @@ export class AccountManager {
+     deactivated,
+     refreshJwt,
+     linkjarAutoHandle = false,
++    externalIdentity,
+   }: {
+     did: DidString
+     handle: HandleString
+@@ -247,13 +250,26 @@ export class AccountManager {
+     deactivated?: boolean
+     refreshJwt?: string
+     linkjarAutoHandle?: boolean
++    externalIdentity?: ExternalIdentity
+   }) {
+     if (password && password.length > scrypt.NEW_PASSWORD_MAX_LENGTH) {
+       throw new InvalidRequestError('Password too long')
+     }
+ 
+-    const passwordScrypt =
+-      email && password ? await scrypt.genSaltAndHash(password) : undefined
++    if (
++      externalIdentity &&
++      (password ||
++        !email ||
++        !externalIdentity.emailVerified ||
++        externalIdentity.email?.toLowerCase() !== email.toLowerCase())
++    ) {
++      throw new InvalidRequestError('Invalid external account credentials')
++    }
++    const passwordScrypt = externalIdentity
++      ? '!external-identity'
++      : email && password
++        ? await scrypt.genSaltAndHash(password)
++        : undefined
+ 
+     const now = currentDatetimeString()
+     return this.db.transaction(async (dbTxn) => {
+@@ -274,6 +290,15 @@ export class AccountManager {
+         })
+       }
+ 
++      if (externalIdentity) {
++        await linkExternalIdentity(dbTxn, did, externalIdentity)
++        await dbTxn.db
++          .updateTable('account')
++          .set({ emailConfirmedAt: now })
++          .where('did', '=', did)
++          .execute()
++      }
++
+       await invite.recordInviteUse(dbTxn, {
+         did,
+         inviteCode,
+diff --git a/packages/pds/src/account-manager/db/migrations/007b-linkjar-099.ts b/packages/pds/src/account-manager/db/migrations/007b-linkjar-099.ts
+new file mode 100644
+index 0000000..e5e007f
+--- /dev/null
++++ b/packages/pds/src/account-manager/db/migrations/007b-linkjar-099.ts
+@@ -0,0 +1,26 @@
++import type { Kysely } from 'kysely'
++
++export async function up(db: Kysely<unknown>): Promise<void> {
++  await db.schema
++    .createTable('external_identity')
++    .addColumn('provider', 'varchar', (col) => col.notNull())
++    .addColumn('subject', 'varchar', (col) => col.notNull())
++    .addColumn('did', 'varchar', (col) =>
++      col.notNull().references('actor.did').onDelete('cascade'),
++    )
++    .addColumn('assertedEmail', 'varchar')
++    .addColumn('emailVerified', 'integer', (col) => col.notNull())
++    .addColumn('displayName', 'varchar')
++    .addColumn('createdAt', 'varchar', (col) => col.notNull())
++    .addColumn('lastUsedAt', 'varchar', (col) => col.notNull())
++    .addPrimaryKeyConstraint('external_identity_pk', ['provider', 'subject'])
++    .execute()
++  await db.schema
++    .createIndex('external_identity_did_idx')
++    .on('external_identity')
++    .column('did')
++    .execute()
++}
++export async function down(db: Kysely<unknown>): Promise<void> {
++  await db.schema.dropTable('external_identity').execute()
++}
+diff --git a/packages/pds/src/account-manager/db/migrations/index.ts b/packages/pds/src/account-manager/db/migrations/index.ts
+index 82d9de4..8c74bb9 100644
+--- a/packages/pds/src/account-manager/db/migrations/index.ts
++++ b/packages/pds/src/account-manager/db/migrations/index.ts
+@@ -5,10 +5,11 @@ import * as mig004 from './004-oauth.js'
+ import * as mig005 from './005-oauth-account-management.js'
+ import * as mig006 from './006-oauth-permission-sets.js'
+ import * as mig007 from './007-lexicon-failures-index.js'
+-
+ import * as linkjar093 from './007a-linkjar-093.js'
++import * as linkjar099 from './007b-linkjar-099.js'
+ 
+ export default {
++  '007b-linkjar-099': linkjar099,
+   '007a-linkjar-093': linkjar093,
+   '001': mig001,
+   '002': mig002,
+diff --git a/packages/pds/src/account-manager/db/schema/external-identity.ts b/packages/pds/src/account-manager/db/schema/external-identity.ts
+new file mode 100644
+index 0000000..b947cec
+--- /dev/null
++++ b/packages/pds/src/account-manager/db/schema/external-identity.ts
+@@ -0,0 +1,11 @@
++export interface ExternalIdentityRow {
++  provider: string
++  subject: string
++  did: string
++  assertedEmail: string | null
++  emailVerified: 0 | 1
++  displayName: string | null
++  createdAt: string
++  lastUsedAt: string
++}
++export type PartialDB = { external_identity: ExternalIdentityRow }
+diff --git a/packages/pds/src/account-manager/db/schema/index.ts b/packages/pds/src/account-manager/db/schema/index.ts
+index b8a64e3..28410d1 100644
+--- a/packages/pds/src/account-manager/db/schema/index.ts
++++ b/packages/pds/src/account-manager/db/schema/index.ts
+@@ -1,4 +1,3 @@
+-import type * as linkjarHandlePolicy from './linkjar-handle-policy.js'
+ import type * as accountDevice from './account-device.js'
+ import type * as account from './account.js'
+ import type * as actor from './actor.js'
+@@ -7,14 +6,17 @@ import type * as oauthRequest from './authorization-request.js'
+ import type * as authorizedClient from './authorized-client.js'
+ import type * as device from './device.js'
+ import type * as emailToken from './email-token.js'
++import type * as externalIdentity from './external-identity.js'
+ import type * as inviteCode from './invite-code.js'
+ import type * as lexicon from './lexicon.js'
++import type * as linkjarHandlePolicy from './linkjar-handle-policy.js'
+ import type * as refreshToken from './refresh-token.js'
+ import type * as repoRoot from './repo-root.js'
+ import type * as token from './token.js'
+ import type * as usedRefreshToken from './used-refresh-token.js'
+ 
+-export type DatabaseSchema = linkjarHandlePolicy.PartialDB &
++export type DatabaseSchema = externalIdentity.PartialDB &
++  linkjarHandlePolicy.PartialDB &
+   actor.PartialDB &
+   account.PartialDB &
+   accountDevice.PartialDB &
+diff --git a/packages/pds/src/account-manager/helpers/account.ts b/packages/pds/src/account-manager/helpers/account.ts
+index aa2f965..c959de1 100644
+--- a/packages/pds/src/account-manager/helpers/account.ts
++++ b/packages/pds/src/account-manager/helpers/account.ts
+@@ -175,6 +175,9 @@ export const deleteAccount = async (
+ ): Promise<void> => {
+   // Not done in transaction because it would be too long, prone to contention.
+   // Also, this can safely be run multiple times if it fails.
++  await db.executeWithRetry(
++    db.db.deleteFrom('external_identity').where('did', '=', did),
++  )
+   await db.executeWithRetry(
+     db.db.deleteFrom('linkjar_handle_policy').where('did', '=', did),
+   )
+diff --git a/packages/pds/src/account-manager/helpers/external-identity.ts b/packages/pds/src/account-manager/helpers/external-identity.ts
+new file mode 100644
+index 0000000..8ad7927
+--- /dev/null
++++ b/packages/pds/src/account-manager/helpers/external-identity.ts
+@@ -0,0 +1,43 @@
++import type { Did } from '@atproto/did'
++import type {
++  ExternalIdentity,
++  ExternalProviderId,
++} from '@atproto/oauth-provider/store'
++import type { AccountDb } from '../db/index.js'
++
++/** Atomically associates an identity; a competing DID always fails. */
++export async function linkExternalIdentity(
++  db: AccountDb,
++  did: Did,
++  identity: ExternalIdentity,
++): Promise<void> {
++  const now = new Date().toISOString()
++  await db.db
++    .insertInto('external_identity')
++    .values({
++      provider: identity.provider,
++      subject: identity.subject,
++      did,
++      assertedEmail: identity.email ?? null,
++      emailVerified: identity.emailVerified ? 1 : 0,
++      displayName: identity.displayName ?? null,
++      createdAt: now,
++      lastUsedAt: now,
++    })
++    .execute()
++}
++
++export async function findExternalIdentity(
++  db: AccountDb,
++  provider: ExternalProviderId,
++  subject: string,
++): Promise<Did | null> {
++  const row = await db.db
++    .updateTable('external_identity')
++    .set({ lastUsedAt: new Date().toISOString() })
++    .where('provider', '=', provider)
++    .where('subject', '=', subject)
++    .returning('did')
++    .executeTakeFirst()
++  return row ? (row.did as Did) : null
++}
+diff --git a/packages/pds/src/account-manager/helpers/password.ts b/packages/pds/src/account-manager/helpers/password.ts
+index d825db8..f199114 100644
+--- a/packages/pds/src/account-manager/helpers/password.ts
++++ b/packages/pds/src/account-manager/helpers/password.ts
+@@ -20,7 +20,9 @@ export const verifyAccountPassword = async (
+     .selectAll()
+     .where('did', '=', did)
+     .executeTakeFirst()
+-  return found ? await scrypt.verify(password, found.passwordScrypt) : false
++  return found && found.passwordScrypt !== '!external-identity'
++    ? await scrypt.verify(password, found.passwordScrypt)
++    : false
+ }
+ 
+ export const verifyAppPassword = async (
+diff --git a/packages/pds/src/account-manager/oauth-store.ts b/packages/pds/src/account-manager/oauth-store.ts
+index 56809b0..ac2b765 100644
+--- a/packages/pds/src/account-manager/oauth-store.ts
++++ b/packages/pds/src/account-manager/oauth-store.ts
+@@ -28,6 +28,9 @@ import type {
+   DeviceId,
+   DeviceStore,
+   Did,
++  ExternalIdentity,
++  ExternalIdentityStore,
++  ExternalProviderId,
+   FoundRequestResult,
+   HandleUnavailableReason,
+   LexiconData,
+@@ -60,6 +63,7 @@ import {
+ import type { ActorStore } from '../actor-store/actor-store.js'
+ import type { BackgroundQueue } from '../background.js'
+ import { fromDateISO } from '../db/index.js'
++import { deriveLinkjarHandle } from '../handle/linkjar.js'
+ import type { ImageUrlBuilder } from '../image/image-url-builder.js'
+ import { dbLogger } from '../logger.js'
+ import type { ServerMailer } from '../mailer/index.js'
+@@ -71,6 +75,7 @@ import { type ActorAccount, UserAlreadyExistsError } from './helpers/account.js'
+ import * as authRequestHelper from './helpers/authorization-request.js'
+ import * as authorizedClientHelper from './helpers/authorized-client.js'
+ import * as deviceHelper from './helpers/device.js'
++import * as externalIdentityHelper from './helpers/external-identity.js'
+ import * as lexiconHelper from './helpers/lexicon.js'
+ import * as tokenHelper from './helpers/token.js'
+ import * as usedRefreshTokenHelper from './helpers/used-refresh-token.js'
+@@ -82,7 +87,13 @@ import * as usedRefreshTokenHelper from './helpers/used-refresh-token.js'
+  * @note The use of this class assumes that there is no entryway.
+  */
+ export class OAuthStore
+-  implements AccountStore, RequestStore, DeviceStore, LexiconStore, TokenStore
++  implements
++    AccountStore,
++    RequestStore,
++    DeviceStore,
++    LexiconStore,
++    TokenStore,
++    ExternalIdentityStore
+ {
+   constructor(
+     private readonly accountManager: AccountManager,
+@@ -135,13 +146,106 @@ export class OAuthStore
+ 
+   // AccountStore
+ 
+-  async createAccount({
+-    locale: _locale,
+-    inviteCode,
+-    handle,
+-    email,
+-    password,
+-  }: SignUpData): Promise<Account> {
++  async findExternalIdentity(
++    provider: ExternalProviderId,
++    subject: string,
++  ): Promise<Did | null> {
++    return externalIdentityHelper.findExternalIdentity(
++      this.db,
++      provider,
++      subject,
++    )
++  }
++
++  async listExternalIdentities(did: Did): Promise<ExternalIdentity[]> {
++    const rows = await this.db.db
++      .selectFrom('external_identity')
++      .selectAll()
++      .where('did', '=', did)
++      .execute()
++    return rows.map((row) => ({
++      provider: row.provider as ExternalProviderId,
++      subject: row.subject,
++      email: row.assertedEmail ?? undefined,
++      emailVerified: row.emailVerified === 1,
++      displayName: row.displayName ?? undefined,
++    }))
++  }
++
++  async linkExternalIdentity(
++    did: Did,
++    identity: ExternalIdentity,
++  ): Promise<void> {
++    await externalIdentityHelper.linkExternalIdentity(this.db, did, identity)
++  }
++
++  async unlinkExternalIdentity(
++    did: Did,
++    provider: ExternalProviderId,
++    subject: string,
++  ): Promise<void> {
++    await this.db.db
++      .deleteFrom('external_identity')
++      .where('did', '=', did)
++      .where('provider', '=', provider)
++      .where('subject', '=', subject)
++      .execute()
++  }
++
++  async createExternalAccount(identity: ExternalIdentity): Promise<Account> {
++    if (!identity.emailVerified || !identity.email)
++      throw new InvalidRequestError(
++        'A verified email is required to create an account',
++      )
++    for (let attempt = 0; attempt < 3; attempt++) {
++      const handle = await deriveLinkjarHandle({
++        displayName: identity.displayName,
++        email: identity.email,
++        isTaken: async (handle) =>
++          Boolean(
++            await this.accountManager.getAccount(handle, {
++              includeDeactivated: true,
++              includeTakenDown: true,
++            }),
++          ),
++      })
++      try {
++        return await this.createAccountInternal(
++          { locale: 'en', handle, email: identity.email },
++          identity,
++        )
++      } catch (error) {
++        if (
++          attempt === 2 ||
++          !(
++            error instanceof UserAlreadyExistsError ||
++            error instanceof HandleUnavailableError
++          ) ||
++          !(await this.accountManager.getAccount(handle, {
++            includeDeactivated: true,
++            includeTakenDown: true,
++          }))
++        )
++          throw error
++      }
++    }
++    throw new InvalidRequestError('Unable to allocate a handle')
++  }
++
++  async createAccount(data: SignUpData): Promise<Account> {
++    return this.createAccountInternal(data)
++  }
++
++  private async createAccountInternal(
++    {
++      locale: _locale,
++      inviteCode,
++      handle,
++      email,
++      password,
++    }: Omit<SignUpData, 'password'> & { password?: string },
++    externalIdentity?: ExternalIdentity,
++  ): Promise<Account> {
+     // @TODO Send an account creation confirmation email (+verification link) to the user (in their locale)
+     // @NOTE Password strength & length already enforced by the OAuthProvider
+ 
+@@ -192,6 +296,8 @@ export class OAuthStore
+             email,
+             password,
+             inviteCode,
++            externalIdentity,
++            linkjarAutoHandle: externalIdentity != null,
+             repoCid: commit.cid,
+             repoRev: commit.rev,
+           })
+diff --git a/packages/pds/src/config/config.ts b/packages/pds/src/config/config.ts
+index 1408df2..7e526b2 100644
+--- a/packages/pds/src/config/config.ts
++++ b/packages/pds/src/config/config.ts
+@@ -3,6 +3,7 @@ import path from 'node:path'
+ import { DAY, HOUR, SECOND } from '@atproto/common'
+ import type {
+   BrandingConfig,
++  ExternalProviderConfig,
+   HcaptchaConfig,
+ } from '@atproto/oauth-provider/provider'
+ import { type DidString, ensureValidDid, isValidDid } from '@atproto/syntax'
+@@ -331,6 +332,20 @@ export const envToCfg = (env: ServerEnvironment): ServerConfig => {
+               : undefined,
+           branding: brandingCfg,
+           trustedClients: env.trustedOAuthClients,
++          externalProviders: {
++            apple: externalCredentials(
++              env.externalAppleClientId,
++              env.externalAppleClientSecret,
++            ),
++            google: externalCredentials(
++              env.externalGoogleClientId,
++              env.externalGoogleClientSecret,
++            ),
++            github: externalCredentials(
++              env.externalGithubClientId,
++              env.externalGithubClientSecret,
++            ),
++          },
+         },
+       }
+ 
+@@ -490,6 +505,7 @@ export type OAuthConfig = {
+     hcaptcha?: HcaptchaConfig
+     branding: BrandingConfig
+     trustedClients?: string[]
++    externalProviders?: ExternalProviderConfig
+   }
+ }
+ 
+@@ -546,3 +562,15 @@ export type ReportServiceConfig = {
+   url: string
+   did: string
+ }
++
++function externalCredentials(
++  clientId?: string,
++  clientSecret?: string,
++): { clientId: string; clientSecret: string } | undefined {
++  if (!clientId && !clientSecret) return undefined
++  if (!clientId || !clientSecret)
++    throw new Error(
++      'External provider requires both client ID and client secret',
++    )
++  return { clientId, clientSecret }
++}
+diff --git a/packages/pds/src/config/env.ts b/packages/pds/src/config/env.ts
+index cdce5a0..621e5cc 100644
+--- a/packages/pds/src/config/env.ts
++++ b/packages/pds/src/config/env.ts
+@@ -80,6 +80,13 @@ export function readEnv() {
+     ),
+     entrywayPlcRotationKey: envStr('PDS_ENTRYWAY_PLC_ROTATION_KEY'),
+ 
++    externalAppleClientId: envStr('PDS_EXTERNAL_APPLE_CLIENT_ID'),
++    externalAppleClientSecret: envStr('PDS_EXTERNAL_APPLE_CLIENT_SECRET'),
++    externalGoogleClientId: envStr('PDS_EXTERNAL_GOOGLE_CLIENT_ID'),
++    externalGoogleClientSecret: envStr('PDS_EXTERNAL_GOOGLE_CLIENT_SECRET'),
++    externalGithubClientId: envStr('PDS_EXTERNAL_GITHUB_CLIENT_ID'),
++    externalGithubClientSecret: envStr('PDS_EXTERNAL_GITHUB_CLIENT_SECRET'),
++
+     // invites
+     inviteRequired: envBool('PDS_INVITE_REQUIRED'),
+     inviteInterval: envInt('PDS_INVITE_INTERVAL'),
+diff --git a/packages/pds/src/context.ts b/packages/pds/src/context.ts
+index 21479b3..9c7c934 100644
+--- a/packages/pds/src/context.ts
++++ b/packages/pds/src/context.ts
+@@ -14,6 +14,7 @@ import {
+   JoseKey,
+   LexResolver,
+   OAuthProvider,
++  createExternalProviders,
+ } from '@atproto/oauth-provider/provider'
+ import { OAuthVerifier } from '@atproto/oauth-provider/verifier'
+ import type { BlobStore } from '@atproto/repo'
+@@ -347,6 +348,9 @@ export class AppContext implements AsyncDisposable {
+     const oauthProvider = cfg.oauth.provider
+       ? new OAuthProvider({
+           issuer: cfg.oauth.issuer,
++          externalProviders: createExternalProviders(
++            cfg.oauth.provider.externalProviders ?? {},
++          ),
+           keyset: [await JoseKey.fromKeyLike(jwtSecretKey, undefined, 'HS256')],
+           store: new OAuthStore(
+             accountManager,
+@@ -420,6 +424,20 @@ export class AppContext implements AsyncDisposable {
+               isTrusted: cfg.oauth.provider?.trustedClients?.includes(clientId),
+             }
+           },
++          onExternalSignUp({ account, clientId }) {
++            events.accountCreated({
++              source: 'oauth',
++              did: account.did,
++              clientId,
++              invited: false,
++              deactivated: false,
++            })
++            return {
++              authorizeClient:
++                clientId != null &&
++                cfg.oauth.provider?.trustedClients?.includes(clientId) === true,
++            }
++          },
+           onSignedUp({ account, data, clientId }) {
+             events.accountCreated({
+               source: 'oauth',
+@@ -428,6 +446,11 @@ export class AppContext implements AsyncDisposable {
+               invited: data.inviteCode != null,
+               deactivated: false,
+             })
++            return {
++              authorizeClient:
++                clientId != null &&
++                cfg.oauth.provider?.trustedClients?.includes(clientId) === true,
++            }
+           },
+           onSignedIn({ account, clientId }) {
+             events.signedIn({

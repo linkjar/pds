@@ -16,3 +16,8 @@ same source patch. Handle reserved-list additions from #93 use this same directo
 `examples/branding-smoke` is an isolated, reversible UI example. It is only applied
 with `PATCH_PROFILE=branding-smoke` and is never included in published production
 images. UI compilation and asset manifests are produced by upstream's full build.
+
+`099-external-providers.patch` follows `093-handle-policy.patch`; see
+[external provider configuration, invariants, tests, and removal plan](../docs/external-providers.md).
+The image build runs the patched provider tests before pruning development
+dependencies. Runtime tests exercise the compiled SQLite and UI/API boundary.

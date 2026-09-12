@@ -52,6 +52,8 @@ jobs:
         run: |
           scripts/test-handles.sh - linkjar-pds:production
           python3 scripts/test-handle-proxy.py --pds-image linkjar-pds:production
+      - name: Verify external account storage and compiled browser flow
+        run: python3 scripts/test-external.py linkjar-pds:production
       - run: python3 scripts/smoke.py --browser
   publish:
     needs: verify
