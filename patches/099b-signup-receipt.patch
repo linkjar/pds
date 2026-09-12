@@ -1,0 +1,804 @@
+diff --git a/.changeset/funny-cars-stand.md b/.changeset/funny-cars-stand.md
+new file mode 100644
+index 0000000..15d751d
+--- /dev/null
++++ b/.changeset/funny-cars-stand.md
+@@ -0,0 +1,6 @@
++---
++"@atproto/oauth-provider": patch
++"@atproto/pds": patch
++---
++
++Bind account creation receipts to the authorization that created the account. Preserve pending receipts across token refresh and expose authenticated read and acknowledgment methods for client onboarding.
+diff --git a/lexicons/io/linkjar/account/acknowledgeSignupReceipt.json b/lexicons/io/linkjar/account/acknowledgeSignupReceipt.json
+new file mode 100644
+index 0000000..7ff269f
+--- /dev/null
++++ b/lexicons/io/linkjar/account/acknowledgeSignupReceipt.json
+@@ -0,0 +1,37 @@
++{
++  "lexicon": 1,
++  "id": "io.linkjar.account.acknowledgeSignupReceipt",
++  "defs": {
++    "main": {
++      "type": "procedure",
++      "description": "Acknowledge the current OAuth session creation receipt after onboarding. Repeated acknowledgment is safe; it does not affect other sessions.",
++      "input": {
++        "encoding": "application/json",
++        "schema": {
++          "type": "object",
++          "properties": {}
++        }
++      },
++      "output": {
++        "encoding": "application/json",
++        "schema": {
++          "type": "object",
++          "required": ["created", "did"],
++          "properties": {
++            "created": {
++              "type": "boolean"
++            },
++            "did": {
++              "type": "string",
++              "format": "did"
++            },
++            "handle": {
++              "type": "string",
++              "format": "handle"
++            }
++          }
++        }
++      }
++    }
++  }
++}
+diff --git a/lexicons/io/linkjar/account/getSignupReceipt.json b/lexicons/io/linkjar/account/getSignupReceipt.json
+new file mode 100644
+index 0000000..f7b57a9
+--- /dev/null
++++ b/lexicons/io/linkjar/account/getSignupReceipt.json
+@@ -0,0 +1,30 @@
++{
++  "lexicon": 1,
++  "id": "io.linkjar.account.getSignupReceipt",
++  "defs": {
++    "main": {
++      "type": "query",
++      "description": "Read whether this OAuth session created the authenticated account during its authorization. Refresh preserves the pending receipt. Existing accounts and other sessions have no receipt.",
++      "output": {
++        "encoding": "application/json",
++        "schema": {
++          "type": "object",
++          "required": ["created", "did"],
++          "properties": {
++            "created": {
++              "type": "boolean"
++            },
++            "did": {
++              "type": "string",
++              "format": "did"
++            },
++            "handle": {
++              "type": "string",
++              "format": "handle"
++            }
++          }
++        }
++      }
++    }
++  }
++}
+diff --git a/packages/oauth/oauth-provider/src/account/account-manager.external.test.ts b/packages/oauth/oauth-provider/src/account/account-manager.external.test.ts
+index 6d6cac7..6dd8932 100644
+--- a/packages/oauth/oauth-provider/src/account/account-manager.external.test.ts
++++ b/packages/oauth/oauth-provider/src/account/account-manager.external.test.ts
+@@ -46,3 +46,41 @@ describe('signup consent policy', () => {
+     },
+   )
+ })
++
++describe('signup authorization context', () => {
++  it('passes only the internal authorization argument to the account store', async () => {
++    const createAccount = vi.fn(async () => account)
++    const manager = new AccountManager(
++      'https://pds.test',
++      { createAccount } as unknown as AccountStore,
++      {},
++      { inviteCodeRequired: false },
++    )
++    const authorization = {
++      requestId: 'req-01234567890123456789012345678901' as const,
++      deviceId: 'dev-original' as DeviceId,
++      clientId: 'https://client.test/metadata.json',
++    }
++    await manager.createAccount(
++      authorization.deviceId,
++      { ipAddress: '127.0.0.1', port: 443 },
++      input,
++      authorization.clientId,
++      undefined,
++      authorization,
++    )
++    expect(createAccount).toHaveBeenLastCalledWith(
++      expect.objectContaining(input),
++      authorization,
++    )
++    await manager.createAccount(
++      authorization.deviceId,
++      { ipAddress: '127.0.0.1', port: 443 },
++      { ...input, signupAuthorization: authorization } as typeof input,
++    )
++    expect(createAccount).toHaveBeenLastCalledWith(
++      expect.objectContaining(input),
++      undefined,
++    )
++  })
++})
+diff --git a/packages/oauth/oauth-provider/src/account/account-manager.ts b/packages/oauth/oauth-provider/src/account/account-manager.ts
+index 5091d5f..6522750 100644
+--- a/packages/oauth/oauth-provider/src/account/account-manager.ts
++++ b/packages/oauth/oauth-provider/src/account/account-manager.ts
+@@ -24,6 +24,7 @@ import type {
+   ResetPasswordConfirmInput,
+   ResetPasswordRequestInput,
+   SignUpData,
++  SignupAuthorization,
+   UpdateEmailConfirmInput,
+   UpdateEmailRequestInput,
+   UpdateHandleData,
+@@ -131,6 +132,7 @@ export class AccountManager {
+     input: SignUpInput,
+     clientId?: ClientId,
+     authorizeClient?: (account: Account) => Promise<void>,
++    authorization?: SignupAuthorization,
+   ): Promise<Account> {
+     return constantTime(BRUTE_FORCE_MITIGATION_DELAY, async () => {
+       await this.hooks.onSignUpAttempt?.call(null, {
+@@ -143,7 +145,7 @@ export class AccountManager {
+       const data = await this.buildSignupData(input, deviceId, deviceMetadata)
+ 
+       const account = await callAsync(() =>
+-        this.store.createAccount(data),
++        this.store.createAccount(data, authorization),
+       ).catch((err) => {
+         throw InvalidRequestError.from(err, 'Account creation failed')
+       })
+diff --git a/packages/oauth/oauth-provider/src/account/account-store.ts b/packages/oauth/oauth-provider/src/account/account-store.ts
+index 009aac3..7d3a291 100644
+--- a/packages/oauth/oauth-provider/src/account/account-store.ts
++++ b/packages/oauth/oauth-provider/src/account/account-store.ts
+@@ -24,6 +24,7 @@ import type { HandleUnavailableReason } from '../errors/handle-unavailable-error
+ import type { HcaptchaVerifyResult } from '../lib/hcaptcha.js'
+ import type { Awaitable } from '../lib/util/type.js'
+ import { buildInterfaceChecker } from '../lib/util/type.js'
++import type { RequestId } from '../request/request-id.js'
+ import type { InviteCode } from '../types/invite-code.js'
+ import type { SignUpInput } from './sign-up-input.js'
+ 
+@@ -64,6 +65,13 @@ export type ReactivateAccountData = ReactivateAccountInput
+ export type DeleteAccountRequestInput = InitiateAccountDeletionInput
+ export type DeleteAccountConfirmInput = ConfirmAccountDeletionInput
+ 
++/** Internal context from a validated, browser-bound authorization request. */
++export type SignupAuthorization = {
++  requestId: RequestId
++  deviceId: DeviceId
++  clientId: ClientId
++}
++
+ export type CreateAccountData = {
+   locale: string
+   email: string
+@@ -126,7 +134,10 @@ export interface AccountStore {
+    * @throws {HandleUnavailableError} - To indicate that the handle is already taken
+    * @throws {InvalidRequestError} - To indicate that some data is invalid
+    */
+-  createAccount(data: CreateAccountData): Awaitable<Account>
++  createAccount(
++    data: CreateAccountData,
++    authorization?: SignupAuthorization,
++  ): Awaitable<Account>
+ 
+   /**
+    * @throws {InvalidCredentialsError} - When the credentials are not valid.
+diff --git a/packages/oauth/oauth-provider/src/external/external-identity-store.ts b/packages/oauth/oauth-provider/src/external/external-identity-store.ts
+index c2e6eb6..c2e5a56 100644
+--- a/packages/oauth/oauth-provider/src/external/external-identity-store.ts
++++ b/packages/oauth/oauth-provider/src/external/external-identity-store.ts
+@@ -1,5 +1,6 @@
+ import type { Did } from '@atproto/did'
+ import type { Account } from '@atproto/oauth-provider-api'
++import type { SignupAuthorization } from '../account/account-store.js'
+ import type {
+   ExternalIdentity,
+   ExternalProviderId,
+@@ -18,5 +19,8 @@ export interface ExternalIdentityStore {
+     provider: ExternalProviderId,
+     subject: string,
+   ): Promise<void>
+-  createExternalAccount(identity: ExternalIdentity): Promise<Account>
++  createExternalAccount(
++    identity: ExternalIdentity,
++    authorization?: SignupAuthorization,
++  ): Promise<Account>
+ }
+diff --git a/packages/oauth/oauth-provider/src/oauth-provider.ts b/packages/oauth/oauth-provider/src/oauth-provider.ts
+index 9323c6e..7822f9c 100644
+--- a/packages/oauth/oauth-provider/src/oauth-provider.ts
++++ b/packages/oauth/oauth-provider/src/oauth-provider.ts
+@@ -968,6 +968,7 @@ export class OAuthProvider extends OAuthVerifier {
+       data.deviceId,
+       parameters,
+       code,
++      data.signupDid,
+     )
+   }
+ 
+diff --git a/packages/oauth/oauth-provider/src/request/request-data.ts b/packages/oauth/oauth-provider/src/request/request-data.ts
+index b243242..cdb7aec 100644
+--- a/packages/oauth/oauth-provider/src/request/request-data.ts
++++ b/packages/oauth/oauth-provider/src/request/request-data.ts
+@@ -24,6 +24,8 @@ export type RequestData = {
+   deviceId: DeviceId | null
+   did: Did | null
+   code: Code | null
++  /** DID created atomically with this authorization; never supplied by a client. */
++  signupDid?: Did | null
+ }
+ 
+ export type RequestDataAuthorized = NonNullableKeys<
+diff --git a/packages/oauth/oauth-provider/src/router/create-api-middleware.ts b/packages/oauth/oauth-provider/src/router/create-api-middleware.ts
+index 18396f2..5a0fb00 100644
+--- a/packages/oauth/oauth-provider/src/router/create-api-middleware.ts
++++ b/packages/oauth/oauth-provider/src/router/create-api-middleware.ts
+@@ -51,7 +51,11 @@ import { asArray } from '../lib/util/cast.js'
+ import { localeSchema } from '../lib/util/locale.js'
+ import type { Awaitable } from '../lib/util/type.js'
+ import type { OAuthProvider } from '../oauth-provider.js'
+-import { type RequestUri, requestUriSchema } from '../request/request-uri.js'
++import {
++  type RequestUri,
++  decodeRequestUri,
++  requestUriSchema,
++} from '../request/request-uri.js'
+ import type { AuthorizationRedirectParameters } from '../result/authorization-redirect-parameters.js'
+ import { tokenIdSchema } from '../token/token-id.js'
+ import { emailOtpSchema } from '../types/email-otp.js'
+@@ -103,9 +107,10 @@ export function createApiMiddleware<
+       async handler() {
+         const { deviceId, deviceMetadata, input, requestUri } = this
+ 
+-        const clientId = requestUri
+-          ? await server.requestManager.peekClientId(requestUri)
++        const request = requestUri
++          ? await server.requestManager.get(requestUri, deviceId)
+           : undefined
++        const clientId = request?.clientId
+ 
+         const account = await server.accountManager.createAccount(
+           deviceId,
+@@ -131,6 +136,13 @@ export function createApiMiddleware<
+                 )
+               }
+             : undefined,
++          request && requestUri
++            ? {
++                requestId: decodeRequestUri(requestUri),
++                deviceId,
++                clientId: request.clientId,
++              }
++            : undefined,
+         )
+ 
+         // Remember when not in the context of a request by default
+diff --git a/packages/oauth/oauth-provider/src/router/create-external-middleware.test.ts b/packages/oauth/oauth-provider/src/router/create-external-middleware.test.ts
+index be37a2b..392bf4a 100644
+--- a/packages/oauth/oauth-provider/src/router/create-external-middleware.test.ts
++++ b/packages/oauth/oauth-provider/src/router/create-external-middleware.test.ts
+@@ -296,7 +296,14 @@ describe('external routes', () => {
+       expect(complete.headers.get('location')).toContain(
+         'code=authorization-code',
+       )
+-      expect(f.createExternalAccount).toHaveBeenCalledOnce()
++      expect(f.createExternalAccount).toHaveBeenCalledWith(
++        expect.objectContaining({ provider, subject: 'stable-subject' }),
++        {
++          requestId: 'req-01234567890123456789012345678901',
++          deviceId: 'device-a',
++          clientId: 'https://client.test/metadata.json',
++        },
++      )
+       expect(f.setAuthorized).toHaveBeenCalledOnce()
+       expect(f.exchange.mock.calls[0][0]).toMatchObject({
+         code: 'provider-code',
+diff --git a/packages/oauth/oauth-provider/src/router/create-external-middleware.ts b/packages/oauth/oauth-provider/src/router/create-external-middleware.ts
+index b19749c..fee7e90 100644
+--- a/packages/oauth/oauth-provider/src/router/create-external-middleware.ts
++++ b/packages/oauth/oauth-provider/src/router/create-external-middleware.ts
+@@ -11,7 +11,7 @@ import {
+   validateReferrer,
+ } from '../lib/http/index.js'
+ import type { OAuthProvider } from '../oauth-provider.js'
+-import { requestUriSchema } from '../request/request-uri.js'
++import { decodeRequestUri, requestUriSchema } from '../request/request-uri.js'
+ import { sendAuthorizePageFactory } from './assets/send-authorization-page.js'
+ import { sendErrorPageFactory } from './assets/send-error-page.js'
+ import { sendAuthorizationResultRedirect } from './assets/send-redirect.js'
+@@ -158,7 +158,16 @@ export function createExternalMiddleware<
+           )
+         const account = did
+           ? (await server.accountManager.getAccount(did)).account
+-          : await store.createExternalAccount(identity)
++          : await store.createExternalAccount(
++              identity,
++              request && flow.requestUri
++                ? {
++                    requestId: decodeRequestUri(flow.requestUri),
++                    deviceId: device.deviceId,
++                    clientId: request.clientId,
++                  }
++                : undefined,
++            )
+         if (
+           parameters?.login_hint &&
+           parameters?.login_hint !== account.did &&
+diff --git a/packages/oauth/oauth-provider/src/token/token-data.ts b/packages/oauth/oauth-provider/src/token/token-data.ts
+index e23be0b..fa5f586 100644
+--- a/packages/oauth/oauth-provider/src/token/token-data.ts
++++ b/packages/oauth/oauth-provider/src/token/token-data.ts
+@@ -30,6 +30,8 @@ export type TokenData = {
+   parameters: OAuthAuthorizationRequestParameters
+   details?: null // Legacy field, not used
+   code: Code | null
++  /** Pending creation receipt for this session, cleared on acknowledgment. */
++  signupDid?: Did | null
+ 
+   /**
+    * This will contain the parameter scope, translated into permissions
+diff --git a/packages/oauth/oauth-provider/src/token/token-manager.ts b/packages/oauth/oauth-provider/src/token/token-manager.ts
+index 93411c4..1681659 100644
+--- a/packages/oauth/oauth-provider/src/token/token-manager.ts
++++ b/packages/oauth/oauth-provider/src/token/token-manager.ts
+@@ -118,6 +118,7 @@ export class TokenManager {
+     deviceId: null | DeviceId,
+     parameters: OAuthAuthorizationRequestParameters,
+     code: Code,
++    signupDid?: Account['did'] | null,
+   ): Promise<OAuthTokenResponse> {
+     await this.validateTokenParams(client, clientAuth, parameters)
+ 
+@@ -172,6 +173,7 @@ export class TokenManager {
+       details: null,
+       scope,
+       code,
++      signupDid: signupDid === account.did ? signupDid : null,
+     }
+ 
+     await this.store.createToken(tokenId, tokenData, refreshToken)
+diff --git a/packages/pds/src/account-manager/account-manager.ts b/packages/pds/src/account-manager/account-manager.ts
+index 999973c..6681383 100644
+--- a/packages/pds/src/account-manager/account-manager.ts
++++ b/packages/pds/src/account-manager/account-manager.ts
+@@ -13,7 +13,10 @@ import {
+   isAtIdentifierString,
+ } from '@atproto/lex'
+ import type { Cid } from '@atproto/lex-data'
+-import type { ExternalIdentity } from '@atproto/oauth-provider/store'
++import type {
++  ExternalIdentity,
++  SignupAuthorization,
++} from '@atproto/oauth-provider/store'
+ import {
+   INVALID_HANDLE,
+   currentDatetimeString,
+@@ -55,6 +58,7 @@ import {
+ import * as password from './helpers/password.js'
+ import * as repo from './helpers/repo.js'
+ import * as scrypt from './helpers/scrypt.js'
++import { registerSignupReceipt } from './helpers/signup-receipt.js'
+ import * as token from './helpers/token.js'
+ 
+ export { AccountStatus, formatAccountStatus } from './helpers/account.js'
+@@ -239,6 +243,7 @@ export class AccountManager {
+     refreshJwt,
+     linkjarAutoHandle = false,
+     externalIdentity,
++    signupAuthorization,
+   }: {
+     did: DidString
+     handle: HandleString
+@@ -251,6 +256,7 @@ export class AccountManager {
+     refreshJwt?: string
+     linkjarAutoHandle?: boolean
+     externalIdentity?: ExternalIdentity
++    signupAuthorization?: SignupAuthorization
+   }) {
+     if (password && password.length > scrypt.NEW_PASSWORD_MAX_LENGTH) {
+       throw new InvalidRequestError('Password too long')
+@@ -314,6 +320,9 @@ export class AccountManager {
+       }
+ 
+       await repo.updateRoot(dbTxn, did, repoCid, repoRev)
++      if (signupAuthorization) {
++        await registerSignupReceipt(dbTxn, signupAuthorization, did)
++      }
+     })
+   }
+ 
+diff --git a/packages/pds/src/account-manager/db/migrations/007c-linkjar-signup-receipt.ts b/packages/pds/src/account-manager/db/migrations/007c-linkjar-signup-receipt.ts
+new file mode 100644
+index 0000000..29dc46c
+--- /dev/null
++++ b/packages/pds/src/account-manager/db/migrations/007c-linkjar-signup-receipt.ts
+@@ -0,0 +1,20 @@
++import type { Kysely } from 'kysely'
++
++export async function up(db: Kysely<unknown>): Promise<void> {
++  await db.schema
++    .alterTable('authorization_request')
++    .addColumn('signupDid', 'varchar')
++    .execute()
++  await db.schema
++    .alterTable('token')
++    .addColumn('signupDid', 'varchar')
++    .execute()
++}
++
++export async function down(db: Kysely<unknown>): Promise<void> {
++  await db.schema.alterTable('token').dropColumn('signupDid').execute()
++  await db.schema
++    .alterTable('authorization_request')
++    .dropColumn('signupDid')
++    .execute()
++}
+diff --git a/packages/pds/src/account-manager/db/migrations/index.ts b/packages/pds/src/account-manager/db/migrations/index.ts
+index 8c74bb9..74e59d9 100644
+--- a/packages/pds/src/account-manager/db/migrations/index.ts
++++ b/packages/pds/src/account-manager/db/migrations/index.ts
+@@ -7,8 +7,10 @@ import * as mig006 from './006-oauth-permission-sets.js'
+ import * as mig007 from './007-lexicon-failures-index.js'
+ import * as linkjar093 from './007a-linkjar-093.js'
+ import * as linkjar099 from './007b-linkjar-099.js'
++import * as signupReceipt from './007c-linkjar-signup-receipt.js'
+ 
+ export default {
++  '007c-linkjar-signup-receipt': signupReceipt,
+   '007b-linkjar-099': linkjar099,
+   '007a-linkjar-093': linkjar093,
+   '001': mig001,
+diff --git a/packages/pds/src/account-manager/db/schema/authorization-request.ts b/packages/pds/src/account-manager/db/schema/authorization-request.ts
+index 7e6759f..5d07f82 100644
+--- a/packages/pds/src/account-manager/db/schema/authorization-request.ts
++++ b/packages/pds/src/account-manager/db/schema/authorization-request.ts
+@@ -1,4 +1,4 @@
+-import type { Selectable } from 'kysely'
++import type { Generated, Selectable } from 'kysely'
+ import type {
+   ClientAuth,
+   ClientAuthLegacy,
+@@ -21,6 +21,7 @@ export interface AuthorizationRequest {
+   parameters: JsonEncoded<OAuthAuthorizationRequestParameters>
+   expiresAt: DateISO
+   code: Code | null
++  signupDid: Generated<Did | null>
+ }
+ 
+ export type AuthorizationRequestEntry = Selectable<AuthorizationRequest>
+diff --git a/packages/pds/src/account-manager/db/schema/token.ts b/packages/pds/src/account-manager/db/schema/token.ts
+index 59e2925..3eebd44 100644
+--- a/packages/pds/src/account-manager/db/schema/token.ts
++++ b/packages/pds/src/account-manager/db/schema/token.ts
+@@ -27,6 +27,7 @@ export interface Token {
+   parameters: JsonEncoded<OAuthAuthorizationRequestParameters>
+   details: JsonEncoded<OAuthAuthorizationDetails> | null
+   code: Code | null
++  signupDid: Generated<Did | null>
+   currentRefreshToken: RefreshToken | null
+   scope: string | null
+ }
+diff --git a/packages/pds/src/account-manager/helpers/authorization-request.ts b/packages/pds/src/account-manager/helpers/authorization-request.ts
+index 4d7e37a..923dbaa 100644
+--- a/packages/pds/src/account-manager/helpers/authorization-request.ts
++++ b/packages/pds/src/account-manager/helpers/authorization-request.ts
+@@ -20,6 +20,7 @@ export const rowToRequestData = (
+   deviceId: row.deviceId,
+   did: row.did,
+   code: row.code,
++  signupDid: row.signupDid,
+ })
+ 
+ export const rowToFoundRequestResult = (
+diff --git a/packages/pds/src/account-manager/helpers/signup-receipt.ts b/packages/pds/src/account-manager/helpers/signup-receipt.ts
+new file mode 100644
+index 0000000..94fd8bc
+--- /dev/null
++++ b/packages/pds/src/account-manager/helpers/signup-receipt.ts
+@@ -0,0 +1,48 @@
++import type { Did, SignupAuthorization } from '@atproto/oauth-provider/store'
++import { InvalidRequestError } from '@atproto/xrpc-server'
++import type { OAuthOutput } from '../../auth-output.js'
++import { toDateISO } from '../../db/index.js'
++import type { AccountDb } from '../db/index.js'
++
++/** Mark the request inside the account transaction; a failed binding rolls it back. */
++export async function registerSignupReceipt(
++  db: AccountDb,
++  authorization: SignupAuthorization,
++  did: Did,
++): Promise<void> {
++  db.assertTransaction()
++  const result = await db.db
++    .updateTable('authorization_request')
++    .set({ signupDid: did })
++    .where('id', '=', authorization.requestId)
++    .where('clientId', '=', authorization.clientId)
++    .where('deviceId', '=', authorization.deviceId)
++    .where('expiresAt', '>', toDateISO(new Date()))
++    .where('did', 'is', null)
++    .where('code', 'is', null)
++    .where('signupDid', 'is', null)
++    .executeTakeFirst()
++  if (result.numUpdatedRows !== 1n) {
++    throw new InvalidRequestError(
++      'Account creation authorization is no longer available',
++    )
++  }
++}
++
++/** The verified JWT identifies one persisted session, including after token rotation. */
++export function pendingSignupReceiptQB(
++  db: AccountDb,
++  credentials: OAuthOutput['credentials'],
++) {
++  if (!credentials.tokenId || !credentials.clientId) {
++    throw new InvalidRequestError('OAuth session is required', 'InvalidToken')
++  }
++  return db.db
++    .selectFrom('token')
++    .where('tokenId', '=', credentials.tokenId)
++    .where('clientId', '=', credentials.clientId)
++    .where('did', '=', credentials.did)
++    .where('signupDid', '=', credentials.did)
++    .where('expiresAt', '>', toDateISO(new Date()))
++    .select('id')
++}
+diff --git a/packages/pds/src/account-manager/helpers/token.ts b/packages/pds/src/account-manager/helpers/token.ts
+index ae27186..aeddaca 100644
+--- a/packages/pds/src/account-manager/helpers/token.ts
++++ b/packages/pds/src/account-manager/helpers/token.ts
+@@ -22,6 +22,7 @@ export function toTokenData(row: Selectable<Token>): TokenData {
+     did: row.did,
+     parameters: fromJson(row.parameters),
+     code: row.code,
++    signupDid: row.signupDid,
+     scope: row.scope,
+   }
+ }
+@@ -45,6 +46,7 @@ const selectTokenInfoQB = (db: AccountDb) =>
+       'token.code',
+       'token.currentRefreshToken',
+       'token.scope',
++      'token.signupDid',
+     ])
+ 
+ export const createQB = (
+@@ -65,6 +67,7 @@ export const createQB = (
+     parameters: toJson(data.parameters),
+     details: data.details ? toJson(data.details) : null,
+     code: data.code,
++    signupDid: data.signupDid === data.did ? data.signupDid : null,
+     currentRefreshToken: refreshToken || null,
+     scope: data.scope,
+   })
+diff --git a/packages/pds/src/account-manager/oauth-store.ts b/packages/pds/src/account-manager/oauth-store.ts
+index ac2b765..d50adb8 100644
+--- a/packages/pds/src/account-manager/oauth-store.ts
++++ b/packages/pds/src/account-manager/oauth-store.ts
+@@ -44,6 +44,7 @@ import type {
+   ResetPasswordConfirmInput,
+   ResetPasswordRequestInput,
+   SignUpData,
++  SignupAuthorization,
+   TokenData,
+   TokenId,
+   TokenInfo,
+@@ -192,7 +193,10 @@ export class OAuthStore
+       .execute()
+   }
+ 
+-  async createExternalAccount(identity: ExternalIdentity): Promise<Account> {
++  async createExternalAccount(
++    identity: ExternalIdentity,
++    authorization?: SignupAuthorization,
++  ): Promise<Account> {
+     if (!identity.emailVerified || !identity.email)
+       throw new InvalidRequestError(
+         'A verified email is required to create an account',
+@@ -213,6 +217,7 @@ export class OAuthStore
+         return await this.createAccountInternal(
+           { locale: 'en', handle, email: identity.email },
+           identity,
++          authorization,
+         )
+       } catch (error) {
+         if (
+@@ -232,8 +237,11 @@ export class OAuthStore
+     throw new InvalidRequestError('Unable to allocate a handle')
+   }
+ 
+-  async createAccount(data: SignUpData): Promise<Account> {
+-    return this.createAccountInternal(data)
++  async createAccount(
++    data: SignUpData,
++    authorization?: SignupAuthorization,
++  ): Promise<Account> {
++    return this.createAccountInternal(data, undefined, authorization)
+   }
+ 
+   private async createAccountInternal(
+@@ -245,6 +253,7 @@ export class OAuthStore
+       password,
+     }: Omit<SignUpData, 'password'> & { password?: string },
+     externalIdentity?: ExternalIdentity,
++    authorization?: SignupAuthorization,
+   ): Promise<Account> {
+     // @TODO Send an account creation confirmation email (+verification link) to the user (in their locale)
+     // @NOTE Password strength & length already enforced by the OAuthProvider
+@@ -297,6 +306,7 @@ export class OAuthStore
+             password,
+             inviteCode,
+             externalIdentity,
++            signupAuthorization: authorization,
+             linkjarAutoHandle: externalIdentity != null,
+             repoCid: commit.cid,
+             repoRev: commit.rev,
+diff --git a/packages/pds/src/api/index.ts b/packages/pds/src/api/index.ts
+index 1d2ad08..1ebc0e6 100644
+--- a/packages/pds/src/api/index.ts
++++ b/packages/pds/src/api/index.ts
+@@ -2,9 +2,13 @@ import type { Server } from '@atproto/xrpc-server'
+ import type { AppContext } from '../context.js'
+ import appBsky from './app/bsky/index.js'
+ import comAtproto from './com/atproto/index.js'
++import acknowledgeSignupReceipt from './io/linkjar/account/acknowledgeSignupReceipt.js'
++import getSignupReceipt from './io/linkjar/account/getSignupReceipt.js'
+ 
+ export default function (server: Server, ctx: AppContext) {
+   comAtproto(server, ctx)
+   appBsky(server, ctx)
++  getSignupReceipt(server, ctx)
++  acknowledgeSignupReceipt(server, ctx)
+   return server
+ }
+diff --git a/packages/pds/src/api/io/linkjar/account/acknowledgeSignupReceipt.ts b/packages/pds/src/api/io/linkjar/account/acknowledgeSignupReceipt.ts
+new file mode 100644
+index 0000000..a0e1bb0
+--- /dev/null
++++ b/packages/pds/src/api/io/linkjar/account/acknowledgeSignupReceipt.ts
+@@ -0,0 +1,34 @@
++import { InvalidRequestError, type Server } from '@atproto/xrpc-server'
++import { pendingSignupReceiptQB } from '../../../../account-manager/helpers/signup-receipt.js'
++import type { AppContext } from '../../../../context.js'
++import { io } from '../../../../lexicons/index.js'
++
++export default function (server: Server, ctx: AppContext) {
++  server.add(io.linkjar.account.acknowledgeSignupReceipt, {
++    auth: ctx.authVerifier.authorization({
++      authorize: () => {
++        // @NOTE This is metadata about the caller's own session, like getSession.
++      },
++    }),
++    handler: async ({ auth, res }) => {
++      res.setHeader('Cache-Control', 'no-store')
++      const { credentials } = auth
++      if (credentials.type !== 'oauth') {
++        throw new InvalidRequestError(
++          'OAuth session is required',
++          'InvalidToken',
++        )
++      }
++      const db = ctx.accountManager.db
++      await db.db
++        .updateTable('token')
++        .set({ signupDid: null })
++        .where('id', 'in', pendingSignupReceiptQB(db, credentials))
++        .execute()
++      return {
++        encoding: 'application/json',
++        body: { created: false, did: credentials.did },
++      }
++    },
++  })
++}
+diff --git a/packages/pds/src/api/io/linkjar/account/getSignupReceipt.ts b/packages/pds/src/api/io/linkjar/account/getSignupReceipt.ts
+new file mode 100644
+index 0000000..97d6573
+--- /dev/null
++++ b/packages/pds/src/api/io/linkjar/account/getSignupReceipt.ts
+@@ -0,0 +1,40 @@
++import { InvalidRequestError, type Server } from '@atproto/xrpc-server'
++import { pendingSignupReceiptQB } from '../../../../account-manager/helpers/signup-receipt.js'
++import type { AppContext } from '../../../../context.js'
++import { io } from '../../../../lexicons/index.js'
++
++export default function (server: Server, ctx: AppContext) {
++  server.add(io.linkjar.account.getSignupReceipt, {
++    auth: ctx.authVerifier.authorization({
++      authorize: () => {
++        // @NOTE This is metadata about the caller's own session, like getSession.
++      },
++    }),
++    handler: async ({ auth, res }) => {
++      res.setHeader('Cache-Control', 'no-store')
++      const { credentials } = auth
++      if (credentials.type !== 'oauth') {
++        throw new InvalidRequestError(
++          'OAuth session is required',
++          'InvalidToken',
++        )
++      }
++      const db = ctx.accountManager.db
++      const pending = await pendingSignupReceiptQB(
++        db,
++        credentials,
++      ).executeTakeFirst()
++      const account = pending
++        ? await ctx.accountManager.getAccount(credentials.did)
++        : undefined
++      return {
++        encoding: 'application/json',
++        body: {
++          created: Boolean(pending && account),
++          did: credentials.did,
++          handle: account?.handle ?? undefined,
++        },
++      }
++    },
++  })
++}
+diff --git a/packages/pds/src/auth-output.ts b/packages/pds/src/auth-output.ts
+index a65c389..c7cd94e 100644
+--- a/packages/pds/src/auth-output.ts
++++ b/packages/pds/src/auth-output.ts
+@@ -1,3 +1,4 @@
++import type { ClientId, TokenId } from '@atproto/oauth-provider/store'
+ import type { ScopePermissions } from '@atproto/oauth-scopes'
+ import type { DidString } from '@atproto/syntax'
+ import type { AuthScope } from './auth-scope.js'
+@@ -31,6 +32,8 @@ export type OAuthOutput = {
+   credentials: {
+     type: 'oauth'
+     did: DidString
++    tokenId?: TokenId
++    clientId?: ClientId
+     permissions: ScopePermissions
+   }
+ }
+diff --git a/packages/pds/src/auth-verifier.ts b/packages/pds/src/auth-verifier.ts
+index adaade8..46914b6 100644
+--- a/packages/pds/src/auth-verifier.ts
++++ b/packages/pds/src/auth-verifier.ts
+@@ -382,7 +382,12 @@ export class AuthVerifier {
+       const originalUrl = req.originalUrl || req.url || '/'
+       const url = new URL(originalUrl, this._publicUrl)
+ 
+-      const { scope, sub: did } = await this.oauthVerifier
++      const {
++        scope,
++        sub: did,
++        jti: tokenId,
++        client_id: clientId,
++      } = await this.oauthVerifier
+         .authenticateRequest(
+           req.method || 'GET',
+           url,
+@@ -429,6 +434,8 @@ export class AuthVerifier {
+         credentials: {
+           type: 'oauth',
+           did,
++          tokenId,
++          clientId,
+           permissions,
+         },
+       }

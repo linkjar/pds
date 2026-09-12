@@ -21,3 +21,6 @@ images. UI compilation and asset manifests are produced by upstream's full build
 [external provider configuration, invariants, tests, and removal plan](../docs/external-providers.md).
 The image build runs the patched provider tests before pruning development
 dependencies. Runtime tests exercise the compiled SQLite and UI/API boundary.
+
+`099b-signup-receipt.patch` follows provider signup and binds the newly created
+DID to its OAuth session. See [the receipt contract and lifecycle](../docs/signup-receipt.md).

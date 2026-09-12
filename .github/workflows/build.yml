@@ -54,6 +54,8 @@ jobs:
           python3 scripts/test-handle-proxy.py --pds-image linkjar-pds:production
       - name: Verify external account storage and compiled browser flow
         run: python3 scripts/test-external.py linkjar-pds:production
+      - name: Verify authenticated account creation receipts
+        run: docker run --rm --entrypoint node -v "$PWD/tests:/linkjar-tests:ro" linkjar-pds:production /linkjar-tests/signup-receipt.mjs
       - run: python3 scripts/smoke.py --browser
   publish:
     needs: verify
