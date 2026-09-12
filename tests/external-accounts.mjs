@@ -153,7 +153,7 @@ try {
     subject: "apple-123",
   });
   assert.equal((await store.listExternalIdentities(did)).length, 2);
-  await store.unlinkExternalIdentity(did, "apple", "apple-123");
+  await store.unlinkExternalIdentity(did, "apple", "apple-123", ["apple", "google", "github"]);
   assert.equal(await store.findExternalIdentity("apple", "apple-123"), null);
   await deleteAccount(db, did);
   assert.equal(

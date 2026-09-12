@@ -28,3 +28,7 @@ DID to its OAuth session. See [the receipt contract and lifecycle](../docs/signu
 `099c-signup-policy.patch` prevents fresh legacy signup from bypassing the
 configured OAuth hCaptcha flow and rejects partial hCaptcha configuration.
 See [#94's policy, compatibility tests and removal condition](../docs/provider-policy.md).
+
+`100-signin-methods.patch` adds explicit device-bound provider linking,
+transactional last-method protection, account-page controls and persistent
+security notifications. See [scope, migration, tests and removal](../docs/signin-methods.md).

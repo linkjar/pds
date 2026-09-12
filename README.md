@@ -190,3 +190,10 @@ inventory. Revision 6 rejects fresh legacy signup when hCaptcha is configured,
 preserves authenticated DID imports, and rejects partial hCaptcha configuration.
 Published policy pages, the monitored support contact and live acceptance remain
 required before opening signup.
+
+## Sign-in methods
+
+[Account linking and notification behavior](docs/signin-methods.md) describes
+revision 7's explicit provider linking, last-method unlink protection and durable
+security mail. Automatic email linking and Apple account-deletion support remain
+separate work under #100.

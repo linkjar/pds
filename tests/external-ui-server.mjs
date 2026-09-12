@@ -44,10 +44,14 @@ const requestUri =
   "urn:ietf:params:oauth:request_uri:req-01234567890123456789012345678901";
 let origin;
 let deactivated = false;
+const methodsMode = process.env.LINKJAR_METHODS_TEST === '1';
+let methods = { hasPassword: false, identities: [{ provider: 'google', subject: 'google-a', email: 'alice@example.com', emailVerified: true }] };
 const account = {
   did: "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa",
   pds: "did:web:pds.test",
   handle: "alice.linkjar.social",
+  email: "alice@example.com",
+  emailVerified: true,
   get deactivated() {
     return deactivated;
   },
@@ -86,8 +90,9 @@ const fake = {
   },
   accountManager: {
     getAccount: async () => ({ account, authorizedClients: new Map() }),
-    getDeviceAccount: async () => {
-      throw new Error("No remembered account");
+    getDeviceAccount: async (_deviceId, did) => {
+      if (!methodsMode || did !== account.did) throw new Error("No remembered account");
+      return { account, authorizedClients: new Map(), updatedAt: new Date() };
     },
     setAuthorizedClient: async () => {},
     reactivateAccount: async () => {
@@ -97,6 +102,15 @@ const fake = {
   },
   clientManager: { getClient: async (id) => ({ id }) },
   checkConsentRequired: () => true,
+  checkLoginRequired: () => false,
+  externalProviders: [{ id: 'apple' }, { id: 'google' }, { id: 'github' }],
+  externalIdentityStore: {
+    getSignInMethods: async did => { assert.equal(did, account.did); return methods; },
+    unlinkExternalIdentity: async (did, provider, subject) => {
+      assert.equal(did, account.did);
+      methods.identities = methods.identities.filter(row => row.provider !== provider || row.subject !== subject);
+    },
+  },
 };
 let api;
 const server = createServer((req, res) => {
@@ -128,8 +142,13 @@ const server = createServer((req, res) => {
         permissionSets: new Map(),
       });
     }
+    if (methodsMode && req.url === '/fixture/two-methods') {
+      methods.identities.push({ provider: 'apple', subject: 'apple-a', email: 'relay@privaterelay.appleid.com', emailVerified: true });
+      res.writeHead(200).end('ready');
+      return;
+    }
     if (req.url.startsWith("/account"))
-      return renderAccount(req, res, { deviceSessions: [] });
+      return renderAccount(req, res, { deviceSessions: methodsMode ? [{ account, loginRequired: false }] : [] });
     if (!req.url.startsWith("/oauth/authorize")) {
       res.writeHead(404).end();
       return;
