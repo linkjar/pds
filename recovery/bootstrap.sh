@@ -63,6 +63,16 @@ PY
 docker compose --env-file /etc/linkjar-pds/image.env -f /opt/linkjar-pds/staging/compose.yml config --quiet
 docker compose --env-file /etc/linkjar-pds/image.env -f /opt/linkjar-pds/staging/compose.yml pull
 install -m 0644 /opt/linkjar-pds/recovery/systemd/* /etc/systemd/system/
+if [[ -e /etc/linkjar-pds-backup/resend-webhook.key || -e /etc/linkjar-pds-backup/resend-sender.txt ]]; then
+  for input in /etc/linkjar-pds-backup/resend-webhook.key /etc/linkjar-pds-backup/resend-sender.txt; do
+    [[ -f $input && ! -L $input ]] || { echo 'Both Resend webhook key and sender files are required.' >&2; exit 1; }
+    chown 1000:1000 "$input"
+    chmod 0600 "$input"
+  done
+  install -d -m 0700 -o 1000 -g 1000 /var/lib/linkjar-pds-backup/state/mail
+  install -d -m 0755 /etc/systemd/system/linkjar-pds-recovery-monitor.service.d
+  install -m 0644 /opt/linkjar-pds/recovery/mail-monitor.conf.example /etc/systemd/system/linkjar-pds-recovery-monitor.service.d/mail.conf
+fi
 systemctl daemon-reload
 # Enabling/start is a separate explicit step after the restored host passes acceptance.
 # Starting Litestream here could modify a source replica while the restore is being checked.

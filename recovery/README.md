@@ -97,7 +97,8 @@ Use restic `snapshots --tag linkjar-pds-host-material --json` with the private
 backup env to select an exact full snapshot ID. Choose a UTC database cutoff
 after that host-material snapshot completed and within 60 seconds of its capture.
 Use the original replication prefix explicitly for restore; the new prefix in
-the runtime env is only for future replication.
+the runtime env is only for future replication. Restore with the original epoch’s
+SSE-C key; install a new key afterward if rotation is planned.
 
 ```sh
 python3 recovery/run-with-env.py /etc/linkjar-pds-backup/backup.env -- \
@@ -200,8 +201,8 @@ missing telemetry, replication heartbeat, stale keys, changed database inventory
 disk above 70%, more than 25 new account rows in five minutes, and delayed
 security mail. The initial signup threshold counts imported accounts too; tune it
 from launch observations. Security-mail queue age does **not** measure provider
-bounces. A Resend bounce-event feed and its live alert remain a separate missing
-part of #91 and must be completed before claiming alert acceptance.
+bounces. The signed Resend feed below supplies separate bounce/failure/complaint
+counts; its registration and live delivery still require staging acceptance.
 
 On staging, stop the PDS and backup agents independently, interrupt backup access,
 create a new fixture account, simulate disk pressure on a disposable filesystem,
@@ -211,11 +212,60 @@ Provider host snapshots must be enabled, access restricted and a recovery point
 verified through the selected host's console; no host purchase/snapshot action
 has been performed here.
 
+## Signed mail-provider events
+
+Configure a Resend webhook for the PDS sending domain with `email.sent`,
+`email.bounced`, `email.failed` and `email.complained`. Its URL is
+`https://pds.linkjar.social/ops/mail-events`. The canonical-host route in
+`staging/Caddyfile.handles` forwards only that POST to the loopback receiver,
+with a 64 KiB limit and cookies removed. `PDS_RECOVERY_UPSTREAM` defaults to
+`127.0.0.1:9093` for the host-installed Caddy topology; a containerized proxy
+needs its explicitly configured private route to the host monitor. Other hosts,
+GET requests, `/metrics` and `/heartbeat` do not reach that receiver through
+this route.
+
+Save the endpoint's signing secret as
+`/etc/linkjar-pds-backup/resend-webhook.key` and the exact PDS sending address as
+`/etc/linkjar-pds-backup/resend-sender.txt`, both owned by UID 1000 with mode 0600.
+Do not reuse an SMTP API key as the webhook secret. Keep both inputs in the vault.
+When both files are present, bootstrap installs the optional
+`mail-monitor.conf.example` drop-in and prepares its private telemetry directory.
+After configuring the endpoint, restart the monitor through the normal service
+handoff. A configured webhook remains an acceptance input, not proof that it has
+received an event; test a real provider event and alert delivery before launch.
+
+The receiver verifies the exact raw body with the Svix HMAC-SHA256 protocol,
+constant-time signature comparison and a five-minute signed timestamp window.
+It supports multiple version-1 signatures during rotation and requires a known
+Content-Length; chunked requests are refused. Requests have a 64 KiB cap,
+five-second read timeout and sixteen concurrent worker limit. Invalid signatures
+cannot create an event. A sender check limits counts to the configured PDS
+address even when the Resend account serves other projects.
+
+The local SQLite telemetry store retains only a hashed event identifier, event
+type and occurrence/receipt times. It never stores or logs the payload, recipient,
+sender, subject or SMTP error. Duplicate retries remain idempotent across restart.
+Events older than seven days are ignored, and old rows are pruned on ingestion
+or scrape. This telemetry is outside the PDS backup inventory; after a lost host,
+counts restart until new events arrive. No account or delivery decision depends
+on those counters.
+
+The initial mail alert triggers on three bounces in five minutes, a bounce ratio
+over 5% with at least ten sends, three failed deliveries, or one spam complaint.
+Counts use the provider's event time rather than the retry arrival time. They are
+windowed operational signals, not a cohort deliverability calculation; bounces
+can arrive after the associated send window. Another rule reports an unconfigured
+or failed mail telemetry feed. An idle but configured feed does not by itself
+prove transport health: verify the Resend delivery log and replay a designated
+test event during the staging alert drill. No message or webhook registration was
+sent to a real service during local verification.
+
 ## Local evidence
 
 ```sh
 python3 recovery/install-tools.py --directory .build/recovery-tools
 python3 tests/recovery.py
+python3 tests/recovery-mail.py
 ```
 
 Eight tests cover a local file-replica crash drill (Litestream killed without a
@@ -224,8 +274,13 @@ startup, encrypted restic key/config recovery, reserved keys, corruption,
 missing/mismatched inventory, stale snapshots, unsafe archives, existing-target
 refusal, raw secret-file semantics and aggregate metrics. The measured fixture
 report is `.build/recovery-drill.json`. It cannot establish real PDS/R2 recovery.
-Prometheus 3.14.0 is pinned by image digest in `prometheus-image.txt`; its rule
-checker and healthy/failing fixtures in `alerts.test.json` pass locally.
+Five additional tests in `tests/recovery-mail.py` verify Svix's public signature
+fixture, body tampering, timestamp tolerance, rotation signatures, persistent
+deduplication, sender filtering, retention and the real bounded HTTP receiver.
+The Caddy integration verifies body/signature preservation, the size cap, cookie
+removal and private monitor routing. Prometheus 3.14.0 is pinned by image digest
+in `prometheus-image.txt`; its ten rules and healthy/failing fixtures, including
+low-volume and percentage-based bounce cases, pass locally.
 
 ## Sources checked 2026-09-12
 
@@ -234,3 +289,5 @@ checker and healthy/failing fixtures in `alerts.test.json` pass locally.
 - [Restic 0.19.1](https://github.com/restic/restic/releases/tag/v0.19.1) and [repository credentials/encryption setup](https://restic.readthedocs.io/en/stable/030_preparing_a_new_repo.html).
 - [Prometheus 3.14.0](https://github.com/prometheus/prometheus/releases/tag/v3.14.0).
 - [Pinned PDS actor storage](https://github.com/bluesky-social/atproto/blob/7ca16cc6989f8247637615aca17c5abb911b8fb1/packages/pds/src/actor-store/actor-store.ts) and [production guidance](https://atproto.com/guides/going-to-production).
+
+- [Resend signature verification](https://resend.com/docs/webhooks/verify-webhooks-requests), [Svix protocol and interoperability fixture](https://docs.svix.com/receiving/verifying-payloads/how-manual), [Resend event types](https://resend.com/docs/webhooks/event-types) and [Caddy body limits](https://caddyserver.com/docs/caddyfile/directives/request_body).

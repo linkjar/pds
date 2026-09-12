@@ -191,6 +191,6 @@ run end to end, and no real credential or external setup action was exercised.
 cover the local preparation for losing the PDS host. The disposable local crash
 drill includes dynamically discovered SQLite files and encrypted actor/config
 material. Fresh-VM R2 restoration, key/DID and sequencer reconciliation, signed
-writes, blobs, OAuth, real alert routing and the bounce-event feed remain pending.
+writes, blobs, OAuth, real alert routing and signed Resend webhook registration/delivery remain pending.
 Use a new replication epoch on a replacement host and keep public routing fenced
 until those checks pass. Local fixture timings are not the deployment RTO/RPO.

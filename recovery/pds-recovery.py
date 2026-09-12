@@ -2,6 +2,7 @@
 """PDS backup inventory, encrypted host material, and isolated restore checks."""
 import argparse
 import base64
+from contextlib import contextmanager
 import hashlib
 import io
 import json
@@ -46,9 +47,14 @@ def private_write(path, data):
     os.replace(temp, path)
 
 
+@contextmanager
 def sqlite_read(path):
     regular(path)
-    return sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)
+    db = sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 def inventory(data, config):
@@ -128,7 +134,7 @@ def backup(args):
         raise ValueError('Backup state must be outside data and online configuration')
     databases, files = inventory(args.data, args.config)
     manifest = {'version': 1, 'startedAt': started, 'databases': databases, 'files': {}}
-    with tempfile.TemporaryDirectory(prefix='linkjar-key-backup-', dir=args.state) as tmp:
+    with tempfile.TemporaryDirectory(prefix='linkjar-key-backup-') as tmp:
         archive = Path(tmp) / 'host-material.tar'
         with tarfile.open(archive, 'w') as tar:
             for name, source in files:

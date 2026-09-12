@@ -1,0 +1,5 @@
+# Install as /etc/systemd/system/linkjar-pds-recovery-monitor.service.d/mail.conf
+[Service]
+ExecStart=
+ExecStart=/usr/bin/python3 /opt/linkjar-pds/recovery/monitor.py --data /var/lib/linkjar-pds/staging --state /var/lib/linkjar-pds-backup/state --resend-secret-file /etc/linkjar-pds-backup/resend-webhook.key --resend-sender-file /etc/linkjar-pds-backup/resend-sender.txt
+ReadWritePaths=/var/lib/linkjar-pds-backup/state/mail

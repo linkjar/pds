@@ -49,3 +49,15 @@ groups:
         labels: { severity: warning }
         annotations:
           summary: "Security mail has remained queued for more than five minutes"
+      - alert: LinkJarPdsMailWebhookUnavailable
+        expr: linkjar_pds_mail_webhook_configured == 0 or linkjar_pds_mail_telemetry_ok == 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Signed mail-provider telemetry is unconfigured or unavailable"
+      - alert: LinkJarPdsMailDeliveryProblems
+        expr: linkjar_pds_mail_bounced_5m >= 3 or ((linkjar_pds_mail_bounced_5m / clamp_min(linkjar_pds_mail_sent_5m, 1) > 0.05) and linkjar_pds_mail_sent_5m >= 10) or linkjar_pds_mail_failed_5m >= 3 or linkjar_pds_mail_complained_5m >= 1
+        for: 1m
+        labels: { severity: warning }
+        annotations:
+          summary: "Mail bounces, delivery failures or complaints exceed the initial threshold"

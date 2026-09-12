@@ -4,7 +4,23 @@
 (linkjar_handle_hosts) {
 	@pds host pds.linkjar.social
 	handle @pds {
-		reverse_proxy {$PDS_UPSTREAM:pds:3000}
+		@mail_events {
+			path /ops/mail-events
+			method POST
+		}
+		handle @mail_events {
+			request_body {
+				max_size 64KiB
+			}
+			reverse_proxy {$PDS_RECOVERY_UPSTREAM:127.0.0.1:9093} {
+				rewrite /webhooks/resend
+				header_up -Cookie
+				header_down -Set-Cookie
+			}
+		}
+		handle {
+			reverse_proxy {$PDS_UPSTREAM:pds:3000}
+		}
 	}
 
 	handle {

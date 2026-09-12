@@ -23,7 +23,7 @@ try:
         config.write_text('''{\n admin off\n auto_https off\n}\nimport /etc/caddy/handles\n:8080 {\n import linkjar_handle_hosts\n}\n''')
         source_args = ['-v', f'{args.source.resolve()}:/patch-src:ro'] if args.source else ['-e', 'LINKJAR_USE_COMPILED=1']
         run('docker', 'run', '-d', '--name', backend, '--network', name, '--user', 'root', '--entrypoint', 'node', *source_args, '-v', f'{ROOT / "tests"}:/linkjar-tests:ro', args.pds_image, '/linkjar-tests/handle-proxy-backend.mjs')
-        run('docker', 'run', '-d', '--name', proxy, '--network', name, '-e', f'PDS_UPSTREAM={backend}:3000', '-v', f'{config}:/etc/caddy/Caddyfile:ro', '-v', f'{ROOT / "staging/Caddyfile.handles"}:/etc/caddy/handles:ro', args.caddy_image)
+        run('docker', 'run', '-d', '--name', proxy, '--network', name, '-e', f'PDS_UPSTREAM={backend}:3000', '-e', f'PDS_RECOVERY_UPSTREAM={backend}:3001', '-v', f'{config}:/etc/caddy/Caddyfile:ro', '-v', f'{ROOT / "staging/Caddyfile.handles"}:/etc/caddy/handles:ro', args.caddy_image)
         print(run('docker', 'exec', backend, 'node', '/linkjar-tests/handle-proxy-probes.mjs', f'http://{proxy}:8080'))
 except subprocess.CalledProcessError as error:
     print(error.stderr)

@@ -33,6 +33,7 @@ jobs:
         run: |
           python3 recovery/install-tools.py --directory .build/recovery-tools
           python3 tests/recovery.py
+          python3 tests/recovery-mail.py
           bash -n recovery/bootstrap.sh
           shellcheck recovery/bootstrap.sh
           docker run --rm --entrypoint /bin/promtool -v "$PWD/recovery:/recovery:ro" "$(cat recovery/prometheus-image.txt)" check rules /recovery/alerts.yml
