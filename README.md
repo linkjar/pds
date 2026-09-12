@@ -139,3 +139,12 @@ It is a draft until its actual issue URL is recorded here and in #98.
 - [Pinned UI asset resolution](https://github.com/bluesky-social/atproto/blob/7ca16cc6989f8247637615aca17c5abb911b8fb1/packages/oauth/oauth-provider/src/router/assets/assets.ts)
 - [Official self-hosted distribution](https://github.com/bluesky-social/pds)
 - [LinkJar hosting decision](https://github.com/linkjar/linkjar.io/blob/main/docs/research/serverless-pds-2026-09/README.md)
+
+## Provisioning inputs
+
+For the repeatable human setup path requested by linkjar/linkjar.io#90, run
+[`scripts/provision-wizard.sh`](scripts/provision-wizard.sh) in an interactive
+terminal. It collects private local inputs without deploying a server. See
+[`docs/runbooks/pds.md`](docs/runbooks/pds.md) for topology, secret inventory and
+the live checks that remain required. Staging Compose requires 2.30+ so raw
+secret values are not interpolated.

@@ -3,7 +3,9 @@ services:
   pds:
     image: ${PDS_IMAGE:?Set the verified GHCR image digest in staging/image.env}
     restart: unless-stopped
-    env_file: ${PDS_ENV_FILE:?Set the absolute path of the staging secrets env file}
+    env_file:
+      - path: ${PDS_ENV_FILE:?Set the absolute path of the staging secrets env file}
+        format: raw
     ports:
       - 127.0.0.1:3000:3000
     volumes:
