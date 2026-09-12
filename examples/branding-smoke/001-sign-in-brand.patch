@@ -1,0 +1,11 @@
+--- a/packages/oauth/oauth-provider-ui/src/components/sign-in-view.tsx
++++ b/packages/oauth/oauth-provider-ui/src/components/sign-in-view.tsx
+@@ -39,7 +39,7 @@
+ 
+   const [showSignInForm, setShowSignInForm] = useState(sessions.length === 0)
+ 
+-  const title = msg({ message: 'Sign in', context: 'AuthenticationPage' })
++  const title = msg({ message: 'LinkJar staging sign in', context: 'AuthenticationPage' })
+ 
+   useEffect(() => {
+     // Make sure the "back" action shows the account picker instead of the

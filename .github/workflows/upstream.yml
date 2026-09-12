@@ -1,0 +1,43 @@
+name: Check upstream PDS releases
+on:
+  schedule:
+    - cron: '23 8 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  update:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+      - run: python3 scripts/check-upstream.py --write
+      - uses: peter-evans/create-pull-request@c9f8b51aaac1dfba340a97878061732b0e738ec1
+        id: bump
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: codex/upstream-pds
+          title: Update pinned upstream PDS release
+          commit-message: Update pinned upstream PDS release
+          body: |
+            Update the stable PDS source tag and peeled commit, and regenerate its build instructions.
+
+            Review upstream release notes, rebased patches and both architecture builds. Update the official comparator digest to the matching release if parity CI reports a version mismatch. Do not merge until image parity and rendered branding tests pass. Staging deployment and account migration remain separately gated.
+          add-paths: |
+            upstream.json
+            Dockerfile
+            docs/upstream.Dockerfile
+      - name: Explain failed PR creation
+        if: failure() && steps.bump.outcome == 'failure'
+        run: |
+          echo '::error::Upstream PR creation failed; see the GitHub API error above. Actions must be allowed to create pull requests by both organization and repository policy. LinkJar currently blocks this at organization level; an organization owner must explicitly authorize the supported setting. Do not bypass it with a personal token.'
+      - name: Verify the changed bump branch without a personal token
+        if: steps.bump.outputs.pull-request-operation == 'created' || steps.bump.outputs.pull-request-operation == 'updated'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Explicit dispatch runs with GITHUB_TOKEN. This fixed non-main ref can
+        # run verify, but the build workflow's main-only publish guard rejects it.
+        run: gh workflow run build.yml --ref codex/upstream-pds --repo "$GITHUB_REPOSITORY"

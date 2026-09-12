@@ -1,0 +1,12 @@
+{
+  "name": "linkjar-pds-build",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "python3 scripts/check.py",
+    "smoke": "python3 scripts/smoke.py --browser"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}
