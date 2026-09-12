@@ -125,10 +125,13 @@ for Email Communication service, with aligned SPF/DKIM. Keep bounce notification
 enabled and test password-reset delivery to a Hide My Email address.
 No provider is linked to an existing DID based on matching email.
 
-#94 must supply the approved branding, support and published policy URLs, plus
-`PDS_OAUTH_TRUSTED_CLIENTS` for the web, iOS and extension metadata URLs. Stock
-trust extends sessions; consent handling remains a separate mechanism. Do not
-label these values or the hosting policy complete from this wizard.
+Merge [#94's provider configuration](../provider-policy.md), including its
+branding and `PDS_OAUTH_TRUSTED_CLIENTS` for web, iOS and extension. Fill the
+published policy/support URLs and monitored contact once confirmed. Stock trust
+extends sessions; consent handling remains a separate mechanism. With hCaptcha
+configured, revision 6 requires OAuth for fresh signup while retaining
+service-authenticated DID imports. Do not label live policy/signup acceptance
+complete from this wizard.
 
 ## Live acceptance record (all pending)
 

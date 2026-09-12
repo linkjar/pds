@@ -181,3 +181,12 @@ registration and deployed acceptance remain part of #90/#99.
 
 See [account creation receipts](docs/signup-receipt.md) for the authenticated
 web/iOS onboarding extension following provider signup.
+
+## Provider policy
+
+[Provider configuration and support procedures](docs/provider-policy.md) supplies
+the LinkJar branding/trusted-client example and #94's hosting-policy content
+inventory. Revision 6 rejects fresh legacy signup when hCaptcha is configured,
+preserves authenticated DID imports, and rejects partial hCaptcha configuration.
+Published policy pages, the monitored support contact and live acceptance remain
+required before opening signup.

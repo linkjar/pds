@@ -65,6 +65,10 @@ jobs:
         run: python3 scripts/test-external.py linkjar-pds:production
       - name: Verify authenticated account creation receipts
         run: docker run --rm --entrypoint node -v "$PWD/tests:/linkjar-tests:ro" linkjar-pds:production /linkjar-tests/signup-receipt.mjs
+      - name: Verify provider branding in light and dark
+        run: python3 scripts/test-external.py linkjar-pds:production --branding
+      - name: Verify CAPTCHA signup policy
+        run: docker run --rm --entrypoint node -v "$PWD/tests:/linkjar-tests:ro" linkjar-pds:production --test /linkjar-tests/signup-policy.mjs
       - run: python3 scripts/smoke.py --browser
   publish-amd64:
     needs: verify

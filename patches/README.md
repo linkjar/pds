@@ -24,3 +24,7 @@ dependencies. Runtime tests exercise the compiled SQLite and UI/API boundary.
 
 `099b-signup-receipt.patch` follows provider signup and binds the newly created
 DID to its OAuth session. See [the receipt contract and lifecycle](../docs/signup-receipt.md).
+
+`099c-signup-policy.patch` prevents fresh legacy signup from bypassing the
+configured OAuth hCaptcha flow and rejects partial hCaptcha configuration.
+See [#94's policy, compatibility tests and removal condition](../docs/provider-policy.md).

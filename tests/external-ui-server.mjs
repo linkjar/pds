@@ -17,30 +17,29 @@ const { createApiMiddleware } = await import(
 const { assetsMiddleware } = await import(
   `${upstream}/packages/oauth/oauth-provider/dist/router/assets/assets.js`
 );
-const render = sendAuthorizePageFactory(
-  {
-    availableUserDomains: [".linkjar.social"],
-    inviteCodeRequired: false,
-    externalProviders: [
-      { id: "apple", label: "Apple" },
-      { id: "google", label: "Google" },
-      { id: "github", label: "GitHub" },
-    ],
-  },
-  { hsts: false },
-);
-const renderAccount = sendAccountPageFactory(
-  {
-    availableUserDomains: [".linkjar.social"],
-    inviteCodeRequired: false,
-    externalProviders: [
-      { id: "apple", label: "Apple" },
-      { id: "google", label: "Google" },
-      { id: "github", label: "GitHub" },
-    ],
-  },
-  { hsts: false },
-);
+const customization = {
+  availableUserDomains: [".linkjar.social"],
+  inviteCodeRequired: false,
+  externalProviders: [
+    { id: "apple", label: "Apple" },
+    { id: "google", label: "Google" },
+    { id: "github", label: "GitHub" },
+  ],
+};
+if (process.env.LINKJAR_BRANDING_TEST) {
+  const { readEnv } = await import(`${upstream}/packages/pds/dist/config/env.js`);
+  const { envToCfg } = await import(`${upstream}/packages/pds/dist/config/config.js`);
+  const { brandingSchema } = await import(`${upstream}/packages/oauth/oauth-provider/dist/customization/branding.js`);
+  const config = envToCfg({ ...readEnv(), blobstoreDiskLocation: "/tmp/unused" });
+  customization.branding = brandingSchema.parse(config.oauth.provider.branding);
+  assert.deepEqual(config.oauth.provider.trustedClients, [
+    "https://app.linkjar.io/client-metadata.json",
+    "https://linkjar.io/ios-client-metadata.json",
+    "https://linkjar.io/ext-client-metadata.json",
+  ]);
+}
+const render = sendAuthorizePageFactory(customization, { hsts: false });
+const renderAccount = sendAccountPageFactory(customization, { hsts: false });
 const requestUri =
   "urn:ietf:params:oauth:request_uri:req-01234567890123456789012345678901";
 let origin;

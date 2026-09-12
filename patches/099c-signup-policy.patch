@@ -1,0 +1,43 @@
+diff --git a/packages/pds/src/api/com/atproto/server/createAccount.ts b/packages/pds/src/api/com/atproto/server/createAccount.ts
+index f4d1537..39f2d85 100644
+--- a/packages/pds/src/api/com/atproto/server/createAccount.ts
++++ b/packages/pds/src/api/com/atproto/server/createAccount.ts
+@@ -37,6 +37,17 @@ export default function (server: Server, ctx: AppContext) {
+       // refactored together, any change made here must be reflected over there.
+ 
+       const requester = auth.credentials?.did ?? null
++      // The legacy lexicon has no CAPTCHA proof. Fresh registrations must use
++      // the provider's protected signup flow. A service-authenticated migration
++      // of the caller's own DID still follows the existing validation below.
++      if (
++        ctx.cfg.oauth.provider?.hcaptcha &&
++        (!input.body.did || input.body.did !== requester)
++      ) {
++        throw new InvalidRequestError(
++          'Create an account through the OAuth signup page',
++        )
++      }
+       const {
+         did,
+         handle,
+diff --git a/packages/pds/src/config/config.ts b/packages/pds/src/config/config.ts
+index 7e526b2..672321e 100644
+--- a/packages/pds/src/config/config.ts
++++ b/packages/pds/src/config/config.ts
+@@ -16,6 +16,16 @@ export type { BrandingConfig }
+ // logging: LOG_LEVEL, LOG_SYSTEMS, LOG_ENABLED, LOG_DESTINATION
+ 
+ export const envToCfg = (env: ServerEnvironment): ServerConfig => {
++  const captchaSettings = [
++    env.hcaptchaSiteKey,
++    env.hcaptchaSecretKey,
++    env.hcaptchaTokenSalt,
++  ]
++  if (captchaSettings.some(Boolean) && !captchaSettings.every(Boolean)) {
++    throw new Error(
++      'Partial hCaptcha config, must set site key, secret key and token salt',
++    )
++  }
+   const port = env.port ?? 2583
+   const hostname = env.hostname ?? 'localhost'
+   const publicUrl =
