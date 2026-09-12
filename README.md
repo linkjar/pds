@@ -63,6 +63,26 @@ upstream/removal plans.
 
 ## CI and releases
 
+Verification runs independently on native `ubuntu-24.04` (AMD64) and
+`ubuntu-24.04-arm` (ARM64) runners, including production builds and browser
+checks. Architecture-specific caches prevent one platform evicting the other.
+QEMU is not used: release run 34706096091 crashed with SIGILL during ARM64
+`pnpm install` under emulation and hung until its 90-minute timeout.
+
+After both verification jobs pass, native publication jobs push separately
+attested images. The final job assembles their exact output digests, requires
+exactly the two Linux runtime architectures (plus linked build attestations),
+and promotes that index through the existing unused-tag guard. Partial builds
+never advance a stable release tag. Running main releases are not cancelled by
+a later push; PR runs still cancel superseded checks. Rerunning failed jobs uses
+the successful jobs' digest outputs rather than guessing candidate tag names.
+
+Native runner support and the separate-runner pattern are documented by
+[GitHub](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
+and [Docker](https://docs.docker.com/build/ci/github-actions/multi-platform/).
+Revision 5 remains the first unpublished revision after the failed run; this
+workflow repair does not change its source patches or runtime configuration.
+
 Pull requests and main pushes run pin checks, unpatched/branding/production builds
 and runtime/browser checks. Only verified main builds publish AMD64 and ARM64
 images to GHCR, with provenance and SBOMs. Tags normalize the upstream package tag
