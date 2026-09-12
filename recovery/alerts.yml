@@ -1,0 +1,51 @@
+groups:
+  - name: linkjar-pds-recovery
+    rules:
+      - alert: LinkJarPdsDown
+        expr: probe_success{job="linkjar-pds-public"} == 0 or absent(probe_success{job="linkjar-pds-public"})
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "PDS public health check is failing or missing"
+      - alert: LinkJarPdsRecoveryMonitorMissing
+        expr: up{job="linkjar-pds-recovery"} == 0 or absent(up{job="linkjar-pds-recovery"})
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "PDS recovery telemetry is missing"
+      - alert: LinkJarPdsReplicationUnhealthy
+        expr: time() - linkjar_pds_backup_heartbeat_seconds > 120
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "Litestream has not confirmed a healthy sync heartbeat"
+      - alert: LinkJarPdsKeyBackupStale
+        expr: time() - linkjar_pds_key_capture_seconds > 60
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "Actor keys and online configuration exceed the recovery target"
+      - alert: LinkJarPdsBackupInventoryMismatch
+        expr: linkjar_pds_backup_inventory_matches == 0 or linkjar_pds_recovery_inventory_ok == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "Current databases are not covered by a healthy backup inventory"
+      - alert: LinkJarPdsDiskPressure
+        expr: linkjar_pds_disk_used_ratio > 0.70
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "PDS data filesystem is more than 70 percent full"
+      - alert: LinkJarPdsSignupSpike
+        expr: linkjar_pds_accounts_created_5m > 25
+        for: 1m
+        labels: { severity: warning }
+        annotations:
+          summary: "More than 25 accounts were created in five minutes; check abuse and campaign activity"
+      - alert: LinkJarPdsSecurityMailDelayed
+        expr: linkjar_pds_security_mail_oldest_age_seconds > 300
+        for: 1m
+        labels: { severity: warning }
+        annotations:
+          summary: "Security mail has remained queued for more than five minutes"

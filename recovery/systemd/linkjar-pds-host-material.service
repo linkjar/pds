@@ -1,0 +1,15 @@
+[Unit]
+Description=LinkJar PDS encrypted actor key and online configuration backup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+UMask=0077
+ExecStart=/usr/bin/python3 /opt/linkjar-pds/recovery/run-with-env.py /etc/linkjar-pds-backup/backup.env -- /usr/bin/python3 /opt/linkjar-pds/recovery/pds-recovery.py backup-host-material --data /var/lib/linkjar-pds/staging --config /etc/linkjar-pds --state /var/lib/linkjar-pds-backup/state --restic /opt/linkjar-pds-tools/restic --environment linkjar-pds-staging
+TimeoutStartSec=10min
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/linkjar-pds-backup/state /var/cache/linkjar-pds-backup

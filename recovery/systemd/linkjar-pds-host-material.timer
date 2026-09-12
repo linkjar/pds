@@ -1,0 +1,11 @@
+[Unit]
+Description=Back up LinkJar PDS actor keys and configuration 30 seconds after each completed run
+
+[Timer]
+OnBootSec=15s
+OnUnitInactiveSec=30s
+AccuracySec=1s
+Unit=linkjar-pds-host-material.service
+
+[Install]
+WantedBy=timers.target

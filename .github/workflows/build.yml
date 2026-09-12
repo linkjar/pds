@@ -29,6 +29,14 @@ jobs:
           node-version: '24'
           cache: npm
       - run: python3 scripts/check.py
+      - name: Verify backup tooling and crash recovery gates
+        run: |
+          python3 recovery/install-tools.py --directory .build/recovery-tools
+          python3 tests/recovery.py
+          bash -n recovery/bootstrap.sh
+          shellcheck recovery/bootstrap.sh
+          docker run --rm --entrypoint /bin/promtool -v "$PWD/recovery:/recovery:ro" "$(cat recovery/prometheus-image.txt)" check rules /recovery/alerts.yml
+          docker run --rm --entrypoint /bin/promtool -v "$PWD/recovery:/recovery:ro" "$(cat recovery/prometheus-image.txt)" test rules /recovery/alerts.test.json
       - run: npm ci && npx playwright install --with-deps chromium
       - uses: docker/setup-buildx-action@5ac4a31b15f1c45ec652b8af78c2096c3a08368c
       - name: Build unpatched comparator

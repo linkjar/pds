@@ -1,0 +1,19 @@
+[Unit]
+Description=LinkJar PDS private recovery telemetry
+After=network.target
+
+[Service]
+Type=simple
+User=1000
+Group=1000
+UMask=0077
+ExecStart=/usr/bin/python3 /opt/linkjar-pds/recovery/monitor.py --data /var/lib/linkjar-pds/staging --state /var/lib/linkjar-pds-backup/state
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
