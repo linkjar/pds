@@ -11,6 +11,8 @@ in {
   networking.firewall.allowedTCPPorts = [ 22 ] ++ lib.optionals host.enablePds [ 443 ];
   system.stateVersion = "26.05";
   time.timeZone = "UTC";
+  boot.initrd.kernelModules = [ "virtio_gpu" ];
+  boot.kernelParams = [ "console=tty" "console=ttyAMA0,115200" ];
   boot.loader.grub = { enable = true; efiSupport = true; efiInstallAsRemovable = true; device = "nodev"; configurationLimit = 5; };
   boot.loader.efi = { canTouchEfiVariables = false; efiSysMountPoint = "/boot/efi"; };
   zramSwap = { enable = true; memoryPercent = 50; };

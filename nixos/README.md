@@ -5,17 +5,17 @@ This adapts the OpenTofu → nixos-anywhere/disko approach inspected in
 keys, Cloudflare Tunnel, deployment timer or disk installer. No infrastructure
 has been purchased, installed, reimaged or exposed by adding these files.
 
-The candidate is an x86_64 CX33 in Nuremberg (`nbg1`), with a public IPv4.
-The reference server in cc-remote is ARM; its kexec URL and hardware module must
-not be used here. PDS image revision 8 is pinned by its verified multi-platform
+The candidate is an ARM64 CAX21 in Nuremberg (`nbg1`), with a public IPv4.
+This matches cc-remote’s ARM architecture; the PDS still has a separate host
+identity, key, disk installation target and state. PDS image revision 8 is pinned by its verified multi-platform
 digest. The host keeps port 3000 on loopback and uses the existing reviewed Caddy
 handle routing. Service startup and public HTTPS are disabled initially.
 
 ## Before purchasing
 
-1. Confirm CX33 stock and the account's final quote. The published June 2026
-   German-region rate is €8.49/month excluding IPv4 and VAT; add the IPv4 charge,
-   R2 and mail. Obtain approval for the actual recurring quote.
+1. Confirm CAX21 stock and the account's final quote. The signed-in Hetzner Console
+   showed €10.49/month plus €0.50 for IPv4: €10.99/month excluding VAT on
+   2026-09-13. R2 and mail are additional. Obtain approval for this recurring quote.
 2. Create a separate Hetzner project/token for LinkJar if isolation is desired.
    Store the token and a new state-encryption passphrase in the operator vault.
 3. Create a dedicated operator SSH key. Put its **public** half in
@@ -35,8 +35,8 @@ Check the new server ID/IP against the reviewed plan. Review the disk layout
 and the nonempty `adminSshKeys` before installation. nixos-anywhere repartitions
 `/dev/sda`; never invoke it against cc-remote or a host containing retained data.
 Use this flake's pinned nixos-anywhere input, the `#linkjar-pds` configuration,
-and the x86_64 installer/default detected architecture. A Mac must use remote
-building or an x86_64-linux builder. Keep SSH reachable from the approved /32.
+and the aarch64 installer/default detected architecture. A Mac must use remote
+building or an aarch64-linux builder. Keep SSH reachable from the approved /32.
 After installation, SSH as `operator` with the dedicated key.
 
 ## Runtime and launch gates

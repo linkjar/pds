@@ -11,7 +11,7 @@
   };
   outputs = { nixpkgs, disko, ... }: {
     nixosConfigurations.linkjar-pds = nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
+      system = "aarch64-linux";
       modules = [ disko.nixosModules.disko ./nixos/configuration.nix ];
     };
   };
