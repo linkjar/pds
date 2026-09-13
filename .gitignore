@@ -6,3 +6,10 @@ staging/*.env
 *.log
 __pycache__/
 *.pyc
+
+# Dedicated PDS provisioning state and plans
+infra/hetzner/.terraform/
+infra/hetzner/*.tfstate*
+infra/hetzner/*.tfplan
+infra/hetzner/*.tfvars
+infra/hetzner/crash.log
