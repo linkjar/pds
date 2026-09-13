@@ -6,7 +6,9 @@ terraform {
     }
 
   }
-  # Dedicated local state: never initialize in or reuse cc-remote's state directory.
+  # The local backend is configured to the stable private LinkJar state directory.
+  backend "local" {}
+  # Never initialize in or reuse cc-remote's state directory.
   encryption {
     key_provider "pbkdf2" "state" {
       passphrase = var.state_passphrase
@@ -50,12 +52,12 @@ variable "enable_public_https" {
 provider "hcloud" {
   token = var.hcloud_token
 }
-resource "hcloud_ssh_key" "pds" {
-  name       = "linkjar-pds"
+resource "hcloud_ssh_key" "linkjar" {
+  name       = "linkjar"
   public_key = var.ssh_public_key
 }
-resource "hcloud_firewall" "pds" {
-  name = "linkjar-pds"
+resource "hcloud_firewall" "linkjar" {
+  name = "linkjar"
   rule {
     direction  = "in"
     protocol   = "tcp"
@@ -78,13 +80,13 @@ resource "hcloud_firewall" "pds" {
 
   }
 }
-resource "hcloud_server" "pds" {
-  name         = "linkjar-pds"
+resource "hcloud_server" "linkjar" {
+  name         = "linkjar"
   server_type  = "cax21"
   location     = "nbg1"
   image        = "ubuntu-24.04"
-  ssh_keys     = [hcloud_ssh_key.pds.id]
-  firewall_ids = [hcloud_firewall.pds.id]
+  ssh_keys     = [hcloud_ssh_key.linkjar.id]
+  firewall_ids = [hcloud_firewall.linkjar.id]
   public_net {
     ipv4_enabled = true
     ipv6_enabled = false
@@ -95,8 +97,8 @@ resource "hcloud_server" "pds" {
   }
 }
 output "server_id" {
-  value = hcloud_server.pds.id
+  value = hcloud_server.linkjar.id
 }
 output "server_ipv4" {
-  value = hcloud_server.pds.ipv4_address
+  value = hcloud_server.linkjar.ipv4_address
 }

@@ -16,13 +16,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
       - name: Evaluate the disabled deployment candidate
-        run: nix eval .#nixosConfigurations.linkjar-pds.config.system.build.toplevel.drvPath
+        run: nix eval .#nixosConfigurations.linkjar.config.system.build.toplevel.drvPath
       - name: Evaluate configured service activation
         run: |
           cp nixos/host.nix /tmp/linkjar-host.nix
           trap 'cp /tmp/linkjar-host.nix nixos/host.nix' EXIT
           printf '%s\n' '{ adminSshKeys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF3QXf4OiCNKoQcDPjmItNFPMUSxdhh9DWLLhUpVaFTl validation-only" ]; enablePds = true; }' > nixos/host.nix
-          nix eval .#nixosConfigurations.linkjar-pds.config.system.build.toplevel.drvPath
+          nix eval .#nixosConfigurations.linkjar.config.system.build.toplevel.drvPath
       - name: Validate OpenTofu without cloud credentials
         env:
           TF_VAR_state_passphrase: local-validation-only-not-a-runtime-secret

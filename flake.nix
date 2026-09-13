@@ -1,5 +1,5 @@
 {
-  description = "LinkJar PDS dedicated NixOS host";
+  description = "LinkJar infrastructure host; PDS is the first service";
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     disko = { url = "github:nix-community/disko"; inputs.nixpkgs.follows = "nixpkgs"; };
@@ -10,7 +10,7 @@
     };
   };
   outputs = { nixpkgs, disko, ... }: {
-    nixosConfigurations.linkjar-pds = nixpkgs.lib.nixosSystem {
+    nixosConfigurations.linkjar = nixpkgs.lib.nixosSystem {
       system = "aarch64-linux";
       modules = [ disko.nixosModules.disko ./nixos/configuration.nix ];
     };

@@ -6,7 +6,7 @@ let
     (builtins.readFile ../staging/Caddyfile.handles);
 in {
   imports = [ (modulesPath + "/profiles/qemu-guest.nix") ./disko.nix ];
-  networking.hostName = "linkjar-pds";
+  networking.hostName = "linkjar";
   networking.useDHCP = lib.mkDefault true;
   networking.firewall.allowedTCPPorts = [ 22 ] ++ lib.optionals host.enablePds [ 443 ];
   system.stateVersion = "26.05";

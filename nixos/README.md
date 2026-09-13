@@ -1,4 +1,4 @@
-# Dedicated LinkJar PDS on NixOS — deployment candidate
+# LinkJar infrastructure on NixOS — deployment candidate
 
 This adapts the OpenTofu → nixos-anywhere/disko approach inspected in
 `/Users/kadza/sync/cc-remote`. It does not use that project's state, host, host
@@ -25,7 +25,9 @@ handle routing. Service startup and public HTTPS are disabled initially.
 Run OpenTofu only from `infra/hetzner`, with `TF_VAR_hcloud_token` and
 `TF_VAR_state_passphrase` set without printing them. `tofu init`, then
 `tofu plan -out=pds.tfplan`. Review the exact plan and quote before applying.
-State and saved plans are encrypted and ignored by Git; back up the state and
+State and saved plans are encrypted and kept outside the checkout at
+`~/.local/share/linkjar-infra` (directory mode 0700). Configure the local backend
+with that directory’s `terraform.tfstate` path during `tofu init`; back up the state and
 passphrase through the approved secret store. Do not point this configuration
 at cc-remote's R2 backend or existing resources.
 
@@ -34,7 +36,7 @@ at cc-remote's R2 backend or existing resources.
 Check the new server ID/IP against the reviewed plan. Review the disk layout
 and the nonempty `adminSshKeys` before installation. nixos-anywhere repartitions
 `/dev/sda`; never invoke it against cc-remote or a host containing retained data.
-Use this flake's pinned nixos-anywhere input, the `#linkjar-pds` configuration,
+Use this flake's pinned nixos-anywhere input, the `#linkjar` configuration,
 and the aarch64 installer/default detected architecture. A Mac must use remote
 building or an aarch64-linux builder. Keep SSH reachable from the approved /32.
 After installation, SSH as `operator` with the dedicated key.
@@ -73,3 +75,21 @@ restored the disabled host file afterward. OpenTofu initialization without a
 backend, formatting and validation passed without provider credentials. These
 checks do not prove a boot, installation, live TLS, restore or account signup.
 The PR workflow repeats both evaluations and offline OpenTofu validation.
+
+## Local credential names
+
+The new Hetzner token is stored in macOS Keychain with service `linkjar` and
+account `hcloud_token`. It belongs to the new `linkjar.io` project. Do not read
+cc-remote credentials or reuse its infrastructure state. Host/Hetzner resource
+names are `linkjar`, leaving room for additional services; the PDS keeps its
+service-specific hostname, data directory and runtime credentials.
+
+Run `nix shell --inputs-from . nixpkgs#opentofu -c python3 scripts/infra-plan.py`
+from the repository root. The helper reads only `linkjar/hcloud_token` and
+`linkjar/tfstate_passphrase` from Keychain, uses `~/.ssh/linkjar_ed25519.pub`,
+checks that the NixOS operator key matches, and restricts bootstrap SSH to this
+Mac’s current public IPv4 (/32). It initializes the isolated encrypted backend
+and saves `~/.local/share/linkjar-infra/review.tfplan`; it never applies it.
+The displayed JSON is an allowlisted summary, because unfiltered `tofu show
+-json` includes credentials. Back up the encryption passphrase in the operator
+vault before relying on the deployed state.
