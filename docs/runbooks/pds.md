@@ -9,7 +9,7 @@ input inventory, not evidence of a working account host. #98 owns the image,
 
 ## Collect the human-only inputs
 
-Run from a trusted interactive terminal with Bash, Git and OpenSSL installed:
+Run from a trusted interactive terminal with Bash, Python 3, Git and OpenSSL installed:
 
 ```sh
 ./scripts/provision-wizard.sh
@@ -207,3 +207,13 @@ material. Fresh-VM R2 restoration, key/DID and sequencer reconciliation, signed
 writes, blobs, OAuth, real alert routing and signed Resend webhook registration/delivery remain pending.
 Use a new replication epoch on a replacement host and keep public routing fenced
 until those checks pass. Local fixture timings are not the deployment RTO/RPO.
+
+### R2 URL entry
+
+Paste either the account S3 endpoint or the dashboard bucket URL into the wizard.
+It separates a bucket suffix from the endpoint and validates both. A direct browser
+request to a private S3 API URL may return 400; this does not establish that the
+bucket or credentials are broken. Use the Cloudflare dashboard for administration
+and signed S3 requests for access. See [R2 authentication](https://developers.cloudflare.com/r2/api/tokens/).
+`linkjar-tfstate` remains the infrastructure-state bucket and is rejected for PDS
+blob/backup input. Keep those buckets private and separately scoped.

@@ -13,6 +13,20 @@ def load(name):
     return module
 
 class PinTests(unittest.TestCase):
+    def test_r2_input_separates_bucket_url_and_rejects_state_storage(self):
+        parse = load('r2-input').parse
+        root = 'https://' + 'a' * 32 + '.r2.cloudflarestorage.com'
+        self.assertEqual(parse(root), (root, ''))
+        self.assertEqual(parse(root + '/linkjar-blobs'), (root, 'linkjar-blobs'))
+        eu = root.replace('.r2.', '.eu.r2.')
+        self.assertEqual(parse(eu + '/linkjar-backups'), (eu, 'linkjar-backups'))
+        for value in [root + '/linkjar-tfstate', root + '/bucket/object',
+                      root + '?key=fixture', root + '#fragment', root + ':443',
+                      root.replace('https://', 'http://'),
+                      root.replace('https://', 'https://user:fixture@')]:
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                parse(value)
+
     def test_release_guard_fails_closed_before_package_bootstrap(self):
         absent = load('release-guard').confirmed_absent
         self.assertFalse(absent(1, 'denied: requested access to the resource is denied'))

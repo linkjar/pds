@@ -190,6 +190,7 @@ TOTAL_STAGES=11
 # The output is Docker raw env-file data, never shell code. Do not source it.
 [[ -t 0 && -t 1 ]] || { printf 'Run this wizard in an interactive terminal.\n' >&2; exit 1; }
 umask 077
+command -v python3 >/dev/null || { printf 'Python 3 is required for R2 URL validation.\n' >&2; exit 1; }
 ENV_FILE="${PDS_SETUP_FILE:-${HOME}/.config/linkjar-pds/setup.env}"
 [[ "$ENV_FILE" = /* && ! -L "$ENV_FILE" ]] || { printf '%sUse an absolute, non-symlink PDS_SETUP_FILE.%s\n' "$RED" "$RESET" >&2; exit 1; }
 mkdir -p "$(dirname "$ENV_FILE")"
@@ -210,6 +211,33 @@ capture() {
     warn 'Value is missing or invalid; retry, or Ctrl-C to stop.'
   done
   write_env "$key" "$value"
+}
+
+capture_r2() {
+  local bucket_key="$1" endpoint_key="$2" parsed endpoint bucket input
+  note 'The S3 API URL is private; opening it in a browser can return 400. It is not a dashboard link.'
+  note 'Paste either the account endpoint or a bucket URL. Infrastructure state bucket linkjar-tfstate is separate.'
+  while true; do
+    ask "$endpoint_key" 'R2 S3 endpoint or bucket URL:'
+    input="${!endpoint_key}"
+    if parsed=$(python3 "$(dirname "${BASH_SOURCE[0]}")/r2-input.py" "$input"); then break; fi
+  done
+  endpoint="${parsed%%$'\n'*}"
+  bucket="${parsed#*$'\n'}"
+  if [[ -n "$bucket" ]]; then
+    say "Bucket from URL: $bucket"
+  else
+    while true; do
+      ask "$bucket_key" 'Private PDS bucket name:'
+      bucket="${!bucket_key}"
+      [[ "$bucket" =~ ^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$ && "$bucket" != linkjar-tfstate ]] && break
+      warn 'Choose a separate PDS bucket, not the infrastructure state bucket.'
+    done
+  fi
+  printf -v "$bucket_key" '%s' "$bucket"
+  printf -v "$endpoint_key" '%s' "$endpoint"
+  write_env "$bucket_key" "$bucket"
+  write_env "$endpoint_key" "$endpoint"
 }
 
 require_done() { confirm "$1" || { warn 'Stopped; existing values are saved.'; exit 1; }; }
@@ -242,8 +270,7 @@ stage 'R2 blob storage'
 open_url 'https://dash.cloudflare.com/?to=/:account/r2/overview'
 step 'Choose the private PDS bucket. In Account Details → API Tokens → Manage, create a token with Object Read & Write scoped to that bucket.'
 step 'Copy its S3 endpoint (use the jurisdiction-specific endpoint for an EU bucket), Access Key ID and Secret Access Key.'
-capture PDS_BLOBSTORE_S3_BUCKET 'Bucket name:'
-capture PDS_BLOBSTORE_S3_ENDPOINT 'Exact HTTPS S3 endpoint:' false '^https://[^/[:space:]]+$'
+capture_r2 PDS_BLOBSTORE_S3_BUCKET PDS_BLOBSTORE_S3_ENDPOINT
 capture PDS_BLOBSTORE_S3_ACCESS_KEY_ID 'Access Key ID:' true
 capture PDS_BLOBSTORE_S3_SECRET_ACCESS_KEY 'Secret Access Key:' true
 write_env PDS_BLOBSTORE_S3_REGION 'auto'
@@ -260,8 +287,7 @@ ENV_FILE="${PDS_RUNTIME_ENV_FILE}.backup"
 [[ ! -L "$ENV_FILE" && ( ! -e "$ENV_FILE" || -f "$ENV_FILE" ) ]] || exit 1
 touch "$ENV_FILE"
 chmod 600 "$ENV_FILE"
-capture PDS_BACKUP_R2_BUCKET 'Backup bucket name:'
-capture PDS_BACKUP_R2_ENDPOINT 'Backup HTTPS S3 endpoint:' false '^https://[^/[:space:]]+$'
+capture_r2 PDS_BACKUP_R2_BUCKET PDS_BACKUP_R2_ENDPOINT
 capture AWS_ACCESS_KEY_ID 'Backup Access Key ID:' true
 capture AWS_SECRET_ACCESS_KEY 'Backup Secret Access Key:' true
 write_env AWS_DEFAULT_REGION 'auto'
