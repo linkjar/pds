@@ -184,7 +184,7 @@ finish() {
 # Replace the example below. Set TOTAL_STAGES to match the stages you write.
 # ──────────────────────────────────────────────────────────────────────────
 
-TOTAL_STAGES=10
+TOTAL_STAGES=11
 
 # This section belongs to the procedure; the shared wizard library above is verbatim.
 # The output is Docker raw env-file data, never shell code. Do not source it.
@@ -222,8 +222,8 @@ require_done 'Use this file for this environment?'
 
 stage 'Host and DNS'
 open_url 'https://console.hetzner.cloud/'
-step 'Review #89: CX33, Nuremberg nbg1. Confirm current stock and total quote before purchasing.'
-step 'Use your approved host; record its public IPv4. Install no service from this wizard.'
+step 'Use the provisioned CAX21 ARM64 NixOS host in linkjar/infra, Nuremberg nbg1. Do not purchase a replacement.'
+step 'Confirm server linkjar (165671628) and its current IPv4 against linkjar/infra/nixos/README.md. Administration uses Tailscale SSH.'
 capture LINKJAR_HOST_IPV4 'Host IPv4:' false '^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$'
 open_url 'https://dash.cloudflare.com/'
 step 'Select linkjar.social → DNS → Records. Once the origin is ready, add proxied A records pds and * to that IPv4.'
@@ -250,6 +250,31 @@ write_env PDS_BLOBSTORE_S3_REGION 'auto'
 write_env PDS_BLOBSTORE_S3_FORCE_PATH_STYLE 'true'
 write_env PDS_BLOB_UPLOAD_LIMIT '52428800'
 note 'Initial upload ceiling: 50 MiB. Confirm archive requirements before launch.'
+
+stage 'R2 encrypted recovery storage'
+open_url 'https://dash.cloudflare.com/?to=/:account/r2/overview'
+step 'Choose a separate private backup bucket; the infrastructure-state bucket is not a PDS backup.'
+step 'Create a separate Object Read & Write token scoped only to the backup bucket. Keep public access disabled.'
+PDS_RUNTIME_ENV_FILE="$ENV_FILE"
+ENV_FILE="${PDS_RUNTIME_ENV_FILE}.backup"
+[[ ! -L "$ENV_FILE" && ( ! -e "$ENV_FILE" || -f "$ENV_FILE" ) ]] || exit 1
+touch "$ENV_FILE"
+chmod 600 "$ENV_FILE"
+capture PDS_BACKUP_R2_BUCKET 'Backup bucket name:'
+capture PDS_BACKUP_R2_ENDPOINT 'Backup HTTPS S3 endpoint:' false '^https://[^/[:space:]]+$'
+capture AWS_ACCESS_KEY_ID 'Backup Access Key ID:' true
+capture AWS_SECRET_ACCESS_KEY 'Backup Secret Access Key:' true
+write_env AWS_DEFAULT_REGION 'auto'
+step 'Choose a unique replication epoch for this host incarnation; never reuse an old database prefix.'
+capture PDS_BACKUP_PREFIX 'Prefix (e.g. staging/host-20260930/databases):' false '^[a-zA-Z0-9][a-zA-Z0-9/_-]*/databases$'
+write_env RESTIC_REPOSITORY "s3:${PDS_BACKUP_R2_ENDPOINT}/${PDS_BACKUP_R2_BUCKET}/staging/host-material"
+write_env RESTIC_PASSWORD_FILE '/etc/linkjar-pds-backup/restic.password'
+write_env RESTIC_CACHE_DIR '/var/cache/linkjar-pds-backup/restic'
+write_env PDS_BACKUP_SSE_KEY_FILE '/etc/linkjar-pds-backup/sse.key'
+step 'Store the restic password and 32-byte SSE-C key in the operator vault and separate root-only host files.'
+step 'See recovery/README.md for key format and encrypted-material inventory. Do not paste those keys into this env file.'
+require_done 'Recorded recovery-key custody and the backup credential file?'
+ENV_FILE="$PDS_RUNTIME_ENV_FILE"
 
 stage 'Transactional mail and moderation'
 open_url 'https://resend.com/domains'
@@ -333,11 +358,17 @@ step 'Record the intended relay URL(s), comma separated. Request crawl only afte
 capture PDS_CRAWLERS 'Relay HTTPS URL(s):' false '^https://[^[:space:]]+$'
 
 stage 'Handoff for deployment and acceptance'
-step 'Transfer the raw env file through the approved secret channel to /etc/linkjar-pds/staging.env, mode 0600. Never commit or source it.'
-step 'Use staging/compose.yml with Docker Compose 2.30+ and the verified GHCR digest. Keep port 3000 on loopback behind Caddy.'
+step 'Transfer the runtime raw env file through the approved secret channel to /etc/linkjar-pds/pds.env, root-owned mode 0600. Never source it.'
+step 'Transfer the separate .backup file to /etc/linkjar-pds-backup/backup.env, root-owned mode 0600; install the referenced key files separately.'
+step 'Use linkjar/infra/nixos/services/pds with its pinned image and /var/lib/linkjar-pds data path. Do not run the old Compose bootstrap on NixOS.'
+step 'Install origin TLS at /var/lib/caddy/linkjar-origin.pem and linkjar-origin-key.pem with access limited to Caddy.'
+step 'Integrate the recovery services and mail-events receiver on NixOS before launch; the current infra module does not install them.'
+step 'Keep enablePds and enable_public_https disabled until backup/restore and private service checks pass. Public SSH stays closed.'
 step 'Complete docs/runbooks/pds.md: TLS, firewall, key/backups restore, R2 roundtrip, mail, hCaptcha, PLC account, handle and OAuth checks.'
-SKIPPED+=('Host provisioning, origin TLS, service deployment and every live acceptance check in #90')
-SKIPPED+=('Provider #99 must be merged and configured before Apple/Google/GitHub routes are available')
+SKIPPED+=('NixOS recovery integration, origin TLS, service enablement and live acceptance in #90/#91')
+SKIPPED+=('Live Apple/Google/GitHub sign-in, account linking and Apple relay-mail acceptance')
 require_done 'Inputs saved and remaining deployment checks understood?'
 finish
+say "Runtime inputs: $ENV_FILE"
+say "Backup inputs: ${ENV_FILE}.backup (separate from runtime env)"
 say 'Input collection complete. This is not a deployment or acceptance result.'

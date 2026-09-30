@@ -204,3 +204,10 @@ separate work under #100.
 Litestream/restic setup, encrypted actor-key/configuration inventory, isolated
 restore checks and aggregate alert rules. Local crash tests pass; the fresh-VM
 R2 drill and live acceptance remain required before opening accounts.
+
+The current operator host is the provisioned ARM64 NixOS system in
+[linkjar/infra](https://github.com/linkjar/infra). Run
+`scripts/provision-wizard.sh` to collect its runtime inputs and separate backup
+credentials. The [runbook](docs/runbooks/pds.md) describes the handoff and remaining
+recovery integration. Compose and the Ubuntu bootstrap are fixture/legacy paths,
+not the deployment procedure for that host.

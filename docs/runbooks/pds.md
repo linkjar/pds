@@ -1,7 +1,8 @@
 # PDS provisioning and acceptance
 
 Preparation for [linkjar/linkjar.io#90](https://github.com/linkjar/linkjar.io/issues/90).
-The service has **not** been provisioned or accepted. A generated env file is an
+The CAX21 ARM64 NixOS host is provisioned in `linkjar/infra`. PDS startup and
+public HTTPS remain disabled; the service has **not** been accepted. A generated env file is an
 input inventory, not evidence of a working account host. #98 owns the image,
 #93 handle routing, #94 branding/hosting policy, #99 provider authentication,
 #91 recovery drills and #92 relay ingestion/capacity.
@@ -20,7 +21,8 @@ The wizard uses hidden secret input, creates files with mode 0600, and preserves
 existing values when you press Enter. It never sources the file, purchases a
 host, changes DNS itself, uploads GitHub secrets or starts a container.
 
-The ten stages collect host/DNS plans, R2, Resend mail, hCaptcha, online secrets
+The eleven stages collect host/DNS plans, separate blob and backup R2 storage,
+Resend mail, hCaptcha, online secrets
 and offline recovery custody, Apple, Google, GitHub, telemetry/relay inventory,
 and the deployment handoff. Provider/telemetry stages can be deferred and are
 listed as incomplete. Re-running preserves generated PDS secrets; rotation must
@@ -34,25 +36,27 @@ based on `staging/example.env` for Compose interpolation.
 
 ## Topology and installation handoff
 
-The #89 decision targets an approved Hetzner CX33 in `nbg1`. Check current stock,
-capacity and the full quote before purchase. Record the chosen host identifier,
-IP addresses and billing owner in the private operations inventory.
+The current host is the provisioned CAX21 ARM64 NixOS system in Nuremberg.
+Use [linkjar/infra](https://github.com/linkjar/infra) for its inventory, Tailscale
+SSH access, pinned PDS image, Caddy configuration and separate firewall gates.
+The former CX33/Ubuntu/Compose plan is historical; do not run `recovery/bootstrap.sh`
+on the NixOS host. No new server purchase is needed for input collection.
 
 ```text
 app.linkjar.io / linkjar.io (application pages and cookies)
                          ↓ OAuth
 Cloudflare: pds.linkjar.social, *.linkjar.social
                          ↓ TLS, Full (strict)
-Caddy on the origin      ↓ 127.0.0.1:3000
-PDS container → /var/lib/linkjar-pds/staging + private R2 bucket
-              → Resend SMTP, PLC, relay and existing Grafana
+NixOS Caddy              ↓ 127.0.0.1:3000
+Pinned PDS container → /var/lib/linkjar-pds + private blob R2 bucket
+                     → separate private backup R2 bucket
+                     → Resend SMTP, PLC, relay and existing Grafana
 ```
 
-Install Docker/Compose and Caddy through the host's supported package procedure.
-Keep port 3000 bound to loopback, permit origin HTTPS only from the intended
-proxy path, and restrict SSH to operator access. Disable Watchtower; every image
-change uses the tested GHCR digest from #98. Prepare the persistent directory
-with ownership matching the pinned image's runtime user before starting it.
+Keep public SSH closed; administer through Tailscale SSH. The infra module mounts
+`/var/lib/linkjar-pds` at `/app/data`, with UID/GID 1000. Install the origin
+certificate at `/var/lib/caddy/linkjar-origin.pem` and its private key at
+`/var/lib/caddy/linkjar-origin-key.pem`, readable only by the Caddy service.
 
 For origin TLS, use a certificate covering `pds.linkjar.social` and the wildcard.
 Keep its private key in the host secret store and configure Caddy to load it.
@@ -70,18 +74,24 @@ must preserve protocol routes. Handle discovery must serve
 `/.well-known/atproto-did`; handle pages must redirect to the DID profile without
 serving app pages, app cookies or user-controlled blobs on handle hosts.
 
-Transfer the collected env file through the approved secret channel to
-`/etc/linkjar-pds/staging.env`, owner root, mode 0600. Keep the selected image
-file separate and point `PDS_ENV_FILE` at that raw secrets file. Before starting,
-validate without printing resolved secrets:
+Transfer the runtime env file through the approved secret channel to
+`/etc/linkjar-pds/pds.env`, root-owned, mode 0600. The wizard writes backup
+credentials to a separate `${PDS_SETUP_FILE}.backup` file (by default,
+`$HOME/.config/linkjar-pds/setup.env.backup`). Install it at
+`/etc/linkjar-pds-backup/backup.env`, root-owned, mode 0600. It contains only names
+accepted by `recovery/run-with-env.py`; never concatenate it with the runtime file.
+Install the restic password and 32-byte SSE-C key separately at the paths it names.
+Keep recoverable copies outside the host. See [recovery tooling](../../recovery/README.md).
 
-```sh
-docker compose --env-file /etc/linkjar-pds/image.env -f staging/compose.yml config --quiet
-```
+The current infra module does not install recovery services or the mail-events
+receiver. Integrate those tools through reviewed NixOS configuration, rather than
+the Ubuntu bootstrap. Keep `enablePds` and `enable_public_https` disabled until
+private service checks, backup freshness and a lost-host restore drill pass.
+Service enablement and Hetzner firewall changes are separate reviewed operations.
+The runbook's remaining live acceptance checks are still required.
 
-The compose service intentionally contains only the PDS. Installing the proxy,
-certificates, firewall, backup agent and monitoring is still required. Start it
-only after these inputs and the pinned image digest have been reviewed.
+For isolated Compose fixtures only, use `staging/compose.yml` and its raw env-file
+format with Docker Compose 2.30+. That is not the provisioned host's deployment path.
 
 ## Environment and custody inventory
 
@@ -95,6 +105,9 @@ wizard's `LINKJAR_*` entries are operator notes; the PDS ignores them.
 | `PDS_DEV_MODE`, `PDS_RATE_LIMITS_ENABLED`, `PDS_INVITE_REQUIRED` | false / true / false per D3; host env |
 | `PDS_BLOBSTORE_S3_BUCKET`, `_ENDPOINT`, `_REGION`, `_FORCE_PATH_STYLE` | Private R2 bucket configuration; host env |
 | `PDS_BLOBSTORE_S3_ACCESS_KEY_ID`, `_SECRET_ACCESS_KEY` | Bucket-scoped object read/write token; operator vault + host env |
+| `PDS_BACKUP_R2_BUCKET`, `PDS_BACKUP_R2_ENDPOINT`, `PDS_BACKUP_PREFIX` | Separate private backup bucket and unique host epoch; backup env only |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION` | Backup-bucket token and region; vault + backup env only |
+| `RESTIC_REPOSITORY`, `RESTIC_PASSWORD_FILE`, `RESTIC_CACHE_DIR`, `PDS_BACKUP_SSE_KEY_FILE` | Backup env paths; password and SSE-C key stored separately in vault + private host files |
 | `PDS_BLOB_UPLOAD_LIMIT` | Initial 50 MiB ceiling; confirm archive requirements |
 | `PDS_EMAIL_SMTP_URL`, `PDS_MODERATION_EMAIL_SMTP_URL` | Dedicated Resend key embedded in SMTPS URL; vault + host env |
 | `PDS_EMAIL_FROM_ADDRESS`, `PDS_MODERATION_EMAIL_ADDRESS` | Verified sender / monitored mailbox; host env |
