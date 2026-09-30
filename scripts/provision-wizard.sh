@@ -185,6 +185,14 @@ finish() {
 # ──────────────────────────────────────────────────────────────────────────
 
 TOTAL_STAGES=11
+PDS_START_STAGE=1
+if [[ $# -eq 2 && "$1" == --from && "$2" =~ ^([1-9]|10|11)$ ]]; then
+  PDS_START_STAGE=$2
+elif [[ $# -ne 0 ]]; then
+  printf 'Usage: provision-wizard.sh [--from 1..11]\n' >&2
+  exit 2
+fi
+_STAGE_INDEX=$((PDS_START_STAGE - 1))
 
 # This section belongs to the procedure; the shared wizard library above is verbatim.
 # The output is Docker raw env-file data, never shell code. Do not source it.
@@ -248,6 +256,7 @@ say 'No server is purchased, deployed, restarted or opened to traffic by this sc
 say 'Human dashboard changes happen only when you perform them.'
 require_done 'Use this file for this environment?'
 
+if [[ "$PDS_START_STAGE" -le 1 ]]; then
 stage 'Host and DNS'
 open_url 'https://console.hetzner.cloud/'
 step 'Use the provisioned CAX21 ARM64 NixOS host in linkjar/infra, Nuremberg nbg1. Do not purchase a replacement.'
@@ -265,7 +274,9 @@ write_env PDS_PORT '3000'
 write_env PDS_DEV_MODE 'false'
 write_env PDS_RATE_LIMITS_ENABLED 'true'
 write_env PDS_INVITE_REQUIRED 'false'
+fi
 
+if [[ "$PDS_START_STAGE" -le 2 ]]; then
 stage 'R2 blob storage'
 open_url 'https://dash.cloudflare.com/?to=/:account/r2/overview'
 step 'Choose the private PDS bucket. In Account Details → API Tokens → Manage, create a token with Object Read & Write scoped to that bucket.'
@@ -277,7 +288,9 @@ write_env PDS_BLOBSTORE_S3_REGION 'auto'
 write_env PDS_BLOBSTORE_S3_FORCE_PATH_STYLE 'true'
 write_env PDS_BLOB_UPLOAD_LIMIT '52428800'
 note 'Initial upload ceiling: 50 MiB. Confirm archive requirements before launch.'
+fi
 
+if [[ "$PDS_START_STAGE" -le 3 ]]; then
 stage 'R2 encrypted recovery storage'
 open_url 'https://dash.cloudflare.com/?to=/:account/r2/overview'
 step 'Choose a separate private backup bucket; the infrastructure-state bucket is not a PDS backup.'
@@ -301,19 +314,33 @@ step 'Store the restic password and 32-byte SSE-C key in the operator vault and 
 step 'See recovery/README.md for key format and encrypted-material inventory. Do not paste those keys into this env file.'
 require_done 'Recorded recovery-key custody and the backup credential file?'
 ENV_FILE="$PDS_RUNTIME_ENV_FILE"
+fi
 
+if [[ "$PDS_START_STAGE" -le 4 ]]; then
 stage 'Transactional mail and moderation'
-open_url 'https://resend.com/domains'
-step 'Use the existing waitlist sender service, Resend. Verify the sending domain and its displayed SPF/DKIM records.'
-open_url 'https://resend.com/api-keys'
-step 'Create a dedicated sending key for the verified domain. Build an SMTPS URL with username resend, port 465, and a percent-encoded API key as the password.'
-step 'Format: smtps://resend:ENCODED_API_KEY@smtp.resend.com:465. Paste the complete URL below; entry is hidden.'
-capture PDS_EMAIL_SMTP_URL 'SMTPS URL:' true '^smtps://[^[:space:]]+@smtp\.resend\.com:465$'
-capture PDS_EMAIL_FROM_ADDRESS 'Verified sender (e.g. LinkJar <hello@updates.linkjar.io>):'
+open_url 'https://dash.cloudflare.com/?to=/:account/email-service/sending'
+step 'Use Cloudflare Email Service → Email Sending. Onboard the sender domain and verify its SPF, DKIM and DMARC records.'
+note 'Email Sending requires Workers Paid. Email Routing alone does not send account mail to arbitrary recipients.'
+open_url 'https://dash.cloudflare.com/?to=/:account/api-tokens'
+step 'Create a dedicated account API token with Email Sending: Edit for the LinkJar account. Enter only that token below.'
+while true; do
+  ask_secret LINKJAR_CLOUDFLARE_SMTP_TOKEN 'Cloudflare Email Sending token:'
+  [[ -n "$LINKJAR_CLOUDFLARE_SMTP_TOKEN" && "$LINKJAR_CLOUDFLARE_SMTP_TOKEN" != *[[:space:]]* ]] && break
+  warn 'Enter a non-empty token without whitespace.'
+done
+# Build the SMTP URL locally; the token is never printed or written separately.
+PDS_EMAIL_SMTP_URL=$(printf '%s' "$LINKJAR_CLOUDFLARE_SMTP_TOKEN" | python3 -c 'import sys; from urllib.parse import quote; print("smtps://api_token:" + quote(sys.stdin.read(), safe="") + "@smtp.mx.cloudflare.net:465")')
+unset LINKJAR_CLOUDFLARE_SMTP_TOKEN
+write_env PDS_EMAIL_SMTP_URL "$PDS_EMAIL_SMTP_URL"
+capture PDS_EMAIL_FROM_ADDRESS 'Verified sender (e.g. LinkJar <accounts@linkjar.io>):'
 capture PDS_MODERATION_EMAIL_ADDRESS 'Monitored moderation mailbox:' false '^[^[:space:]@]+@[^[:space:]@]+$'
 write_env PDS_MODERATION_EMAIL_SMTP_URL "$PDS_EMAIL_SMTP_URL"
+note 'Keep the moderation mailbox monitored. If forwarding it with Email Routing, verify the destination and test inbound delivery.'
 require_done 'Verified the sender DNS records and assigned someone to monitor moderation mail?'
+SKIPPED+=('Cloudflare delivery/bounce monitoring: the existing recovery receiver accepts Resend events only; adapt and verify before launch')
+fi
 
+if [[ "$PDS_START_STAGE" -le 5 ]]; then
 stage 'hCaptcha for open email signup'
 open_url 'https://dashboard.hcaptcha.com/'
 step 'Create or select a site key restricted to pds.linkjar.social; copy its site key and secret from the account dashboard.'
@@ -323,7 +350,9 @@ if [[ -z "$(_existing PDS_HCAPTCHA_TOKEN_SALT || true)" ]]; then
   write_env PDS_HCAPTCHA_TOKEN_SALT "$(openssl rand -hex 32)"
 fi
 note 'D3 intentionally enables open signup. Keep rate limits and email hCaptcha; #99 governs the verified-provider exception.'
+fi
 
+if [[ "$PDS_START_STAGE" -le 6 ]]; then
 stage 'PDS secrets and PLC recovery custody'
 open_url 'https://atproto.com/guides/going-to-production#plc-key-management'
 step 'Use the approved secret store to create/store the online PDS secp256k1 rotation key. Paste only that online private key below.'
@@ -335,7 +364,9 @@ for key in PDS_JWT_SECRET PDS_DPOP_SECRET PDS_ADMIN_PASSWORD; do
   if [[ -z "$(_existing "$key" || true)" ]]; then write_env "$key" "$(openssl rand -hex 32)"; fi
  done
 require_done 'Verified the offline key is recoverable and separate from the online key?'
+fi
 
+if [[ "$PDS_START_STAGE" -le 7 ]]; then
 stage 'Apple registration'
 open_url 'https://developer.apple.com/account/resources/identifiers/list'
 step 'Enable Sign in with Apple on the primary app ID. Register a Services ID and associate it with that primary app.'
@@ -345,14 +376,16 @@ step 'Create a Sign in with Apple key linked to the primary app. Download the .p
 step 'Generate the client-secret JWT with the protected key per Apple documentation. #99 consumes the signed JWT, not the private key.'
 open_url 'https://developer.apple.com/help/account/capabilities/configure-private-email-relay-service/'
 step 'In Certificates, Identifiers & Profiles → Services → Sign in with Apple for Email Communication, register the exact outbound sender domain/address. Verify SPF/DKIM alignment and retain relay bounce notifications.'
-step 'Test a password-reset email to a Hide My Email address before launch; ordinary Resend delivery alone does not prove Apple relay delivery.'
+step 'Test a password-reset email to a Hide My Email address before launch; ordinary SMTP delivery alone does not prove Apple relay delivery.'
 if confirm 'Store Apple credentials now?'; then
   capture PDS_EXTERNAL_APPLE_CLIENT_ID 'Services ID:'
   capture PDS_EXTERNAL_APPLE_CLIENT_SECRET 'Signed client-secret JWT:' true '^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$'
   capture LINKJAR_APPLE_SECRET_EXPIRES 'JWT expiry / rotation due date (YYYY-MM-DD):' false '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
   capture LINKJAR_APPLE_KEY_CUSTODY 'Apple .p8 vault/item reference (no key):'
 else SKIPPED+=('Apple provider configuration; remains unavailable without both credentials'); fi
+fi
 
+if [[ "$PDS_START_STAGE" -le 8 ]]; then
 stage 'Google registration'
 open_url 'https://console.cloud.google.com/auth/clients'
 step 'Select the LinkJar project, complete Google Auth Platform branding/audience/data-access setup, then create a Web application client.'
@@ -362,7 +395,9 @@ if confirm 'Store Google credentials now?'; then
   capture PDS_EXTERNAL_GOOGLE_CLIENT_ID 'Client ID:'
   capture PDS_EXTERNAL_GOOGLE_CLIENT_SECRET 'Client secret:' true
 else SKIPPED+=('Google provider configuration; remains unavailable without both credentials'); fi
+fi
 
+if [[ "$PDS_START_STAGE" -le 9 ]]; then
 stage 'GitHub registration'
 open_url 'https://github.com/organizations/linkjar/settings/applications'
 step 'Register a LinkJar-owned OAuth App: homepage https://linkjar.io, callback https://pds.linkjar.social/oauth/external/github/callback.'
@@ -371,7 +406,9 @@ if confirm 'Store GitHub credentials now?'; then
   capture PDS_EXTERNAL_GITHUB_CLIENT_ID 'Client ID:'
   capture PDS_EXTERNAL_GITHUB_CLIENT_SECRET 'Client secret:' true
 else SKIPPED+=('GitHub provider configuration; remains unavailable without both credentials'); fi
+fi
 
+if [[ "$PDS_START_STAGE" -le 10 ]]; then
 stage 'Telemetry and relay inventory'
 open_url 'https://grafana.com/orgs'
 step 'Open the existing Grafana stack and its OpenTelemetry connection instructions; copy the approved endpoint and authentication headers.'
@@ -382,7 +419,9 @@ else SKIPPED+=('Grafana OTLP configuration and uptime monitor'); fi
 open_url 'https://atproto.com/guides/going-to-production#rate-limits'
 step 'Record the intended relay URL(s), comma separated. Request crawl only after public health/identity checks pass; #92 owns the relay-cap request.'
 capture PDS_CRAWLERS 'Relay HTTPS URL(s):' false '^https://[^[:space:]]+$'
+fi
 
+if [[ "$PDS_START_STAGE" -le 11 ]]; then
 stage 'Handoff for deployment and acceptance'
 step 'Transfer the runtime raw env file through the approved secret channel to /etc/linkjar-pds/pds.env, root-owned mode 0600. Never source it.'
 step 'Transfer the separate .backup file to /etc/linkjar-pds-backup/backup.env, root-owned mode 0600; install the referenced key files separately.'
@@ -394,6 +433,7 @@ step 'Complete docs/runbooks/pds.md: TLS, firewall, key/backups restore, R2 roun
 SKIPPED+=('NixOS recovery integration, origin TLS, service enablement and live acceptance in #90/#91')
 SKIPPED+=('Live Apple/Google/GitHub sign-in, account linking and Apple relay-mail acceptance')
 require_done 'Inputs saved and remaining deployment checks understood?'
+fi
 finish
 say "Runtime inputs: $ENV_FILE"
 say "Backup inputs: ${ENV_FILE}.backup (separate from runtime env)"

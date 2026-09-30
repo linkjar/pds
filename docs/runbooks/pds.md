@@ -22,7 +22,7 @@ existing values when you press Enter. It never sources the file, purchases a
 host, changes DNS itself, uploads GitHub secrets or starts a container.
 
 The eleven stages collect host/DNS plans, separate blob and backup R2 storage,
-Resend mail, hCaptcha, online secrets
+Cloudflare SMTP mail, hCaptcha, online secrets
 and offline recovery custody, Apple, Google, GitHub, telemetry/relay inventory,
 and the deployment handoff. Provider/telemetry stages can be deferred and are
 listed as incomplete. Re-running preserves generated PDS secrets; rotation must
@@ -50,7 +50,7 @@ Cloudflare: pds.linkjar.social, *.linkjar.social
 NixOS Caddy              ↓ 127.0.0.1:3000
 Pinned PDS container → /var/lib/linkjar-pds + private blob R2 bucket
                      → separate private backup R2 bucket
-                     → Resend SMTP, PLC, relay and existing Grafana
+                     → Cloudflare SMTP, PLC, relay and existing Grafana
 ```
 
 Keep public SSH closed; administer through Tailscale SSH. The infra module mounts
@@ -109,7 +109,7 @@ wizard's `LINKJAR_*` entries are operator notes; the PDS ignores them.
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION` | Backup-bucket token and region; vault + backup env only |
 | `RESTIC_REPOSITORY`, `RESTIC_PASSWORD_FILE`, `RESTIC_CACHE_DIR`, `PDS_BACKUP_SSE_KEY_FILE` | Backup env paths; password and SSE-C key stored separately in vault + private host files |
 | `PDS_BLOB_UPLOAD_LIMIT` | Initial 50 MiB ceiling; confirm archive requirements |
-| `PDS_EMAIL_SMTP_URL`, `PDS_MODERATION_EMAIL_SMTP_URL` | Dedicated Resend key embedded in SMTPS URL; vault + host env |
+| `PDS_EMAIL_SMTP_URL`, `PDS_MODERATION_EMAIL_SMTP_URL` | Cloudflare Email Sending token embedded in SMTPS URL; vault + host env |
 | `PDS_EMAIL_FROM_ADDRESS`, `PDS_MODERATION_EMAIL_ADDRESS` | Verified sender / monitored mailbox; host env |
 | `PDS_HCAPTCHA_SITE_KEY`, `_SECRET_KEY`, `_TOKEN_SALT` | Site-restricted hCaptcha credentials; secrets in vault + host env |
 | `PDS_JWT_SECRET`, `PDS_DPOP_SECRET`, `PDS_ADMIN_PASSWORD` | Stable generated 32-byte secrets; vault + host env |
@@ -217,3 +217,26 @@ bucket or credentials are broken. Use the Cloudflare dashboard for administratio
 and signed S3 requests for access. See [R2 authentication](https://developers.cloudflare.com/r2/api/tokens/).
 `linkjar-tfstate` remains the infrastructure-state bucket and is rejected for PDS
 blob/backup input. Keep those buckets private and separately scoped.
+
+### Resume stage 4 with Cloudflare SMTP
+
+```sh
+TERM=xterm-256color scripts/provision-wizard.sh --from 4
+```
+
+Onboard a sender domain in Cloudflare Email Service → Email Sending, then create
+an account token with Email Sending: Edit. Enter the token using the wizard's
+hidden prompt. The wizard percent-encodes it and builds
+`smtps://api_token:ENCODED_TOKEN@smtp.mx.cloudflare.net:465` locally. The standalone
+token is not persisted; the private runtime env contains the resulting SMTP URL.
+Choose a sender on the onboarded domain and a monitored moderation mailbox.
+The first three stages are skipped and their saved values are retained.
+
+Cloudflare SMTP uses implicit TLS on port 465 and is compatible with the PDS
+mailer. See [Cloudflare SMTP](https://developers.cloudflare.com/email-service/api/send-emails/smtp/).
+Email Sending requires a Workers Paid account for arbitrary recipients; Email
+Routing alone is insufficient. Real verification/reset/security-notice delivery,
+Apple private relay delivery and inbound moderation mail still need acceptance.
+The existing recovery receiver verifies Resend events. It cannot verify Cloudflare
+bounce/complaint events; replace that integration and its freshness/alert checks
+before treating mail monitoring as complete.
