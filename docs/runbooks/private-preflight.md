@@ -1,7 +1,8 @@
 # Private launch preflight: 2026-10-01
 
-Public launch remains closed. `enablePds = false`; the host has no production
-accounts or PDS container. The Hetzner public HTTPS gate remains closed.
+Public launch remains closed. `enablePds = true` with `enablePdsIngress = false`;
+the persistent PDS runs on loopback with zero accounts. Caddy and the host HTTPS
+rule are disabled. The Hetzner public HTTPS gate remains closed.
 
 Completed configuration checks:
 
@@ -35,8 +36,11 @@ Completed configuration checks:
 Open launch checks:
 
 - Hosting terms are not configured. A reviewed, published terms URL is required.
-- Scheduled production backups are not yet active. The synthetic restore rehearsal
-  does not replace Litestream replication and recurring encrypted key/config backups.
+- Recovery acceptance with real accounts remains pending. Litestream and recurring
+  encrypted host-material backups now run. An isolated R2 restore of the current
+  empty PDS recovered three databases and matching online configuration, passed
+  integrity checks in 13.473 seconds, and was removed. This does not prove actor
+  key recovery, blob reads, signed writes or OAuth on a replacement host.
 - Grafana SMTP alert delivery is accepted: the contact-point test succeeded and
   the operator confirmed inbox receipt on 2026-10-01. Independent external uptime
   monitoring remains pending; self-hosted rules cannot detect a complete host outage.
