@@ -58,6 +58,16 @@ private monitor and gated backup services. It uses `/var/lib/linkjar-pds`,
 Production backup jobs remain gated while PDS is disabled. Vault custody and a
 live R2 restore rehearsal are still required before launch.
 
+For an isolated synthetic R2 rehearsal, run
+`scripts/rehearse-r2-recovery.py --backup-env PRIVATE_ENV --key-directory PRIVATE_KEYS --tools TOOL_DIRECTORY --report PRIVATE_REPORT`.
+The key directory must contain `restic.password` and `sse.key`, with verified
+vault custody. The script allocates a unique `rehearsals/` namespace, creates
+synthetic databases, verifies uploaded replicas, kills the replicator and restores
+from R2. It never writes to production data or updates the production heartbeat.
+Encrypted rehearsal objects remain in the dedicated private backup bucket for
+review; they are separate from production retention. The report explicitly marks
+production acceptance as incomplete.
+
 Transfer a clean checkout of the reviewed `linkjar/pds` commit to
 `/opt/linkjar-pds` on the approved Ubuntu 24.04 host (Git must be installed).
 Supply `/etc/linkjar-pds/{staging.env,image.env}` and private backup inputs based
