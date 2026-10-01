@@ -118,7 +118,7 @@ wizard's `LINKJAR_*` entries are operator notes; the PDS ignores them.
 | `PDS_EXTERNAL_APPLE_CLIENT_ID`, `_CLIENT_SECRET` | #99 Services ID and signed client-secret JWT; vault + host env |
 | `PDS_EXTERNAL_GOOGLE_CLIENT_ID`, `_CLIENT_SECRET` | #99 Web client; vault + host env |
 | `PDS_EXTERNAL_GITHUB_CLIENT_ID`, `_CLIENT_SECRET` | #99 organization OAuth App; vault + host env |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`, `_HEADERS` | Existing Grafana collector and scoped authentication; vault + host env |
+| `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`, `_PROTOCOL` | Self-hosted Prometheus on the private Docker bridge; stage 10 + host env |
 | `PDS_CRAWLERS` | Intended relay URLs; host env, then explicit crawl request |
 | `LINKJAR_HOST_IPV4`, `LINKJAR_OFFLINE_RECOVERY_CUSTODY`, `LINKJAR_APPLE_KEY_CUSTODY`, `LINKJAR_APPLE_SECRET_EXPIRES` | Private operator inventory only |
 
@@ -160,7 +160,7 @@ Record date, operator, image digest and redacted evidence for each check:
    sender SPF/DKIM. Exercise the email-signup hCaptcha and rate limits.
 5. Verify handle discovery and profile redirect paths; no app cookies or user
    HTML is served on handle hosts. Test reserved names and custom handles (#93).
-6. Verify Grafana receives metrics and the external uptime check alerts on a
+6. Deploy the self-hosted `linkjar/infra/nixos/services/monitoring` module. Verify Grafana receives metrics and the external uptime check alerts on a
    controlled failure. Never place authorization tokens in dashboard URLs.
 7. Restore encrypted backups into an isolated replacement host: all shared and
    actor SQLite state, actor signing-key files under `actors/<hash>/<DID>/key`,

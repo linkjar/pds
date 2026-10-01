@@ -410,12 +410,22 @@ fi
 
 if [[ "$PDS_START_STAGE" -le 10 ]]; then
 stage 'Telemetry and relay inventory'
-open_url 'https://grafana.com/orgs'
-step 'Open the existing Grafana stack and its OpenTelemetry connection instructions; copy the approved endpoint and authentication headers.'
-if confirm 'Store telemetry settings now?'; then
-  capture OTEL_EXPORTER_OTLP_ENDPOINT 'HTTPS OTLP endpoint:' false '^https://[^[:space:]]+$'
-  capture OTEL_EXPORTER_OTLP_HEADERS 'OTLP headers (hidden):' true
-else SKIPPED+=('Grafana OTLP configuration and uptime monitor'); fi
+step 'Use the self-hosted Prometheus/Grafana module in linkjar/infra/nixos/services/monitoring. Metrics stay on the NixOS host.'
+step 'Check the private Docker subnet 172.30.0.0/24 for route conflicts; install the Grafana admin password and encryption key through the operator secret channel.'
+step 'Verify the deployed PDS image has social.bsky.pds.telemetry=otel before enabling metrics.'
+write_env OTEL_SERVICE_NAME 'pds'
+write_env OTEL_EXPORTER_OTLP_METRICS_ENDPOINT 'http://172.30.0.1:9090/api/v1/otlp/v1/metrics'
+write_env OTEL_EXPORTER_OTLP_METRICS_PROTOCOL 'http/protobuf'
+write_env OTEL_METRIC_EXPORT_INTERVAL '15000'
+write_env OTEL_SEMCONV_STABILITY_OPT_IN 'http'
+write_env OTEL_NODE_RESOURCE_DETECTORS 'env,host,os,process,serviceinstance,container'
+if [[ -n "$(_existing OTEL_EXPORTER_OTLP_ENDPOINT || true)" || -n "$(_existing OTEL_EXPORTER_OTLP_HEADERS || true)" ]]; then
+  warn 'Remove generic OTEL_EXPORTER_OTLP_ENDPOINT and OTEL_EXPORTER_OTLP_HEADERS before deployment to avoid sending signals to a previous collector.'
+  SKIPPED+=('Remove previous generic OTLP endpoint and headers')
+fi
+step 'Enable monitoring, then reach Grafana through: ssh -N -L 3001:127.0.0.1:3001 operator@linkjar'
+step 'Open http://localhost:3001 after the tunnel is running. Verify PDS and recovery metrics, alert delivery and an independent external uptime probe.'
+SKIPPED+=('Self-hosted monitoring deployment, recovery alerts and independent uptime acceptance')
 open_url 'https://atproto.com/guides/going-to-production#rate-limits'
 step 'Record the intended relay URL(s), comma separated. Request crawl only after public health/identity checks pass; #92 owns the relay-cap request.'
 capture PDS_CRAWLERS 'Relay HTTPS URL(s):' false '^https://[^[:space:]]+$'

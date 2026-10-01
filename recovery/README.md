@@ -187,14 +187,14 @@ jurisdiction and legal policy are still pending #94.
 
 ## Monitoring and acceptance
 
-Scrape `127.0.0.1:9093/metrics` with job `linkjar-pds-recovery` from the local
-Grafana collector. The small monitor reports only aggregate values, not DIDs,
+Scrape `127.0.0.1:9093/metrics` with job `linkjar-pds-recovery` from the self-hosted
+Prometheus service. The small monitor reports only aggregate values, not DIDs,
 email addresses, tokens or paths. Litestream's one-minute health-gated heartbeat
 updates it only when replication is healthy; restarting the monitor resets that
 signal and cannot reuse a stale success. The heartbeat is a lag indicator with
 minute granularity, not a certified per-database RPO measurement.
 
-Import [`alerts.yml`](alerts.yml) into the existing Grafana/Prometheus ruler and
+Import [`alerts.yml`](alerts.yml) into the self-hosted Grafana/Prometheus ruler and
 route severity labels to the monitored contact. Configure an external blackbox
 health probe with job `linkjar-pds-public`. Rules cover missing/public-down probes,
 missing telemetry, replication heartbeat, stale keys, changed database inventory,
