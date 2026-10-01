@@ -156,7 +156,7 @@ Record date, operator, image digest and redacted evidence for each check:
    Verify the PLC document and reverse-checked `.linkjar.social` handle.
 3. Upload, download and delete a test blob through the authenticated PDS and
    verify the R2 object lifecycle. Keep the bucket private and test limits.
-4. Deliver and use a verification email; inspect Resend delivery evidence and
+4. Deliver and use a verification email; inspect Cloudflare Email Service delivery evidence and
    sender SPF/DKIM. Exercise the email-signup hCaptcha and rate limits.
 5. Verify handle discovery and profile redirect paths; no app cookies or user
    HTML is served on handle hosts. Test reserved names and custom handles (#93).
@@ -184,7 +184,7 @@ external results.
 - [Pinned PDS environment names](https://github.com/bluesky-social/atproto/blob/7ca16cc6989f8247637615aca17c5abb911b8fb1/packages/pds/src/config/env.ts).
 - [AT Protocol production guidance](https://atproto.com/guides/going-to-production).
 - [Cloudflare DNS records](https://developers.cloudflare.com/dns/manage-dns-records/how-to/create-dns-records/) and [R2 tokens](https://developers.cloudflare.com/r2/api/tokens/).
-- [Resend SMTP](https://resend.com/docs/send-with-smtp) and [hCaptcha](https://docs.hcaptcha.com/).
+- [Cloudflare SMTP](https://developers.cloudflare.com/email-service/api/send-emails/smtp/) and [hCaptcha](https://docs.hcaptcha.com/).
 - [Apple web configuration](https://developer.apple.com/help/account/capabilities/configure-sign-in-with-apple-for-the-web/) , [private keys](https://developer.apple.com/help/account/capabilities/create-a-sign-in-with-apple-private-key/) and [private email relay](https://developer.apple.com/help/account/capabilities/configure-private-email-relay-service/).
 - [Google Web clients](https://developers.google.com/identity/protocols/oauth2/web-server) and [GitHub OAuth Apps](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app).
 - [Docker raw env files](https://docs.docker.com/reference/compose-file/services/#env_file).
