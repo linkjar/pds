@@ -51,6 +51,13 @@ replace R2 blob durability or the independently stored vault/recovery material.
 
 ## Install without opening traffic
 
+For LinkJar's NixOS host, use `linkjar/infra/nixos/services/recovery` instead of
+the Ubuntu bootstrap below. The NixOS module installs the pinned binaries,
+private monitor and gated backup services. It uses `/var/lib/linkjar-pds`,
+`/etc/linkjar-pds/pds.env`, systemd credentials and daily retention maintenance.
+Production backup jobs remain gated while PDS is disabled. Vault custody and a
+live R2 restore rehearsal are still required before launch.
+
 Transfer a clean checkout of the reviewed `linkjar/pds` commit to
 `/opt/linkjar-pds` on the approved Ubuntu 24.04 host (Git must be installed).
 Supply `/etc/linkjar-pds/{staging.env,image.env}` and private backup inputs based
