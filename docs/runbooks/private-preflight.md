@@ -2,7 +2,8 @@
 
 Public launch remains closed. `enablePds = true` with `enablePdsIngress = false`;
 the persistent PDS runs on loopback with zero accounts. Caddy and the host HTTPS
-rule are disabled. The Hetzner public HTTPS gate remains closed.
+rule are disabled. The Hetzner public HTTPS gate remains closed. An operator-approved
+Cloudflare Tunnel now provides HTTPS only through an IP allowlist for acceptance.
 
 Completed configuration checks:
 
@@ -32,6 +33,10 @@ Completed configuration checks:
   `hello@linkjar.io`. No account was created. The container was stopped and
   temporary storage discarded. This does not prove real provider callbacks,
   persistent storage, public routing or account recovery.
+
+- The restricted HTTPS route passed an allowed-source HTTP 200 and a controlled
+  denied-source HTTP 403 test. The real app completed PAR and opened the provider
+  signup page. No account has been created; signup agreement confirmation is pending.
 
 Open launch checks:
 
