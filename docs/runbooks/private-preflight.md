@@ -17,13 +17,26 @@ Completed configuration checks:
 - Runtime privacy/support links use `https://linkjar.io/privacy/` and
   `https://linkjar.io/support/`; contact uses the published `hello@linkjar.io`.
 
+- GitHub package access is verified after granting the CLI `read:packages`.
+  The host pulled the configured index digest
+  `sha256:65439dafd5c431e86400a877cc33d91a932ec931aef52223dc44972535080d07`.
+  Its ARM64 manifest is
+  `sha256:edbb9c9a548e55202666071772e3f3e9f2baab95f07f115ec992a83b1d735a1b`;
+  labels identify source revision `e1b9043b74d31f00c3d41badb52bc60695fd8fc1`
+  and `social.bsky.pds.telemetry=otel`. Temporary registry login files were removed.
+- An isolated container started with the protected runtime configuration, tmpfs
+  data storage and loopback-only port 3002. Health returned version `0.5.34`;
+  OAuth authorization metadata and describeServer returned HTTP 200.
+  describeServer advertised `.linkjar.social`, the published privacy URL and
+  `hello@linkjar.io`. No account was created. The container was stopped and
+  temporary storage discarded. This does not prove real provider callbacks,
+  persistent storage, public routing or account recovery.
+
 Open launch checks:
 
 - Hosting terms are not configured. A reviewed, published terms URL is required.
-- The configured production image is not present on the host. Registry access
-  to the revision 8 release was denied, including with the existing GitHub CLI
-  credential. Verify package access, image digest, architecture, source revision
-  and telemetry label before starting it. Do not substitute an unverified image.
+- Scheduled production backups are not yet active. The synthetic restore rehearsal
+  does not replace Litestream replication and recurring encrypted key/config backups.
 - Grafana SMTP alert delivery is accepted: the contact-point test succeeded and
   the operator confirmed inbox receipt on 2026-10-01. Independent external uptime
   monitoring remains pending; self-hosted rules cannot detect a complete host outage.
