@@ -24,7 +24,19 @@ def read_env(path):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 4 or sys.argv[2] != '--':
-        raise SystemExit('Usage: run-with-env.py PRIVATE_ENV -- COMMAND [ARGS...]')
+    separator = 2
+    credentials = None
+    if len(sys.argv) > 3 and sys.argv[2] == '--credentials':
+        credentials = Path(sys.argv[3])
+        separator = 4
+    if len(sys.argv) <= separator + 1 or sys.argv[separator] != '--':
+        raise SystemExit('Usage: run-with-env.py PRIVATE_ENV [--credentials DIRECTORY] -- COMMAND [ARGS...]')
     values = read_env(Path(sys.argv[1]))
-    os.execvpe(sys.argv[3], sys.argv[3:], {**os.environ, **values})
+    if credentials is not None:
+        for key, name in [('RESTIC_PASSWORD_FILE', 'restic.password'), ('PDS_BACKUP_SSE_KEY_FILE', 'sse.key')]:
+            path = credentials / name
+            if path.is_symlink() or not path.is_file() or path.stat().st_mode & 0o077:
+                raise ValueError('Credentials must be private regular files')
+            values[key] = str(path)
+    command = sys.argv[separator + 1:]
+    os.execvpe(command[0], command, {**os.environ, **values})

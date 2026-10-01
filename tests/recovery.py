@@ -91,6 +91,28 @@ class RecoveryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'roots disagree'):
             r.validate(self.data)
 
+    def test_production_inventory_requires_the_selected_runtime_environment(self):
+        with self.assertRaisesRegex(ValueError, 'pds.env'):
+            r.inventory(self.data, self.config, 'pds.env')
+        (self.config / 'staging.env').rename(self.config / 'pds.env')
+        databases, files = r.inventory(self.data, self.config, 'pds.env')
+        self.assertEqual(len(databases), 4)
+        self.assertIn('config/pds.env', [name for name, _ in files])
+
+    def test_systemd_credentials_replace_host_paths_without_exposing_values(self):
+        credentials = self.root / 'credentials'
+        credentials.mkdir()
+        for name in ('restic.password', 'sse.key'):
+            r.private_write(credentials / name, b'synthetic-private-key')
+        env_file = self.root / 'backup.env'
+        r.private_write(env_file, b'RESTIC_PASSWORD_FILE=/root/old-password\nPDS_BACKUP_SSE_KEY_FILE=/root/old-key\n')
+        command = [sys.executable, str(ROOT / 'recovery/run-with-env.py'), str(env_file), '--credentials', str(credentials), '--', sys.executable, '-c', 'import os,json; print(json.dumps([os.environ["RESTIC_PASSWORD_FILE"],os.environ["PDS_BACKUP_SSE_KEY_FILE"]]))']
+        output = subprocess.check_output(command, text=True)
+        self.assertEqual(json.loads(output), [str(credentials / 'restic.password'), str(credentials / 'sse.key')])
+        self.assertNotIn('synthetic-private-key', output)
+        (credentials / 'sse.key').chmod(0o644)
+        self.assertNotEqual(subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE).returncode, 0)
+
     def test_symlinks_and_incomplete_database_inventory_are_rejected(self):
         (self.config / 'external').symlink_to(self.root / 'elsewhere')
         with self.assertRaisesRegex(ValueError, 'Symlinks'):

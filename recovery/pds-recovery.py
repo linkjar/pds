@@ -57,7 +57,7 @@ def sqlite_read(path):
         db.close()
 
 
-def inventory(data, config):
+def inventory(data, config, config_env_name='staging.env'):
     databases = []
     files = []
     for path in walk(data):
@@ -77,8 +77,10 @@ def inventory(data, config):
         if name.startswith('actors/') and 'data/' + str(PurePosixPath(name).with_name('key')) not in key_names:
             raise ValueError('An actor database has no signing key')
     files += [('config/' + p.relative_to(config).as_posix(), p) for p in walk(config)]
-    if not any(name == 'config/staging.env' for name, _ in files):
-        raise ValueError('The online configuration must contain staging.env')
+    if config_env_name not in {'staging.env', 'pds.env'}:
+        raise ValueError('Unexpected runtime environment filename')
+    if not any(name == 'config/' + config_env_name for name, _ in files):
+        raise ValueError('The online configuration must contain ' + config_env_name)
     return sorted(databases), sorted(files)
 
 
@@ -132,7 +134,7 @@ def backup(args):
     started = time.time()
     if any(args.state.resolve().is_relative_to(root.resolve()) for root in [args.data, args.config]):
         raise ValueError('Backup state must be outside data and online configuration')
-    databases, files = inventory(args.data, args.config)
+    databases, files = inventory(args.data, args.config, getattr(args, 'config_env_name', 'staging.env'))
     manifest = {'version': 1, 'startedAt': started, 'databases': databases, 'files': {}}
     with tempfile.TemporaryDirectory(prefix='linkjar-key-backup-') as tmp:
         archive = Path(tmp) / 'host-material.tar'
@@ -295,6 +297,7 @@ def main():
     backup_parser = sub.add_parser('backup-host-material')
     backup_parser.add_argument('--data', type=Path, required=True)
     backup_parser.add_argument('--config', type=Path, required=True)
+    backup_parser.add_argument('--config-env-name', choices=['staging.env', 'pds.env'], default='staging.env')
     backup_parser.add_argument('--state', type=Path, required=True)
     backup_parser.add_argument('--restic', default='restic')
     backup_parser.add_argument('--environment', required=True, choices=['linkjar-pds-staging', 'linkjar-pds-production'])
