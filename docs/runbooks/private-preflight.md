@@ -24,8 +24,9 @@ Open launch checks:
   to the revision 8 release was denied, including with the existing GitHub CLI
   credential. Verify package access, image digest, architecture, source revision
   and telemetry label before starting it. Do not substitute an unverified image.
-- Operator email alert delivery and independent external uptime monitoring are
-  not yet accepted. Self-hosted rules cannot detect a complete host outage.
+- Grafana SMTP alert delivery is accepted: the contact-point test succeeded and
+  the operator confirmed inbox receipt on 2026-10-01. Independent external uptime
+  monitoring remains pending; self-hosted rules cannot detect a complete host outage.
 - Cloudflare delivery-event ingestion is not implemented; the existing signed
   receiver supports Resend. SMTP acceptance alone cannot establish bounce health.
 - Real accounts, provider callbacks, hCaptcha challenges, SMTP and Apple relay
