@@ -30,10 +30,10 @@ index 0b10bd8..d2cd00b 100644
  export { default as deleteAccount } from './templates/delete-account.js'
  export { default as confirmEmail } from './templates/confirm-email.js'
 diff --git a/packages/pds/src/mailer/templates/confirm-email.hbs b/packages/pds/src/mailer/templates/confirm-email.hbs
-index 5031271..645243a 100644
+index 5031271..ff66f79 100644
 --- a/packages/pds/src/mailer/templates/confirm-email.hbs
 +++ b/packages/pds/src/mailer/templates/confirm-email.hbs
-@@ -1,158 +1,17 @@
+@@ -1,158 +1,18 @@
 -<html dir='ltr' lang='en'>
 -
 -  <head>
@@ -194,27 +194,28 @@ index 5031271..645243a 100644
 -</html>
 \ No newline at end of file
 +<!doctype html>
-+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="x-apple-disable-message-reformatting"><title>Confirm your email</title></head>
-+<body style="margin:0;padding:0;background:#f4f6fa;color:#172033;font-family:Arial,Helvetica,sans-serif">
++<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="x-apple-disable-message-reformatting"><meta name="color-scheme" content="only dark"><meta name="supported-color-schemes" content="only dark"><title>Confirm your email</title></head>
++<body bgcolor="#020202" style="margin:0;padding:0;background:#020202;color:#ffffff;font-family:Arial,Helvetica,sans-serif">
 +<div style="display:none;max-height:0;overflow:hidden;opacity:0">Confirm your email — {{config.serviceName}}</div>
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f6fa"><tr><td align="center" style="padding:32px 16px">
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px">
-+<tr><td style="padding:0 8px 24px;font-size:26px;font-weight:700;letter-spacing:-1px"><a href="{{config.homeUrl}}" style="color:#172033;text-decoration:none">{{config.serviceName}}</a><span style="color:#2563eb">.</span></td></tr>
-+<tr><td style="background:#ffffff;border:1px solid #dfe5ef;border-top:4px solid #2563eb;border-radius:12px;padding:32px 24px">
-+<p style="margin:0 0 12px;color:#58677f;font-size:11px;line-height:1.5;letter-spacing:2px;font-weight:700">ACCOUNT SECURITY</p>
-+<h1 style="margin:0 0 20px;font-size:28px;line-height:1.2;letter-spacing:-0.6px;color:#172033">Confirm your email</h1>
-+<p style="margin:0 0 24px;font-size:16px;line-height:1.6">Confirm this email address for your account.</p>
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:20px 12px;background:#f0f4ff;border:1px solid #d7e2ff;border-radius:8px"><span style="font-family:Consolas,Menlo,monospace;font-size:26px;font-weight:700;letter-spacing:2px;color:#1e40af">{{token}}</span></td></tr></table>
-+<p style="margin:24px 0 0;font-size:15px;line-height:1.6">Enter this code in the app to confirm your email.{{#if config.showBskyAppEmailConfirmationLink}} Or <a href="https://bsky.app/intent/verify-email?code={{token}}" style="color:#2563eb">confirm your email</a>.{{/if}}</p>
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-top:1px solid #e5e9f1"><tr><td style="padding-top:20px;font-size:13px;line-height:1.7;color:#58677f">If you did not request this confirmation, ignore this email.</td></tr></table>
-+</td></tr>
-+<tr><td style="padding:24px 8px;font-size:12px;line-height:1.8;color:#58677f">Sent by {{config.serviceName}} to help protect your account.<br><a href="{{config.homeUrl}}" style="color:#58677f">Open LinkJar</a> &nbsp;·&nbsp; <a href="https://linkjar.io/support/" style="color:#58677f">Get help</a><br>Never share your password, confirmation codes or Private Jar Recovery Kit.</td></tr>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#020202" style="background:#020202"><tr><td align="center" style="padding:48px 24px">
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:480px">
++<tr><td align="center"><a href="{{config.homeUrl}}"><img src="https://linkjar.io/logo/linkjar-128.png" width="56" height="56" alt="LinkJar" style="display:block;border:0;border-radius:16px;color:#ffffff;font-size:14px"></a></td></tr>
++<tr><td align="center" style="padding:40px 0 12px;color:#3b82f6;font-size:10px;line-height:1.6;font-weight:600;letter-spacing:3px">ACCOUNT SECURITY</td></tr>
++<tr><td align="center"><h1 style="margin:0;color:#ffffff;font-size:32px;font-weight:500;line-height:1.2;letter-spacing:-1px">Confirm your email</h1></td></tr>
++<tr><td style="padding-top:32px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td bgcolor="#090909" style="background:#090909;border:1px solid #191919;border-radius:16px;padding:28px 24px;color:#a3a3a3">
++<p style="margin:0 0 24px;font-size:14px;line-height:1.9;color:#a3a3a3;text-align:center">Confirm this email address for your account.</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:20px 12px;background:#101b2e;border:1px solid #203454;border-radius:8px"><span style="font-family:Consolas,Menlo,monospace;font-size:26px;font-weight:700;letter-spacing:2px;color:#60a5fa">{{token}}</span></td></tr></table>
++<p style="margin:24px 0 0;font-size:14px;line-height:1.9;color:#a3a3a3;text-align:center">Enter this code in the app to confirm your email.{{#if config.showBskyAppEmailConfirmationLink}} Or <a href="https://bsky.app/intent/verify-email?code={{token}}" style="color:#2563eb">confirm your email</a>.{{/if}}</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-top:1px solid #202020"><tr><td style="padding-top:20px;font-size:13px;line-height:1.7;color:#8c8c8c">If you did not request this confirmation, ignore this email.</td></tr></table>
++</td></tr></table></td></tr>
++<tr><td align="center" style="padding:28px 8px 0;color:#8c8c8c;font-size:12px;line-height:1.8"><a href="{{config.homeUrl}}" style="color:#a3a3a3;text-decoration:underline">Open LinkJar</a> &nbsp;·&nbsp; <a href="https://linkjar.io/support/" style="color:#a3a3a3;text-decoration:underline">Get help</a><br>Never share your password, confirmation codes or Private Jar Recovery Kit.</td></tr>
++<tr><td align="center" style="padding-top:32px;color:#737373;font-size:11px;line-height:1.8;letter-spacing:0.5px">LinkJar. Your links. Your jar. Forever.</td></tr>
 +</table></td></tr></table></body></html>
 diff --git a/packages/pds/src/mailer/templates/delete-account.hbs b/packages/pds/src/mailer/templates/delete-account.hbs
-index a190843..be536cf 100644
+index a190843..61398e9 100644
 --- a/packages/pds/src/mailer/templates/delete-account.hbs
 +++ b/packages/pds/src/mailer/templates/delete-account.hbs
-@@ -1,156 +1,17 @@
+@@ -1,156 +1,18 @@
 -<html dir='ltr' lang='en'>
 -
 -  <head>
@@ -373,27 +374,28 @@ index a190843..be536cf 100644
 -</html>
 \ No newline at end of file
 +<!doctype html>
-+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="x-apple-disable-message-reformatting"><title>Account deletion requested</title></head>
-+<body style="margin:0;padding:0;background:#f4f6fa;color:#172033;font-family:Arial,Helvetica,sans-serif">
++<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="x-apple-disable-message-reformatting"><meta name="color-scheme" content="only dark"><meta name="supported-color-schemes" content="only dark"><title>Account deletion requested</title></head>
++<body bgcolor="#020202" style="margin:0;padding:0;background:#020202;color:#ffffff;font-family:Arial,Helvetica,sans-serif">
 +<div style="display:none;max-height:0;overflow:hidden;opacity:0">Account deletion requested — {{config.serviceName}}</div>
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f6fa"><tr><td align="center" style="padding:32px 16px">
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px">
-+<tr><td style="padding:0 8px 24px;font-size:26px;font-weight:700;letter-spacing:-1px"><a href="{{config.homeUrl}}" style="color:#172033;text-decoration:none">{{config.serviceName}}</a><span style="color:#2563eb">.</span></td></tr>
-+<tr><td style="background:#ffffff;border:1px solid #dfe5ef;border-top:4px solid #2563eb;border-radius:12px;padding:32px 24px">
-+<p style="margin:0 0 12px;color:#58677f;font-size:11px;line-height:1.5;letter-spacing:2px;font-weight:700">ACCOUNT SECURITY</p>
-+<h1 style="margin:0 0 20px;font-size:28px;line-height:1.2;letter-spacing:-0.6px;color:#172033">Account deletion requested</h1>
-+<p style="margin:0 0 24px;font-size:16px;line-height:1.6">We received a request to permanently delete your account.</p>
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:20px 12px;background:#f0f4ff;border:1px solid #d7e2ff;border-radius:8px"><span style="font-family:Consolas,Menlo,monospace;font-size:26px;font-weight:700;letter-spacing:2px;color:#1e40af">{{token}}</span></td></tr></table>
-+<p style="margin:24px 0 0;font-size:15px;line-height:1.6">Enter this code in the app with your password to confirm deletion.</p>
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-top:1px solid #e5e9f1"><tr><td style="padding-top:20px;font-size:13px;line-height:1.7;color:#58677f">If you did not request deletion, review your account security and change your password if one is set.</td></tr></table>
-+</td></tr>
-+<tr><td style="padding:24px 8px;font-size:12px;line-height:1.8;color:#58677f">Sent by {{config.serviceName}} to help protect your account.<br><a href="{{config.homeUrl}}" style="color:#58677f">Open LinkJar</a> &nbsp;·&nbsp; <a href="https://linkjar.io/support/" style="color:#58677f">Get help</a><br>Never share your password, confirmation codes or Private Jar Recovery Kit.</td></tr>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#020202" style="background:#020202"><tr><td align="center" style="padding:48px 24px">
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:480px">
++<tr><td align="center"><a href="{{config.homeUrl}}"><img src="https://linkjar.io/logo/linkjar-128.png" width="56" height="56" alt="LinkJar" style="display:block;border:0;border-radius:16px;color:#ffffff;font-size:14px"></a></td></tr>
++<tr><td align="center" style="padding:40px 0 12px;color:#3b82f6;font-size:10px;line-height:1.6;font-weight:600;letter-spacing:3px">ACCOUNT SECURITY</td></tr>
++<tr><td align="center"><h1 style="margin:0;color:#ffffff;font-size:32px;font-weight:500;line-height:1.2;letter-spacing:-1px">Account deletion requested</h1></td></tr>
++<tr><td style="padding-top:32px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td bgcolor="#090909" style="background:#090909;border:1px solid #191919;border-radius:16px;padding:28px 24px;color:#a3a3a3">
++<p style="margin:0 0 24px;font-size:14px;line-height:1.9;color:#a3a3a3;text-align:center">We received a request to permanently delete your account.</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:20px 12px;background:#101b2e;border:1px solid #203454;border-radius:8px"><span style="font-family:Consolas,Menlo,monospace;font-size:26px;font-weight:700;letter-spacing:2px;color:#60a5fa">{{token}}</span></td></tr></table>
++<p style="margin:24px 0 0;font-size:14px;line-height:1.9;color:#a3a3a3;text-align:center">Enter this code in the app with your password to confirm deletion.</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-top:1px solid #202020"><tr><td style="padding-top:20px;font-size:13px;line-height:1.7;color:#8c8c8c">If you did not request deletion, review your account security and change your password if one is set.</td></tr></table>
++</td></tr></table></td></tr>
++<tr><td align="center" style="padding:28px 8px 0;color:#8c8c8c;font-size:12px;line-height:1.8"><a href="{{config.homeUrl}}" style="color:#a3a3a3;text-decoration:underline">Open LinkJar</a> &nbsp;·&nbsp; <a href="https://linkjar.io/support/" style="color:#a3a3a3;text-decoration:underline">Get help</a><br>Never share your password, confirmation codes or Private Jar Recovery Kit.</td></tr>
++<tr><td align="center" style="padding-top:32px;color:#737373;font-size:11px;line-height:1.8;letter-spacing:0.5px">LinkJar. Your links. Your jar. Forever.</td></tr>
 +</table></td></tr></table></body></html>
 diff --git a/packages/pds/src/mailer/templates/plc-operation.hbs b/packages/pds/src/mailer/templates/plc-operation.hbs
-index 6e6ddf5..676abc4 100644
+index 6e6ddf5..a2c7fbd 100644
 --- a/packages/pds/src/mailer/templates/plc-operation.hbs
 +++ b/packages/pds/src/mailer/templates/plc-operation.hbs
-@@ -1,153 +1,17 @@
+@@ -1,153 +1,18 @@
 -<html dir='ltr' lang='en'>
 -
 -  <head>
@@ -549,27 +551,28 @@ index 6e6ddf5..676abc4 100644
 -</html>
 \ No newline at end of file
 +<!doctype html>
-+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="x-apple-disable-message-reformatting"><title>Identity update requested</title></head>
-+<body style="margin:0;padding:0;background:#f4f6fa;color:#172033;font-family:Arial,Helvetica,sans-serif">
++<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="x-apple-disable-message-reformatting"><meta name="color-scheme" content="only dark"><meta name="supported-color-schemes" content="only dark"><title>Identity update requested</title></head>
++<body bgcolor="#020202" style="margin:0;padding:0;background:#020202;color:#ffffff;font-family:Arial,Helvetica,sans-serif">
 +<div style="display:none;max-height:0;overflow:hidden;opacity:0">Identity update requested — {{config.serviceName}}</div>
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f6fa"><tr><td align="center" style="padding:32px 16px">
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px">
-+<tr><td style="padding:0 8px 24px;font-size:26px;font-weight:700;letter-spacing:-1px"><a href="{{config.homeUrl}}" style="color:#172033;text-decoration:none">{{config.serviceName}}</a><span style="color:#2563eb">.</span></td></tr>
-+<tr><td style="background:#ffffff;border:1px solid #dfe5ef;border-top:4px solid #2563eb;border-radius:12px;padding:32px 24px">
-+<p style="margin:0 0 12px;color:#58677f;font-size:11px;line-height:1.5;letter-spacing:2px;font-weight:700">ACCOUNT SECURITY</p>
-+<h1 style="margin:0 0 20px;font-size:28px;line-height:1.2;letter-spacing:-0.6px;color:#172033">Identity update requested</h1>
-+<p style="margin:0 0 24px;font-size:16px;line-height:1.6">We received a request to update your PLC identity.</p>
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:20px 12px;background:#f0f4ff;border:1px solid #d7e2ff;border-radius:8px"><span style="font-family:Consolas,Menlo,monospace;font-size:26px;font-weight:700;letter-spacing:2px;color:#1e40af">{{token}}</span></td></tr></table>
-+<p style="margin:24px 0 0;font-size:15px;line-height:1.6">Use this confirmation code to authorize the identity update.</p>
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-top:1px solid #e5e9f1"><tr><td style="padding-top:20px;font-size:13px;line-height:1.7;color:#58677f">Updating your PLC identity is a sensitive operation. Proceed only if you understand and requested the change.</td></tr></table>
-+</td></tr>
-+<tr><td style="padding:24px 8px;font-size:12px;line-height:1.8;color:#58677f">Sent by {{config.serviceName}} to help protect your account.<br><a href="{{config.homeUrl}}" style="color:#58677f">Open LinkJar</a> &nbsp;·&nbsp; <a href="https://linkjar.io/support/" style="color:#58677f">Get help</a><br>Never share your password, confirmation codes or Private Jar Recovery Kit.</td></tr>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#020202" style="background:#020202"><tr><td align="center" style="padding:48px 24px">
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:480px">
++<tr><td align="center"><a href="{{config.homeUrl}}"><img src="https://linkjar.io/logo/linkjar-128.png" width="56" height="56" alt="LinkJar" style="display:block;border:0;border-radius:16px;color:#ffffff;font-size:14px"></a></td></tr>
++<tr><td align="center" style="padding:40px 0 12px;color:#3b82f6;font-size:10px;line-height:1.6;font-weight:600;letter-spacing:3px">ACCOUNT SECURITY</td></tr>
++<tr><td align="center"><h1 style="margin:0;color:#ffffff;font-size:32px;font-weight:500;line-height:1.2;letter-spacing:-1px">Identity update requested</h1></td></tr>
++<tr><td style="padding-top:32px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td bgcolor="#090909" style="background:#090909;border:1px solid #191919;border-radius:16px;padding:28px 24px;color:#a3a3a3">
++<p style="margin:0 0 24px;font-size:14px;line-height:1.9;color:#a3a3a3;text-align:center">We received a request to update your PLC identity.</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:20px 12px;background:#101b2e;border:1px solid #203454;border-radius:8px"><span style="font-family:Consolas,Menlo,monospace;font-size:26px;font-weight:700;letter-spacing:2px;color:#60a5fa">{{token}}</span></td></tr></table>
++<p style="margin:24px 0 0;font-size:14px;line-height:1.9;color:#a3a3a3;text-align:center">Use this confirmation code to authorize the identity update.</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-top:1px solid #202020"><tr><td style="padding-top:20px;font-size:13px;line-height:1.7;color:#8c8c8c">Updating your PLC identity is a sensitive operation. Proceed only if you understand and requested the change.</td></tr></table>
++</td></tr></table></td></tr>
++<tr><td align="center" style="padding:28px 8px 0;color:#8c8c8c;font-size:12px;line-height:1.8"><a href="{{config.homeUrl}}" style="color:#a3a3a3;text-decoration:underline">Open LinkJar</a> &nbsp;·&nbsp; <a href="https://linkjar.io/support/" style="color:#a3a3a3;text-decoration:underline">Get help</a><br>Never share your password, confirmation codes or Private Jar Recovery Kit.</td></tr>
++<tr><td align="center" style="padding-top:32px;color:#737373;font-size:11px;line-height:1.8;letter-spacing:0.5px">LinkJar. Your links. Your jar. Forever.</td></tr>
 +</table></td></tr></table></body></html>
 diff --git a/packages/pds/src/mailer/templates/reset-password.hbs b/packages/pds/src/mailer/templates/reset-password.hbs
-index 40dd35b..406f94b 100644
+index 40dd35b..6ca8f84 100644
 --- a/packages/pds/src/mailer/templates/reset-password.hbs
 +++ b/packages/pds/src/mailer/templates/reset-password.hbs
-@@ -1,154 +1,17 @@
+@@ -1,154 +1,18 @@
 -<html dir='ltr' lang='en'>
 -
 -  <head>
@@ -726,21 +729,22 @@ index 40dd35b..406f94b 100644
 -</html>
 \ No newline at end of file
 +<!doctype html>
-+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="x-apple-disable-message-reformatting"><title>Reset your password</title></head>
-+<body style="margin:0;padding:0;background:#f4f6fa;color:#172033;font-family:Arial,Helvetica,sans-serif">
++<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="x-apple-disable-message-reformatting"><meta name="color-scheme" content="only dark"><meta name="supported-color-schemes" content="only dark"><title>Reset your password</title></head>
++<body bgcolor="#020202" style="margin:0;padding:0;background:#020202;color:#ffffff;font-family:Arial,Helvetica,sans-serif">
 +<div style="display:none;max-height:0;overflow:hidden;opacity:0">Reset your password — {{config.serviceName}}</div>
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f6fa"><tr><td align="center" style="padding:32px 16px">
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px">
-+<tr><td style="padding:0 8px 24px;font-size:26px;font-weight:700;letter-spacing:-1px"><a href="{{config.homeUrl}}" style="color:#172033;text-decoration:none">{{config.serviceName}}</a><span style="color:#2563eb">.</span></td></tr>
-+<tr><td style="background:#ffffff;border:1px solid #dfe5ef;border-top:4px solid #2563eb;border-radius:12px;padding:32px 24px">
-+<p style="margin:0 0 12px;color:#58677f;font-size:11px;line-height:1.5;letter-spacing:2px;font-weight:700">ACCOUNT SECURITY</p>
-+<h1 style="margin:0 0 20px;font-size:28px;line-height:1.2;letter-spacing:-0.6px;color:#172033">Reset your password</h1>
-+<p style="margin:0 0 24px;font-size:16px;line-height:1.6">We received a request to reset the password for <strong>@{{handle}}</strong>.</p>
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:20px 12px;background:#f0f4ff;border:1px solid #d7e2ff;border-radius:8px"><span style="font-family:Consolas,Menlo,monospace;font-size:26px;font-weight:700;letter-spacing:2px;color:#1e40af">{{token}}</span></td></tr></table>
-+<p style="margin:24px 0 0;font-size:15px;line-height:1.6">Enter this code in the app with your new password.</p>
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-top:1px solid #e5e9f1"><tr><td style="padding-top:20px;font-size:13px;line-height:1.7;color:#58677f">If you did not request a password reset, ignore this email. Your password has not changed.</td></tr></table>
-+</td></tr>
-+<tr><td style="padding:24px 8px;font-size:12px;line-height:1.8;color:#58677f">Sent by {{config.serviceName}} to help protect your account.<br><a href="{{config.homeUrl}}" style="color:#58677f">Open LinkJar</a> &nbsp;·&nbsp; <a href="https://linkjar.io/support/" style="color:#58677f">Get help</a><br>Never share your password, confirmation codes or Private Jar Recovery Kit.</td></tr>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#020202" style="background:#020202"><tr><td align="center" style="padding:48px 24px">
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:480px">
++<tr><td align="center"><a href="{{config.homeUrl}}"><img src="https://linkjar.io/logo/linkjar-128.png" width="56" height="56" alt="LinkJar" style="display:block;border:0;border-radius:16px;color:#ffffff;font-size:14px"></a></td></tr>
++<tr><td align="center" style="padding:40px 0 12px;color:#3b82f6;font-size:10px;line-height:1.6;font-weight:600;letter-spacing:3px">ACCOUNT SECURITY</td></tr>
++<tr><td align="center"><h1 style="margin:0;color:#ffffff;font-size:32px;font-weight:500;line-height:1.2;letter-spacing:-1px">Reset your password</h1></td></tr>
++<tr><td style="padding-top:32px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td bgcolor="#090909" style="background:#090909;border:1px solid #191919;border-radius:16px;padding:28px 24px;color:#a3a3a3">
++<p style="margin:0 0 24px;font-size:14px;line-height:1.9;color:#a3a3a3;text-align:center">We received a request to reset the password for <strong style="color:#ededed;word-break:break-word">@{{handle}}</strong>.</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:20px 12px;background:#101b2e;border:1px solid #203454;border-radius:8px"><span style="font-family:Consolas,Menlo,monospace;font-size:26px;font-weight:700;letter-spacing:2px;color:#60a5fa">{{token}}</span></td></tr></table>
++<p style="margin:24px 0 0;font-size:14px;line-height:1.9;color:#a3a3a3;text-align:center">Enter this code in the app with your new password.</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-top:1px solid #202020"><tr><td style="padding-top:20px;font-size:13px;line-height:1.7;color:#8c8c8c">If you did not request a password reset, ignore this email. Your password has not changed.</td></tr></table>
++</td></tr></table></td></tr>
++<tr><td align="center" style="padding:28px 8px 0;color:#8c8c8c;font-size:12px;line-height:1.8"><a href="{{config.homeUrl}}" style="color:#a3a3a3;text-decoration:underline">Open LinkJar</a> &nbsp;·&nbsp; <a href="https://linkjar.io/support/" style="color:#a3a3a3;text-decoration:underline">Get help</a><br>Never share your password, confirmation codes or Private Jar Recovery Kit.</td></tr>
++<tr><td align="center" style="padding-top:32px;color:#737373;font-size:11px;line-height:1.8;letter-spacing:0.5px">LinkJar. Your links. Your jar. Forever.</td></tr>
 +</table></td></tr></table></body></html>
 diff --git a/packages/pds/src/mailer/templates/sign-in-method-change.d.ts b/packages/pds/src/mailer/templates/sign-in-method-change.d.ts
 new file mode 100644
@@ -753,32 +757,33 @@ index 0000000..9b1b553
 +export default template
 diff --git a/packages/pds/src/mailer/templates/sign-in-method-change.hbs b/packages/pds/src/mailer/templates/sign-in-method-change.hbs
 new file mode 100644
-index 0000000..fb08f60
+index 0000000..d4835f4
 --- /dev/null
 +++ b/packages/pds/src/mailer/templates/sign-in-method-change.hbs
-@@ -0,0 +1,17 @@
+@@ -0,0 +1,18 @@
 +<!doctype html>
-+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="x-apple-disable-message-reformatting"><title>Your sign-in method changed</title></head>
-+<body style="margin:0;padding:0;background:#f4f6fa;color:#172033;font-family:Arial,Helvetica,sans-serif">
++<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="x-apple-disable-message-reformatting"><meta name="color-scheme" content="only dark"><meta name="supported-color-schemes" content="only dark"><title>Your sign-in method changed</title></head>
++<body bgcolor="#020202" style="margin:0;padding:0;background:#020202;color:#ffffff;font-family:Arial,Helvetica,sans-serif">
 +<div style="display:none;max-height:0;overflow:hidden;opacity:0">Your sign-in method changed — {{config.serviceName}}</div>
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f6fa"><tr><td align="center" style="padding:32px 16px">
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px">
-+<tr><td style="padding:0 8px 24px;font-size:26px;font-weight:700;letter-spacing:-1px"><a href="{{config.homeUrl}}" style="color:#172033;text-decoration:none">{{config.serviceName}}</a><span style="color:#2563eb">.</span></td></tr>
-+<tr><td style="background:#ffffff;border:1px solid #dfe5ef;border-top:4px solid #2563eb;border-radius:12px;padding:32px 24px">
-+<p style="margin:0 0 12px;color:#58677f;font-size:11px;line-height:1.5;letter-spacing:2px;font-weight:700">ACCOUNT SECURITY</p>
-+<h1 style="margin:0 0 20px;font-size:28px;line-height:1.2;letter-spacing:-0.6px;color:#172033">Your sign-in method changed</h1>
-+<p style="margin:0 0 24px;font-size:16px;line-height:1.6">{{change}}</p>
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6fa;border-radius:8px"><tr><td style="padding:16px;font-size:13px;line-height:1.8"><strong>Account</strong><br><span style="word-break:break-all">{{did}}</span><br><br><strong>Time (UTC)</strong><br>{{time}}</td></tr></table>
-+<p style="margin:24px 0 0;font-size:15px;line-height:1.6">If you made this change, no action is needed.</p>
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-top:1px solid #e5e9f1"><tr><td style="padding-top:20px;font-size:13px;line-height:1.7;color:#58677f">If you did not make this change, open your account settings from the app. Review your sign-in methods and sessions, and contact support if you need help.</td></tr></table>
-+</td></tr>
-+<tr><td style="padding:24px 8px;font-size:12px;line-height:1.8;color:#58677f">Sent by {{config.serviceName}} to help protect your account.<br><a href="{{config.homeUrl}}" style="color:#58677f">Open LinkJar</a> &nbsp;·&nbsp; <a href="https://linkjar.io/support/" style="color:#58677f">Get help</a><br>Never share your password, confirmation codes or Private Jar Recovery Kit.</td></tr>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#020202" style="background:#020202"><tr><td align="center" style="padding:48px 24px">
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:480px">
++<tr><td align="center"><a href="{{config.homeUrl}}"><img src="https://linkjar.io/logo/linkjar-128.png" width="56" height="56" alt="LinkJar" style="display:block;border:0;border-radius:16px;color:#ffffff;font-size:14px"></a></td></tr>
++<tr><td align="center" style="padding:40px 0 12px;color:#3b82f6;font-size:10px;line-height:1.6;font-weight:600;letter-spacing:3px">ACCOUNT SECURITY</td></tr>
++<tr><td align="center"><h1 style="margin:0;color:#ffffff;font-size:32px;font-weight:500;line-height:1.2;letter-spacing:-1px">Your sign-in method changed</h1></td></tr>
++<tr><td style="padding-top:32px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td bgcolor="#090909" style="background:#090909;border:1px solid #191919;border-radius:16px;padding:28px 24px;color:#a3a3a3">
++<p style="margin:0 0 24px;font-size:14px;line-height:1.9;color:#a3a3a3;text-align:center">{{change}}</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#111111;border-radius:8px"><tr><td style="padding:16px;font-size:13px;line-height:1.8;color:#a3a3a3;text-align:left"><strong style="color:#ededed">Account</strong><br><span style="word-break:break-all">{{did}}</span><br><br><strong style="color:#ededed">Time (UTC)</strong><br>{{time}}</td></tr></table>
++<p style="margin:24px 0 0;font-size:14px;line-height:1.9;color:#a3a3a3;text-align:center">If you made this change, no action is needed.</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-top:1px solid #202020"><tr><td style="padding-top:20px;font-size:13px;line-height:1.7;color:#8c8c8c">If you did not make this change, open your account settings from the app. Review your sign-in methods and sessions, and contact support if you need help.</td></tr></table>
++</td></tr></table></td></tr>
++<tr><td align="center" style="padding:28px 8px 0;color:#8c8c8c;font-size:12px;line-height:1.8"><a href="{{config.homeUrl}}" style="color:#a3a3a3;text-decoration:underline">Open LinkJar</a> &nbsp;·&nbsp; <a href="https://linkjar.io/support/" style="color:#a3a3a3;text-decoration:underline">Get help</a><br>Never share your password, confirmation codes or Private Jar Recovery Kit.</td></tr>
++<tr><td align="center" style="padding-top:32px;color:#737373;font-size:11px;line-height:1.8;letter-spacing:0.5px">LinkJar. Your links. Your jar. Forever.</td></tr>
 +</table></td></tr></table></body></html>
 diff --git a/packages/pds/src/mailer/templates/update-email.hbs b/packages/pds/src/mailer/templates/update-email.hbs
-index be6bf60..eba4fa0 100644
+index be6bf60..64727bf 100644
 --- a/packages/pds/src/mailer/templates/update-email.hbs
 +++ b/packages/pds/src/mailer/templates/update-email.hbs
-@@ -1,153 +1,17 @@
+@@ -1,153 +1,18 @@
 -<html dir='ltr' lang='en'>
 -
 -  <head>
@@ -934,19 +939,20 @@ index be6bf60..eba4fa0 100644
 -</html>
 \ No newline at end of file
 +<!doctype html>
-+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="x-apple-disable-message-reformatting"><title>Update your email</title></head>
-+<body style="margin:0;padding:0;background:#f4f6fa;color:#172033;font-family:Arial,Helvetica,sans-serif">
++<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="x-apple-disable-message-reformatting"><meta name="color-scheme" content="only dark"><meta name="supported-color-schemes" content="only dark"><title>Update your email</title></head>
++<body bgcolor="#020202" style="margin:0;padding:0;background:#020202;color:#ffffff;font-family:Arial,Helvetica,sans-serif">
 +<div style="display:none;max-height:0;overflow:hidden;opacity:0">Update your email — {{config.serviceName}}</div>
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f6fa"><tr><td align="center" style="padding:32px 16px">
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px">
-+<tr><td style="padding:0 8px 24px;font-size:26px;font-weight:700;letter-spacing:-1px"><a href="{{config.homeUrl}}" style="color:#172033;text-decoration:none">{{config.serviceName}}</a><span style="color:#2563eb">.</span></td></tr>
-+<tr><td style="background:#ffffff;border:1px solid #dfe5ef;border-top:4px solid #2563eb;border-radius:12px;padding:32px 24px">
-+<p style="margin:0 0 12px;color:#58677f;font-size:11px;line-height:1.5;letter-spacing:2px;font-weight:700">ACCOUNT SECURITY</p>
-+<h1 style="margin:0 0 20px;font-size:28px;line-height:1.2;letter-spacing:-0.6px;color:#172033">Update your email</h1>
-+<p style="margin:0 0 24px;font-size:16px;line-height:1.6">We received a request to change your account’s email address.</p>
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:20px 12px;background:#f0f4ff;border:1px solid #d7e2ff;border-radius:8px"><span style="font-family:Consolas,Menlo,monospace;font-size:26px;font-weight:700;letter-spacing:2px;color:#1e40af">{{token}}</span></td></tr></table>
-+<p style="margin:24px 0 0;font-size:15px;line-height:1.6">Enter this code in the app with your new email address.</p>
-+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-top:1px solid #e5e9f1"><tr><td style="padding-top:20px;font-size:13px;line-height:1.7;color:#58677f">If you did not request an email update, ignore this email.</td></tr></table>
-+</td></tr>
-+<tr><td style="padding:24px 8px;font-size:12px;line-height:1.8;color:#58677f">Sent by {{config.serviceName}} to help protect your account.<br><a href="{{config.homeUrl}}" style="color:#58677f">Open LinkJar</a> &nbsp;·&nbsp; <a href="https://linkjar.io/support/" style="color:#58677f">Get help</a><br>Never share your password, confirmation codes or Private Jar Recovery Kit.</td></tr>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#020202" style="background:#020202"><tr><td align="center" style="padding:48px 24px">
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:480px">
++<tr><td align="center"><a href="{{config.homeUrl}}"><img src="https://linkjar.io/logo/linkjar-128.png" width="56" height="56" alt="LinkJar" style="display:block;border:0;border-radius:16px;color:#ffffff;font-size:14px"></a></td></tr>
++<tr><td align="center" style="padding:40px 0 12px;color:#3b82f6;font-size:10px;line-height:1.6;font-weight:600;letter-spacing:3px">ACCOUNT SECURITY</td></tr>
++<tr><td align="center"><h1 style="margin:0;color:#ffffff;font-size:32px;font-weight:500;line-height:1.2;letter-spacing:-1px">Update your email</h1></td></tr>
++<tr><td style="padding-top:32px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td bgcolor="#090909" style="background:#090909;border:1px solid #191919;border-radius:16px;padding:28px 24px;color:#a3a3a3">
++<p style="margin:0 0 24px;font-size:14px;line-height:1.9;color:#a3a3a3;text-align:center">We received a request to change your account’s email address.</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:20px 12px;background:#101b2e;border:1px solid #203454;border-radius:8px"><span style="font-family:Consolas,Menlo,monospace;font-size:26px;font-weight:700;letter-spacing:2px;color:#60a5fa">{{token}}</span></td></tr></table>
++<p style="margin:24px 0 0;font-size:14px;line-height:1.9;color:#a3a3a3;text-align:center">Enter this code in the app with your new email address.</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-top:1px solid #202020"><tr><td style="padding-top:20px;font-size:13px;line-height:1.7;color:#8c8c8c">If you did not request an email update, ignore this email.</td></tr></table>
++</td></tr></table></td></tr>
++<tr><td align="center" style="padding:28px 8px 0;color:#8c8c8c;font-size:12px;line-height:1.8"><a href="{{config.homeUrl}}" style="color:#a3a3a3;text-decoration:underline">Open LinkJar</a> &nbsp;·&nbsp; <a href="https://linkjar.io/support/" style="color:#a3a3a3;text-decoration:underline">Get help</a><br>Never share your password, confirmation codes or Private Jar Recovery Kit.</td></tr>
++<tr><td align="center" style="padding-top:32px;color:#737373;font-size:11px;line-height:1.8;letter-spacing:0.5px">LinkJar. Your links. Your jar. Forever.</td></tr>
 +</table></td></tr></table></body></html>

@@ -7,6 +7,8 @@ const config={serviceName:'LinkJar',homeUrl:'https://linkjar.io',primaryColor:'#
 for(const [name,template] of Object.entries(templates)){
  const html=template({config,token:'FIXTURE-CODE',handle:'example.linkjar.social',did:'did:plc:fixture',time:'2026-10-02T09:00:00Z',change:'Apple was linked to your account.'});
  assert.ok(html.includes('<table'));assert.ok(!html.includes('height:500px'));assert.ok(html.includes('ACCOUNT SECURITY'));
+ assert.ok(html.includes('bgcolor="#020202"'));assert.ok(html.includes('https://linkjar.io/logo/linkjar-128.png'));
+ assert.ok(html.includes('content="only dark"'));assert.ok(!html.includes('border-top:4px solid'));
  const escaped=template({config,token:'<script>bad</script>',handle:'<script>bad</script>',did:'<script>bad</script>',change:'<script>bad</script>'});assert.ok(!escaped.includes('<script>bad</script>'));
  if(process.env.MAIL_PREVIEW_DIR) fs.writeFileSync(process.env.MAIL_PREVIEW_DIR+'/'+name+'.html',html);
 }

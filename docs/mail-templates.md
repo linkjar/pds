@@ -4,10 +4,13 @@
 email confirmation, email change, PLC operations and sign-in method changes.
 It follows the provider/security-mail work in #99 and `100-signin-methods.patch`.
 
-All six templates use inline CSS and presentation tables, a LinkJar wordmark,
-a readable code or account-details panel, security instructions and support links.
-Handlebars escapes dynamic fields. No remote images, fonts or tracking pixels are
-required. The existing Nodemailer HTML-to-text plugin supplies the text alternative.
+All six templates follow LinkJar's existing welcome and alpha-invite emails:
+the `#020202` canvas, blue accent, centered jar icon and heading, subtle dark panel,
+and established footer. Inline CSS and presentation tables keep codes, account
+details, security instructions and support links readable. Handlebars escapes
+dynamic fields. The logo uses the same public `linkjar-128.png` asset as the
+existing emails; there are no tracking pixels or remote fonts. The existing
+Nodemailer HTML-to-text plugin supplies the text alternative.
 The optional upstream Bluesky email-confirmation link retains its original URL and
 configuration gate. No new expiry or account-policy claims are introduced.
 
@@ -41,6 +44,10 @@ The production database schema and account data do not change. Switching the ima
 restarts the PDS, so check health, actor inventory, security-mail queue and backups
 afterward. Use synthetic preview codes when checking mail appearance.
 
-On 2026-10-02 the six layouts and multipart messages passed an isolated server
-overlay test. The canonical overlay and live deployment remain unverified while
-server SSH is unavailable. Browser previews use `FIXTURE-CODE`, not an account code.
+On 2026-10-02 the initial template implementation and multipart messages passed an
+isolated server overlay test. After operator feedback, all six templates were
+restyled against `packages/transactional/emails/welcome.tsx` and `alpha-invite.tsx`
+in the LinkJar app repository. The revised renderers pass local escaping checks;
+the dark reset preview was inspected in the browser. Full image CI, the canonical
+overlay and live deployment remain pending. Browser previews use `FIXTURE-CODE`,
+not an account code.
