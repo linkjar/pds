@@ -48,6 +48,16 @@ On 2026-10-02 the initial template implementation and multipart messages passed 
 isolated server overlay test. After operator feedback, all six templates were
 restyled against `packages/transactional/emails/welcome.tsx` and `alpha-invite.tsx`
 in the LinkJar app repository. The revised renderers pass local escaping checks;
-the dark reset preview was inspected in the browser. Full image CI, the canonical
-overlay and live deployment remain pending. Browser previews use `FIXTURE-CODE`,
-not an account code.
+the dark reset preview was inspected in the browser. Full image CI passes on
+amd64 and arm64 after updating the older security-notice test for HTML input.
+The canonical ARM64 overlay passes all template/MIME checks and ten sign-in-method
+tests. It is deployed on the private host as immutable local image ID
+`sha256:9e7e7b75dc51adacf8fce43613e40736d08cedfd445e8733bad00e10ba87d1fb`.
+The host retains its archive at `/var/lib/linkjar-pds-images/mail-101.tar`.
+
+Two labelled design previews were accepted by the configured SMTP transport for
+the approved Gmail and Apple relay destinations. A real Cloudflare delivery event
+reached the monitor. These previews use `PREVIEW`, not an account code; they do not
+request a password reset. PDS health, account integrity, actor/identity inventory,
+security-mail queue and backups remain healthy. The full registry revision 9
+publication is separate from this local overlay deployment.
