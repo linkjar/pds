@@ -32,3 +32,6 @@ See [#94's policy, compatibility tests and removal condition](../docs/provider-p
 `100-signin-methods.patch` adds explicit device-bound provider linking,
 transactional last-method protection, account-page controls and persistent
 security notifications. See [scope, migration, tests and removal](../docs/signin-methods.md).
+
+`101-mail-templates.patch` gives all six account emails consistent HTML layouts and
+keeps a text alternative. See [scope, tests, runtime overlay and removal](../docs/mail-templates.md).

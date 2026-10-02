@@ -80,6 +80,8 @@ jobs:
         run: |
           docker run --rm --entrypoint node -v "$PWD/tests:/linkjar-tests:ro" linkjar-pds:production --test /linkjar-tests/signin-methods.mjs
           python3 scripts/test-external.py linkjar-pds:production --methods
+      - name: Verify HTML mail templates and plain-text fallbacks
+        run: docker run --rm --entrypoint node -v "$PWD/tests:/linkjar-tests:ro" linkjar-pds:production /linkjar-tests/mail-templates.mjs
       - name: Verify CAPTCHA signup policy
         run: docker run --rm --entrypoint node -v "$PWD/tests:/linkjar-tests:ro" linkjar-pds:production --test /linkjar-tests/signup-policy.mjs
       - run: python3 scripts/smoke.py --browser

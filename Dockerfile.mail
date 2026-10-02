@@ -1,0 +1,13 @@
+# Runtime mail overlay until the next complete, multi-architecture PDS release.
+FROM ghcr.io/linkjar/pds@sha256:65439dafd5c431e86400a877cc33d91a932ec931aef52223dc44972535080d07 AS compiler
+USER root
+COPY packages/pds/src/mailer /app/packages/pds/src/mailer
+WORKDIR /app/packages/pds
+RUN npm install --prefix /tmp/mail-compiler --ignore-scripts --no-audit --no-fund typescript@5.9.3 \
+ && node scripts/build.templates.js \
+ && node -e 'const fs=require("fs"),ts=require("/tmp/mail-compiler/node_modules/typescript");for(const n of ["index","templates"]){const r=ts.transpileModule(fs.readFileSync("src/mailer/"+n+".ts","utf8"),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022},reportDiagnostics:true});if(r.diagnostics.some(d=>d.category===ts.DiagnosticCategory.Error))throw Error("Template transpilation failed");fs.writeFileSync("dist/mailer/"+n+".js",r.outputText)}'
+FROM ghcr.io/linkjar/pds@sha256:65439dafd5c431e86400a877cc33d91a932ec931aef52223dc44972535080d07
+LABEL io.linkjar.pds.mail-templates="101"
+COPY --from=compiler /app/packages/pds/dist/mailer /app/packages/pds/dist/mailer
+COPY --from=compiler /app/packages/pds/src/mailer /app/packages/pds/src/mailer
+USER node

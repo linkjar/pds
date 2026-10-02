@@ -36,7 +36,76 @@ Completed configuration checks:
 
 - The restricted HTTPS route passed an allowed-source HTTP 200 and a controlled
   denied-source HTTP 403 test. The real app completed PAR and opened the provider
-  signup page. No account has been created; signup agreement confirmation is pending.
+  signup page. Subsequent private acceptance results are recorded below.
+
+Private acceptance update, 2026-10-02 (Europe/Berlin):
+
+- The operator approved signup and created `uros-karic.linkjar.social` through
+  Google. Clean sign-out and Google sign-in returned the same account.
+- The operator's saved Recovery Kit unlocked the Private Jar after sign-in.
+  The synthetic private bookmark and its encrypted snapshot opened successfully.
+  This verifies client recovery; replacement-host OAuth and signed writes remain
+  unverified. The app still displays the DID instead of the handle.
+- A labelled test sent through the PDS's configured SMTP transport was accepted
+  for one recipient, with no rejections. The operator confirmed Gmail receipt
+  from `accounts@linkjar.io`; the message appeared in Archive / All Mail.
+  This proves receipt of the transport test, not inbox placement for every message.
+- Ordinary Google signup and login do not enqueue security notices. Current
+  notices cover provider linking, unlinking and password changes. Automatic
+  outbox delivery, outage retries and Apple Hide My Email delivery remain untested.
+
+Further acceptance, 2026-10-02:
+
+- Apple was explicitly linked to the existing Google account using Hide My Email.
+  The account page lists both providers; the contact email remains Gmail.
+  The security-notice queue was empty after linking. The operator confirmed
+  receipt of the automatic Apple-linked notice at the existing Gmail contact
+  address. The recorded change time was `2026-10-01T22:07:47.072Z`.
+- A labelled SMTP test to the Apple relay address was accepted for one recipient,
+  with no rejections. The operator confirmed receipt of the forwarded test.
+  A real password-reset message and bounce handling remain unverified.
+- The account-bearing R2 restore recovered four databases and one actor in
+  23.12 seconds. SQLite integrity checks passed; restored data contains two
+  bookmarks, one archive record and one blob record.
+- An isolated restored PDS, with mail and crawlers disabled, returned health 200
+  and served the two bookmarks and archive record. It read the 12,733-byte blob
+  from existing R2 storage with SHA-256
+  `599d122335b08a4eac9e9ac188b87cde903101100ddd0479afc209ab40df676c`,
+  matching the original. This tests restored metadata and existing blob storage,
+  not restoration of a lost blob bucket.
+- An earlier account restore recovered the actor signing key; a fresh offline
+  signature verified against the PLC document's public signing key. Replacement
+  host OAuth, authenticated signed writes and sequencer continuity remain pending.
+- The isolated container and both disposable restore directories were removed.
+  Production traffic was unchanged; the operator's work Tailscale was restored.
+
+Additional reset, retry and write acceptance, 2026-10-02:
+
+- The live `com.atproto.server.requestPasswordReset` request returned HTTP 200.
+  The operator confirmed receipt at Gmail. No password was changed.
+- A fresh isolated restore changed only its copied account contact address to
+  the approved Apple relay address. Its real password-reset endpoint returned
+  HTTP 200; the operator confirmed forwarded reset-email receipt. Its reset token
+  was not valid on production. The live contact address remained unchanged.
+- The deployed `deliverSignInNotices` implementation retained a synthetic notice
+  after an actual SMTP connection refusal, with attempts 1 and retry delay 60,000
+  ms. A separate process reopened the database and skipped delivery before the
+  deadline. At the deadline, a successful captured transport delivered once and
+  removed the row. This proves persistent retry state across process restarts;
+  it does not test the minute timer during a real provider outage.
+- A temporary credential existed only in the disposable restored account. That
+  instance accepted a session and an authenticated synthetic record write.
+  Readback CID matched; its exported CAR commit signature verified against the
+  original PLC public signing key. This proves authenticated restored-instance
+  writes, not full OAuth recovery on a replacement machine.
+- The disposable container, copied data, reset token and temporary credential
+  were removed. The work Tailscale account was restored.
+- Remaining: full OAuth on a routed replacement instance, sequencer continuity,
+  Cloudflare delivery-event ingestion and bounce acceptance. No public launch
+  approval follows from these private tests.
+
+The earlier configuration-only checks below retain their original limitations;
+the dated acceptance results above supersede their pending status where stated.
 
 Open launch checks:
 

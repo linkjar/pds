@@ -1,0 +1,952 @@
+diff --git a/packages/pds/src/mailer/index.ts b/packages/pds/src/mailer/index.ts
+index 3f1e70c..11920d2 100644
+--- a/packages/pds/src/mailer/index.ts
++++ b/packages/pds/src/mailer/index.ts
+@@ -49,12 +49,14 @@ export class ServerMailer {
+       notice.action === 'password-set'
+         ? 'Your account password was set or changed.'
+         : `${method} was ${notice.action === 'linked' ? 'linked to' : 'unlinked from'} your account.`
+-    await this.transporter.sendMail({
+-      from: this.email.fromAddress,
++    await this.sendTemplate('signInMethodChange', {
++      change,
++      did: notice.did,
++      time: new Date(notice.createdAt).toISOString(),
++    }, {
+       to: notice.recipient,
+       messageId: `<${notice.id}@${new URL(this.config.homeUrl).hostname}>`,
+       subject: `${this.config.serviceName}: sign-in method changed`,
+-      text: `${change}\n\nAccount: ${notice.did}\nTime: ${new Date(notice.createdAt).toISOString()}\n\nIf you did not make this change, open your account settings from the app and review your sign-in methods and sessions. Contact the service's support team if you need help. Never share your password or Private Jar recovery material.`,
+     })
+   }
+ 
+diff --git a/packages/pds/src/mailer/templates.ts b/packages/pds/src/mailer/templates.ts
+index 0b10bd8..d2cd00b 100644
+--- a/packages/pds/src/mailer/templates.ts
++++ b/packages/pds/src/mailer/templates.ts
+@@ -1,3 +1,4 @@
++export { default as signInMethodChange } from './templates/sign-in-method-change.js'
+ export { default as resetPassword } from './templates/reset-password.js'
+ export { default as deleteAccount } from './templates/delete-account.js'
+ export { default as confirmEmail } from './templates/confirm-email.js'
+diff --git a/packages/pds/src/mailer/templates/confirm-email.hbs b/packages/pds/src/mailer/templates/confirm-email.hbs
+index 5031271..645243a 100644
+--- a/packages/pds/src/mailer/templates/confirm-email.hbs
++++ b/packages/pds/src/mailer/templates/confirm-email.hbs
+@@ -1,158 +1,17 @@
+-<html dir='ltr' lang='en'>
+-
+-  <head>
+-    <meta content='text/html; charset=UTF-8' http-equiv='Content-Type' />
+-    <meta name='x-apple-disable-message-reformatting' />
+-    <title>Confirm your email</title>
+-    <meta name='description' content='{{token}} is your verification code.' />
+-  </head>
+-  <div
+-    style='display:none;overflow:hidden;line-height:1px;opacity:0;max-height:0;max-width:0'
+-  >{{token}}
+-    is your verification code.<div
+-    > ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿</div>
+-  </div>
+-
+-  <body
+-    style='padding:12px;padding-bottom:40px;background-color:hsl(211, 20%, 95.3%)'
+-  >
+-    <table
+-      align='center'
+-      width='100%'
+-      border='0'
+-      cellPadding='0'
+-      cellSpacing='0'
+-      role='presentation'
+-      style='max-width:37.5em'
+-    >
+-      <tbody>
+-        <tr style='width:100%'>
+-          <td>
+-            <table
+-              align='center'
+-              width='100%'
+-              border='0'
+-              cellPadding='0'
+-              cellSpacing='0'
+-              role='presentation'
+-              style='padding-top:24px;padding-bottom:24px'
+-            >
+-              <tbody>
+-                <tr>
+-                  <td><img
+-                      alt='{{config.serviceName}}'
+-                      src='{{config.logoUrl}}'
+-                      style='display:block;outline:none;border:none;text-decoration:none;width:110px;margin:0 auto'
+-                    /></td>
+-                </tr>
+-              </tbody>
+-            </table>
+-            <table
+-              align='center'
+-              width='100%'
+-              border='0'
+-              cellPadding='0'
+-              cellSpacing='0'
+-              role='presentation'
+-              style='padding:24px;padding-bottom:16px;border-radius:12px;background-color:#FFFFFF'
+-            >
+-              <tbody>
+-                <tr>
+-                  <td>
+-                    <h1
+-                      style='font-size:26px;letter-spacing:0.25px;color:#000000;font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;margin:0px 0px;line-height:1.0'
+-                    >Confirm your email</h1>
+-                    <p
+-                      style='font-size:16px;line-height:1.4;margin:0px 0px;letter-spacing:0.25px;color:hsl(211, 24%, 34.2%);font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;padding-top:12px;padding-bottom:12px;padding-right:32px'
+-                    >To confirm this email for your account, please enter the
+-                      code below in the app{{#if
+-                        config.showBskyAppEmailConfirmationLink
+-                      }}
+-                        or<!-- -->
+-                        <a
+-                          href='https://bsky.app/intent/verify-email?code={{token}}'
+-                          style='color:{{config.primaryColor}};text-decoration:none;text-decoration-line:underline;font-size:16px;letter-spacing:0.25px'
+-                          target='_blank'
+-                        >click here</a>{{/if}}.</p><code
+-                      style='display:block;padding:16px;border-radius:8px;border-width:1px;border-style:solid;background-color:hsl(211, 20%, 95.3%);border-color:hsl(211, 20%, 85.89999999999999%);font-size:14px;letter-spacing:0.25px;font-family:monospace;text-transform:uppercase'
+-                    >{{token}}</code>
+-                    <p
+-                      style='font-size:14px;line-height:1.4;margin:0px 0px;letter-spacing:0.25px;color:hsl(211, 20%, 53%);font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;padding-top:12px'
+-                    >If you didn&#x27;t request an email confirmation, you can
+-                      safely ignore this email.</p>
+-                    <table
+-                      align='center'
+-                      width='100%'
+-                      border='0'
+-                      cellPadding='0'
+-                      cellSpacing='0'
+-                      role='presentation'
+-                      style='padding-top:24px'
+-                    >
+-                      <tbody>
+-                        <tr>
+-                          <td>
+-                            <hr
+-                              style='width:100%;border:none;border-top:1px solid #eaeaea;margin:0'
+-                            />
+-                            <table
+-                              align='center'
+-                              width='100%'
+-                              border='0'
+-                              cellPadding='0'
+-                              cellSpacing='0'
+-                              role='presentation'
+-                              style='padding-top:16px;vertical-align:middle'
+-                            >
+-                              <tbody style='width:100%'>
+-                                <tr style='width:100%'>
+-                                  <td data-id='__react-email-column'>
+-                                    <p
+-                                      style='font-size:14px;line-height:1.4;margin:0px 0px;color:hsl(211, 20%, 53%);font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;letter-spacing:0.25px'
+-                                    ><a
+-                                        href='{{config.homeUrl}}'
+-                                        style='color:hsl(211, 20%, 53%);text-decoration:none;text-decoration-line:underline;font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;margin:0px 0px;line-height:1.0;font-size:14px;letter-spacing:0.25px'
+-                                        target='_blank'
+-                                      >{{config.serviceName}}</a></p>
+-                                  </td>
+-                                  <td
+-                                    data-id='__react-email-column'
+-                                    style='width:24px'
+-                                  ><img
+-                                      alt='{{config.serviceName}}'
+-                                      src='{{config.markUrl}}'
+-                                      style='display:block;outline:none;border:none;text-decoration:none;width:24px'
+-                                    /></td>
+-                                </tr>
+-                              </tbody>
+-                            </table>
+-                          </td>
+-                        </tr>
+-                      </tbody>
+-                    </table>
+-                  </td>
+-                </tr>
+-              </tbody>
+-            </table>
+-            <table
+-              align='center'
+-              width='100%'
+-              border='0'
+-              cellPadding='0'
+-              cellSpacing='0'
+-              role='presentation'
+-              style='height:500px'
+-            >
+-              <tbody>
+-                <tr>
+-                  <td></td>
+-                </tr>
+-              </tbody>
+-            </table>
+-          </td>
+-        </tr>
+-      </tbody>
+-    </table>
+-  </body>
+-
+-</html>
+\ No newline at end of file
++<!doctype html>
++<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="x-apple-disable-message-reformatting"><title>Confirm your email</title></head>
++<body style="margin:0;padding:0;background:#f4f6fa;color:#172033;font-family:Arial,Helvetica,sans-serif">
++<div style="display:none;max-height:0;overflow:hidden;opacity:0">Confirm your email — {{config.serviceName}}</div>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f6fa"><tr><td align="center" style="padding:32px 16px">
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px">
++<tr><td style="padding:0 8px 24px;font-size:26px;font-weight:700;letter-spacing:-1px"><a href="{{config.homeUrl}}" style="color:#172033;text-decoration:none">{{config.serviceName}}</a><span style="color:#2563eb">.</span></td></tr>
++<tr><td style="background:#ffffff;border:1px solid #dfe5ef;border-top:4px solid #2563eb;border-radius:12px;padding:32px 24px">
++<p style="margin:0 0 12px;color:#58677f;font-size:11px;line-height:1.5;letter-spacing:2px;font-weight:700">ACCOUNT SECURITY</p>
++<h1 style="margin:0 0 20px;font-size:28px;line-height:1.2;letter-spacing:-0.6px;color:#172033">Confirm your email</h1>
++<p style="margin:0 0 24px;font-size:16px;line-height:1.6">Confirm this email address for your account.</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:20px 12px;background:#f0f4ff;border:1px solid #d7e2ff;border-radius:8px"><span style="font-family:Consolas,Menlo,monospace;font-size:26px;font-weight:700;letter-spacing:2px;color:#1e40af">{{token}}</span></td></tr></table>
++<p style="margin:24px 0 0;font-size:15px;line-height:1.6">Enter this code in the app to confirm your email.{{#if config.showBskyAppEmailConfirmationLink}} Or <a href="https://bsky.app/intent/verify-email?code={{token}}" style="color:#2563eb">confirm your email</a>.{{/if}}</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-top:1px solid #e5e9f1"><tr><td style="padding-top:20px;font-size:13px;line-height:1.7;color:#58677f">If you did not request this confirmation, ignore this email.</td></tr></table>
++</td></tr>
++<tr><td style="padding:24px 8px;font-size:12px;line-height:1.8;color:#58677f">Sent by {{config.serviceName}} to help protect your account.<br><a href="{{config.homeUrl}}" style="color:#58677f">Open LinkJar</a> &nbsp;·&nbsp; <a href="https://linkjar.io/support/" style="color:#58677f">Get help</a><br>Never share your password, confirmation codes or Private Jar Recovery Kit.</td></tr>
++</table></td></tr></table></body></html>
+diff --git a/packages/pds/src/mailer/templates/delete-account.hbs b/packages/pds/src/mailer/templates/delete-account.hbs
+index a190843..be536cf 100644
+--- a/packages/pds/src/mailer/templates/delete-account.hbs
++++ b/packages/pds/src/mailer/templates/delete-account.hbs
+@@ -1,156 +1,17 @@
+-<html dir='ltr' lang='en'>
+-
+-  <head>
+-    <meta content='text/html; charset=UTF-8' http-equiv='Content-Type' />
+-    <meta name='x-apple-disable-message-reformatting' />
+-    <title>Delete your account</title>
+-    <meta
+-      name='description'
+-      content='To permanently delete your account, please enter the code provided in the app along with your password.'
+-    />
+-  </head>
+-  <div
+-    style='display:none;overflow:hidden;line-height:1px;opacity:0;max-height:0;max-width:0'
+-  >To permanently delete your account, please enter the code provided in the app
+-    along with your password.<div
+-    > ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿</div>
+-  </div>
+-
+-  <body
+-    style='padding:12px;padding-bottom:40px;background-color:hsl(211, 20%, 95.3%)'
+-  >
+-    <table
+-      align='center'
+-      width='100%'
+-      border='0'
+-      cellPadding='0'
+-      cellSpacing='0'
+-      role='presentation'
+-      style='max-width:37.5em'
+-    >
+-      <tbody>
+-        <tr style='width:100%'>
+-          <td>
+-            <table
+-              align='center'
+-              width='100%'
+-              border='0'
+-              cellPadding='0'
+-              cellSpacing='0'
+-              role='presentation'
+-              style='padding-top:24px;padding-bottom:24px'
+-            >
+-              <tbody>
+-                <tr>
+-                  <td><img
+-                      alt='{{config.serviceName}}'
+-                      src='{{config.logoUrl}}'
+-                      style='display:block;outline:none;border:none;text-decoration:none;width:110px;margin:0 auto'
+-                    /></td>
+-                </tr>
+-              </tbody>
+-            </table>
+-            <table
+-              align='center'
+-              width='100%'
+-              border='0'
+-              cellPadding='0'
+-              cellSpacing='0'
+-              role='presentation'
+-              style='padding:24px;padding-bottom:16px;border-radius:12px;background-color:#FFFFFF'
+-            >
+-              <tbody>
+-                <tr>
+-                  <td>
+-                    <h1
+-                      style='font-size:26px;letter-spacing:0.25px;color:#000000;font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;margin:0px 0px;line-height:1.0'
+-                    >Delete your account</h1>
+-                    <p
+-                      style='font-size:16px;line-height:1.4;margin:0px 0px;letter-spacing:0.25px;color:hsl(211, 24%, 34.2%);font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;padding-top:12px;padding-bottom:12px;padding-right:32px'
+-                    ><span style='font-weight:600'>To permanently delete your
+-                        account,</span>
+-                      <!-- -->please enter the code below in the app along with
+-                      your password.</p><code
+-                      style='display:block;padding:16px;border-radius:8px;border-width:1px;border-style:solid;background-color:hsl(211, 20%, 95.3%);border-color:hsl(211, 20%, 85.89999999999999%);font-size:14px;letter-spacing:0.25px;font-family:monospace;text-transform:uppercase'
+-                    >{{token}}</code>
+-                    <p
+-                      style='font-size:14px;line-height:1.4;margin:0px 0px;letter-spacing:0.25px;color:hsl(211, 20%, 53%);font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;padding-top:12px;padding-right:32px'
+-                    >👉 If you didn&#x27;t request an account deletion,<!-- -->
+-                      <span style='font-weight:600'>you should update your
+-                        password immediately.</span></p>
+-                    <table
+-                      align='center'
+-                      width='100%'
+-                      border='0'
+-                      cellPadding='0'
+-                      cellSpacing='0'
+-                      role='presentation'
+-                      style='padding-top:24px'
+-                    >
+-                      <tbody>
+-                        <tr>
+-                          <td>
+-                            <hr
+-                              style='width:100%;border:none;border-top:1px solid #eaeaea;margin:0'
+-                            />
+-                            <table
+-                              align='center'
+-                              width='100%'
+-                              border='0'
+-                              cellPadding='0'
+-                              cellSpacing='0'
+-                              role='presentation'
+-                              style='padding-top:16px;vertical-align:middle'
+-                            >
+-                              <tbody style='width:100%'>
+-                                <tr style='width:100%'>
+-                                  <td data-id='__react-email-column'>
+-                                    <p
+-                                      style='font-size:14px;line-height:1.4;margin:0px 0px;color:hsl(211, 20%, 53%);font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;letter-spacing:0.25px'
+-                                    ><a
+-                                        href='{{config.homeUrl}}'
+-                                        style='color:hsl(211, 20%, 53%);text-decoration:none;text-decoration-line:underline;font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;margin:0px 0px;line-height:1.0;font-size:14px;letter-spacing:0.25px'
+-                                        target='_blank'
+-                                      >{{config.serviceName}}</a></p>
+-                                  </td>
+-                                  <td
+-                                    data-id='__react-email-column'
+-                                    style='width:24px'
+-                                  ><img
+-                                      alt='{{config.serviceName}}'
+-                                      src='{{config.markUrl}}'
+-                                      style='display:block;outline:none;border:none;text-decoration:none;width:24px'
+-                                    /></td>
+-                                </tr>
+-                              </tbody>
+-                            </table>
+-                          </td>
+-                        </tr>
+-                      </tbody>
+-                    </table>
+-                  </td>
+-                </tr>
+-              </tbody>
+-            </table>
+-            <table
+-              align='center'
+-              width='100%'
+-              border='0'
+-              cellPadding='0'
+-              cellSpacing='0'
+-              role='presentation'
+-              style='height:500px'
+-            >
+-              <tbody>
+-                <tr>
+-                  <td></td>
+-                </tr>
+-              </tbody>
+-            </table>
+-          </td>
+-        </tr>
+-      </tbody>
+-    </table>
+-  </body>
+-
+-</html>
+\ No newline at end of file
++<!doctype html>
++<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="x-apple-disable-message-reformatting"><title>Account deletion requested</title></head>
++<body style="margin:0;padding:0;background:#f4f6fa;color:#172033;font-family:Arial,Helvetica,sans-serif">
++<div style="display:none;max-height:0;overflow:hidden;opacity:0">Account deletion requested — {{config.serviceName}}</div>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f6fa"><tr><td align="center" style="padding:32px 16px">
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px">
++<tr><td style="padding:0 8px 24px;font-size:26px;font-weight:700;letter-spacing:-1px"><a href="{{config.homeUrl}}" style="color:#172033;text-decoration:none">{{config.serviceName}}</a><span style="color:#2563eb">.</span></td></tr>
++<tr><td style="background:#ffffff;border:1px solid #dfe5ef;border-top:4px solid #2563eb;border-radius:12px;padding:32px 24px">
++<p style="margin:0 0 12px;color:#58677f;font-size:11px;line-height:1.5;letter-spacing:2px;font-weight:700">ACCOUNT SECURITY</p>
++<h1 style="margin:0 0 20px;font-size:28px;line-height:1.2;letter-spacing:-0.6px;color:#172033">Account deletion requested</h1>
++<p style="margin:0 0 24px;font-size:16px;line-height:1.6">We received a request to permanently delete your account.</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:20px 12px;background:#f0f4ff;border:1px solid #d7e2ff;border-radius:8px"><span style="font-family:Consolas,Menlo,monospace;font-size:26px;font-weight:700;letter-spacing:2px;color:#1e40af">{{token}}</span></td></tr></table>
++<p style="margin:24px 0 0;font-size:15px;line-height:1.6">Enter this code in the app with your password to confirm deletion.</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-top:1px solid #e5e9f1"><tr><td style="padding-top:20px;font-size:13px;line-height:1.7;color:#58677f">If you did not request deletion, review your account security and change your password if one is set.</td></tr></table>
++</td></tr>
++<tr><td style="padding:24px 8px;font-size:12px;line-height:1.8;color:#58677f">Sent by {{config.serviceName}} to help protect your account.<br><a href="{{config.homeUrl}}" style="color:#58677f">Open LinkJar</a> &nbsp;·&nbsp; <a href="https://linkjar.io/support/" style="color:#58677f">Get help</a><br>Never share your password, confirmation codes or Private Jar Recovery Kit.</td></tr>
++</table></td></tr></table></body></html>
+diff --git a/packages/pds/src/mailer/templates/plc-operation.hbs b/packages/pds/src/mailer/templates/plc-operation.hbs
+index 6e6ddf5..676abc4 100644
+--- a/packages/pds/src/mailer/templates/plc-operation.hbs
++++ b/packages/pds/src/mailer/templates/plc-operation.hbs
+@@ -1,153 +1,17 @@
+-<html dir='ltr' lang='en'>
+-
+-  <head>
+-    <meta content='text/html; charset=UTF-8' http-equiv='Content-Type' />
+-    <meta name='x-apple-disable-message-reformatting' />
+-    <title>PLC update requested</title>
+-    <meta
+-      name='description'
+-      content='We received a request to update your PLC.'
+-    />
+-  </head>
+-  <div
+-    style='display:none;overflow:hidden;line-height:1px;opacity:0;max-height:0;max-width:0'
+-  >We received a request to update your PLC.<div
+-    > ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿</div>
+-  </div>
+-
+-  <body
+-    style='padding:12px;padding-bottom:40px;background-color:hsl(211, 20%, 95.3%)'
+-  >
+-    <table
+-      align='center'
+-      width='100%'
+-      border='0'
+-      cellPadding='0'
+-      cellSpacing='0'
+-      role='presentation'
+-      style='max-width:37.5em'
+-    >
+-      <tbody>
+-        <tr style='width:100%'>
+-          <td>
+-            <table
+-              align='center'
+-              width='100%'
+-              border='0'
+-              cellPadding='0'
+-              cellSpacing='0'
+-              role='presentation'
+-              style='padding-top:24px;padding-bottom:24px'
+-            >
+-              <tbody>
+-                <tr>
+-                  <td><img
+-                      alt='{{config.serviceName}}'
+-                      src='{{config.logoUrl}}'
+-                      style='display:block;outline:none;border:none;text-decoration:none;width:110px;margin:0 auto'
+-                    /></td>
+-                </tr>
+-              </tbody>
+-            </table>
+-            <table
+-              align='center'
+-              width='100%'
+-              border='0'
+-              cellPadding='0'
+-              cellSpacing='0'
+-              role='presentation'
+-              style='padding:24px;padding-bottom:16px;border-radius:12px;background-color:#FFFFFF'
+-            >
+-              <tbody>
+-                <tr>
+-                  <td>
+-                    <h1
+-                      style='font-size:26px;letter-spacing:0.25px;color:#000000;font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;margin:0px 0px;line-height:1.0'
+-                    >PLC update requested</h1>
+-                    <p
+-                      style='font-size:16px;line-height:1.4;margin:0px 0px;letter-spacing:0.25px;color:hsl(211, 24%, 34.2%);font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;padding-top:12px;padding-bottom:12px'
+-                    >We received a request to update your PLC identity. Your
+-                      confirmation code is:</p><code
+-                      style='display:block;padding:16px;border-radius:8px;border-width:1px;border-style:solid;background-color:hsl(211, 20%, 95.3%);border-color:hsl(211, 20%, 85.89999999999999%);font-size:14px;letter-spacing:0.25px;font-family:monospace;text-transform:uppercase'
+-                    >{{token}}</code>
+-                    <p
+-                      style='font-size:14px;line-height:1.4;margin:0px 0px;letter-spacing:0.25px;color:hsl(211, 20%, 53%);font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;padding-top:12px'
+-                    >Updating your PLC identity is a very sensitive operation.
+-                      Please only proceed if you are confident in what you are
+-                      doing.</p>
+-                    <table
+-                      align='center'
+-                      width='100%'
+-                      border='0'
+-                      cellPadding='0'
+-                      cellSpacing='0'
+-                      role='presentation'
+-                      style='padding-top:24px'
+-                    >
+-                      <tbody>
+-                        <tr>
+-                          <td>
+-                            <hr
+-                              style='width:100%;border:none;border-top:1px solid #eaeaea;margin:0'
+-                            />
+-                            <table
+-                              align='center'
+-                              width='100%'
+-                              border='0'
+-                              cellPadding='0'
+-                              cellSpacing='0'
+-                              role='presentation'
+-                              style='padding-top:16px;vertical-align:middle'
+-                            >
+-                              <tbody style='width:100%'>
+-                                <tr style='width:100%'>
+-                                  <td data-id='__react-email-column'>
+-                                    <p
+-                                      style='font-size:14px;line-height:1.4;margin:0px 0px;color:hsl(211, 20%, 53%);font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;letter-spacing:0.25px'
+-                                    ><a
+-                                        href='{{config.homeUrl}}'
+-                                        style='color:hsl(211, 20%, 53%);text-decoration:none;text-decoration-line:underline;font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;margin:0px 0px;line-height:1.0;font-size:14px;letter-spacing:0.25px'
+-                                        target='_blank'
+-                                      >{{config.serviceName}}</a></p>
+-                                  </td>
+-                                  <td
+-                                    data-id='__react-email-column'
+-                                    style='width:24px'
+-                                  ><img
+-                                      alt='{{config.serviceName}}'
+-                                      src='{{config.markUrl}}'
+-                                      style='display:block;outline:none;border:none;text-decoration:none;width:24px'
+-                                    /></td>
+-                                </tr>
+-                              </tbody>
+-                            </table>
+-                          </td>
+-                        </tr>
+-                      </tbody>
+-                    </table>
+-                  </td>
+-                </tr>
+-              </tbody>
+-            </table>
+-            <table
+-              align='center'
+-              width='100%'
+-              border='0'
+-              cellPadding='0'
+-              cellSpacing='0'
+-              role='presentation'
+-              style='height:500px'
+-            >
+-              <tbody>
+-                <tr>
+-                  <td></td>
+-                </tr>
+-              </tbody>
+-            </table>
+-          </td>
+-        </tr>
+-      </tbody>
+-    </table>
+-  </body>
+-
+-</html>
+\ No newline at end of file
++<!doctype html>
++<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="x-apple-disable-message-reformatting"><title>Identity update requested</title></head>
++<body style="margin:0;padding:0;background:#f4f6fa;color:#172033;font-family:Arial,Helvetica,sans-serif">
++<div style="display:none;max-height:0;overflow:hidden;opacity:0">Identity update requested — {{config.serviceName}}</div>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f6fa"><tr><td align="center" style="padding:32px 16px">
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px">
++<tr><td style="padding:0 8px 24px;font-size:26px;font-weight:700;letter-spacing:-1px"><a href="{{config.homeUrl}}" style="color:#172033;text-decoration:none">{{config.serviceName}}</a><span style="color:#2563eb">.</span></td></tr>
++<tr><td style="background:#ffffff;border:1px solid #dfe5ef;border-top:4px solid #2563eb;border-radius:12px;padding:32px 24px">
++<p style="margin:0 0 12px;color:#58677f;font-size:11px;line-height:1.5;letter-spacing:2px;font-weight:700">ACCOUNT SECURITY</p>
++<h1 style="margin:0 0 20px;font-size:28px;line-height:1.2;letter-spacing:-0.6px;color:#172033">Identity update requested</h1>
++<p style="margin:0 0 24px;font-size:16px;line-height:1.6">We received a request to update your PLC identity.</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:20px 12px;background:#f0f4ff;border:1px solid #d7e2ff;border-radius:8px"><span style="font-family:Consolas,Menlo,monospace;font-size:26px;font-weight:700;letter-spacing:2px;color:#1e40af">{{token}}</span></td></tr></table>
++<p style="margin:24px 0 0;font-size:15px;line-height:1.6">Use this confirmation code to authorize the identity update.</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-top:1px solid #e5e9f1"><tr><td style="padding-top:20px;font-size:13px;line-height:1.7;color:#58677f">Updating your PLC identity is a sensitive operation. Proceed only if you understand and requested the change.</td></tr></table>
++</td></tr>
++<tr><td style="padding:24px 8px;font-size:12px;line-height:1.8;color:#58677f">Sent by {{config.serviceName}} to help protect your account.<br><a href="{{config.homeUrl}}" style="color:#58677f">Open LinkJar</a> &nbsp;·&nbsp; <a href="https://linkjar.io/support/" style="color:#58677f">Get help</a><br>Never share your password, confirmation codes or Private Jar Recovery Kit.</td></tr>
++</table></td></tr></table></body></html>
+diff --git a/packages/pds/src/mailer/templates/reset-password.hbs b/packages/pds/src/mailer/templates/reset-password.hbs
+index 40dd35b..406f94b 100644
+--- a/packages/pds/src/mailer/templates/reset-password.hbs
++++ b/packages/pds/src/mailer/templates/reset-password.hbs
+@@ -1,154 +1,17 @@
+-<html dir='ltr' lang='en'>
+-
+-  <head>
+-    <meta content='text/html; charset=UTF-8' http-equiv='Content-Type' />
+-    <meta name='x-apple-disable-message-reformatting' />
+-    <title>Reset password</title>
+-    <meta
+-      name='description'
+-      content='We received a request to reset the password for the account @{{handle}}.'
+-    />
+-  </head>
+-  <div
+-    style='display:none;overflow:hidden;line-height:1px;opacity:0;max-height:0;max-width:0'
+-  >We received a request to reset the password for the account @{{handle}}.<div
+-    > ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿</div>
+-  </div>
+-
+-  <body
+-    style='padding:12px;padding-bottom:40px;background-color:hsl(211, 20%, 95.3%)'
+-  >
+-    <table
+-      align='center'
+-      width='100%'
+-      border='0'
+-      cellPadding='0'
+-      cellSpacing='0'
+-      role='presentation'
+-      style='max-width:37.5em'
+-    >
+-      <tbody>
+-        <tr style='width:100%'>
+-          <td>
+-            <table
+-              align='center'
+-              width='100%'
+-              border='0'
+-              cellPadding='0'
+-              cellSpacing='0'
+-              role='presentation'
+-              style='padding-top:24px;padding-bottom:24px'
+-            >
+-              <tbody>
+-                <tr>
+-                  <td><img
+-                      alt='{{config.serviceName}}'
+-                      src='{{config.logoUrl}}'
+-                      style='display:block;outline:none;border:none;text-decoration:none;width:110px;margin:0 auto'
+-                    /></td>
+-                </tr>
+-              </tbody>
+-            </table>
+-            <table
+-              align='center'
+-              width='100%'
+-              border='0'
+-              cellPadding='0'
+-              cellSpacing='0'
+-              role='presentation'
+-              style='padding:24px;padding-bottom:16px;border-radius:12px;background-color:#FFFFFF'
+-            >
+-              <tbody>
+-                <tr>
+-                  <td>
+-                    <h1
+-                      style='font-size:26px;letter-spacing:0.25px;color:#000000;font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;margin:0px 0px;line-height:1.0'
+-                    >Reset password</h1>
+-                    <p
+-                      style='font-size:16px;line-height:1.4;margin:0px 0px;letter-spacing:0.25px;color:hsl(211, 24%, 34.2%);font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;padding-top:12px;padding-bottom:12px'
+-                    >We received a request to reset the password for the account<!-- -->
+-                      <span
+-                        style='color:{{config.primaryColor}}'
+-                      >@<!-- -->{{handle}}<!-- -->.</span></p><code
+-                      style='display:block;padding:16px;border-radius:8px;border-width:1px;border-style:solid;background-color:hsl(211, 20%, 95.3%);border-color:hsl(211, 20%, 85.89999999999999%);font-size:14px;letter-spacing:0.25px;font-family:monospace;text-transform:uppercase'
+-                    >{{token}}</code>
+-                    <p
+-                      style='font-size:14px;line-height:1.4;margin:0px 0px;letter-spacing:0.25px;color:hsl(211, 20%, 53%);font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;padding-top:12px'
+-                    >To choose a new password, please enter the code above in
+-                      the app along with your new password.</p>
+-                    <table
+-                      align='center'
+-                      width='100%'
+-                      border='0'
+-                      cellPadding='0'
+-                      cellSpacing='0'
+-                      role='presentation'
+-                      style='padding-top:24px'
+-                    >
+-                      <tbody>
+-                        <tr>
+-                          <td>
+-                            <hr
+-                              style='width:100%;border:none;border-top:1px solid #eaeaea;margin:0'
+-                            />
+-                            <table
+-                              align='center'
+-                              width='100%'
+-                              border='0'
+-                              cellPadding='0'
+-                              cellSpacing='0'
+-                              role='presentation'
+-                              style='padding-top:16px;vertical-align:middle'
+-                            >
+-                              <tbody style='width:100%'>
+-                                <tr style='width:100%'>
+-                                  <td data-id='__react-email-column'>
+-                                    <p
+-                                      style='font-size:14px;line-height:1.4;margin:0px 0px;color:hsl(211, 20%, 53%);font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;letter-spacing:0.25px'
+-                                    ><a
+-                                        href='{{config.homeUrl}}'
+-                                        style='color:hsl(211, 20%, 53%);text-decoration:none;text-decoration-line:underline;font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;margin:0px 0px;line-height:1.0;font-size:14px;letter-spacing:0.25px'
+-                                        target='_blank'
+-                                      >{{config.serviceName}}</a></p>
+-                                  </td>
+-                                  <td
+-                                    data-id='__react-email-column'
+-                                    style='width:24px'
+-                                  ><img
+-                                      alt='{{config.serviceName}}'
+-                                      src='{{config.markUrl}}'
+-                                      style='display:block;outline:none;border:none;text-decoration:none;width:24px'
+-                                    /></td>
+-                                </tr>
+-                              </tbody>
+-                            </table>
+-                          </td>
+-                        </tr>
+-                      </tbody>
+-                    </table>
+-                  </td>
+-                </tr>
+-              </tbody>
+-            </table>
+-            <table
+-              align='center'
+-              width='100%'
+-              border='0'
+-              cellPadding='0'
+-              cellSpacing='0'
+-              role='presentation'
+-              style='height:500px'
+-            >
+-              <tbody>
+-                <tr>
+-                  <td></td>
+-                </tr>
+-              </tbody>
+-            </table>
+-          </td>
+-        </tr>
+-      </tbody>
+-    </table>
+-  </body>
+-
+-</html>
+\ No newline at end of file
++<!doctype html>
++<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="x-apple-disable-message-reformatting"><title>Reset your password</title></head>
++<body style="margin:0;padding:0;background:#f4f6fa;color:#172033;font-family:Arial,Helvetica,sans-serif">
++<div style="display:none;max-height:0;overflow:hidden;opacity:0">Reset your password — {{config.serviceName}}</div>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f6fa"><tr><td align="center" style="padding:32px 16px">
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px">
++<tr><td style="padding:0 8px 24px;font-size:26px;font-weight:700;letter-spacing:-1px"><a href="{{config.homeUrl}}" style="color:#172033;text-decoration:none">{{config.serviceName}}</a><span style="color:#2563eb">.</span></td></tr>
++<tr><td style="background:#ffffff;border:1px solid #dfe5ef;border-top:4px solid #2563eb;border-radius:12px;padding:32px 24px">
++<p style="margin:0 0 12px;color:#58677f;font-size:11px;line-height:1.5;letter-spacing:2px;font-weight:700">ACCOUNT SECURITY</p>
++<h1 style="margin:0 0 20px;font-size:28px;line-height:1.2;letter-spacing:-0.6px;color:#172033">Reset your password</h1>
++<p style="margin:0 0 24px;font-size:16px;line-height:1.6">We received a request to reset the password for <strong>@{{handle}}</strong>.</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:20px 12px;background:#f0f4ff;border:1px solid #d7e2ff;border-radius:8px"><span style="font-family:Consolas,Menlo,monospace;font-size:26px;font-weight:700;letter-spacing:2px;color:#1e40af">{{token}}</span></td></tr></table>
++<p style="margin:24px 0 0;font-size:15px;line-height:1.6">Enter this code in the app with your new password.</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-top:1px solid #e5e9f1"><tr><td style="padding-top:20px;font-size:13px;line-height:1.7;color:#58677f">If you did not request a password reset, ignore this email. Your password has not changed.</td></tr></table>
++</td></tr>
++<tr><td style="padding:24px 8px;font-size:12px;line-height:1.8;color:#58677f">Sent by {{config.serviceName}} to help protect your account.<br><a href="{{config.homeUrl}}" style="color:#58677f">Open LinkJar</a> &nbsp;·&nbsp; <a href="https://linkjar.io/support/" style="color:#58677f">Get help</a><br>Never share your password, confirmation codes or Private Jar Recovery Kit.</td></tr>
++</table></td></tr></table></body></html>
+diff --git a/packages/pds/src/mailer/templates/sign-in-method-change.d.ts b/packages/pds/src/mailer/templates/sign-in-method-change.d.ts
+new file mode 100644
+index 0000000..9b1b553
+--- /dev/null
++++ b/packages/pds/src/mailer/templates/sign-in-method-change.d.ts
+@@ -0,0 +1,3 @@
++import type { TemplateDelegate } from 'handlebars'
++declare const template: TemplateDelegate<{ change: string; did: string; time: string }>
++export default template
+diff --git a/packages/pds/src/mailer/templates/sign-in-method-change.hbs b/packages/pds/src/mailer/templates/sign-in-method-change.hbs
+new file mode 100644
+index 0000000..fb08f60
+--- /dev/null
++++ b/packages/pds/src/mailer/templates/sign-in-method-change.hbs
+@@ -0,0 +1,17 @@
++<!doctype html>
++<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="x-apple-disable-message-reformatting"><title>Your sign-in method changed</title></head>
++<body style="margin:0;padding:0;background:#f4f6fa;color:#172033;font-family:Arial,Helvetica,sans-serif">
++<div style="display:none;max-height:0;overflow:hidden;opacity:0">Your sign-in method changed — {{config.serviceName}}</div>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f6fa"><tr><td align="center" style="padding:32px 16px">
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px">
++<tr><td style="padding:0 8px 24px;font-size:26px;font-weight:700;letter-spacing:-1px"><a href="{{config.homeUrl}}" style="color:#172033;text-decoration:none">{{config.serviceName}}</a><span style="color:#2563eb">.</span></td></tr>
++<tr><td style="background:#ffffff;border:1px solid #dfe5ef;border-top:4px solid #2563eb;border-radius:12px;padding:32px 24px">
++<p style="margin:0 0 12px;color:#58677f;font-size:11px;line-height:1.5;letter-spacing:2px;font-weight:700">ACCOUNT SECURITY</p>
++<h1 style="margin:0 0 20px;font-size:28px;line-height:1.2;letter-spacing:-0.6px;color:#172033">Your sign-in method changed</h1>
++<p style="margin:0 0 24px;font-size:16px;line-height:1.6">{{change}}</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6fa;border-radius:8px"><tr><td style="padding:16px;font-size:13px;line-height:1.8"><strong>Account</strong><br><span style="word-break:break-all">{{did}}</span><br><br><strong>Time (UTC)</strong><br>{{time}}</td></tr></table>
++<p style="margin:24px 0 0;font-size:15px;line-height:1.6">If you made this change, no action is needed.</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-top:1px solid #e5e9f1"><tr><td style="padding-top:20px;font-size:13px;line-height:1.7;color:#58677f">If you did not make this change, open your account settings from the app. Review your sign-in methods and sessions, and contact support if you need help.</td></tr></table>
++</td></tr>
++<tr><td style="padding:24px 8px;font-size:12px;line-height:1.8;color:#58677f">Sent by {{config.serviceName}} to help protect your account.<br><a href="{{config.homeUrl}}" style="color:#58677f">Open LinkJar</a> &nbsp;·&nbsp; <a href="https://linkjar.io/support/" style="color:#58677f">Get help</a><br>Never share your password, confirmation codes or Private Jar Recovery Kit.</td></tr>
++</table></td></tr></table></body></html>
+diff --git a/packages/pds/src/mailer/templates/update-email.hbs b/packages/pds/src/mailer/templates/update-email.hbs
+index be6bf60..eba4fa0 100644
+--- a/packages/pds/src/mailer/templates/update-email.hbs
++++ b/packages/pds/src/mailer/templates/update-email.hbs
+@@ -1,153 +1,17 @@
+-<html dir='ltr' lang='en'>
+-
+-  <head>
+-    <meta content='text/html; charset=UTF-8' http-equiv='Content-Type' />
+-    <meta name='x-apple-disable-message-reformatting' />
+-    <title>Update your email</title>
+-    <meta
+-      name='description'
+-      content='To update the email for your account, enter the code provided in the app along with your new email.'
+-    />
+-  </head>
+-  <div
+-    style='display:none;overflow:hidden;line-height:1px;opacity:0;max-height:0;max-width:0'
+-  >To update the email for your account, enter the code provided in the app
+-    along with your new email.<div
+-    > ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿ ‌​‍‎‏﻿</div>
+-  </div>
+-
+-  <body
+-    style='padding:12px;padding-bottom:40px;background-color:hsl(211, 20%, 95.3%)'
+-  >
+-    <table
+-      align='center'
+-      width='100%'
+-      border='0'
+-      cellPadding='0'
+-      cellSpacing='0'
+-      role='presentation'
+-      style='max-width:37.5em'
+-    >
+-      <tbody>
+-        <tr style='width:100%'>
+-          <td>
+-            <table
+-              align='center'
+-              width='100%'
+-              border='0'
+-              cellPadding='0'
+-              cellSpacing='0'
+-              role='presentation'
+-              style='padding-top:24px;padding-bottom:24px'
+-            >
+-              <tbody>
+-                <tr>
+-                  <td><img
+-                      alt='{{config.serviceName}}'
+-                      src='{{config.logoUrl}}'
+-                      style='display:block;outline:none;border:none;text-decoration:none;width:110px;margin:0 auto'
+-                    /></td>
+-                </tr>
+-              </tbody>
+-            </table>
+-            <table
+-              align='center'
+-              width='100%'
+-              border='0'
+-              cellPadding='0'
+-              cellSpacing='0'
+-              role='presentation'
+-              style='padding:24px;padding-bottom:16px;border-radius:12px;background-color:#FFFFFF'
+-            >
+-              <tbody>
+-                <tr>
+-                  <td>
+-                    <h1
+-                      style='font-size:26px;letter-spacing:0.25px;color:#000000;font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;margin:0px 0px;line-height:1.0'
+-                    >Update your email</h1>
+-                    <p
+-                      style='font-size:16px;line-height:1.4;margin:0px 0px;letter-spacing:0.25px;color:hsl(211, 24%, 34.2%);font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;padding-top:12px;padding-bottom:12px;padding-right:32px'
+-                    >To update the email for your account, enter the code below
+-                      in the app along with your new email.</p><code
+-                      style='display:block;padding:16px;border-radius:8px;border-width:1px;border-style:solid;background-color:hsl(211, 20%, 95.3%);border-color:hsl(211, 20%, 85.89999999999999%);font-size:14px;letter-spacing:0.25px;font-family:monospace;text-transform:uppercase'
+-                    >{{token}}</code>
+-                    <p
+-                      style='font-size:14px;line-height:1.4;margin:0px 0px;letter-spacing:0.25px;color:hsl(211, 20%, 53%);font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;padding-top:12px'
+-                    >If you didn&#x27;t request an email update, you can safely
+-                      ignore this email.</p>
+-                    <table
+-                      align='center'
+-                      width='100%'
+-                      border='0'
+-                      cellPadding='0'
+-                      cellSpacing='0'
+-                      role='presentation'
+-                      style='padding-top:24px'
+-                    >
+-                      <tbody>
+-                        <tr>
+-                          <td>
+-                            <hr
+-                              style='width:100%;border:none;border-top:1px solid #eaeaea;margin:0'
+-                            />
+-                            <table
+-                              align='center'
+-                              width='100%'
+-                              border='0'
+-                              cellPadding='0'
+-                              cellSpacing='0'
+-                              role='presentation'
+-                              style='padding-top:16px;vertical-align:middle'
+-                            >
+-                              <tbody style='width:100%'>
+-                                <tr style='width:100%'>
+-                                  <td data-id='__react-email-column'>
+-                                    <p
+-                                      style='font-size:14px;line-height:1.4;margin:0px 0px;color:hsl(211, 20%, 53%);font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;letter-spacing:0.25px'
+-                                    ><a
+-                                        href='{{config.homeUrl}}'
+-                                        style='color:hsl(211, 20%, 53%);text-decoration:none;text-decoration-line:underline;font-family:-apple-system, BlinkMacSystemFont, &#x27;Roboto&#x27;, &#x27;Oxygen&#x27;, &#x27;Ubuntu&#x27;, &#x27;Cantarell&#x27;, &#x27;Fira Sans&#x27;, &#x27;Droid Sans&#x27;, &#x27;Helvetica Neue&#x27;, sans-serif;margin:0px 0px;line-height:1.0;font-size:14px;letter-spacing:0.25px'
+-                                        target='_blank'
+-                                      >{{config.serviceName}}</a></p>
+-                                  </td>
+-                                  <td
+-                                    data-id='__react-email-column'
+-                                    style='width:24px'
+-                                  ><img
+-                                      alt='{{config.serviceName}}'
+-                                      src='{{config.markUrl}}'
+-                                      style='display:block;outline:none;border:none;text-decoration:none;width:24px'
+-                                    /></td>
+-                                </tr>
+-                              </tbody>
+-                            </table>
+-                          </td>
+-                        </tr>
+-                      </tbody>
+-                    </table>
+-                  </td>
+-                </tr>
+-              </tbody>
+-            </table>
+-            <table
+-              align='center'
+-              width='100%'
+-              border='0'
+-              cellPadding='0'
+-              cellSpacing='0'
+-              role='presentation'
+-              style='height:500px'
+-            >
+-              <tbody>
+-                <tr>
+-                  <td></td>
+-                </tr>
+-              </tbody>
+-            </table>
+-          </td>
+-        </tr>
+-      </tbody>
+-    </table>
+-  </body>
+-
+-</html>
+\ No newline at end of file
++<!doctype html>
++<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="x-apple-disable-message-reformatting"><title>Update your email</title></head>
++<body style="margin:0;padding:0;background:#f4f6fa;color:#172033;font-family:Arial,Helvetica,sans-serif">
++<div style="display:none;max-height:0;overflow:hidden;opacity:0">Update your email — {{config.serviceName}}</div>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f6fa"><tr><td align="center" style="padding:32px 16px">
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px">
++<tr><td style="padding:0 8px 24px;font-size:26px;font-weight:700;letter-spacing:-1px"><a href="{{config.homeUrl}}" style="color:#172033;text-decoration:none">{{config.serviceName}}</a><span style="color:#2563eb">.</span></td></tr>
++<tr><td style="background:#ffffff;border:1px solid #dfe5ef;border-top:4px solid #2563eb;border-radius:12px;padding:32px 24px">
++<p style="margin:0 0 12px;color:#58677f;font-size:11px;line-height:1.5;letter-spacing:2px;font-weight:700">ACCOUNT SECURITY</p>
++<h1 style="margin:0 0 20px;font-size:28px;line-height:1.2;letter-spacing:-0.6px;color:#172033">Update your email</h1>
++<p style="margin:0 0 24px;font-size:16px;line-height:1.6">We received a request to change your account’s email address.</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:20px 12px;background:#f0f4ff;border:1px solid #d7e2ff;border-radius:8px"><span style="font-family:Consolas,Menlo,monospace;font-size:26px;font-weight:700;letter-spacing:2px;color:#1e40af">{{token}}</span></td></tr></table>
++<p style="margin:24px 0 0;font-size:15px;line-height:1.6">Enter this code in the app with your new email address.</p>
++<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border-top:1px solid #e5e9f1"><tr><td style="padding-top:20px;font-size:13px;line-height:1.7;color:#58677f">If you did not request an email update, ignore this email.</td></tr></table>
++</td></tr>
++<tr><td style="padding:24px 8px;font-size:12px;line-height:1.8;color:#58677f">Sent by {{config.serviceName}} to help protect your account.<br><a href="{{config.homeUrl}}" style="color:#58677f">Open LinkJar</a> &nbsp;·&nbsp; <a href="https://linkjar.io/support/" style="color:#58677f">Get help</a><br>Never share your password, confirmation codes or Private Jar Recovery Kit.</td></tr>
++</table></td></tr></table></body></html>
