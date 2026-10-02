@@ -132,8 +132,10 @@ test('security mail uses the stored recipient and a stable message ID, and missi
   assert.equal(sent[0].messageId, '<fixture-notice@linkjar.io>')
   assert.equal(sent[1].messageId, sent[0].messageId)
   assert.match(sent[0].subject, /^LinkJar:/)
-  assert.match(sent[0].text, /Google was linked to your account/)
-  assert.equal('html' in sent[0], false)
+  // This transport captures input before Nodemailer's HTML-to-text plugin.
+  // mail-templates.mjs checks both alternatives in the generated MIME message.
+  assert.match(sent[0].html, /Google was linked to your account/)
+  assert.ok(sent[0].html.includes(did))
   await assert.rejects(new ServerMailer(transporter, null, branding).sendSignInMethodChange(notice), /requires SMTP/)
   assert.equal(sent.length, 2)
 })
