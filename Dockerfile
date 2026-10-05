@@ -3,9 +3,9 @@ FROM node:24.18-alpine3.23 AS source
 RUN apk add --no-cache git
 WORKDIR /source
 RUN git init . && git remote add origin https://github.com/bluesky-social/atproto.git \
- && git fetch --depth=1 origin refs/tags/@atproto/pds@0.5.34 \
+ && git fetch --depth=1 origin refs/tags/@atproto/pds@0.5.37 \
  && git checkout --detach FETCH_HEAD \
- && test "$(git rev-parse HEAD)" = "7ca16cc6989f8247637615aca17c5abb911b8fb1"
+ && test "$(git rev-parse HEAD)" = "a7c8604d876a200a1e4fa4aec83d4189ac4f1c12"
 COPY patches /patches
 COPY examples/branding-smoke /examples/branding-smoke
 COPY scripts/apply-patches.sh /apply-patches.sh
