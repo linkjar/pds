@@ -1,0 +1,3 @@
+# Per-run state: CA and leaf keys, generated secrets, transcripts, reports.
+.run/
+node_modules/

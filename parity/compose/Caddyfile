@@ -1,0 +1,49 @@
+# TLS edge of one parity stack. It plays the part that Caddy plays on the
+# production host: it terminates TLS for the PDS and its handle hosts with the
+# production snippet (legacy/staging/Caddyfile.handles), and forwards the
+# client address in X-Forwarded-For.
+{
+	admin off
+	auto_https off
+	# The health check connects by address and sends no server name.
+	default_sni edge.test
+	servers {
+		# The harness connects from the Docker gateway, a private address, and
+		# names the client address of each scenario in X-Forwarded-For.
+		trusted_proxies static private_ranges
+	}
+}
+
+import /etc/caddy/handles
+
+(edge_tls) {
+	tls /tls/edge.crt /tls/edge.key
+}
+
+https://pds.linkjar.social, https://*.linkjar.social {
+	import edge_tls
+	import linkjar_handle_hosts
+}
+
+https://plc.test {
+	import edge_tls
+	reverse_proxy plc:2582
+}
+
+https://relay.test {
+	import edge_tls
+	reverse_proxy relay:2470
+}
+
+https://mail.test {
+	import edge_tls
+	reverse_proxy mail:8025
+}
+
+# Every other name is an outside service. The fixture server on the host
+# answers for it and reads the name it was called by from the Host header.
+https:// {
+	import edge_tls
+	respond /__edge "ok" 200
+	reverse_proxy {$FIXTURE_UPSTREAM}
+}

@@ -1,0 +1,189 @@
+# One stack per target. Every target gets the same hostnames, the same
+# configuration and its own PLC directory, relay, mail catcher and TLS edge,
+# so two targets differ only in the PDS image (SPEC section 17.1).
+#
+# The `inner` network is internal: the PDS, the PLC directory and the relay
+# cannot reach the internet, so no public identity is ever created and the
+# real Apple, Google, GitHub and hCaptcha hosts are never contacted. Names of
+# outside services resolve to the edge, which forwards them to the fixture
+# server that the harness runs on the host.
+#
+# Variables come from `node src/cli.ts stack up <target>`; do not run this
+# file by hand.
+name: parity-${PARITY_TARGET:?set by the harness}
+
+services:
+  edge:
+    image: ${EDGE_IMAGE:?}
+    restart: "no"
+    environment:
+      PDS_UPSTREAM: pds:3000
+      FIXTURE_UPSTREAM: host.docker.internal:${FIXTURE_PORT:?}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - 127.0.0.1:${EDGE_PORT:?}:443
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../../legacy/staging/Caddyfile.handles:/etc/caddy/handles:ro
+      - ${RUN_DIR:?}/tls:/tls:ro
+    networks:
+      outer: {}
+      # The relay reaches the PDS here, by its public name.
+      pubnet:
+        aliases:
+          - pds.linkjar.social
+      inner:
+        aliases:
+          # Harness services, reached from the host through the edge.
+          - plc.test
+          - relay.test
+          - mail.test
+          # Fixtures: OAuth clients, the AppView and the report service.
+          - app.linkjar.io
+          - linkjar.io
+          - client.test
+          - appview.test
+          - mod.test
+          # Fixtures: the fixed provider endpoints of patch 099.
+          - accounts.google.com
+          - oauth2.googleapis.com
+          - www.googleapis.com
+          - github.com
+          - api.github.com
+          - appleid.apple.com
+          - api.hcaptcha.com
+    healthcheck:
+      test: [CMD, wget, -q, --spider, --no-check-certificate, "https://127.0.0.1/__edge"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
+  plc:
+    build:
+      context: ${PLC_REPOSITORY:?}#${PLC_COMMIT:?}
+      dockerfile: packages/server/Dockerfile
+    image: parity-plc:${PLC_COMMIT}
+    # Built once from the pinned commit by `stack up`; never pulled. The image
+    # upstream publishes on GHCR is private.
+    pull_policy: never
+    restart: "no"
+    # `bin.js` takes DATABASE_URL and runs the migrations itself. The image's
+    # default entry point expects the production credential variables.
+    command: [node, --enable-source-maps, ../dist/bin.js]
+    environment:
+      PORT: "2582"
+      NODE_ENV: production
+      DATABASE_URL: postgres://plc:plc@plc-db:5432/plc
+    networks: [inner]
+    depends_on:
+      plc-db: { condition: service_healthy }
+    healthcheck:
+      test: [CMD, wget, -q, --spider, "http://127.0.0.1:2582/_health"]
+      interval: 1s
+      timeout: 3s
+      retries: 60
+
+  # The directory's in-memory store no longer starts at the pinned commit (its
+  # sequencer needs SQL), so the directory gets a disposable Postgres.
+  plc-db:
+    image: ${PLC_DATABASE_IMAGE:?}
+    restart: "no"
+    environment:
+      POSTGRES_USER: plc
+      POSTGRES_PASSWORD: plc
+      POSTGRES_DB: plc
+    tmpfs:
+      - /var/lib/postgresql/data
+    networks: [inner]
+    healthcheck:
+      test: [CMD, pg_isready, -U, plc, -d, plc]
+      interval: 1s
+      timeout: 3s
+      retries: 60
+
+  relay:
+    image: ${RELAY_IMAGE:?}
+    # Upstream publishes the relay for amd64 only. An arm64 host runs it under
+    # emulation; CI runners are amd64.
+    platform: linux/amd64
+    restart: "no"
+    environment:
+      RELAY_ADMIN_PASSWORD: ${RELAY_ADMIN_PASSWORD:?}
+      RELAY_PLC_HOST: http://plc:2582
+      RELAY_PERSIST_DIR: /data/relay/persist
+      DATABASE_URL: sqlite:///data/relay/relay.sqlite
+      RELAY_API_BIND: :2470
+      # Strict Sync 1.1: a commit that fails validation is dropped, not logged
+      # and passed. The flag is left unset on purpose.
+      RELAY_LOG_LEVEL: info
+      # Trust the harness CA for wss://pds.linkjar.social.
+      SSL_CERT_FILE: /ca/ca.crt
+    volumes:
+      - relay-data:/data/relay
+      - ${RUN_DIR}/ca:/ca:ro
+    networks: [inner, pubnet]
+    depends_on:
+      plc: { condition: service_healthy }
+      edge: { condition: service_healthy }
+
+  mail:
+    image: ${MAIL_IMAGE:?}
+    restart: "no"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    networks: [inner]
+
+  # The image runs as uid 1000; a named volume is created root-owned.
+  pds-init:
+    image: ${PDS_IMAGE:?}
+    user: root
+    entrypoint: [sh, -c, "mkdir -p /app/data && chown -R 1000:1000 /app/data"]
+    network_mode: none
+    volumes:
+      - pds-data:/app/data
+
+  pds:
+    image: ${PDS_IMAGE}
+    restart: "no"
+    env_file:
+      - path: ${RUN_DIR}/pds.env
+        format: raw
+    environment:
+      NODE_EXTRA_CA_CERTS: /ca/ca.crt
+    volumes:
+      - pds-data:/app/data
+      - ${RUN_DIR}/ca:/ca:ro
+    networks: [inner]
+    depends_on:
+      pds-init: { condition: service_completed_successfully }
+      plc: { condition: service_healthy }
+      edge: { condition: service_healthy }
+      mail: { condition: service_started }
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/xrpc/_health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 1s
+      timeout: 5s
+      retries: 90
+    stop_grace_period: 20s
+
+networks:
+  inner:
+    internal: true
+  # The relay refuses to subscribe to a host on a private, loopback or other
+  # reserved address, and it has no development switch for that check. This
+  # network gives the edge an address the relay accepts: an IPv6-only subnet
+  # in the documentation prefix 2001:db8::/32, which is never routed.
+  pubnet:
+    internal: true
+    enable_ipv4: false
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: ${PUBNET_SUBNET:?}
+  outer: {}
+
+volumes:
+  pds-data: {}
+  relay-data: {}

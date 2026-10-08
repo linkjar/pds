@@ -1,0 +1,37 @@
+{
+  "name": "linkjar-pds-parity",
+  "private": true,
+  "type": "module",
+  "description": "Parity harness for LinkJar PDS (SPEC section 17): the official atproto SDK at the pin drives the reference image and, later, the Candidate.",
+  "packageManager": "pnpm@12.4.1",
+  "engines": {
+    "node": ">=24.21.0 <25"
+  },
+  "scripts": {
+    "parity": "node src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@atproto/api": "0.20.44",
+    "@atproto/common-web": "0.5.12",
+    "@atproto/crypto": "0.5.5",
+    "@atproto/oauth-client-node": "0.5.7",
+    "@atproto/repo": "0.10.14",
+    "@atproto/syntax": "0.7.6",
+    "@atproto/xrpc": "0.8.13",
+    "@ipld/dag-cbor": "^9.2.5",
+    "@peculiar/x509": "^2.1.0",
+    "cborg": "^4.5.8",
+    "multiformats": "^13.4.1",
+    "playwright": "1.64.0",
+    "reflect-metadata": "^0.2.2",
+    "undici": "^8.11.2",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "@types/ws": "^8.18.1",
+    "typescript": "^7.0.2"
+  }
+}

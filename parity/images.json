@@ -1,0 +1,41 @@
+{
+  "reference": {
+    "image": "ghcr.io/linkjar/pds",
+    "tag": "atproto-pds-0.5.34-11",
+    "digest": "sha256:12c1de787be2dc5ffdce36e477621a3943c0fe58bf768690c0ea81a4c4b90933",
+    "revision": "08b12354b5e8ec06f2a0aeba3ab3bec2c62d4f11"
+  },
+  "stock": {
+    "tag": "linkjar-pds:unpatched",
+    "build": {
+      "context": "legacy",
+      "args": {
+        "PATCH_PROFILE": "none"
+      }
+    }
+  },
+  "relay": {
+    "image": "ghcr.io/bluesky-social/indigo",
+    "tag": "relay-5568a3799fb62b3ac92a417a03ce8f9ab8c89395",
+    "digest": "sha256:c58784542bce28469829889ad855e17d70870615c017ae94ae9094f78c663f64"
+  },
+  "plc": {
+    "repository": "https://github.com/did-method-plc/did-method-plc.git",
+    "commit": "9c8ea2fe23b89a5c1011246cbb4957dad9dbf7db"
+  },
+  "mail": {
+    "image": "axllent/mailpit",
+    "tag": "v1.27",
+    "digest": "sha256:e22dce5b36f93c77082e204a3942fb6b283b7896e057458400a4c88344c3df68"
+  },
+  "edge": {
+    "image": "caddy",
+    "tag": "2.10.2-alpine",
+    "digest": "sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d"
+  },
+  "plcDatabase": {
+    "image": "postgres",
+    "tag": "17.6-alpine",
+    "digest": "sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94"
+  }
+}

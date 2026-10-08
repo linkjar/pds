@@ -1,0 +1,8 @@
+# pnpm settings for the parity harness. This is a single-package project; the
+# file exists because pnpm 12 reads its settings here.
+packages:
+  - "."
+
+# core-js runs a postinstall banner only. Nothing here needs a build script.
+allowBuilds:
+  core-js: false
