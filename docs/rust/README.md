@@ -109,10 +109,28 @@ upstream bumps, which nothing does today beyond the image smoke gate.
 | 2026-10-08 | Decision taken. Branch `feat/rust-pds` created from `main`. SPEC revision 0 written from the reference source at the pin and the six patch documents. No code yet. |
 | 2026-10-08 | Scope widened by the owner: storage and auth extensibility, clustering, audit and provenance, simulation testing, a database switch, devenv. [State-of-the-art research](research-2026-10-08-state-of-the-art.md) recorded; its §9 lists the SPEC sections to add in revision 1. Headline: the account and OAuth crate should run embedded or as an entryway, which is how the protocol itself scales; audit checkpoints can be published as repository records so the firehose witnesses them. |
 
+## Decisions taken 2026-10-08
+
+Answered by the owner after the research record and the sidecar design.
+Revision 1 of the SPEC applies them.
+
+| Topic | Decision |
+|---|---|
+| Home | `linkjar/pds` is the project. The public name is LinkJar PDS. |
+| Licence | Dual MIT or Apache-2.0 for the project's own code. |
+| NSID authority | Project lexicons (ops methods, audit checkpoint record, MCP scopes) live under `io.linkjar.pds.*`. |
+| Cluster shape | Entryway plus member hosts. The account and OAuth crate is designed from unit 5 to run embedded in one node or as a standalone entryway. The shared-Postgres cluster is documented as an alternative only. |
+| Cutover bar | Units 0 to 7 plus the audit log must ship before the Candidate replaces the reference. Sidecars, Postgres and entryway mode come after. |
+| Simulation | The `StorageIo` seam, a fault-injecting SQLite VFS, fail points and turmoil enter in unit 4; nightly seeds from then on. |
+| Audit scope | Account and operator actions, including console and MCP writes. Reads and ordinary repository writes are not audited. |
+| Patch stack | Frozen except security fixes while the Rust server is built. The `linkjar` profile targets the patches at the revision pinned in revision 1. |
+| OAuth pages | Behaviour parity with new server-rendered pages to the LinkJar brand guidelines. No pixel parity. |
+| Shadow runs | Unit 3 verifies against staging restores only. Production is touched only at cutover. |
+| Reports | `createReport` keeps forwarding to a configured external moderation service as the reference does. The console links out; it holds no report queue. |
+| Local MCP | The private-data MCP mode is a TypeScript process in `linkjar.io` beside the kit. This repository ships the hosted, public-data MCP server only. |
+| Work mode | Sequential units, one worktree at a time, each merged to `main` with its gate green. |
+
 ## Open questions for the owner
 
-- Repository name for publication: this repository (`linkjar/pds`) becomes
-  the public home, or a new one. The SPEC assumes this repository.
-- Whether `verify` and the shadow comparison in unit 3 may run on the
-  production host against a copy of the live data directory, or only on
-  staging restores.
+None at the moment. The documentation sweep against atproto.com (in
+progress on 2026-10-08) may add items.

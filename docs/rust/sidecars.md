@@ -52,7 +52,7 @@ Every action is an authenticated call to the PDS. Nothing bypasses it.
 |---|---|---|
 | Accounts | Takedown, suspend with expiry, reinstate, deactivate, schedule deletion, force email or handle or password update, revoke all sessions, disable invites | `com.atproto.admin.updateSubjectStatus`, `updateAccountEmail`, `updateAccountHandle`, `updateAccountPassword`, `deleteAccount`, `disableAccountInvites`, plus an ops method to revoke sessions |
 | Records and blobs | Takedown a record, quarantine or unquarantine a blob, purge a blob | `updateSubjectStatus` on record and blob subjects |
-| Reports | Queue of reports received when the PDS is its own report target, with assign, resolve, and link to the subject | `com.atproto.moderation.createReport` inbound; ops queue |
+| Reports | Link out to the configured external moderation service for the subject. The PDS keeps forwarding `createReport` as the reference does; the console holds no report queue (decision of 2026-10-08) | `PDS_REPORT_SERVICE_*` |
 | Abuse | Block an email domain, block an IP or range for signup, revoke an invite code, raise or lower a per-account rate-limit multiplier | Ops methods; the signup gate (§12.2) reads the lists |
 | Cleanup | Run blob garbage collection now, purge expired tokens and requests, run `verify` on one repository or all, run `repair` from the ladder, compact the sequencer log to the retention window | Ops methods wrapping the CLI commands |
 | Firehose | Disconnect a subscriber, set a per-subscriber rate cap, emit `#sync` for a repository | Ops methods |
@@ -188,11 +188,11 @@ LinkJar's private bookmarks, boards and annotations are encrypted on the
 client. The hosted sidecar sees ciphertext and MUST NOT attempt to decrypt
 it; the seed never leaves the person's devices. The hosted server therefore
 exposes public records and the account. A second, **local** mode is the way
-to reach private data: the same MCP server built as a local binary or
-stdio process that embeds the LinkJar kit, unlocks with the person's seed on
-the device, and decrypts locally. That mode is a later unit and needs its
-own threat review; it is named here so the hosted mode is not mistaken for
-the whole story.
+to reach private data: a TypeScript process in the `linkjar.io` repository
+that embeds the LinkJar kit, unlocks with the person's seed on the device,
+and decrypts locally. It shares only the MCP scope names with this
+repository (decision of 2026-10-08). It needs its own threat review and is
+named here so the hosted mode is not mistaken for the whole story.
 
 ### 2.6 Safety rules
 
@@ -236,7 +236,7 @@ the whole story.
 
 Units: the console lands after unit 7 as unit 8, because it needs the ops
 API and the audit log; the MCP server lands as unit 9, because it needs the
-OAuth server and the `linkjar` profile's sign-in; the local MCP mode is a
+OAuth server and the `linkjar` profile's sign-in; the local MCP mode lives in `linkjar.io` as a
 separate later unit. Allowances: three weeks each for the console and the
 hosted MCP server, low confidence.
 
