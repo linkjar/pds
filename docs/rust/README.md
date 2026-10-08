@@ -38,6 +38,13 @@ work. The client-side encryption model, the SPEC in `linkjar.io`, and the
 account hosting design in `docs/research/linkjar-accounts-2026-09/` are
 unchanged.
 
+## Research
+
+[How other systems solve what LinkJar PDS needs](research-2026-10-08-state-of-the-art.md)
+compares the PDS implementations, clustering shapes, storage seams,
+simulation testing, audit-log designs and supply-chain gates, with sources,
+and lists the SPEC changes they imply.
+
 ## Starting points examined
 
 - **The reference** (`@atproto/pds@0.5.34`, commit `7ca16cc6`): the oracle.
@@ -89,6 +96,7 @@ upstream bumps, which nothing does today beyond the image smoke gate.
 | Date | Event |
 |---|---|
 | 2026-10-08 | Decision taken. Branch `feat/rust-pds` created from `main`. SPEC revision 0 written from the reference source at the pin and the six patch documents. No code yet. |
+| 2026-10-08 | Scope widened by the owner: storage and auth extensibility, clustering, audit and provenance, simulation testing, a database switch, devenv. [State-of-the-art research](research-2026-10-08-state-of-the-art.md) recorded; its §9 lists the SPEC sections to add in revision 1. Headline: the account and OAuth crate should run embedded or as an entryway, which is how the protocol itself scales; audit checkpoints can be published as repository records so the firehose witnesses them. |
 
 ## Open questions for the owner
 
