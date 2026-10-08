@@ -26,7 +26,9 @@ export const upstream: Upstream = JSON.parse(readFileSync(join(REPO_DIR, 'upstre
 
 const byDigest = (pin: PinnedImage) => `${pin.image}@${pin.digest}`
 
-export const TARGET_NAMES = ['reference', 'stock', 'official', 'candidate'] as const
+// `repeat` is a second boot of the Reference image. Comparing it with
+// `reference` must show no difference, which is the check on the normaliser.
+export const TARGET_NAMES = ['reference', 'stock', 'official', 'candidate', 'repeat'] as const
 export type TargetName = (typeof TARGET_NAMES)[number]
 
 export type TargetSpec = {
@@ -58,6 +60,7 @@ export function targetSpec(name: TargetName): TargetSpec {
     stock: process.env.PARITY_STOCK_IMAGE ?? images.stock.tag,
     official: upstream.officialImage,
     candidate: process.env.PARITY_CANDIDATE_IMAGE ?? '',
+    repeat: process.env.PARITY_REFERENCE_IMAGE ?? byDigest(images.reference),
   }[name]
   if (!image) {
     throw new Error(`Target ${name} has no image. Set PARITY_CANDIDATE_IMAGE (the Candidate serves traffic from unit 3).`)
@@ -65,7 +68,7 @@ export function targetSpec(name: TargetName): TargetSpec {
   return {
     name,
     image,
-    linkjar: name === 'reference' || name === 'candidate',
+    linkjar: name === 'reference' || name === 'candidate' || name === 'repeat',
     edgePort: PORT_BASE + index * 10,
     fixturePort: PORT_BASE + index * 10 + 1,
     runDir: join(PARITY_DIR, '.run', name),
@@ -73,6 +76,8 @@ export function targetSpec(name: TargetName): TargetSpec {
 }
 
 export const composeImages = () => ({
+  // The SQL tool always runs in the Reference image, whatever the target.
+  TOOL_IMAGE: byDigest(images.reference),
   EDGE_IMAGE: byDigest(images.edge),
   RELAY_IMAGE: byDigest(images.relay),
   MAIL_IMAGE: byDigest(images.mail),

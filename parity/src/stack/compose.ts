@@ -1,6 +1,7 @@
 // Starts, stops and inspects the compose stack of one target.
 
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { ensureSecrets, pdsEnv, writePdsEnv } from './env.ts'
@@ -120,6 +121,21 @@ export function restartPds(target: TargetName): void {
 /** Runs a command inside the PDS container. */
 export function execPds(target: TargetName, command: string[], input?: string): RunResult {
   return compose(target, ['exec', '-T', 'pds', ...command], { input, allowFailure: true })
+}
+
+export type Database = 'account' | 'sequencer' | 'did_cache' | { actor: string }
+
+/** Runs one SQL statement against a database of the target's data directory. */
+export function sqlite(target: TargetName, database: Database, sql: string, params: unknown[] = []): Record<string, unknown>[] {
+  let file: string
+  if (typeof database === 'string') {
+    file = `/app/data/${database}.sqlite`
+  } else {
+    const shard = createHash('sha256').update(database.actor).digest('hex').slice(0, 2)
+    file = `/app/data/actors/${shard}/${database.actor}/store.sqlite`
+  }
+  const run = compose(target, ['run', '--rm', '--no-deps', '-T', 'sqlite'], { input: JSON.stringify({ file, sql, params }) })
+  return JSON.parse(run.stdout)
 }
 
 export function logs(target: TargetName, service: string, tail = 200): string {

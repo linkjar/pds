@@ -170,7 +170,8 @@ export class Scenario {
       if (response.headers.has('dpop-nonce')) compared['dpop-nonce'] = '<nonce>'
       this.entries.push({
         step,
-        request: `${method} ${this.norm.text(url.host + url.pathname + url.search)}`,
+        // Decoded, so that an identifier in the query is aliased like any other.
+        request: `${method} ${this.norm.text(decodeURIComponent(url.host + url.pathname + url.search))}`,
         status: response.status,
         headers: compared,
         body: this.recordedBody(type, text, json, bytes),
@@ -221,6 +222,16 @@ export class Scenario {
       await new Promise((resolve) => setTimeout(resolve, 150))
     }
   }
+}
+
+/**
+ * Asserts that the server refused a request. Where the SPEC names the error
+ * the scenario passes it; where it does not, the exact status and name are
+ * whatever the Reference answers, and the transcript holds other targets to it.
+ */
+export function refused(result: Result, error?: string): void {
+  assert.ok(result.status >= 400 && result.status < 600, `expected a refusal, got ${result.status}: ${result.text.slice(0, 200)}`)
+  if (error !== undefined) assert.equal(result.json?.error, error)
 }
 
 export type ScenarioOptions = {

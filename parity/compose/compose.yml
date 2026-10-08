@@ -168,6 +168,17 @@ services:
       retries: 90
     stop_grace_period: 20s
 
+  # See sqlite-tool.cjs. Started only by `docker compose run`.
+  sqlite:
+    image: ${TOOL_IMAGE:?}
+    profiles: [tools]
+    user: "1000:1000"
+    network_mode: none
+    entrypoint: [node, /tool/sqlite-tool.cjs]
+    volumes:
+      - pds-data:/app/data
+      - ./sqlite-tool.cjs:/tool/sqlite-tool.cjs:ro
+
 networks:
   inner:
     internal: true
