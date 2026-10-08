@@ -39,6 +39,9 @@ export type Subscription = {
   quiet(): Promise<number>
   /** Like `waitFor`, counting only frames at or after `mark`. */
   after(mark: number, match: (frame: Frame) => boolean, count?: number, timeoutMs?: number): Promise<Frame[]>
+  /** Stops reading from the socket, so that the server sees a consumer that does not keep up. */
+  pause(): void
+  resume(): void
   close(): void
 }
 
@@ -101,6 +104,12 @@ export function subscribe(target: Target, host: string, cursor?: number | string
         if (index === undefined) position.set(frame, (index = frames.indexOf(frame)))
         return index >= mark && match(frame)
       }, count, timeoutMs)
+    },
+    pause() {
+      socket.pause()
+    },
+    resume() {
+      socket.resume()
     },
     close() {
       socket.close()

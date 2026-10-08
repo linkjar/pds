@@ -9,7 +9,7 @@ import { join } from 'node:path'
 import { HOSTS, upstream } from './targets.ts'
 import type { TargetSpec } from './targets.ts'
 
-export const PROFILES = ['default', 'invites', 'captcha', 'perf'] as const
+export const PROFILES = ['default', 'invites', 'firehose', 'captcha', 'perf'] as const
 export type Profile = (typeof PROFILES)[number]
 
 export function isProfile(value: string): value is Profile {
@@ -132,6 +132,13 @@ export function pdsEnv(spec: TargetSpec, profile: Profile, secrets: Secrets): Re
 
   if (profile === 'invites') {
     env.PDS_INVITE_REQUIRED = 'true'
+  }
+  if (profile === 'firehose') {
+    // Small limits so that the two cursor rows of SPEC 7.3 that depend on
+    // them can be reached in seconds: a five-second backfill window and a
+    // subscriber buffer of five events.
+    env.PDS_REPO_BACKFILL_LIMIT_MS = '5000'
+    env.PDS_MAX_SUBSCRIPTION_BUFFER = '5'
   }
   if (profile === 'captcha') {
     env.PDS_HCAPTCHA_SITE_KEY = HCAPTCHA_SITE_KEY

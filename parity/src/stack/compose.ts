@@ -123,6 +123,37 @@ export function execPds(target: TargetName, command: string[], input?: string): 
   return compose(target, ['exec', '-T', 'pds', ...command], { input, allowFailure: true })
 }
 
+/**
+ * Starts a second, throwaway PDS container with some variables changed and
+ * reports whether it stays up. It has its own data directory and no network
+ * name, so the running PDS is not disturbed. Used for configurations that
+ * must refuse to start.
+ */
+export function bootPds(target: TargetName, env: Record<string, string>, waitMs = 12_000): { started: boolean; output: string } {
+  const spec = targetSpec(target)
+  const secrets = ensureSecrets(spec.runDir)
+  const name = `parity-${target}-boot-${Date.now()}`
+  const overrides = { PDS_DATA_DIRECTORY: '/tmp/boot', PDS_BLOBSTORE_DISK_LOCATION: '/tmp/boot/blocks', ...env }
+  const args = ['compose', '-f', COMPOSE_FILE, 'run', '--detach', '--no-deps', '--name', name]
+  for (const [key, value] of Object.entries(overrides)) args.push('-e', `${key}=${value}`)
+  const options = { env: composeEnv(spec, secrets), encoding: 'utf8' as const }
+  const started = spawnSync('docker', [...args, 'pds'], options)
+  if (started.status !== 0) throw new Error(`could not start the boot container: ${started.stderr}`)
+  const deadline = Date.now() + waitMs
+  let running = true
+  while (Date.now() < deadline) {
+    const state = spawnSync('docker', ['inspect', '--format', '{{.State.Running}}', name], { encoding: 'utf8' })
+    running = state.stdout.trim() === 'true'
+    if (!running) break
+    const health = spawnSync('docker', ['exec', name, 'node', '-e', "fetch('http://127.0.0.1:3000/xrpc/_health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"], { encoding: 'utf8' })
+    if (health.status === 0) break
+    spawnSync('sleep', ['0.5'])
+  }
+  const output = spawnSync('docker', ['logs', name], { encoding: 'utf8' })
+  spawnSync('docker', ['rm', '--force', '--volumes', name], { encoding: 'utf8' })
+  return { started: running, output: (output.stdout ?? '') + (output.stderr ?? '') }
+}
+
 export type Database = 'account' | 'sequencer' | 'did_cache' | { actor: string }
 
 /** Runs one SQL statement against a database of the target's data directory. */

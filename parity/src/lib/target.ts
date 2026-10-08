@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs'
 import { AtpAgent } from '@atproto/api'
 import { Agent, buildConnector, fetch as undiciFetch } from 'undici'
 import WebSocket from 'ws'
-import { execPds, readState, restartPds, sqlite } from '../stack/compose.ts'
+import { bootPds, execPds, readState, restartPds, sqlite } from '../stack/compose.ts'
 import type { Database, StackState } from '../stack/compose.ts'
 import { HOSTS, isTargetName } from '../stack/targets.ts'
 import type { TargetName } from '../stack/targets.ts'
@@ -107,6 +107,11 @@ export class Target {
   /** Restarts the PDS and waits until it is healthy. */
   async restart(): Promise<void> {
     restartPds(this.name)
+  }
+
+  /** Starts a throwaway PDS with changed variables and reports whether it stays up. */
+  boot(env: Record<string, string>): { started: boolean; output: string } {
+    return bootPds(this.name, env)
   }
 
   /** Runs a command in the PDS container. Used to look at files on disk, never to change server state. */
