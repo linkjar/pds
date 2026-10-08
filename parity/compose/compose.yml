@@ -45,6 +45,8 @@ services:
           - client.test
           - appview.test
           - mod.test
+          # Fixture: a custom-domain handle, verified over HTTPS.
+          - handle.test
           # Fixtures: the fixed provider endpoints of patch 099.
           - accounts.google.com
           - oauth2.googleapis.com

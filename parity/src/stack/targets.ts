@@ -96,6 +96,8 @@ export const HOSTS = {
   appview: 'appview.test',
   mod: 'mod.test',
   client: 'client.test',
+  /** A custom-domain handle whose well-known file the fixture server answers. */
+  customHandle: 'handle.test',
   app: 'app.linkjar.io',
   web: 'linkjar.io',
 } as const
@@ -111,6 +113,7 @@ export const EDGE_NAMES = [
   HOSTS.appview,
   HOSTS.mod,
   HOSTS.client,
+  HOSTS.customHandle,
   'edge.test',
   HOSTS.app,
   HOSTS.web,
