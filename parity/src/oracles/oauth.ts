@@ -19,6 +19,8 @@ export type PageFacts = {
   showsClientName?: boolean
   /** Error text the page showed, if it stopped on one. */
   error?: string
+  /** The handle the sign-up step proposed (SPEC 12.4). */
+  suggestedHandle?: string
 }
 
 export type DriveOptions = {
@@ -29,6 +31,10 @@ export type DriveOptions = {
   decision?: 'authorize' | 'deny'
   clientId?: string
   clientName?: string
+  /** Continue with an external identity provider instead of a password (SPEC 12.3). */
+  provider?: 'Apple' | 'Google' | 'GitHub'
+  /** Create an account with email and password on the sign-up page. */
+  signUp?: { email: string; password: string; inviteCode?: string }
   /** Tick "remember this account" at sign-in, so that the device keeps the account. */
   remember?: boolean
   /** The handle to pick when the device offers accounts it remembers. */
@@ -53,7 +59,56 @@ export async function driveAuthorization(page: Page, url: string, opts: DriveOpt
   const deny = page.getByRole('button', { name: 'Deny access', exact: true })
   let signedIn = false
   let decided = false
+  let providerChosen = false
+  let signUpStep = 0
+  let welcomed = false
   while (!redirect && Date.now() < deadline) {
+    // An authorization that names no account and no prompt starts on a choice between signing in and signing up.
+    if (!welcomed && !signedIn && !decided) {
+      const choice = page.getByRole('button', { name: opts.signUp ? 'Create a new account' : 'Sign in', exact: true })
+      const welcome = page.getByText('Please authenticate to continue')
+      if ((await welcome.count()) > 0 && (await choice.count()) > 0 && (await choice.first().isVisible())) {
+        welcomed = true
+        facts.steps.push(opts.signUp ? 'welcome:sign-up' : 'welcome:sign-in')
+        await choice.first().click({ timeout: 5_000 }).catch(() => undefined)
+        await page.waitForTimeout(500)
+        continue
+      }
+    }
+    if (opts.provider && !providerChosen) {
+      const button = page.getByText(`Continue with ${opts.provider}`, { exact: true })
+      if ((await button.count()) > 0 && (await button.first().isVisible())) {
+        providerChosen = true
+        facts.steps.push(`provider:${opts.provider.toLowerCase()}`)
+        await button.first().click({ timeout: 5_000 }).catch(() => undefined)
+        await page.waitForTimeout(600)
+        continue
+      }
+    }
+    if (opts.signUp && !decided) {
+      // Step 1 of the LinkJar journey: email and password. Later steps are whatever the page asks next.
+      const email = page.locator('input[name=email]')
+      if (signUpStep === 0 && (await email.count()) > 0 && (await email.first().isVisible())) {
+        const invite = page.locator('input[name=inviteCode]')
+        if (opts.signUp.inviteCode !== undefined && (await invite.count()) > 0 && (await invite.first().isVisible())) await invite.first().fill(opts.signUp.inviteCode)
+        await email.first().fill(opts.signUp.email)
+        await page.locator('input[type=password]').first().fill(opts.signUp.password)
+        facts.steps.push('sign-up:credentials')
+        signUpStep = 1
+        await page.locator('button[type=submit]').first().click({ timeout: 5_000 }).catch(() => undefined)
+        await page.waitForTimeout(800)
+        continue
+      }
+      const handle = page.locator('input[name=handle]')
+      if (signUpStep === 1 && (await handle.count()) > 0 && (await handle.first().isVisible())) {
+        facts.steps.push('sign-up:handle')
+        facts.suggestedHandle = await handle.first().inputValue()
+        signUpStep = 2
+        await page.locator('button[type=submit]').first().click({ timeout: 5_000 }).catch(() => undefined)
+        await page.waitForTimeout(800)
+        continue
+      }
+    }
     if (!signedIn && opts.password !== undefined && (await password.count()) > 0) {
       // The LinkJar journey keeps the password form behind a disclosure.
       if (!(await password.isVisible())) {
@@ -96,6 +151,12 @@ export async function driveAuthorization(page: Page, url: string, opts: DriveOpt
     if ((await alert.count()) > 0 && (await alert.first().isVisible())) {
       facts.error = (await alert.first().innerText()).trim()
       if (opts.allowError) break
+    }
+    // A provider failure ends on a page of the server's own, outside the authorization page.
+    if (opts.allowError && providerChosen && /\/oauth\/external\//.test(page.url()) && (await page.locator('body').innerText().catch(() => '')).trim() !== '') {
+      await page.waitForTimeout(500)
+      facts.error ??= (await page.locator('body').innerText()).trim().slice(0, 300)
+      break
     }
     await page.waitForTimeout(150)
   }
