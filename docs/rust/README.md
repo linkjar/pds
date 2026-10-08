@@ -45,6 +45,11 @@ compares the PDS implementations, clustering shapes, storage seams,
 simulation testing, audit-log designs and supply-chain gates, with sources,
 and lists the SPEC changes they imply.
 
+[Sidecars](sidecars.md) designs the two companion containers: an operations
+and moderation console with OpenTelemetry built in, and an MCP server that
+lets a person reach their own data from any AI client after signing in
+through the PDS.
+
 ## Starting points examined
 
 - **The reference** (`@atproto/pds@0.5.34`, commit `7ca16cc6`): the oracle.
@@ -87,6 +92,12 @@ until units 2 and 5 land.
 | 5 | Accounts, legacy sessions, app passwords, admin, mail, the OAuth authorization server with the extension traits and the stock profile | O4 and O6; the Bluesky app signs in (O8 recorded) | 5 to 6 weeks |
 | 6 | The `linkjar` extension crate replacing the six patches; handle hosts; `io.linkjar.account.*` | O7 green; the patch docs' invariants have tests in the crate | 2 to 3 weeks |
 | 7 | Migration endpoints, performance targets, metrics and alert rules, Nix package, restore drill on staging, cutover runbook | SPEC §16 targets met or revised with evidence; §18.1 preconditions met | 3 weeks |
+| 8 | Operations console sidecar: ops API on the private listener, live connections and topology, moderation and cleanup actions, embedded OTLP pane ([sidecars.md](sidecars.md) §1) | Every action lands in the audit log with operator and reason; console runs with no database access | 3 weeks |
+| 9 | MCP server sidecar: OAuth bridge to the PDS, scope map, tools and resources from the vendored lexicons ([sidecars.md](sidecars.md) §2) | Official MCP client and Inspector complete sign-in through the PDS page, refresh and revocation; writes audited | 3 weeks |
+
+Units 8 and 9 were added 2026-10-08 and sit after cutover. The simulation,
+audit-log, Postgres and entryway units from the research record are not yet
+numbered; they are placed when revision 1 of the SPEC is written.
 
 Unit 1 pays for itself alone: it guards the current patch stack across
 upstream bumps, which nothing does today beyond the image smoke gate.
