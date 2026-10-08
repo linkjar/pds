@@ -6,3 +6,18 @@ packages:
 # core-js runs a postinstall banner only. Nothing here needs a build script.
 allowBuilds:
   core-js: false
+
+# The SDK's own dependencies, held at the versions of the pinned commit
+# (bluesky-social/atproto 7ca16cc6) so that the harness is the client the
+# Reference was released with.
+overrides:
+  "@atproto/common": "0.8.3"
+  "@atproto/common-web": "0.5.12"
+  "@atproto/crypto": "0.5.5"
+  "@atproto/identity": "0.5.13"
+  "@atproto/jwk-jose": "0.2.4"
+  "@atproto/lex-cbor": "0.1.6"
+  "@atproto/lex-data": "0.1.7"
+  "@atproto/lexicon": "0.7.14"
+  "@atproto/oauth-client": "0.8.7"
+  "@atproto/syntax": "0.7.6"

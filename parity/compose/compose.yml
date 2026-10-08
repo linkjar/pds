@@ -39,10 +39,13 @@ services:
           - plc.test
           - relay.test
           - mail.test
-          # Fixtures: OAuth clients, the AppView and the report service.
+          # Fixtures: OAuth clients, the AppView and the report service. The
+          # authorization server refuses a client under a local top-level
+          # domain and under the documentation domains, so the client that
+          # is not on the trusted list gets a name of LinkJar's own.
           - app.linkjar.io
           - linkjar.io
-          - client.test
+          - client.parity.linkjar.io
           - appview.test
           - mod.test
           # Fixture: a custom-domain handle, verified over HTTPS.

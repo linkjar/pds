@@ -95,7 +95,7 @@ export const HOSTS = {
   mail: 'mail.test',
   appview: 'appview.test',
   mod: 'mod.test',
-  client: 'client.test',
+  client: 'client.parity.linkjar.io',
   /** A custom-domain handle whose well-known file the fixture server answers. */
   customHandle: 'handle.test',
   app: 'app.linkjar.io',

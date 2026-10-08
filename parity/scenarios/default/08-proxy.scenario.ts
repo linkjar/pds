@@ -66,7 +66,7 @@ scenario('08-proxy', {}, async (s) => {
   refused(await s.query('proxy target with a service id the document lacks', 'com.example.parity.ping', {}, { auth: alice, headers: { 'atproto-proxy': `${MOD_DID}#no_such_service` } }))
   refused(await s.query('proxy target without a service id', 'com.example.parity.ping', {}, { auth: alice, headers: { 'atproto-proxy': MOD_DID } }))
   refused(await s.query('proxy target that is not a DID', 'com.example.parity.ping', {}, { auth: alice, headers: { 'atproto-proxy': 'not-a-did#service' } }))
-  refused(await s.query('proxy target whose DID does not resolve', 'com.example.parity.ping', {}, { auth: alice, headers: { 'atproto-proxy': 'did:web:client.test#service' } }))
+  refused(await s.query('proxy target whose DID does not resolve', 'com.example.parity.ping', {}, { auth: alice, headers: { 'atproto-proxy': 'did:web:client.parity.linkjar.io#service' } }))
   // The Reference does not parse the labeler header: a malformed value goes
   // to the upstream as it is, and the upstream decides.
   mark = await s.fixtures.cursor()
