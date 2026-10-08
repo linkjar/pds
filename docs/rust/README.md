@@ -45,6 +45,11 @@ compares the PDS implementations, clustering shapes, storage seams,
 simulation testing, audit-log designs and supply-chain gates, with sources,
 and lists the SPEC changes they imply.
 
+[Gap report against atproto.com](research-2026-10-08-atproto-doc-sweep.md)
+compares SPEC revision 0 with every specification and guide page: 53
+missing requirements, 5 contradictions, 15 under-specified items, 12 things
+changing in 2026. Revision 1 applies sections A to C and tracks D.
+
 [Sidecars](sidecars.md) designs the two companion containers: an operations
 and moderation console with OpenTelemetry built in, and an MCP server that
 lets a person reach their own data from any AI client after signing in
@@ -79,25 +84,26 @@ through the PDS.
 ## Delivery units
 
 Each unit is bounded, ends in a merge to `main` of this repository, and names
-its gate. Estimates are planning allowances for one engineer, low confidence
-until units 2 and 5 land.
+its gate. Units run one at a time in one worktree (decision of 2026-10-08).
+Estimates are planning allowances for one engineer, low confidence until
+units 2 and 5 land. Units 0 to 8 ship before cutover (the cutover bar of
+2026-10-08); 9 onward follow it.
 
 | Unit | Delivers | Gate | Allowance |
 |---|---|---|---|
-| 0 | This record, the SPEC, the Cargo workspace skeleton, licence files, CI with `cargo deny`, vendored lexicons and code generation | Workspace builds; generated types compile for every vendored lexicon | 2 to 3 days |
-| 1 | The parity harness (`parity/`) against the reference image only: compose, scenario runner, oracles O1 to O4, the port of `tests/*.mjs` to an HTTP endpoint, and the `linkjar.io` PDS URL setting | Harness green against Reference; stock-versus-production image differences documented | 1 to 2 weeks |
-| 2 | Repository crate decision: interop vectors, MST and CAR benchmarks for `rsky-repo` versus in-house; `pds-types` and `pds-identity` with their vectors | O5 vectors pass; S1 to S3 micro-benchmarks published; D2 decided | 1 week |
-| 3 | Read-only server: `sync.*`, `repo.get*`, `describeRepo`, `describeServer`, identity reads, `verify`, served from a copy of a reference data directory; shadow comparison on the host | O1 and O2 on read scenarios; `verify` zero differences on a production copy | 2 weeks |
-| 4 | Writes, sequencer, firehose, blob store, crawler notification | O1 to O3 on write and firehose scenarios including the crash injection; a local relay converges | 3 weeks |
-| 5 | Accounts, legacy sessions, app passwords, admin, mail, the OAuth authorization server with the extension traits and the stock profile | O4 and O6; the Bluesky app signs in (O8 recorded) | 5 to 6 weeks |
-| 6 | The `linkjar` extension crate replacing the six patches; handle hosts; `io.linkjar.account.*` | O7 green; the patch docs' invariants have tests in the crate | 2 to 3 weeks |
-| 7 | Migration endpoints, performance targets, metrics and alert rules, Nix package, restore drill on staging, cutover runbook | SPEC §16 targets met or revised with evidence; §18.1 preconditions met | 3 weeks |
-| 8 | Operations console sidecar: ops API on the private listener, live connections and topology, moderation and cleanup actions, embedded OTLP pane ([sidecars.md](sidecars.md) §1) | Every action lands in the audit log with operator and reason; console runs with no database access | 3 weeks |
-| 9 | MCP server sidecar: OAuth bridge to the PDS, scope map, tools and resources from the vendored lexicons ([sidecars.md](sidecars.md) §2) | Official MCP client and Inspector complete sign-in through the PDS page, refresh and revocation; writes audited | 3 weeks |
-
-Units 8 and 9 were added 2026-10-08 and sit after cutover. The simulation,
-audit-log, Postgres and entryway units from the research record are not yet
-numbered; they are placed when revision 1 of the SPEC is written.
+| 0 | Cargo workspace, licence files, devenv, CI gates (fmt, clippy, deny, vet, audit, fuzz skeleton), vendored lexicons and code generation, interop vectors wired, the "verify at pin" scenarios enumerated, Appendix A reconciled against the handler tree | Workspace builds; generated types compile for every vendored lexicon; every "verify at pin" item has a scenario id | 3 to 4 days |
+| 1 | The parity harness (`parity/`) against the reference image only: compose with a local PLC and a Sync 1.1 relay, scenario runner, oracles O1 to O4 and O9, the port of `tests/*.mjs` to an HTTP endpoint, and the `linkjar.io` PDS URL setting | Harness green against Reference; O9 results recorded; stock-versus-production image differences documented | 1 to 2 weeks |
+| 2 | Repository crate decision: interop vectors, MST and CAR benchmarks for `rsky-repo` versus in-house; `pds-types`, `pds-lexicon` and `pds-identity` with their vectors and the limits of SPEC §6.1 and §9 | Vectors pass; S1 to S3 micro-benchmarks published; D2 decided | 1 week |
+| 3 | Read-only server: `sync.*`, `repo.get*`, `describeRepo`, `describeServer`, identity reads, `verify`, served from a staging restore of a reference data directory | O1 and O2 on read scenarios; `verify` zero differences on a staging restore | 2 weeks |
+| 4 | Writes, sequencer, firehose, blob store, crawler notification, lifecycle event sequences, and the simulation seam: `StorageIo`, fault-injecting VFS, fail points, turmoil, seed runner, determinism meta-test, nightly runs | O1 to O3 on write and firehose scenarios including the crash injection; a local Sync 1.1 relay in strict mode converges; first nightly seed run green | 4 weeks |
+| 5 | Accounts, legacy sessions, app passwords, admin, mail, permission sets, and the OAuth authorization server with the extension traits and the stock profile, designed for embedded and entryway modes | O4 and O6; the Bluesky app signs in (O8 recorded) | 6 weeks |
+| 6 | The `linkjar` extension crate replacing the six patches at the patch pin; handle hosts; `io.linkjar.account.*`; operator roles | O7 green; the patch docs' invariants have tests in the crate | 2 to 3 weeks |
+| 7 | Audit log: entries, chain, checkpoints, checkpoint record, verifier, export; the pre-cutover snapshot procedure | Every §20.1 action produces an entry; verifier accepts an export and rejects a tampered one; checkpoint record appears on the firehose | 2 weeks |
+| 8 | Migration endpoints, performance targets, metrics and OTLP export, alert rules, Nix package, restore drill on staging, cutover runbook, cutover | SPEC §16 targets met or revised with evidence; §18.1 preconditions met; cutover done and the 48-hour watch passed | 3 weeks |
+| 9 | Operations console sidecar: ops listener, live connections and topology, moderation and cleanup actions, embedded OTLP pane ([sidecars.md](sidecars.md) §1) | Every action lands in the audit log with operator and reason; console runs with no database access | 3 weeks |
+| 10 | MCP server sidecar: OAuth bridge to the PDS, scope map, tools and resources from the vendored lexicons ([sidecars.md](sidecars.md) §2) | Official MCP client and Inspector complete sign-in through the PDS page, refresh and revocation; writes audited | 3 weeks |
+| 11 | Postgres implementation of the shared tier and `migrate-storage` | Harness green on both backends; a staging switch SQLite to Postgres and back verifies clean | 3 weeks |
+| 12 | Entryway mode: the standalone account service, member mode, adoption of the single node, reconciliation | A member host behind the entryway passes the Harness; adoption changes no DID document | 4 weeks |
 
 Unit 1 pays for itself alone: it guards the current patch stack across
 upstream bumps, which nothing does today beyond the image smoke gate.
@@ -107,6 +113,7 @@ upstream bumps, which nothing does today beyond the image smoke gate.
 | Date | Event |
 |---|---|
 | 2026-10-08 | Decision taken. Branch `feat/rust-pds` created from `main`. SPEC revision 0 written from the reference source at the pin and the six patch documents. No code yet. |
+| 2026-10-08 | Documentation sweep against atproto.com completed; SPEC revision 1 written: decisions applied, the research's sections added (storage seams, simulation, audit, topologies, sidecars), every gap-report item folded in, units renumbered 0 to 12 with the cutover bar after unit 8. Patch pin recorded. No code yet. |
 | 2026-10-08 | Scope widened by the owner: storage and auth extensibility, clustering, audit and provenance, simulation testing, a database switch, devenv. [State-of-the-art research](research-2026-10-08-state-of-the-art.md) recorded; its §9 lists the SPEC sections to add in revision 1. Headline: the account and OAuth crate should run embedded or as an entryway, which is how the protocol itself scales; audit checkpoints can be published as repository records so the firehose witnesses them. |
 
 ## Decisions taken 2026-10-08
@@ -123,7 +130,7 @@ Revision 1 of the SPEC applies them.
 | Cutover bar | Units 0 to 7 plus the audit log must ship before the Candidate replaces the reference. Sidecars, Postgres and entryway mode come after. |
 | Simulation | The `StorageIo` seam, a fault-injecting SQLite VFS, fail points and turmoil enter in unit 4; nightly seeds from then on. |
 | Audit scope | Account and operator actions, including console and MCP writes. Reads and ordinary repository writes are not audited. |
-| Patch stack | Frozen except security fixes while the Rust server is built. The `linkjar` profile targets the patches at the revision pinned in revision 1. |
+| Patch stack | Frozen except security fixes while the Rust server is built. The `linkjar` profile targets the patches at the **patch pin**: `main` of this repository at `08b1235` (2026-10-08, "Let the app hand the invite code to the OAuth sign-up page"). A security fix moves the pin and adds the mirrored behaviour to SPEC §13. |
 | OAuth pages | Behaviour parity with new server-rendered pages to the LinkJar brand guidelines. No pixel parity. |
 | Shadow runs | Unit 3 verifies against staging restores only. Production is touched only at cutover. |
 | Reports | `createReport` keeps forwarding to a configured external moderation service as the reference does. The console links out; it holds no report queue. |
