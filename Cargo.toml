@@ -1,0 +1,86 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "xtask"]
+default-members = ["crates/*"]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2024"
+rust-version = "1.99"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/linkjar/pds"
+homepage = "https://github.com/linkjar/pds"
+authors = ["LinkJar"]
+publish = false
+
+[workspace.dependencies]
+# workspace crates
+pds-types = { path = "crates/pds-types" }
+pds-lexicon = { path = "crates/pds-lexicon" }
+pds-repo = { path = "crates/pds-repo" }
+pds-storage = { path = "crates/pds-storage" }
+pds-blob = { path = "crates/pds-blob" }
+pds-identity = { path = "crates/pds-identity" }
+pds-xrpc = { path = "crates/pds-xrpc" }
+pds-sequencer = { path = "crates/pds-sequencer" }
+pds-account = { path = "crates/pds-account" }
+pds-oauth = { path = "crates/pds-oauth" }
+pds-audit = { path = "crates/pds-audit" }
+pds-ext = { path = "crates/pds-ext" }
+pds-ext-linkjar = { path = "crates/pds-ext-linkjar" }
+pds-sim = { path = "crates/pds-sim" }
+
+# serialization and data model
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+serde_bytes = "0.11"
+serde_ipld_dagcbor = "0.7"
+ipld-core = { version = "0.4", features = ["serde"] }
+cid = { version = "0.11", features = ["serde", "std"] }
+multihash = "0.19"
+data-encoding = "2"
+base64 = "0.22"
+
+# syntax and time
+regex = "1"
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+rand = "0.9"
+thiserror = "2"
+
+# dev
+anyhow = "1"
+heck = "0.5"
+proptest = "1"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+unused_must_use = "deny"
+
+# CI runs with -D warnings, so every "warn" below is a hard failure there.
+# Panic lints are allowed in tests through clippy.toml.
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"
+unreachable = "warn"
+exit = "warn"
+dbg_macro = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+doc_markdown = "allow"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+panic = "unwind"
+debug = 1

@@ -1,0 +1,48 @@
+# cargo-deny policy for LinkJar PDS. See docs/rust/SPEC.md section 14.5.
+# Every `ignore` entry needs a reason and an expiry date in its comment.
+
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+db-urls = ["https://github.com/rustsec/advisory-db"]
+yanked = "deny"
+unmaintained = "workspace"
+ignore = []
+
+[licenses]
+version = 2
+confidence-threshold = 0.93
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Zlib",
+  "0BSD",
+  "BSL-1.0",
+  "Unicode-3.0",
+  "Unicode-DFS-2016",
+  "CC0-1.0",
+  "MPL-2.0",
+]
+# MPL-2.0 is file-scoped copyleft and acceptable for dependencies; it is not
+# used for the project's own code.
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+highlight = "all"
+deny = [
+  { crate = "openssl-sys", reason = "use rustls; no C TLS stack" },
+  { crate = "openssl", reason = "use rustls; no C TLS stack" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

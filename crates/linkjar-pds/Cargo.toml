@@ -1,0 +1,19 @@
+[package]
+name = "linkjar-pds"
+description = "LinkJar PDS: an AT Protocol Personal Data Server in Rust, compatible with the reference implementation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "linkjar-pds"
+path = "src/main.rs"
+
+[dependencies]
+pds-types.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,37 @@
+{
+  "lexicon": 1,
+  "id": "io.linkjar.account.acknowledgeSignupReceipt",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Acknowledge the current OAuth session creation receipt after onboarding. Repeated acknowledgment is safe; it does not affect other sessions.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["created", "did"],
+          "properties": {
+            "created": {
+              "type": "boolean"
+            },
+            "did": {
+              "type": "string",
+              "format": "did"
+            },
+            "handle": {
+              "type": "string",
+              "format": "handle"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "lexicon": 1,
+  "id": "io.linkjar.pds.audit.checkpoint",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A signed checkpoint of the PDS audit log, published in the operator's own repository so relays and mirrors witness it. See docs/rust/SPEC.md section 20.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["server", "firstSeq", "lastSeq", "treeSize", "root", "previousRoot", "keyId", "signature", "createdAt"],
+        "properties": {
+          "server": { "type": "string", "format": "did", "description": "Service DID of the PDS that wrote the log." },
+          "firstSeq": { "type": "integer", "minimum": 1, "description": "First audit entry sequence number covered by this checkpoint." },
+          "lastSeq": { "type": "integer", "minimum": 1, "description": "Last audit entry sequence number covered by this checkpoint." },
+          "treeSize": { "type": "integer", "minimum": 1, "description": "Total number of entries in the log at this checkpoint." },
+          "root": { "type": "bytes", "maxLength": 32, "description": "SHA-256 Merkle root over the entries since the previous checkpoint." },
+          "previousRoot": { "type": "bytes", "maxLength": 32, "description": "Root of the previous checkpoint, or 32 zero bytes for the first." },
+          "chainHash": { "type": "bytes", "maxLength": 32, "description": "Hash of the last entry's chain link at this checkpoint." },
+          "keyId": { "type": "string", "maxLength": 128, "description": "Identifier of the Ed25519 key that signed this checkpoint." },
+          "signature": { "type": "bytes", "maxLength": 64, "description": "Ed25519 signature over the canonical checkpoint body." },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

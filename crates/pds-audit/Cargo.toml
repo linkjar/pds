@@ -1,0 +1,14 @@
+[package]
+name = "pds-audit"
+description = "Tamper-evident audit log: entries, hash chain, signed checkpoints, verifier"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

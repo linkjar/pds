@@ -1,11 +1,18 @@
 name: Build and verify PDS
+# Legacy reference-image build. Everything it runs lives under legacy/; the
+# Rust server has its own workflow (rust.yml). See docs/plan.md.
 on:
   pull_request:
+    paths: ['legacy/**', 'upstream.json', 'docs/legacy/upstream.Dockerfile', '.github/workflows/build.yml']
   push:
     branches: [main]
+    paths: ['legacy/**', 'upstream.json', 'docs/legacy/upstream.Dockerfile', '.github/workflows/build.yml']
   workflow_dispatch:
 permissions:
   contents: read
+defaults:
+  run:
+    working-directory: legacy
 concurrency:
   group: pds-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -28,6 +35,7 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+          cache-dependency-path: legacy/package-lock.json
       - run: python3 scripts/check.py
       - name: Verify backup tooling and crash recovery gates
         run: |
@@ -43,7 +51,7 @@ jobs:
       - name: Build unpatched comparator
         uses: docker/build-push-action@91670ba5a4df99a24efff8637a78c83fd1b0f6b1
         with:
-          context: .
+          context: legacy
           load: true
           tags: linkjar-pds:unpatched
           build-args: PATCH_PROFILE=none
@@ -52,7 +60,7 @@ jobs:
       - name: Build reversible UI patch
         uses: docker/build-push-action@91670ba5a4df99a24efff8637a78c83fd1b0f6b1
         with:
-          context: .
+          context: legacy
           load: true
           tags: linkjar-pds:branding-smoke
           build-args: PATCH_PROFILE=branding-smoke
@@ -61,7 +69,7 @@ jobs:
       - name: Verify production patches build
         uses: docker/build-push-action@91670ba5a4df99a24efff8637a78c83fd1b0f6b1
         with:
-          context: .
+          context: legacy
           load: true
           tags: linkjar-pds:production
           cache-from: type=gha,scope=pds-production-${{ matrix.arch }}
@@ -107,7 +115,7 @@ jobs:
         id: candidate
         uses: docker/build-push-action@91670ba5a4df99a24efff8637a78c83fd1b0f6b1
         with:
-          context: .
+          context: legacy
           push: true
           platforms: linux/amd64
           provenance: mode=max
@@ -140,7 +148,7 @@ jobs:
         id: candidate
         uses: docker/build-push-action@91670ba5a4df99a24efff8637a78c83fd1b0f6b1
         with:
-          context: .
+          context: legacy
           push: true
           platforms: linux/arm64
           provenance: mode=max
@@ -166,7 +174,7 @@ jobs:
         run: |
           python3 - <<'PYTAG'
           import json, os
-          p = json.load(open('upstream.json'))
+          p = json.load(open('../upstream.json'))
           version = p['tag'].split('@')[-1]
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f"tag=atproto-pds-{version}-{p['revision']}\n")

@@ -1,222 +1,94 @@
-# LinkJar PDS image
+# LinkJar PDS
 
-Source build of the reference AT Protocol PDS for LinkJar's hosted accounts.
-Tracks [linkjar.io #98](https://github.com/linkjar/linkjar.io/issues/98).
-External sign-in and account linking belong to #99/#100; this repository provides
-the build, patch and staging-image boundary for that work.
+An AT Protocol Personal Data Server in Rust, compatible with the reference
+implementation, with LinkJar's account behaviour as native extension points
+instead of source patches. Dual-licensed MIT or Apache-2.0.
 
-[Local verification record](docs/local-verification.json): all three ARM64 image
-profiles built; official-image parity, production startup, and real-PAR Chromium
-checks passed. [Original UI](docs/unpatched.png) and [rebuilt branding UI](docs/branding-smoke.png)
-are captured from the containers. Remote CI, GHCR publication, staging acceptance,
-and filing the upstream proposal are separate outstanding steps.
+> Status: unit 0 of 13. The workspace builds and the specification is
+> complete; the server does not serve traffic yet. The reference image under
+> [`legacy/`](legacy/README.md) remains the deployed server until cutover.
+> Progress is logged in [docs/plan.md](docs/plan.md#status).
 
-## Build and verify
+## Start here
 
-Requirements: Docker/BuildKit, Python 3, Node 24 and npm. The atproto build itself
-runs with upstream's pinned Node/pnpm inside Docker.
+| Read | For |
+|---|---|
+| [docs/README.md](docs/README.md) | The documentation map |
+| [docs/architecture/README.md](docs/architecture/README.md) | Diagrams of every part of the system, kept current with the code |
+| [docs/SPEC.md](docs/SPEC.md) | The normative specification (RFC 2119) |
+| [docs/plan.md](docs/plan.md) | Decision record, owner decisions, delivery units, status |
+| [docs/sidecars.md](docs/sidecars.md) | The operations console and the MCP server |
+| [docs/research/](docs/research/) | What other systems do, and the gap report against atproto.com |
 
-```sh
-python3 scripts/check.py
-npm ci
-export PLAYWRIGHT_BROWSERS_PATH="$PWD/.build/browsers"
-npx playwright install chromium
-docker build --build-arg PATCH_PROFILE=none -t linkjar-pds:unpatched .
-docker build --build-arg PATCH_PROFILE=branding-smoke -t linkjar-pds:branding-smoke .
-docker build -t linkjar-pds:production .
-python3 scripts/smoke.py --browser
+## What it is
+
+```mermaid
+flowchart LR
+  classDef ext fill:#eef3ff,stroke:#4a6cf7,color:#1b2b6b
+  classDef pds fill:#fff7e6,stroke:#e0960f,color:#5a3b00
+  classDef side fill:#eafaf1,stroke:#2e9e5b,color:#0f4d2a
+  classDef store fill:#f4f4f5,stroke:#71717a,color:#27272a
+
+  clients["Apps, extension, iOS<br/>any atproto client"]:::ext
+  relay["Relays and indexers"]:::ext
+  idp["Apple · Google · GitHub"]:::ext
+  plc["PLC directory · DNS"]:::ext
+
+  subgraph host["One host"]
+    pds["linkjar-pds<br/>XRPC · OAuth · firehose"]:::pds
+    data[("data directory<br/>SQLite per actor · blobs")]:::store
+    console["ops console"]:::side
+    mcp["MCP server"]:::side
+  end
+
+  clients -- "XRPC + OAuth" --> pds
+  pds -- "subscribeRepos" --> relay
+  pds -- "sign-in (linkjar profile)" --> idp
+  pds -- "resolve · PLC ops" --> plc
+  pds --- data
+  console -- "ops API · OTLP" --> pds
+  mcp -- "OAuth client · XRPC" --> pds
 ```
 
-`upstream.json` pins a stable PDS tag, its **peeled commit**, local patch revision
-and official distribution comparator digest. Fetch verifies both tag and commit;
-a moved tag fails. `Dockerfile` is generated from the verbatim upstream service
-Dockerfile in `docs/upstream.Dockerfile`, adding only source fetch and patch steps
-and redirecting source copies to that stage. It retains upstream's build order,
-runtime user, entrypoint, telemetry and environment defaults.
-The verbatim upstream Dockerfile and branding patch context retain the pinned
-[Bluesky copyright and license notice](docs/upstream-LICENSE.txt), with its
-[MIT](docs/upstream-LICENSE-MIT.txt) and [Apache-2.0](docs/upstream-LICENSE-APACHE.txt)
-texts alongside it. These notices describe vendored upstream material; they do not
-assign a new license to LinkJar's own code.
+The server is one binary. Behaviour that varies per operator sits behind
+extension traits: the `stock` profile reproduces the reference server, the
+`linkjar` profile adds LinkJar's sign-in providers, handle policy, creation
+receipt, sign-in methods and mail. Everything else, from the repository
+engine to the firehose, is shared.
 
-The source service image and official `bluesky-social/pds` distribution have
-different packaging and Node patch versions. The smoke gate compares their PDS
-version, discovery/OAuth metadata, invalid authentication and record validation
-responses under identical isolated configuration. The official distribution bakes
-its independent `0.4.50xx` release label into `PDS_VERSION`; probes set that display
-value explicitly to the source version and independently verify the installed
-`@atproto/pds` package version in both containers. It also renders the
-authorization sign-in page in Chromium after a real PAR request and verifies the branding patch changed the actual
-compiled UI. Results and screenshots are in `.build/`. This is bounded local
-runtime evidence, not proof of complete equivalence or a staging signup test.
-No public identities are created by these probes; PLC points to an unused local
-port. Containers use random local ports and are removed with their volumes.
+## Repository layout
 
-## Patch lifecycle
+| Path | Contents |
+|---|---|
+| `crates/` | The workspace crates, one per subsystem ([architecture](docs/architecture/README.md#crates)) |
+| `crates/linkjar-pds/` | The binary |
+| `xtask/` | Repository tasks: `cargo xtask codegen` generates API types from the lexicons |
+| `lexicons/` | Vendored upstream lexicons at the pin, LinkJar lexicons, project lexicons ([notice](lexicons/NOTICE.md)) |
+| `interop/` | CC0 interop test vectors from upstream ([notice](interop/README.md)) |
+| `fuzz/` | cargo-fuzz targets for every parser of untrusted bytes |
+| `parity/` | The parity harness against the reference image (unit 1) |
+| `docs/` | Specification, plan, architecture, research ([map](docs/README.md)) |
+| `legacy/` | The reference-image build with its patches, tests, recovery tooling and staging files; frozen except security fixes ([legacy README](legacy/README.md)) |
+| `upstream.json` | The reference pin shared by the legacy build and the vendored lexicons |
 
-See [patches/README.md](patches/README.md). `production` is the default profile;
-`none` and `branding-smoke` exist only for verification. Production includes the
-[hosted handle policy](docs/handle-policy.md) from #93. The branding example changes
-a sign-in title, is rebuilt through Lingui and Vite, and is never published. The
-provider (#99) and linking (#100) patches consume this policy and keep their own
-upstream/removal plans.
+## Build and check
 
-## CI and releases
-
-Verification runs independently on native `ubuntu-24.04` (AMD64) and
-`ubuntu-24.04-arm` (ARM64) runners, including production builds and browser
-checks. Architecture-specific caches prevent one platform evicting the other.
-QEMU is not used: release run 34706096091 crashed with SIGILL during ARM64
-`pnpm install` under emulation and hung until its 90-minute timeout.
-
-After both verification jobs pass, native publication jobs push separately
-attested images. The final job assembles their exact output digests, requires
-exactly the two Linux runtime architectures (plus linked build attestations),
-and promotes that index through the existing unused-tag guard. Partial builds
-never advance a stable release tag. Running main releases are not cancelled by
-a later push; PR runs still cancel superseded checks. Rerunning failed jobs uses
-the successful jobs' digest outputs rather than guessing candidate tag names.
-
-Native runner support and the separate-runner pattern are documented by
-[GitHub](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
-and [Docker](https://docs.docker.com/build/ci/github-actions/multi-platform/).
-Revision 5 remains the first unpublished revision after the failed run; this
-workflow repair does not change its source patches or runtime configuration.
-
-Pull requests and main pushes run pin checks, unpatched/branding/production builds
-and runtime/browser checks. Only verified main builds publish AMD64 and ARM64
-images to GHCR, with provenance and SBOMs. Tags normalize the upstream package tag
-to Docker syntax: `ghcr.io/linkjar/pds:atproto-pds-0.5.34-1`.
-Increment `revision` for each new image from the same upstream release. Existing
-release tags are protected against replacement by the publish job; deploy digests.
-There is no mutable `latest` tag and no automatic deployment.
-
-First publication uses the same path as later releases: push the verified build
-to a unique `build-<run_id>-<run_attempt>` candidate tag, then confirm the release
-tag is absent and promote the exact candidate digest. This creates a new GHCR
-package with this workflow's credentials before inspecting a versioned tag; GHCR
-otherwise returns an ambiguous `DENIED` for a nonexistent package. Authorization,
-DNS and registry failures never count as absence. Existing release tags are never
-promoted over. Failed promotions can leave a uniquely named candidate for diagnosis.
-
-Every Monday the updater checks stable upstream PDS tags, resolves annotated tags,
-copies that release's service Dockerfile, and opens/updates one bump PR using the
-repository's `GITHUB_TOKEN`; no personal token secret is required. Enable the
-repository setting allowing GitHub Actions to create pull requests. Keep the
-default token read-only: only the updater job requests contents, pull-request and
-Actions write permissions. When the PR is created or updated, the updater explicitly
-dispatches `build.yml` on the fixed `codex/upstream-pds` branch. That run verifies
-the bump; its non-main ref cannot pass the publish job's main-only guard.
-
-GitHub documents that `workflow_dispatch` triggered with `GITHUB_TOKEN` always
-creates a workflow run; token-created or updated pull-request events instead
-create approval-required runs. The explicit dispatch keeps scheduled verification
-automatic without relying on that approval. See [GitHub workflow trigger behavior](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
-
-**Current activation blocker (12 September 2026):** LinkJar's organization policy
-disallows GitHub Actions from creating or approving pull requests. Enabling the
-repository setting returned HTTP 409, so it remains disabled and the default
-token permissions remain read-only. An organization owner must explicitly
-authorize the supported policy setting before weekly PR creation can run. This
-workflow reports PR-creation failures and does not dispatch verification after
-one; do not bypass the organization policy with another credential. Until the
-policy is authorized, run the pin update locally and create a reviewed PR through
-the normal human workflow.
-
-A patch conflict or parity
-version mismatch keeps the PR red. Update `officialImage` to the corresponding
-official digest after checking its package version; do not weaken the parity gate.
-Release commits cannot be silently selected by a lexicographic tag sort.
-
-## Staging target
-
-`staging/compose.yml` consumes an explicit verified image digest and an external
-secrets file. It does not create DNS, TLS, servers, secrets, public accounts or an
-R2 bucket. Those dependencies belong to [#90](https://github.com/linkjar/linkjar.io/issues/90)
-and restore acceptance to #91. Keep staging data and credentials separate from
-production. Prepare the mounted directory for upstream's `node` UID 1000, set
-`PDS_DATA_DIRECTORY=/app/data`, and configure the #90 proxy/TLS and PDS environment.
+Requirements: the toolchain in `rust-toolchain.toml` through rustup, or
+`devenv shell`, which provides it with cargo-deny, cargo-vet, cargo-audit and
+the parity harness's Node.
 
 ```sh
-docker compose --env-file staging/image.env -f staging/compose.yml config --quiet
-docker compose --env-file staging/image.env -f staging/compose.yml pull
-docker compose --env-file staging/image.env -f staging/compose.yml up -d --wait
+cargo build --workspace
+cargo test --workspace
+cargo xtask codegen --check     # generated types are current
+cargo deny check                 # advisories, licences, bans, sources
+devenv shell -- pds:check        # everything CI runs
 ```
 
-Before accepting accounts, verify real PAR/OAuth signup, compiled UI, TLS, CAPTCHA,
-email, R2 round-trip and lost-host restore. Record the digest and evidence in #98.
-Rollbacks after schema changes require the version-specific restore plan; changing
-an image tag alone is not a database rollback.
+## Contributing
 
-## Upstream proposal
-
-[Prepared proposal](docs/upstream-proposal.md), target
-[bluesky-social/atproto](https://github.com/bluesky-social/atproto/issues/new).
-It is a draft until its actual issue URL is recorded here and in #98.
-
-## Sources
-
-- [Pinned source service Dockerfile](https://github.com/bluesky-social/atproto/blob/7ca16cc6989f8247637615aca17c5abb911b8fb1/services/pds/Dockerfile)
-- [Pinned UI asset resolution](https://github.com/bluesky-social/atproto/blob/7ca16cc6989f8247637615aca17c5abb911b8fb1/packages/oauth/oauth-provider/src/router/assets/assets.ts)
-- [Official self-hosted distribution](https://github.com/bluesky-social/pds)
-- [LinkJar hosting decision](https://github.com/linkjar/linkjar.io/blob/main/docs/research/serverless-pds-2026-09/README.md)
-
-## Provisioning inputs
-
-For the repeatable human setup path requested by linkjar/linkjar.io#90, run
-[`scripts/provision-wizard.sh`](scripts/provision-wizard.sh) in an interactive
-terminal. It collects private local inputs without deploying a server. See
-[`docs/runbooks/pds.md`](docs/runbooks/pds.md) for topology, secret inventory and
-the live checks that remain required. Staging Compose requires 2.30+ so raw
-secret values are not interpolated.
-
-## External sign-in
-
-[Provider setup and validation](docs/external-providers.md) covers the optional
-Apple, Google, and GitHub patch. Providers stay disabled until their complete
-credentials are configured. Account creation and identity linkage are atomic;
-email is never used to discover an existing account. Revision 4 includes the
-provider patch after the revision 3 handle-policy dependency. Live provider
-registration and deployed acceptance remain part of #90/#99.
-
-See [account creation receipts](docs/signup-receipt.md) for the authenticated
-web/iOS onboarding extension following provider signup.
-
-## Provider policy
-
-[Provider configuration and support procedures](docs/provider-policy.md) supplies
-the LinkJar branding/trusted-client example and #94's hosting-policy content
-inventory. Revision 6 rejects fresh legacy signup when hCaptcha is configured,
-preserves authenticated DID imports, and rejects partial hCaptcha configuration.
-Published policy pages, the monitored support contact and live acceptance remain
-required before opening signup.
-
-## Sign-in methods
-
-[Account linking and notification behavior](docs/signin-methods.md) describes
-revision 7's explicit provider linking, last-method unlink protection and durable
-security mail. Automatic email linking and Apple account-deletion support remain
-separate work under #100.
-
-## Recovery preparation
-
-[Recovery tooling and runbook](recovery/README.md) implements #91's pinned
-Litestream/restic setup, encrypted actor-key/configuration inventory, isolated
-restore checks and aggregate alert rules. Local crash tests pass; the fresh-VM
-R2 drill and live acceptance remain required before opening accounts.
-
-The current operator host is the provisioned ARM64 NixOS system in
-[linkjar/infra](https://github.com/linkjar/infra). Run
-`scripts/provision-wizard.sh` to collect its runtime inputs and separate backup
-credentials. The [runbook](docs/runbooks/pds.md) describes the handoff and remaining
-recovery integration. Compose and the Ubuntu bootstrap are fixture/legacy paths,
-not the deployment procedure for that host.
-
-## Rust implementation
-
-[LinkJar PDS in Rust](docs/rust/README.md) records the decision to replace
-this patched reference build with a Rust server whose account behaviour is
-native extension points. [Its specification](docs/rust/SPEC.md) defines
-compatibility with the pinned reference, the extension model, the parity
-harness and the in-place cutover. The reference image stays the deployed
-server until that cutover unit runs.
+Work happens in bounded units that each end in a merge with their gate green
+([docs/plan.md](docs/plan.md#delivery-units)). The specification is the
+source of truth; a change in behaviour starts with a change there. Every
+architecture diagram in `docs/architecture/` is updated in the same change as
+the code it describes.

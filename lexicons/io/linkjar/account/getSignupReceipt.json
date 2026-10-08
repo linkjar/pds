@@ -1,0 +1,30 @@
+{
+  "lexicon": 1,
+  "id": "io.linkjar.account.getSignupReceipt",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Read whether this OAuth session created the authenticated account during its authorization. Refresh preserves the pending receipt. Existing accounts and other sessions have no receipt.",
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["created", "did"],
+          "properties": {
+            "created": {
+              "type": "boolean"
+            },
+            "did": {
+              "type": "string",
+              "format": "did"
+            },
+            "handle": {
+              "type": "string",
+              "format": "handle"
+            }
+          }
+        }
+      }
+    }
+  }
+}

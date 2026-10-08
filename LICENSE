@@ -1,0 +1,13 @@
+LinkJar PDS (the Rust server under crates/, xtask/, fuzz/, parity/ and
+lexicons/io/linkjar/pds/) is dual-licensed under either of
+
+  * Apache License, Version 2.0 (LICENSE-APACHE)
+  * MIT license (LICENSE-MIT)
+
+at your option.
+
+Vendored material keeps its own license: lexicons/com and lexicons/app are
+upstream atproto files (docs/upstream-LICENSE.txt); interop/ is CC0
+(interop/LICENSE-CC0). The reference image build (Dockerfile, patches/,
+scripts/, tests/, recovery/, staging/) predates this notice and retains the
+upstream notices described in README.md.

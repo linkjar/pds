@@ -1,0 +1,69 @@
+[package]
+name = "pds-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+pds-types = { path = "../crates/pds-types" }
+serde_json = "1"
+
+[[bin]]
+name = "syntax_handle"
+path = "fuzz_targets/syntax_handle.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "syntax_nsid"
+path = "fuzz_targets/syntax_nsid.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "syntax_did"
+path = "fuzz_targets/syntax_did.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "syntax_aturi"
+path = "fuzz_targets/syntax_aturi.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "syntax_datetime"
+path = "fuzz_targets/syntax_datetime.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "syntax_tid"
+path = "fuzz_targets/syntax_tid.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "data_json"
+path = "fuzz_targets/data_json.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "data_cbor"
+path = "fuzz_targets/data_cbor.rs"
+test = false
+doc = false
+bench = false

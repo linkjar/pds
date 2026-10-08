@@ -5,6 +5,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+defaults:
+  run:
+    working-directory: legacy
 jobs:
   update:
     runs-on: ubuntu-24.04
@@ -28,8 +31,8 @@ jobs:
             Review upstream release notes, rebased patches and both architecture builds. Update the official comparator digest to the matching release if parity CI reports a version mismatch. Do not merge until image parity and rendered branding tests pass. Staging deployment and account migration remain separately gated.
           add-paths: |
             upstream.json
-            Dockerfile
-            docs/upstream.Dockerfile
+            legacy/Dockerfile
+            docs/legacy/upstream.Dockerfile
       - name: Explain failed PR creation
         if: failure() && steps.bump.outcome == 'failure'
         run: |

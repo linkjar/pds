@@ -1,8 +1,17 @@
-.upstream/
+
+__pycache__/
+!staging/example.env
 .build/
+.devenv
+.direnv
+.pre-commit-config.yaml
+.upstream/
+*.log
+*.pyc
+**/target
+/fuzz/artifacts
+/fuzz/corpus
+/target
+# Rust workspace
 node_modules/
 staging/*.env
-!staging/example.env
-*.log
-__pycache__/
-*.pyc
