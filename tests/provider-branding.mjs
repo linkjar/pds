@@ -35,23 +35,33 @@ try {
     })
     assert.deepEqual(colors, { primary: '29 95 236', error: '255 56 60', warning: '245 165 36', info: '29 95 236', success: '5 150 105', 'primary-contrast': '255 255 255' })
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
-    await page.screenshot({ path: `.build/provider-${colorScheme}.png`, fullPage: true })
-    await page.locator('summary').click()
-    const submit = page.locator('form button[type="submit"]')
-    await submit.waitFor()
-    const buttonColors = await submit.evaluate(button => {
-      const css = getComputedStyle(button)
-      return [css.backgroundColor, css.color]
+    // 102-signup-journey: one dark page in both schemes, Geist served from the
+    // assets route under the page CSP, and the light pill as the email action.
+    const journey = await page.evaluate(async () => {
+      await document.fonts.ready
+      const css = getComputedStyle(document.body)
+      return {
+        background: css.backgroundColor,
+        geist: [...document.fonts].some(font => font.family === 'Geist' && font.status === 'loaded'),
+        font: css.fontFamily.split(',')[0],
+      }
     })
-    assert.deepEqual(buttonColors, ['rgb(29, 95, 236)', 'rgb(255, 255, 255)'])
-    await page.screenshot({ path: `.build/provider-email-${colorScheme}.png`, fullPage: true })
+    assert.deepEqual(journey, { background: 'rgb(5, 7, 11)', geist: true, font: 'Geist' })
+    const submit = page.locator('form button[type="submit"]')
+    assert.equal(await submit.textContent(), 'Continue')
+    const pill = await submit.evaluate(button => {
+      const css = getComputedStyle(button)
+      return [css.backgroundImage.startsWith('linear-gradient('), css.color, css.borderRadius, css.height]
+    })
+    assert.deepEqual(pill, [true, 'rgb(18, 27, 42)', '99px', '58px'])
+    await page.screenshot({ path: `.build/provider-${colorScheme}.png`, fullPage: true })
     await page.goto(`${base}/account`, { waitUntil: 'networkidle' })
     await logo.waitFor()
     assert.match(await page.locator('body').innerText(), /LinkJar/)
     await page.screenshot({ path: `.build/provider-account-${colorScheme}.png`, fullPage: true })
     assert.deepEqual(errors, [])
     await context.close()
-    console.log(`PASS compiled ${colorScheme} signup/account branding, palette, logo and fixture policy links`)
+    console.log(`PASS compiled ${colorScheme} signup/account branding, palette, journey font and pill, logo and fixture policy links`)
   }
 } finally {
   await browser.close()

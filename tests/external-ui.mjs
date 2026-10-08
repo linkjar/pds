@@ -19,23 +19,57 @@ try {
     `${origin}/oauth/authorize?request_uri=${encodeURIComponent(requestUri)}&prompt=create`,
     { waitUntil: "networkidle" },
   );
+  // 102-signup-journey: the email form is open and first; the providers
+  // follow it under an "or" divider.
+  await page
+    .getByRole("heading", { level: 1, name: "Create your account." })
+    .waitFor();
+  assert.equal(await page.locator("details").count(), 0);
+  assert.equal(
+    await page.getByLabel("Email", { exact: true }).isVisible(),
+    true,
+  );
+  const password = page.getByLabel("Password", { exact: true });
+  assert.equal(await password.isVisible(), true);
+  assert.equal(await password.getAttribute("minlength"), "8");
+  assert.equal(await password.getAttribute("autocomplete"), "new-password");
+  await page.getByText("At least 8 characters.", { exact: true }).waitFor();
   for (const label of ["Apple", "Google", "GitHub"])
     assert.equal(
       await page.getByRole("link", { name: `Continue with ${label}` }).count(),
       1,
     );
-  assert.equal(await page.locator("details").getAttribute("open"), null);
   assert.equal(
-    await page
-      .getByLabel("Handle", { exact: true })
-      .isVisible()
-      .catch(() => false),
-    false,
+    await page.evaluate(() => {
+      const form = document.querySelector("form");
+      const divider = [...document.querySelectorAll("p")].find(
+        (p) => p.textContent === "or",
+      );
+      const apple = document.querySelector(
+        'a[href^="/oauth/external/apple/start?request_uri="]',
+      );
+      const follows = (a, b) =>
+        Boolean(
+          a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING,
+        );
+      return follows(form, divider) && follows(divider, apple);
+    }),
+    true,
   );
-  await page.locator("summary").click();
-  assert.notEqual(await page.locator("details").getAttribute("open"), null);
+  await page
+    .getByText("By continuing you agree to the", { exact: false })
+    .waitFor();
   await mkdir(".build", { recursive: true });
   await page.screenshot({ path: ".build/external-signup.png", fullPage: true });
+  // Continue leads to the handle step; the providers belong to the first step.
+  await page.getByLabel("Email", { exact: true }).fill("new@example.com");
+  await password.fill("correct-horse-battery");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.locator('input[name="handle"]').waitFor();
+  assert.equal(
+    await page.getByRole("link", { name: "Continue with Apple" }).count(),
+    0,
+  );
   await page.goto(
     `${origin}/oauth/authorize?request_uri=${encodeURIComponent(requestUri)}`,
     { waitUntil: "networkidle" },
@@ -57,7 +91,7 @@ try {
   );
   await page.screenshot({ path: ".build/external-signin.png", fullPage: true });
   console.log(
-    "PASS compiled sign-up and sign-in provider buttons, collapsed email forms, mobile viewport",
+    "PASS compiled sign-up email form first with providers below, sign-in provider buttons over a collapsed email form, mobile viewport",
   );
   await page.goto(`${origin}/account/sign-in`, { waitUntil: "networkidle" });
   for (const label of ["Apple", "Google", "GitHub"]) {

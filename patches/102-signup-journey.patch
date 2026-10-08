@@ -1,0 +1,2407 @@
+diff --git a/packages/oauth/oauth-provider-ui/src/assets/fonts/Geist-OFL.txt b/packages/oauth/oauth-provider-ui/src/assets/fonts/Geist-OFL.txt
+new file mode 100644
+index 000000000..61f6f4b78
+--- /dev/null
++++ b/packages/oauth/oauth-provider-ui/src/assets/fonts/Geist-OFL.txt
+@@ -0,0 +1,93 @@
++Copyright 2024 The Geist Project Authors (https://github.com/vercel/geist-font.git)
++
++This Font Software is licensed under the SIL Open Font License, Version 1.1.
++This license is copied below, and is also available with a FAQ at:
++https://openfontlicense.org
++
++
++-----------------------------------------------------------
++SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
++-----------------------------------------------------------
++
++PREAMBLE
++The goals of the Open Font License (OFL) are to stimulate worldwide
++development of collaborative font projects, to support the font creation
++efforts of academic and linguistic communities, and to provide a free and
++open framework in which fonts may be shared and improved in partnership
++with others.
++
++The OFL allows the licensed fonts to be used, studied, modified and
++redistributed freely as long as they are not sold by themselves. The
++fonts, including any derivative works, can be bundled, embedded, 
++redistributed and/or sold with any software provided that any reserved
++names are not used by derivative works. The fonts and derivatives,
++however, cannot be released under any other type of license. The
++requirement for fonts to remain under this license does not apply
++to any document created using the fonts or their derivatives.
++
++DEFINITIONS
++"Font Software" refers to the set of files released by the Copyright
++Holder(s) under this license and clearly marked as such. This may
++include source files, build scripts and documentation.
++
++"Reserved Font Name" refers to any names specified as such after the
++copyright statement(s).
++
++"Original Version" refers to the collection of Font Software components as
++distributed by the Copyright Holder(s).
++
++"Modified Version" refers to any derivative made by adding to, deleting,
++or substituting -- in part or in whole -- any of the components of the
++Original Version, by changing formats or by porting the Font Software to a
++new environment.
++
++"Author" refers to any designer, engineer, programmer, technical
++writer or other person who contributed to the Font Software.
++
++PERMISSION & CONDITIONS
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of the Font Software, to use, study, copy, merge, embed, modify,
++redistribute, and sell modified and unmodified copies of the Font
++Software, subject to the following conditions:
++
++1) Neither the Font Software nor any of its individual components,
++in Original or Modified Versions, may be sold by itself.
++
++2) Original or Modified Versions of the Font Software may be bundled,
++redistributed and/or sold with any software, provided that each copy
++contains the above copyright notice and this license. These can be
++included either as stand-alone text files, human-readable headers or
++in the appropriate machine-readable metadata fields within text or
++binary files as long as those fields can be easily viewed by the user.
++
++3) No Modified Version of the Font Software may use the Reserved Font
++Name(s) unless explicit written permission is granted by the corresponding
++Copyright Holder. This restriction only applies to the primary font name as
++presented to the users.
++
++4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
++Software shall not be used to promote, endorse or advertise any
++Modified Version, except to acknowledge the contribution(s) of the
++Copyright Holder(s) and the Author(s) or with their explicit written
++permission.
++
++5) The Font Software, modified or unmodified, in part or in whole,
++must be distributed entirely under this license, and must not be
++distributed under any other license. The requirement for fonts to
++remain under this license does not apply to any document created
++using the Font Software.
++
++TERMINATION
++This license becomes null and void if any of the above conditions are
++not met.
++
++DISCLAIMER
++THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
++OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
++COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
++DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
++OTHER DEALINGS IN THE FONT SOFTWARE.
+\ No newline at end of file
+diff --git a/packages/oauth/oauth-provider-ui/src/assets/fonts/Geist-latin.woff2 b/packages/oauth/oauth-provider-ui/src/assets/fonts/Geist-latin.woff2
+new file mode 100644
+index 0000000000000000000000000000000000000000..8f01e7630ba2f88ffa1acd90d69f67efb5bd3092
+GIT binary patch
+literal 29288
+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
+z-CJ48)@hf7M$EaZRBPpJoowy9I_R!~{lv%0AtAyKq!v~3`N(bES$ZIiX=NLm`Kg&4
+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
+adyt^dyH4lH-iM}pHa0xq){F|U`3(U0yo2Zf
+
+literal 0
+HcmV?d00001
+
+diff --git a/packages/oauth/oauth-provider-ui/src/components/external-sign-in.tsx b/packages/oauth/oauth-provider-ui/src/components/external-sign-in.tsx
+index d5bac1815..fbb440bfe 100644
+--- a/packages/oauth/oauth-provider-ui/src/components/external-sign-in.tsx
++++ b/packages/oauth/oauth-provider-ui/src/components/external-sign-in.tsx
+@@ -1,16 +1,19 @@
+ import { Trans } from '@lingui/react/macro'
+ import type { ReactNode } from 'react'
++import type { CustomizationData } from '@atproto/oauth-provider-api'
+ import { useCustomizationData } from '#/contexts/customization.tsx'
+-import { SignUpDisclaimer } from './sign-up-disclaimer.tsx'
+ 
+-export function ExternalSignIn({
+-  children,
+-  signUp = false,
+-}: {
+-  children: ReactNode
+-  signUp?: boolean
+-}) {
+-  const { externalProviders, links } = useCustomizationData()
++type ExternalProvider = NonNullable<
++  CustomizationData['externalProviders']
++>[number]
++
++/**
++ * The configured providers and the start URL for each, or `null` where
++ * provider sign-in does not apply: outside an authorization request and the
++ * account pages, or when no provider is configured.
++ */
++function useExternalProviders() {
++  const { externalProviders } = useCustomizationData()
+   const url = new URL(window.location.href)
+   const requestUri =
+     url.pathname === '/oauth/authorize'
+@@ -18,24 +21,44 @@ export function ExternalSignIn({
+       : null
+   const accountPage =
+     url.pathname === '/account' || url.pathname.startsWith('/account/')
+-  if ((!requestUri && !accountPage) || !externalProviders?.length)
+-    return <>{children}</>
++  if ((!requestUri && !accountPage) || !externalProviders?.length) return null
++  const query = requestUri
++    ? `?request_uri=${encodeURIComponent(requestUri)}`
++    : ''
++  return externalProviders.map((provider) => ({
++    ...provider,
++    href: `/oauth/external/${provider.id}/start${query}`,
++  }))
++}
++
++function ProviderLinks({
++  providers,
++}: {
++  providers: (ExternalProvider & { href: string })[]
++}) {
++  return (
++    <div className="lj-providers">
++      {providers.map(({ id, label, href }) => (
++        <a key={id} className="lj-provider" href={href}>
++          <ProviderMark id={id} />
++          <span>
++            <Trans>Continue with {label}</Trans>
++          </span>
++        </a>
++      ))}
++    </div>
++  )
++}
++
++/** Sign-in: the providers first, the email form folded under them. */
++export function ExternalSignIn({ children }: { children: ReactNode }) {
++  const providers = useExternalProviders()
++  if (!providers) return <>{children}</>
+   return (
+     <div className="grid gap-4">
+-      <div className="grid gap-2">
+-        {externalProviders.map(({ id, label }) => (
+-          <a
+-            key={id}
+-            className="hover:bg-muted rounded-lg border px-4 py-3 text-center font-medium focus-visible:outline-2"
+-            href={`/oauth/external/${id}/start${requestUri ? `?request_uri=${encodeURIComponent(requestUri)}` : ''}`}
+-          >
+-            <Trans>Continue with {label}</Trans>
+-          </a>
+-        ))}
+-      </div>
+-      {signUp && <SignUpDisclaimer links={links} />}
+-      <details>
+-        <summary className="cursor-pointer py-2 text-center">
++      <ProviderLinks providers={providers} />
++      <details className="lj-email-fold">
++        <summary>
+           <Trans>Or use email</Trans>
+         </summary>
+         <div className="pt-4">{children}</div>
+@@ -43,3 +66,55 @@ export function ExternalSignIn({
+     </div>
+   )
+ }
++
++/** Sign-up: the providers as the alternative under the open email form. */
++export function ExternalSignUp() {
++  const providers = useExternalProviders()
++  if (!providers) return null
++  return (
++    <>
++      <p className="lj-divider">
++        <Trans>or</Trans>
++      </p>
++      <ProviderLinks providers={providers} />
++    </>
++  )
++}
++
++function ProviderMark({ id }: { id: ExternalProvider['id'] }) {
++  switch (id) {
++    case 'apple':
++      return (
++        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
++          <path d="M16.37 12.63c.02 2.6 2.28 3.47 2.3 3.48-.02.06-.36 1.24-1.19 2.45-.72 1.05-1.46 2.1-2.63 2.12-1.15.02-1.52-.68-2.84-.68s-1.73.66-2.82.7c-1.13.04-1.99-1.13-2.71-2.18-1.48-2.14-2.61-6.04-1.09-8.67.75-1.31 2.1-2.14 3.56-2.16 1.11-.02 2.16.75 2.84.75s1.95-.92 3.29-.79c.56.02 2.13.23 3.14 1.7-.08.05-1.87 1.09-1.85 3.28zM14.2 6.25c.6-.73 1-1.74.89-2.75-.86.03-1.91.57-2.53 1.3-.55.64-1.04 1.67-.91 2.66.96.07 1.95-.49 2.55-1.21z" />
++        </svg>
++      )
++    case 'google':
++      return (
++        <svg viewBox="0 0 24 24" aria-hidden="true">
++          <path
++            fill="#4285F4"
++            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"
++          />
++          <path
++            fill="#34A853"
++            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"
++          />
++          <path
++            fill="#FBBC05"
++            d="M5.84 14.09a6.6 6.6 0 0 1 0-4.18V7.07H2.18a11 11 0 0 0 0 9.86l3.66-2.84z"
++          />
++          <path
++            fill="#EA4335"
++            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A11 11 0 0 0 2.18 7.07l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"
++          />
++        </svg>
++      )
++    case 'github':
++      return (
++        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
++          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z" />
++        </svg>
++      )
++  }
++}
+diff --git a/packages/oauth/oauth-provider-ui/src/components/layouts/auth-shell.tsx b/packages/oauth/oauth-provider-ui/src/components/layouts/auth-shell.tsx
+index 2ac33df60..7b89bda11 100644
+--- a/packages/oauth/oauth-provider-ui/src/components/layouts/auth-shell.tsx
++++ b/packages/oauth/oauth-provider-ui/src/components/layouts/auth-shell.tsx
+@@ -2,14 +2,6 @@ import type { MessageDescriptor } from '@lingui/core'
+ import { msg } from '@lingui/core/macro'
+ import { useLingui } from '@lingui/react'
+ import type { JSX, ReactNode } from 'react'
+-import {
+-  Card,
+-  CardContent,
+-  CardDescription,
+-  CardFooter,
+-  CardHeader,
+-  CardTitle,
+-} from '#/components/ui/card.tsx'
+ import { LinkAnchor } from '#/components/utils/link-anchor.tsx'
+ import { useCustomizationData } from '#/contexts/customization.tsx'
+ import type { Override } from '#/lib/util.ts'
+@@ -35,6 +27,11 @@ export type AuthShellProps = Override<
+  * @NOTE This owns the whole page frame: the `<title>`, the locale selector and
+  * the footer links. Never nest it inside another shell — both render a
+  * `<title>`, React hoists them all into the head, and the last one wins.
++ *
++ * @NOTE LinkJar: the page is the onboarding journey's dark stage rather than
++ * a card — the name and mark at the top, one centred column, the locale and
++ * the links at the foot. `lj-journey` switches on the styles and tokens in
++ * the "LinkJar journey" section of `src/style.css`.
+  */
+ export function AuthShell({
+   title,
+@@ -60,60 +57,34 @@ export function AuthShell({
+         : undefined
+ 
+   return (
+-    <div className="auth-background flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
++    <div className="lj-journey">
+       {documentTitleString && <title>{documentTitleString}</title>}
+ 
+-      <div
+-        {...props}
+-        className={cn('flex w-full max-w-sm flex-col', className)}
+-      >
+-        <Card>
+-          {(logo || name) && (
+-            <div className="flex items-center justify-center gap-2 px-(--card-spacing) pt-2 font-medium">
+-              {logo && (
+-                <img
+-                  src={logo}
+-                  alt={name || _(msg`Logo`)}
+-                  className="size-6 object-contain"
+-                />
+-              )}
+-              {name}
+-            </div>
+-          )}
++      {(logo || name) && (
++        <header className="lj-brand">
++          {logo && <img src={logo} alt={name || _(msg`Logo`)} />}
++          {name}
++        </header>
++      )}
+ 
+-          {(titleString || subtitle) && (
+-            <CardHeader className="text-center">
+-              {titleString && (
+-                <CardTitle className="text-xl">{titleString}</CardTitle>
+-              )}
+-              {/* @NOTE CardDescription renders a <div>, so the subtitle gets
+-                its own <p>. */}
+-              {subtitle && (
+-                <CardDescription>
+-                  <p>{subtitle}</p>
+-                </CardDescription>
+-              )}
+-            </CardHeader>
+-          )}
++      <main className="lj-stage">
++        <div {...props} className={cn('lj-panel', className)}>
++          {titleString && <h1 className="lj-title">{titleString}</h1>}
++          {subtitle && <p className="lj-lede">{subtitle}</p>}
++          {children}
++        </div>
++      </main>
+ 
+-          <CardContent>{children}</CardContent>
+-
+-          <CardFooter className="flex-col justify-center gap-3">
+-            <LocaleSelector />
+-            {links?.length ? (
+-              <div className="text-muted-foreground flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs">
+-                {links.map((link) => (
+-                  <LinkAnchor
+-                    key={link.href}
+-                    link={link}
+-                    className="hover:text-foreground rounded-sm transition-colors hover:underline"
+-                  />
+-                ))}
+-              </div>
+-            ) : null}
+-          </CardFooter>
+-        </Card>
+-      </div>
++      <footer className="lj-footer">
++        <LocaleSelector />
++        {links?.length ? (
++          <nav>
++            {links.map((link) => (
++              <LinkAnchor key={link.href} link={link} />
++            ))}
++          </nav>
++        ) : null}
++      </footer>
+     </div>
+   )
+ }
+diff --git a/packages/oauth/oauth-provider-ui/src/components/sign-up-credentials-form.tsx b/packages/oauth/oauth-provider-ui/src/components/sign-up-credentials-form.tsx
+index 3a29880ad..0f390f409 100644
+--- a/packages/oauth/oauth-provider-ui/src/components/sign-up-credentials-form.tsx
++++ b/packages/oauth/oauth-provider-ui/src/components/sign-up-credentials-form.tsx
+@@ -1,12 +1,13 @@
++import { plural } from '@lingui/core/macro'
+ import { Trans, useLingui } from '@lingui/react/macro'
+-import { HashIcon } from 'lucide-react'
+ import { EmailField } from '#/components/forms/fields/email-field.tsx'
+-import { NewPasswordField } from '#/components/forms/fields/new-password-field.tsx'
++import { PasswordField } from '#/components/forms/fields/password-field.tsx'
+ import { TextField } from '#/components/forms/fields/text-field.tsx'
+ import {
+   FormShell,
+   type FormShellProps,
+ } from '#/components/forms/form-shell.tsx'
++import { MIN_PASSWORD_LENGTH } from '#/lib/password.ts'
+ 
+ type Values = { email: string; password: string; inviteCode: string }
+ 
+@@ -57,12 +58,15 @@ export function SignUpCredentialsForm({
+         return handler(data, signal)
+       }}
+     >
++      {/* @NOTE LinkJar: plain labelled fields with no leading icons, and the
++        password rule as one line of copy instead of a strength meter, as in
++        the app's onboarding. */}
+       {inviteCodeRequired && (
+         <TextField
+           name="inviteCode"
+           defaultValue={values?.inviteCode ?? ''}
+           label={<Trans>Invite code</Trans>}
+-          icon={<HashIcon className="size-5" />}
++          icon={null}
+           autoFocus
+           title={t`Invite code`}
+           placeholder={t`example-com-xxxxx-xxxxx`}
+@@ -75,16 +79,26 @@ export function SignUpCredentialsForm({
+         name="email"
+         defaultValue={values?.email ?? ''}
+         label={<Trans>Email</Trans>}
++        icon={null}
+         autoFocus={!inviteCodeRequired}
+         autoComplete="username email"
+         enterKeyHint="next"
+         required
+       />
+ 
+-      <NewPasswordField
++      <PasswordField
+         name="password"
+         defaultValue={values?.password ?? ''}
+         label={<Trans>Password</Trans>}
++        icon={null}
++        title={t`Password with at least ${plural(MIN_PASSWORD_LENGTH, {
++          other: '# characters',
++        })}`}
++        description={t`At least ${plural(MIN_PASSWORD_LENGTH, {
++          other: '# characters',
++        })}.`}
++        minLength={MIN_PASSWORD_LENGTH}
++        autoComplete="new-password"
+         enterKeyHint="next"
+         required
+       />
+diff --git a/packages/oauth/oauth-provider-ui/src/components/sign-up-disclaimer.tsx b/packages/oauth/oauth-provider-ui/src/components/sign-up-disclaimer.tsx
+index c52c7899d..a9c855bee 100644
+--- a/packages/oauth/oauth-provider-ui/src/components/sign-up-disclaimer.tsx
++++ b/packages/oauth/oauth-provider-ui/src/components/sign-up-disclaimer.tsx
+@@ -25,11 +25,10 @@ export function SignUpDisclaimer({
+   return (
+     <p className={cn('text-muted-foreground text-sm', className)} {...attrs}>
+       <Trans>
+-        By creating an account you agree to the{' '}
++        By continuing you agree to the{' '}
+         <ConditionalLink link={tosLink}>Terms of Service</ConditionalLink>
+         {' and the '}
+-        <ConditionalLink link={ppLink}>Privacy Policy</ConditionalLink>
+-        {' of this service.'}
++        <ConditionalLink link={ppLink}>Privacy Policy</ConditionalLink>.
+       </Trans>
+     </p>
+   )
+diff --git a/packages/oauth/oauth-provider-ui/src/components/sign-up-hcaptcha-form.tsx b/packages/oauth/oauth-provider-ui/src/components/sign-up-hcaptcha-form.tsx
+index 345a93b91..a040b15a1 100644
+--- a/packages/oauth/oauth-provider-ui/src/components/sign-up-hcaptcha-form.tsx
++++ b/packages/oauth/oauth-provider-ui/src/components/sign-up-hcaptcha-form.tsx
+@@ -6,7 +6,6 @@ import {
+   FormShell,
+   type FormShellProps,
+ } from '#/components/forms/form-shell.tsx'
+-import { useBrowserColorScheme } from '#/hooks/use-browser-color-scheme.ts'
+ import { useCurrentLocale } from '#/locales/locale-provider.tsx'
+ 
+ export type VerifyData = {
+@@ -42,7 +41,6 @@ export function SignUpHcaptchaForm({
+   ...props
+ }: SignUpHcaptchaFormProps) {
+   const captchaRef = useRef<HCaptcha>(null)
+-  const theme = useBrowserColorScheme()
+   const locale = useCurrentLocale()
+ 
+   const [verifiedOnMount] = useState(values?.verify != null)
+@@ -70,7 +68,8 @@ export function SignUpHcaptchaForm({
+         </div>
+       ) : (
+         <HCaptcha
+-          theme={theme}
++          // LinkJar: the auth screens are always dark (see AuthShell).
++          theme="dark"
+           sitekey={siteKey}
+           ref={captchaRef}
+           languageOverride={locale}
+diff --git a/packages/oauth/oauth-provider-ui/src/components/sign-up-view.tsx b/packages/oauth/oauth-provider-ui/src/components/sign-up-view.tsx
+index 632d463b0..da179127e 100644
+--- a/packages/oauth/oauth-provider-ui/src/components/sign-up-view.tsx
++++ b/packages/oauth/oauth-provider-ui/src/components/sign-up-view.tsx
+@@ -1,8 +1,9 @@
+ import { msg } from '@lingui/core/macro'
+ import { Trans } from '@lingui/react/macro'
+ import { useState } from 'react'
++import { Button } from '#/components/ui/button.tsx'
+ import { useCustomizationData } from '#/contexts/customization.tsx'
+-import { ExternalSignIn } from './external-sign-in.tsx'
++import { ExternalSignUp } from './external-sign-in.tsx'
+ import { SignUpWizard } from './forms/sign-up-wizard.tsx'
+ import { AuthShell } from './layouts/auth-shell.tsx'
+ import {
+@@ -49,93 +50,95 @@ export function SignUpView({
+     Partial<SignUpCredentialsData & SignUpHandleData & SignUpHcaptchaData>
+   >({})
+ 
+-  // @NOTE Only the last step creates the account, so only the last step states
+-  // what creating one agrees to. Which step that is depends on whether hCaptcha
+-  // is configured, so the wizard decides it (`atLast`) rather than this list.
+-  const disclaimer = <SignUpDisclaimer links={links} />
+-
+   return (
+     <AuthShell
+-      title={msg({ message: 'Sign up' })}
+-      subtitle={<Trans>We're so excited to have you join us!</Trans>}
++      title={msg`Create your account.`}
++      documentTitle={msg({ message: 'Sign up' })}
+     >
+-      <ExternalSignIn signUp>
+-        <SignUpWizard
+-          onBack={onBack}
+-          doneLabel={<Trans>Sign up</Trans>}
+-          onDone={([handle, credentials, hcaptcha]: [
+-            SignUpHandleData,
+-            SignUpCredentialsData,
+-            SignUpHcaptchaData | null,
+-          ]) => {
+-            return onDone({
+-              ...credentials,
+-              ...handle,
+-              hcaptchaToken: hcaptcha?.verify.token,
+-            })
+-          }}
+-          steps={[
+-            // We use the handle input first since the "onValidateNewHandle" check
+-            // will make it less likely that the actual signup call will fail, and
+-            // will result in a better user experience, especially if there is an
+-            // issue with the email address (e.g. already in use).
+-            {
+-              titleRender: () => <Trans>Choose a username</Trans>,
+-              contentRender: ({ atLast, prev, prevLabel, next, nextLabel }) => (
+-                <SignUpHandleForm
+-                  className="grow"
+-                  domains={availableUserDomains}
+-                  onBack={prev}
+-                  backLabel={prevLabel}
+-                  submitLabel={nextLabel}
+-                  values={pending}
+-                  onValues={(val) => setPending((old) => ({ ...old, ...val }))}
+-                  handler={async (data) => {
+-                    await onValidateNewHandle(data)
+-                    next(data)
+-                  }}
+-                >
+-                  {atLast && disclaimer}
+-                </SignUpHandleForm>
+-              ),
+-            },
+-            {
+-              titleRender: () => <Trans>Your account</Trans>,
+-              contentRender: ({ atLast, prev, prevLabel, next, nextLabel }) => (
++      <SignUpWizard
++        onBack={onBack}
++        nextLabel={<Trans>Continue</Trans>}
++        doneLabel={<Trans>Sign up</Trans>}
++        onDone={([credentials, handle, hcaptcha]: [
++          SignUpCredentialsData,
++          SignUpHandleData,
++          SignUpHcaptchaData | null,
++        ]) => {
++          return onDone({
++            ...credentials,
++            ...handle,
++            hcaptchaToken: hcaptcha?.verify.token,
++          })
++        }}
++        steps={[
++          // @NOTE LinkJar: email and password come first, as in the app's
++          // onboarding, with the providers under them as the alternative. The
++          // fine print covers both paths, so it sits on this first step. The
++          // handle is still checked ("onValidateNewHandle") on the next step,
++          // before the last step creates the account.
++          {
++            contentRender: ({ prev, prevLabel, next, nextLabel }) => (
++              <>
+                 <SignUpCredentialsForm
+                   className="grow"
+-                  onBack={prev}
+-                  backLabel={prevLabel}
+                   submitLabel={nextLabel}
+                   values={pending}
+                   onValues={(val) => setPending((old) => ({ ...old, ...val }))}
+                   handler={next}
+                   inviteCodeRequired={inviteCodeRequired}
+-                >
+-                  {atLast && disclaimer}
+-                </SignUpCredentialsForm>
+-              ),
+-            },
+-            hcaptchaSiteKey != null && {
+-              titleRender: () => <Trans>Verify you are human</Trans>,
+-              contentRender: ({ atLast, prev, prevLabel, next, nextLabel }) => (
+-                <SignUpHcaptchaForm
+-                  className="grow"
+-                  siteKey={hcaptchaSiteKey}
+-                  onBack={prev}
+-                  backLabel={prevLabel}
+-                  submitLabel={nextLabel}
+-                  values={pending}
+-                  onValues={(val) => setPending((old) => ({ ...old, ...val }))}
+-                  handler={next}
+-                >
+-                  {atLast && disclaimer}
+-                </SignUpHcaptchaForm>
+-              ),
+-            },
+-          ]}
+-        />
+-      </ExternalSignIn>
++                />
++                <ExternalSignUp />
++                <SignUpDisclaimer links={links} className="lj-fine" />
++                {prev && (
++                  <Button
++                    type="button"
++                    variant="ghost"
++                    className="lj-quiet"
++                    onClick={prev}
++                  >
++                    {prevLabel}
++                  </Button>
++                )}
++              </>
++            ),
++          },
++          {
++            titleRender: () => <Trans>Choose a username</Trans>,
++            contentRender: ({ prev, prevLabel, next, nextLabel }) => (
++              <SignUpHandleForm
++                className="grow"
++                domains={availableUserDomains}
++                onBack={prev}
++                backLabel={prevLabel}
++                submitLabel={nextLabel}
++                values={pending}
++                onValues={(val) => setPending((old) => ({ ...old, ...val }))}
++                handler={async (data) => {
++                  await onValidateNewHandle(data)
++                  // Without hCaptcha this is the last step, and `next` creates
++                  // the account: await it so the form shows a failure.
++                  await next(data)
++                }}
++              />
++            ),
++          },
++          hcaptchaSiteKey != null && {
++            titleRender: () => <Trans>Verify you are human</Trans>,
++            contentRender: ({ prev, prevLabel, next, nextLabel }) => (
++              <SignUpHcaptchaForm
++                className="grow"
++                siteKey={hcaptchaSiteKey}
++                onBack={prev}
++                backLabel={prevLabel}
++                submitLabel={nextLabel}
++                values={pending}
++                onValues={(val) => setPending((old) => ({ ...old, ...val }))}
++                handler={next}
++              />
++            ),
++          },
++        ]}
++      />
+     </AuthShell>
+   )
+ }
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/en/messages.po b/packages/oauth/oauth-provider-ui/src/locales/en/messages.po
+index fe1fea6ce..6e11c745d 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/en/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/en/messages.po
+@@ -198,6 +198,10 @@ msgstr "Apps may access your account in the background (to check notifications,
+ msgid "Are you really, really sure?"
+ msgstr "Are you really, really sure?"
+ 
++#: src/components/sign-up-credentials-form.tsx
++msgid "At least {MIN_PASSWORD_LENGTH, plural, other {# characters}}."
++msgstr "At least {MIN_PASSWORD_LENGTH, plural, other {# characters}}."
++
+ #: src/components/authenticate-welcome-view.tsx
+ msgctxt "AuthenticationPage"
+ msgid "Authenticate"
+@@ -244,8 +248,8 @@ msgid "By clicking <0>Authorize</0>, you will grant this application access to y
+ msgstr "By clicking <0>Authorize</0>, you will grant this application access to your account in accordance with its <1>terms of service</1> and <2>privacy policy</2>."
+ 
+ #: src/components/sign-up-disclaimer.tsx
+-msgid "By creating an account you agree to the <0>Terms of Service</0> and the <1>Privacy Policy</1> of this service."
+-msgstr "By creating an account you agree to the <0>Terms of Service</0> and the <1>Privacy Policy</1> of this service."
++msgid "By continuing you agree to the <0>Terms of Service</0> and the <1>Privacy Policy</1>."
++msgstr "By continuing you agree to the <0>Terms of Service</0> and the <1>Privacy Policy</1>."
+ 
+ #: src/components/utils/scope-description.tsx
+ msgctxt "RPC lxm"
+@@ -352,6 +356,7 @@ msgstr "Confirmation code"
+ msgid "Confirmation email sent"
+ msgstr "Confirmation email sent"
+ 
++#: src/components/sign-up-view.tsx
+ #: src/cookie-error-page.tsx
+ msgid "Continue"
+ msgstr "Continue"
+@@ -384,6 +389,10 @@ msgstr "Create"
+ msgid "Create a new account"
+ msgstr "Create a new account"
+ 
++#: src/components/sign-up-view.tsx
++msgid "Create your account."
++msgstr "Create your account."
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Create, update, and delete any public data linked to your account"
+ msgstr "Create, update, and delete any public data linked to your account"
+@@ -857,6 +866,10 @@ msgstr "Not set"
+ msgid "Okay"
+ msgstr "Okay"
+ 
++#: src/components/external-sign-in.tsx
++msgid "or"
++msgstr "or"
++
+ #: src/components/external-sign-in.tsx
+ msgid "Or use email"
+ msgstr "Or use email"
+@@ -895,6 +908,7 @@ msgid "Password Updated"
+ msgstr "Password Updated"
+ 
+ #: src/components/forms/fields/new-password-field.tsx
++#: src/components/sign-up-credentials-form.tsx
+ msgid "Password with at least {MIN_PASSWORD_LENGTH, plural, other {# characters}}"
+ msgstr "Password with at least {MIN_PASSWORD_LENGTH, plural, other {# characters}}"
+ 
+@@ -1405,10 +1419,6 @@ msgstr "wants to uniquely identify you through your <0/> account"
+ msgid "Warning"
+ msgstr "Warning"
+ 
+-#: src/components/sign-up-view.tsx
+-msgid "We're so excited to have you join us!"
+-msgstr "We're so excited to have you join us!"
+-
+ #: src/components/feedback/password-strength.tsx
+ #: src/components/utils/password-strength-label.tsx
+ msgid "Weak"
+@@ -1483,10 +1493,6 @@ msgstr "You previously deactivated <0/>. You can reactivate your account to cont
+ msgid "You will receive an email with a \"reset code\". Enter that code here then enter your new password."
+ msgstr "You will receive an email with a \"reset code\". Enter that code here then enter your new password."
+ 
+-#: src/components/sign-up-view.tsx
+-msgid "Your account"
+-msgstr "Your account"
+-
+ #: src/data/account.ts
+ msgid "Your account and all associated data have been deleted."
+ msgstr "Your account and all associated data have been deleted."
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/es/messages.po b/packages/oauth/oauth-provider-ui/src/locales/es/messages.po
+index 39e2b6932..9a26c9415 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/es/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/es/messages.po
+@@ -198,6 +198,10 @@ msgstr ""
+ msgid "Are you really, really sure?"
+ msgstr ""
+ 
++#: src/components/sign-up-credentials-form.tsx
++msgid "At least {MIN_PASSWORD_LENGTH, plural, other {# characters}}."
++msgstr ""
++
+ #: src/components/authenticate-welcome-view.tsx
+ msgctxt "AuthenticationPage"
+ msgid "Authenticate"
+@@ -244,8 +248,8 @@ msgid "By clicking <0>Authorize</0>, you will grant this application access to y
+ msgstr ""
+ 
+ #: src/components/sign-up-disclaimer.tsx
+-msgid "By creating an account you agree to the <0>Terms of Service</0> and the <1>Privacy Policy</1> of this service."
+-msgstr "Al crear una cuenta, aceptas los <0>Términos del servicio</0> y la <1>Política de privacidad</1> de este servicio."
++msgid "By continuing you agree to the <0>Terms of Service</0> and the <1>Privacy Policy</1>."
++msgstr ""
+ 
+ #: src/components/utils/scope-description.tsx
+ msgctxt "RPC lxm"
+@@ -352,6 +356,7 @@ msgstr "Código de confirmación"
+ msgid "Confirmation email sent"
+ msgstr ""
+ 
++#: src/components/sign-up-view.tsx
+ #: src/cookie-error-page.tsx
+ msgid "Continue"
+ msgstr ""
+@@ -384,6 +389,10 @@ msgstr "Crear"
+ msgid "Create a new account"
+ msgstr "Crear una nueva cuenta"
+ 
++#: src/components/sign-up-view.tsx
++msgid "Create your account."
++msgstr ""
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Create, update, and delete any public data linked to your account"
+ msgstr ""
+@@ -848,6 +857,10 @@ msgstr ""
+ msgid "Okay"
+ msgstr "Aceptar"
+ 
++#: src/components/external-sign-in.tsx
++msgid "or"
++msgstr ""
++
+ #: src/components/external-sign-in.tsx
+ msgid "Or use email"
+ msgstr ""
+@@ -886,6 +899,7 @@ msgid "Password Updated"
+ msgstr "Contraseña actualizada"
+ 
+ #: src/components/forms/fields/new-password-field.tsx
++#: src/components/sign-up-credentials-form.tsx
+ msgid "Password with at least {MIN_PASSWORD_LENGTH, plural, other {# characters}}"
+ msgstr "Contraseña con al menos {MIN_PASSWORD_LENGTH, plural, other {# caracteres}}"
+ 
+@@ -1396,10 +1410,6 @@ msgstr "quiere identificarte de forma única a través de tu cuenta <0/>"
+ msgid "Warning"
+ msgstr "Advertencia"
+ 
+-#: src/components/sign-up-view.tsx
+-msgid "We're so excited to have you join us!"
+-msgstr "¡Nos alegra mucho tenerte con nosotros!"
+-
+ #: src/components/feedback/password-strength.tsx
+ #: src/components/utils/password-strength-label.tsx
+ msgid "Weak"
+@@ -1474,10 +1484,6 @@ msgstr ""
+ msgid "You will receive an email with a \"reset code\". Enter that code here then enter your new password."
+ msgstr "Recibirás un correo electrónico con un \"código de restablecimiento\". Ingresa ese código aquí y luego ingresa tu nueva contraseña."
+ 
+-#: src/components/sign-up-view.tsx
+-msgid "Your account"
+-msgstr "Tu cuenta"
+-
+ #: src/data/account.ts
+ msgid "Your account and all associated data have been deleted."
+ msgstr ""
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/fr/messages.po b/packages/oauth/oauth-provider-ui/src/locales/fr/messages.po
+index b7715c549..8006b7758 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/fr/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/fr/messages.po
+@@ -198,6 +198,10 @@ msgstr "Les applications peuvent accéder à votre compte en arrière-plan (pour
+ msgid "Are you really, really sure?"
+ msgstr "Êtes-vous vraiment, vraiment sûr ?"
+ 
++#: src/components/sign-up-credentials-form.tsx
++msgid "At least {MIN_PASSWORD_LENGTH, plural, other {# characters}}."
++msgstr ""
++
+ #: src/components/authenticate-welcome-view.tsx
+ msgctxt "AuthenticationPage"
+ msgid "Authenticate"
+@@ -244,8 +248,8 @@ msgid "By clicking <0>Authorize</0>, you will grant this application access to y
+ msgstr "En cliquant sur <0>Autoriser</0>, vous accorderez à cette application l'accès à votre compte conformément à ses <1>conditions d'utilisation</1> et sa <2>politique de confidentialité</2>."
+ 
+ #: src/components/sign-up-disclaimer.tsx
+-msgid "By creating an account you agree to the <0>Terms of Service</0> and the <1>Privacy Policy</1> of this service."
+-msgstr "En créant un compte, vous acceptez les <0>Conditions d'utilisation</0> et la <1>Politique de confidentialité</1> de ce service."
++msgid "By continuing you agree to the <0>Terms of Service</0> and the <1>Privacy Policy</1>."
++msgstr ""
+ 
+ #: src/components/utils/scope-description.tsx
+ msgctxt "RPC lxm"
+@@ -352,6 +356,7 @@ msgstr "Code de confirmation"
+ msgid "Confirmation email sent"
+ msgstr "Email de confirmation envoyé"
+ 
++#: src/components/sign-up-view.tsx
+ #: src/cookie-error-page.tsx
+ msgid "Continue"
+ msgstr "Continuer"
+@@ -384,6 +389,10 @@ msgstr "Créer"
+ msgid "Create a new account"
+ msgstr "Créer un nouveau compte"
+ 
++#: src/components/sign-up-view.tsx
++msgid "Create your account."
++msgstr ""
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Create, update, and delete any public data linked to your account"
+ msgstr "Créer, mettre à jour et supprimer toutes les données publiques de votre compte"
+@@ -857,6 +866,10 @@ msgstr ""
+ msgid "Okay"
+ msgstr "OK"
+ 
++#: src/components/external-sign-in.tsx
++msgid "or"
++msgstr ""
++
+ #: src/components/external-sign-in.tsx
+ msgid "Or use email"
+ msgstr ""
+@@ -895,6 +908,7 @@ msgid "Password Updated"
+ msgstr "Mot de passe mis à jour"
+ 
+ #: src/components/forms/fields/new-password-field.tsx
++#: src/components/sign-up-credentials-form.tsx
+ msgid "Password with at least {MIN_PASSWORD_LENGTH, plural, other {# characters}}"
+ msgstr "Mot de passe d'au moins {MIN_PASSWORD_LENGTH, plural, other {# caractères}}"
+ 
+@@ -1405,10 +1419,6 @@ msgstr "veut vous identifier de manière unique via votre compte <0/>"
+ msgid "Warning"
+ msgstr "Avertissement"
+ 
+-#: src/components/sign-up-view.tsx
+-msgid "We're so excited to have you join us!"
+-msgstr "Nous sommes ravis de vous accueillir parmi nous !"
+-
+ #: src/components/feedback/password-strength.tsx
+ #: src/components/utils/password-strength-label.tsx
+ msgid "Weak"
+@@ -1483,10 +1493,6 @@ msgstr "Vous avez précédemment désactivé <0/>. Vous pouvez réactiver votre
+ msgid "You will receive an email with a \"reset code\". Enter that code here then enter your new password."
+ msgstr "Vous recevrez un email avec un \"code de réinitialisation\". Saisissez ce code ici puis entrez votre nouveau mot de passe."
+ 
+-#: src/components/sign-up-view.tsx
+-msgid "Your account"
+-msgstr "Votre compte"
+-
+ #: src/data/account.ts
+ msgid "Your account and all associated data have been deleted."
+ msgstr "Votre compte et toutes les données associées ont été supprimés."
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/ja/messages.po b/packages/oauth/oauth-provider-ui/src/locales/ja/messages.po
+index 69bb6a71b..16f529ac1 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/ja/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/ja/messages.po
+@@ -198,6 +198,10 @@ msgstr "アプリは、あなたが積極的に使用していないときでも
+ msgid "Are you really, really sure?"
+ msgstr "本当に、本当によろしいですか？"
+ 
++#: src/components/sign-up-credentials-form.tsx
++msgid "At least {MIN_PASSWORD_LENGTH, plural, other {# characters}}."
++msgstr ""
++
+ #: src/components/authenticate-welcome-view.tsx
+ msgctxt "AuthenticationPage"
+ msgid "Authenticate"
+@@ -244,8 +248,8 @@ msgid "By clicking <0>Authorize</0>, you will grant this application access to y
+ msgstr "<0>承認</0>をクリックすると、このアプリケーションの<1>利用規約</1>と<2>プライバシーポリシー</2>に従って、あなたのアカウントへのアクセスを付与します。"
+ 
+ #: src/components/sign-up-disclaimer.tsx
+-msgid "By creating an account you agree to the <0>Terms of Service</0> and the <1>Privacy Policy</1> of this service."
+-msgstr "アカウントを作成することで、このサービスの<0>利用規約</0>および<1>プライバシーポリシー</1>に同意したものとみなされます。"
++msgid "By continuing you agree to the <0>Terms of Service</0> and the <1>Privacy Policy</1>."
++msgstr ""
+ 
+ #: src/components/utils/scope-description.tsx
+ msgctxt "RPC lxm"
+@@ -352,6 +356,7 @@ msgstr "確認コード"
+ msgid "Confirmation email sent"
+ msgstr "確認メールが送信されました"
+ 
++#: src/components/sign-up-view.tsx
+ #: src/cookie-error-page.tsx
+ msgid "Continue"
+ msgstr "続行"
+@@ -384,6 +389,10 @@ msgstr "作成"
+ msgid "Create a new account"
+ msgstr "新規アカウントの作成"
+ 
++#: src/components/sign-up-view.tsx
++msgid "Create your account."
++msgstr ""
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Create, update, and delete any public data linked to your account"
+ msgstr "あなたのアカウントにリンクされたすべての公開データを作成、更新、および削除"
+@@ -857,6 +866,10 @@ msgstr ""
+ msgid "Okay"
+ msgstr "OK"
+ 
++#: src/components/external-sign-in.tsx
++msgid "or"
++msgstr ""
++
+ #: src/components/external-sign-in.tsx
+ msgid "Or use email"
+ msgstr ""
+@@ -895,6 +908,7 @@ msgid "Password Updated"
+ msgstr "パスワード更新"
+ 
+ #: src/components/forms/fields/new-password-field.tsx
++#: src/components/sign-up-credentials-form.tsx
+ msgid "Password with at least {MIN_PASSWORD_LENGTH, plural, other {# characters}}"
+ msgstr "パスワードは{MIN_PASSWORD_LENGTH, plural, other {#文字}}以上"
+ 
+@@ -1405,10 +1419,6 @@ msgstr "あなたの <0/> アカウントを通じてあなたを一意に識別
+ msgid "Warning"
+ msgstr "警告"
+ 
+-#: src/components/sign-up-view.tsx
+-msgid "We're so excited to have you join us!"
+-msgstr "私たちはあなたが参加してくれることをとても楽しみにしています！"
+-
+ #: src/components/feedback/password-strength.tsx
+ #: src/components/utils/password-strength-label.tsx
+ msgid "Weak"
+@@ -1483,10 +1493,6 @@ msgstr "以前に <0/> を無効化しました。アカウントを再有効化
+ msgid "You will receive an email with a \"reset code\". Enter that code here then enter your new password."
+ msgstr "「リセットコード」が記載されたメールが届きます。ここにコードを入力し、新しいパスワードを入力します。"
+ 
+-#: src/components/sign-up-view.tsx
+-msgid "Your account"
+-msgstr "あなたのアカウント"
+-
+ #: src/data/account.ts
+ msgid "Your account and all associated data have been deleted."
+ msgstr "あなたのアカウントと関連するすべてのデータが削除されました。"
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/ko/messages.po b/packages/oauth/oauth-provider-ui/src/locales/ko/messages.po
+index 97d5cd6d3..19ae5b475 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/ko/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/ko/messages.po
+@@ -198,6 +198,10 @@ msgstr ""
+ msgid "Are you really, really sure?"
+ msgstr ""
+ 
++#: src/components/sign-up-credentials-form.tsx
++msgid "At least {MIN_PASSWORD_LENGTH, plural, other {# characters}}."
++msgstr ""
++
+ #: src/components/authenticate-welcome-view.tsx
+ msgctxt "AuthenticationPage"
+ msgid "Authenticate"
+@@ -244,8 +248,8 @@ msgid "By clicking <0>Authorize</0>, you will grant this application access to y
+ msgstr "<0>승인</0>을 클릭하면 <1>서비스 이용약관</1> 및 <2>개인정보 처리방침</2>에 따라 이 애플리케이션이 귀하의 계정에 접근할 수 있도록 허용합니다."
+ 
+ #: src/components/sign-up-disclaimer.tsx
+-msgid "By creating an account you agree to the <0>Terms of Service</0> and the <1>Privacy Policy</1> of this service."
+-msgstr "계정을 만들면 <0>서비스 이용약관</0> 및 <1>개인정보 처리방침</1>에 동의하는 것입니다."
++msgid "By continuing you agree to the <0>Terms of Service</0> and the <1>Privacy Policy</1>."
++msgstr ""
+ 
+ #: src/components/utils/scope-description.tsx
+ msgctxt "RPC lxm"
+@@ -352,6 +356,7 @@ msgstr "인증 코드"
+ msgid "Confirmation email sent"
+ msgstr ""
+ 
++#: src/components/sign-up-view.tsx
+ #: src/cookie-error-page.tsx
+ msgid "Continue"
+ msgstr "계속"
+@@ -384,6 +389,10 @@ msgstr "생성"
+ msgid "Create a new account"
+ msgstr "새 계정 만들기"
+ 
++#: src/components/sign-up-view.tsx
++msgid "Create your account."
++msgstr ""
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Create, update, and delete any public data linked to your account"
+ msgstr "계정에 연결된 공개 데이터를 생성, 갱신, 삭제할 수 있습니다"
+@@ -848,6 +857,10 @@ msgstr ""
+ msgid "Okay"
+ msgstr "확인"
+ 
++#: src/components/external-sign-in.tsx
++msgid "or"
++msgstr ""
++
+ #: src/components/external-sign-in.tsx
+ msgid "Or use email"
+ msgstr ""
+@@ -886,6 +899,7 @@ msgid "Password Updated"
+ msgstr "비밀번호 변경됨"
+ 
+ #: src/components/forms/fields/new-password-field.tsx
++#: src/components/sign-up-credentials-form.tsx
+ msgid "Password with at least {MIN_PASSWORD_LENGTH, plural, other {# characters}}"
+ msgstr "비밀번호는 {MIN_PASSWORD_LENGTH, plural, other {#자}} 이상이어야 합니다"
+ 
+@@ -1396,10 +1410,6 @@ msgstr "<0/> 계정을 통해 나를 식별하고자 합니다"
+ msgid "Warning"
+ msgstr "경고"
+ 
+-#: src/components/sign-up-view.tsx
+-msgid "We're so excited to have you join us!"
+-msgstr "함께하게 되어 정말 기뻐요!"
+-
+ #: src/components/feedback/password-strength.tsx
+ #: src/components/utils/password-strength-label.tsx
+ msgid "Weak"
+@@ -1474,10 +1484,6 @@ msgstr ""
+ msgid "You will receive an email with a \"reset code\". Enter that code here then enter your new password."
+ msgstr "‘재설정 코드’가 포함된 이메일을 받게 되면 여기에 해당 코드를 입력한 다음 새 비밀번호를 입력하세요."
+ 
+-#: src/components/sign-up-view.tsx
+-msgid "Your account"
+-msgstr "내 계정"
+-
+ #: src/data/account.ts
+ msgid "Your account and all associated data have been deleted."
+ msgstr ""
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/ro/messages.po b/packages/oauth/oauth-provider-ui/src/locales/ro/messages.po
+index 98c03e204..93a8eb49b 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/ro/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/ro/messages.po
+@@ -203,6 +203,10 @@ msgstr "Aplicațiile vă pot accesa contul în fundal (pentru a verifica notific
+ msgid "Are you really, really sure?"
+ msgstr "Sunteți foarte, foarte sigur?"
+ 
++#: src/components/sign-up-credentials-form.tsx
++msgid "At least {MIN_PASSWORD_LENGTH, plural, other {# characters}}."
++msgstr ""
++
+ #: src/components/authenticate-welcome-view.tsx
+ msgctxt "AuthenticationPage"
+ msgid "Authenticate"
+@@ -249,8 +253,8 @@ msgid "By clicking <0>Authorize</0>, you will grant this application access to y
+ msgstr "Făcând clic pe <0>Autorizare</0>, veți acorda acestei aplicații acces la contul dvs., în conformitate cu <1>termenii de serviciu</1> și <2>politica de confidențialitate</2> ale acesteia."
+ 
+ #: src/components/sign-up-disclaimer.tsx
+-msgid "By creating an account you agree to the <0>Terms of Service</0> and the <1>Privacy Policy</1> of this service."
+-msgstr "Prin crearea unui cont sunteți de acord cu <0>Termenii de Serviciu</0> și <1>Politica de Confidențialitate</1> ale acestui serviciu."
++msgid "By continuing you agree to the <0>Terms of Service</0> and the <1>Privacy Policy</1>."
++msgstr ""
+ 
+ #: src/components/utils/scope-description.tsx
+ msgctxt "RPC lxm"
+@@ -357,6 +361,7 @@ msgstr "Cod de confirmare"
+ msgid "Confirmation email sent"
+ msgstr "E-mailul de confirmare a fost trimis."
+ 
++#: src/components/sign-up-view.tsx
+ #: src/cookie-error-page.tsx
+ msgid "Continue"
+ msgstr "Continuare"
+@@ -389,6 +394,10 @@ msgstr "Creează"
+ msgid "Create a new account"
+ msgstr "Creare cont nou"
+ 
++#: src/components/sign-up-view.tsx
++msgid "Create your account."
++msgstr ""
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Create, update, and delete any public data linked to your account"
+ msgstr "Creează, actualizează și șterge orice date publice legate de contul dvs."
+@@ -862,6 +871,10 @@ msgstr ""
+ msgid "Okay"
+ msgstr "Ok"
+ 
++#: src/components/external-sign-in.tsx
++msgid "or"
++msgstr ""
++
+ #: src/components/external-sign-in.tsx
+ msgid "Or use email"
+ msgstr ""
+@@ -900,6 +913,7 @@ msgid "Password Updated"
+ msgstr "Parolă actualizată"
+ 
+ #: src/components/forms/fields/new-password-field.tsx
++#: src/components/sign-up-credentials-form.tsx
+ msgid "Password with at least {MIN_PASSWORD_LENGTH, plural, other {# characters}}"
+ msgstr "Parolă cu cel puțin {MIN_PASSWORD_LENGTH, plural, one {} few {# caractere}other {# de caractere}}"
+ 
+@@ -1410,10 +1424,6 @@ msgstr "dorește să vă identifice în mod unic prin contul dvs. <0/>"
+ msgid "Warning"
+ msgstr "Avertisment"
+ 
+-#: src/components/sign-up-view.tsx
+-msgid "We're so excited to have you join us!"
+-msgstr "Suntem atât de încântați să vă avem alături de noi!"
+-
+ #: src/components/feedback/password-strength.tsx
+ #: src/components/utils/password-strength-label.tsx
+ msgid "Weak"
+@@ -1488,10 +1498,6 @@ msgstr "Ați dezactivat anterior contul <0/>. Vă puteți reactiva contul pentru
+ msgid "You will receive an email with a \"reset code\". Enter that code here then enter your new password."
+ msgstr "Veți primi un e-mail cu un „cod de resetare”. Introduceți codul aici, apoi introduceți noua parolă."
+ 
+-#: src/components/sign-up-view.tsx
+-msgid "Your account"
+-msgstr "Contul dvs."
+-
+ #: src/data/account.ts
+ msgid "Your account and all associated data have been deleted."
+ msgstr "Contul dvs. și toate datele asociate au fost șterse."
+diff --git a/packages/oauth/oauth-provider-ui/src/locales/sv/messages.po b/packages/oauth/oauth-provider-ui/src/locales/sv/messages.po
+index 1d4f8ea1a..da1dfad86 100644
+--- a/packages/oauth/oauth-provider-ui/src/locales/sv/messages.po
++++ b/packages/oauth/oauth-provider-ui/src/locales/sv/messages.po
+@@ -198,6 +198,10 @@ msgstr "Appar kan utföra aktiviteter på ditt konto i bakgrunden (t.ex. för at
+ msgid "Are you really, really sure?"
+ msgstr "Är du verkligen, verkligen säker?"
+ 
++#: src/components/sign-up-credentials-form.tsx
++msgid "At least {MIN_PASSWORD_LENGTH, plural, other {# characters}}."
++msgstr ""
++
+ #: src/components/authenticate-welcome-view.tsx
+ msgctxt "AuthenticationPage"
+ msgid "Authenticate"
+@@ -244,8 +248,8 @@ msgid "By clicking <0>Authorize</0>, you will grant this application access to y
+ msgstr "Genom att klicka på <0>Auktorisera</0> ger du den här applikationen åtkomst till ditt konto i enlighet med dess <1>användarvillkor</1> och <2>integritetspolicy</2>."
+ 
+ #: src/components/sign-up-disclaimer.tsx
+-msgid "By creating an account you agree to the <0>Terms of Service</0> and the <1>Privacy Policy</1> of this service."
+-msgstr "Genom att skapa ett konto godkänner du den här tjänstens <0>användarvillkor</0> och <1>integritetspolicy</1>."
++msgid "By continuing you agree to the <0>Terms of Service</0> and the <1>Privacy Policy</1>."
++msgstr ""
+ 
+ #: src/components/utils/scope-description.tsx
+ msgctxt "RPC lxm"
+@@ -352,6 +356,7 @@ msgstr "Bekräftelsekod"
+ msgid "Confirmation email sent"
+ msgstr "Ett e-postmeddelande för bekräftelse har skickats"
+ 
++#: src/components/sign-up-view.tsx
+ #: src/cookie-error-page.tsx
+ msgid "Continue"
+ msgstr "Fortsätt"
+@@ -384,6 +389,10 @@ msgstr "Skapa"
+ msgid "Create a new account"
+ msgstr "Skapa ett nytt konto"
+ 
++#: src/components/sign-up-view.tsx
++msgid "Create your account."
++msgstr ""
++
+ #: src/components/utils/scope-description.tsx
+ msgid "Create, update, and delete any public data linked to your account"
+ msgstr "Skapa, ändra och radera vilken publik data som helst som är kopplad till ditt konto"
+@@ -857,6 +866,10 @@ msgstr ""
+ msgid "Okay"
+ msgstr "OK"
+ 
++#: src/components/external-sign-in.tsx
++msgid "or"
++msgstr ""
++
+ #: src/components/external-sign-in.tsx
+ msgid "Or use email"
+ msgstr ""
+@@ -895,6 +908,7 @@ msgid "Password Updated"
+ msgstr "Lösenordet har uppdaterats"
+ 
+ #: src/components/forms/fields/new-password-field.tsx
++#: src/components/sign-up-credentials-form.tsx
+ msgid "Password with at least {MIN_PASSWORD_LENGTH, plural, other {# characters}}"
+ msgstr "Lösenord med minst {MIN_PASSWORD_LENGTH, plural, other {# tecken}}"
+ 
+@@ -1405,10 +1419,6 @@ msgstr "vill entydigt identifiera dig via ditt konto <0/>"
+ msgid "Warning"
+ msgstr "Varning"
+ 
+-#: src/components/sign-up-view.tsx
+-msgid "We're so excited to have you join us!"
+-msgstr "Vi är glada över att ha dig med oss!"
+-
+ #: src/components/feedback/password-strength.tsx
+ #: src/components/utils/password-strength-label.tsx
+ msgid "Weak"
+@@ -1483,10 +1493,6 @@ msgstr "Du har tidigare inaktiverat <0/>. Du kan återaktivera kontot för att f
+ msgid "You will receive an email with a \"reset code\". Enter that code here then enter your new password."
+ msgstr "Du kommer att få ett e-postmeddelande med en ”återställningskod”. Ange koden här och ange sedan ditt nya lösenord."
+ 
+-#: src/components/sign-up-view.tsx
+-msgid "Your account"
+-msgstr "Ditt konto"
+-
+ #: src/data/account.ts
+ msgid "Your account and all associated data have been deleted."
+ msgstr "Ditt konto och all tillhörande data har raderats."
+diff --git a/packages/oauth/oauth-provider-ui/src/style.css b/packages/oauth/oauth-provider-ui/src/style.css
+index 06148206f..3967a3111 100644
+--- a/packages/oauth/oauth-provider-ui/src/style.css
++++ b/packages/oauth/oauth-provider-ui/src/style.css
+@@ -240,3 +240,492 @@
+   --tw-prose-th-borders: var(--border);
+   --tw-prose-td-borders: var(--border);
+ }
++
++/* ---------------------------------------------------------------------------
++ * LinkJar journey.
++ *
++ * The auth screens take the look of LinkJar's onboarding: a dark stage with
++ * three soft colour blooms, Geist, a light pill for the main action, filled
++ * fields and full-width provider rows. `AuthShell` renders `.lj-journey`; the
++ * tokens are set on `:root` through `:has()` so that portals (the locale
++ * menu, dialogs, toasts) match the page. The account manager keeps the stock
++ * look.
++ *
++ * @NOTE These rules are deliberately unlayered: unlayered styles win over
++ * Tailwind's layered utilities, which lets them restyle the shared
++ * `components/ui/*` primitives without editing them.
++ * ------------------------------------------------------------------------- */
++
++@font-face {
++  font-family: Geist;
++  src: url('./assets/fonts/Geist-latin.woff2') format('woff2');
++  font-weight: 100 900;
++  font-style: normal;
++  font-display: swap;
++}
++
++:root:has(.lj-journey) {
++  --lj-ink: #f2f5fa;
++  --lj-ink-2: #aab6c9;
++  --lj-ink-3: #8494ad;
++  --lj-line: #c4d6f51f;
++  --lj-fill: #c9dcff0b;
++  --lj-fill-2: #c9dcff14;
++  --lj-accent: #bfd4f6;
++  --lj-focus: #b2cdf5;
++  --lj-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
++
++  color-scheme: dark;
++  font-family:
++    Geist,
++    -apple-system,
++    BlinkMacSystemFont,
++    'Segoe UI',
++    sans-serif;
++
++  --background: #05070b;
++  --foreground: var(--lj-ink);
++  --card: #0c111b;
++  --card-foreground: var(--lj-ink);
++  --popover: #121825;
++  --popover-foreground: var(--lj-ink);
++  --primary: var(--lj-ink);
++  --primary-foreground: #121b2a;
++  --secondary: var(--lj-fill-2);
++  --secondary-foreground: var(--lj-ink);
++  --muted: var(--lj-fill-2);
++  --muted-foreground: var(--lj-ink-3);
++  --accent: var(--lj-fill-2);
++  --accent-foreground: var(--lj-ink);
++  --border: var(--lj-line);
++  --input: var(--lj-line);
++  --ring: var(--lj-focus);
++}
++
++.lj-journey {
++  position: relative;
++  isolation: isolate;
++  display: flex;
++  flex-direction: column;
++  min-height: 100svh;
++  color: var(--lj-ink);
++  font-size: 15px;
++  line-height: 1.55;
++  -webkit-font-smoothing: antialiased;
++  overflow-x: clip;
++}
++
++/* The stage: colour blooms at the top and in the two lower corners. */
++.lj-journey::before {
++  content: '';
++  position: absolute;
++  inset: 0;
++  z-index: -1;
++  background:
++    radial-gradient(60% 55% at 50% 0, #2a3a7a40, transparent 70%),
++    radial-gradient(42% 46% at 100% 100%, #4b63c026, transparent 70%),
++    radial-gradient(40% 44% at 0 100%, #a0527a21, transparent 70%);
++  pointer-events: none;
++}
++
++.lj-brand {
++  display: flex;
++  align-items: center;
++  gap: 10px;
++  padding: 18px 28px;
++  font-size: 18px;
++  font-weight: 550;
++  letter-spacing: -0.03em;
++}
++
++.lj-brand img {
++  width: 32px;
++  height: 32px;
++  object-fit: contain;
++}
++
++.lj-stage {
++  display: flex;
++  flex: 1;
++  flex-direction: column;
++  justify-content: center;
++}
++
++.lj-panel {
++  width: min(100% - 40px, 440px);
++  margin: 0 auto;
++  padding: 0 0 24px;
++}
++
++.lj-title {
++  margin: 0 0 20px;
++  font-size: clamp(34px, 4vw, 46px);
++  font-weight: 500;
++  line-height: 1.04;
++  letter-spacing: -0.045em;
++  text-align: center;
++  text-wrap: balance;
++}
++
++.lj-lede {
++  max-width: 40ch;
++  margin: -10px auto 26px;
++  color: var(--lj-ink-2);
++  font-size: 17px;
++  line-height: 1.5;
++  letter-spacing: -0.01em;
++  text-align: center;
++  text-wrap: pretty;
++}
++
++.lj-panel h2 {
++  font-size: 20px;
++  font-weight: 500;
++  letter-spacing: -0.025em;
++  text-align: center;
++}
++
++/* The sign-up steps: a short centred track under the heading. */
++.lj-panel div:has(> [data-slot='progress']) {
++  align-items: center;
++  gap: 6px;
++  margin-bottom: 18px;
++}
++
++.lj-panel div:has(> [data-slot='progress']) > p {
++  font-size: 12px;
++}
++
++.lj-panel [data-slot='progress'] {
++  width: 72px;
++}
++
++.lj-panel [data-slot='progress-indicator'] {
++  background: linear-gradient(90deg, #d7e9fa, #b4bbea);
++}
++
++.lj-footer {
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  gap: 10px;
++  padding: 8px 20px 20px;
++  color: var(--lj-ink-3);
++  font-size: 12px;
++}
++
++.lj-footer nav {
++  display: flex;
++  flex-wrap: wrap;
++  justify-content: center;
++  gap: 2px 16px;
++}
++
++/* Fields: filled boxes with a hairline, the label above in a quieter ink. */
++.lj-journey [data-slot='input'] {
++  height: 52px;
++  padding-inline: 14px;
++  border: 0;
++  border-radius: 14px;
++  background: var(--lj-fill-2);
++  box-shadow: inset 0 0 0 1px var(--lj-line);
++  color: var(--lj-ink);
++  font-size: 17px;
++  transition:
++    box-shadow 180ms ease,
++    background 180ms ease;
++}
++
++.lj-journey [data-slot='input'].pl-10 {
++  padding-left: 42px;
++}
++
++.lj-journey [data-slot='input'].pr-10 {
++  padding-right: 44px;
++}
++
++.lj-journey [data-slot='input']::placeholder {
++  color: #5d6c86;
++}
++
++.lj-journey [data-slot='input']:focus-visible {
++  background: #c9dcff1c;
++  box-shadow:
++    inset 0 0 0 1.5px var(--lj-accent),
++    0 0 0 5px #a7c4f11f;
++}
++
++.lj-journey [data-slot='input'][aria-invalid='true'] {
++  box-shadow:
++    inset 0 0 0 1.5px var(--destructive),
++    0 0 0 5px color-mix(in srgb, var(--destructive) 12%, transparent);
++}
++
++.lj-journey form label:not(:has(input, button)) {
++  color: var(--lj-ink-3);
++  font-size: 13px;
++  font-weight: 500;
++}
++
++/* The main action: a light pill whose arrow rides in a dark chip. */
++.lj-journey :is(form button[type='submit'], [data-slot='button'].bg-primary) {
++  display: flex;
++  width: 100%;
++  height: auto;
++  min-height: 58px;
++  align-items: center;
++  justify-content: space-between;
++  gap: 14px;
++  padding: 7px 8px 7px 28px;
++  border: 0;
++  border-radius: 99px;
++  background: linear-gradient(180deg, #f8fafe, #d9e3f3);
++  box-shadow:
++    inset 0 1px 0 #fff,
++    0 14px 34px -12px #bcd3ff59;
++  color: #121b2a;
++  font-size: 17px;
++  font-weight: 600;
++  letter-spacing: -0.015em;
++  transition:
++    transform 200ms var(--lj-ease),
++    filter 160ms ease;
++}
++
++.lj-journey
++  :is(form button[type='submit'], [data-slot='button'].bg-primary)::after {
++  content: '';
++  flex: none;
++  width: 44px;
++  height: 44px;
++  border-radius: 50%;
++  background: #121b2a
++    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f2f5fa' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14m-6-6 6 6-6 6'/%3E%3C/svg%3E")
++    center / 18px no-repeat;
++  transition: transform 320ms var(--lj-ease);
++}
++
++/* Secondary actions (Back, Cancel): a translucent pill. */
++.lj-journey [data-slot='button'].bg-secondary {
++  width: 100%;
++  height: auto;
++  min-height: 52px;
++  padding: 0 24px;
++  border-radius: 99px;
++  background: var(--lj-fill-2);
++  box-shadow: inset 0 0 0 1px var(--lj-line);
++  color: var(--lj-ink);
++  font-size: 16px;
++  font-weight: 500;
++}
++
++.lj-journey .lj-quiet {
++  display: flex;
++  height: auto;
++  min-height: 44px;
++  margin: 8px auto 0;
++  padding: 0 16px;
++  border-radius: 99px;
++  color: var(--lj-ink-2);
++  font-size: 14px;
++  font-weight: 500;
++}
++
++.lj-journey :is([data-slot='button'], .lj-provider, summary):focus-visible {
++  outline: 2px solid var(--lj-focus);
++  outline-offset: 3px;
++}
++
++.lj-journey
++  :is(
++    form button[type='submit'],
++    [data-slot='button'].bg-primary,
++    [data-slot='button'].bg-secondary,
++    .lj-provider
++  ):active {
++  transform: scale(0.98);
++  transition-duration: 60ms;
++}
++
++/* Providers: full-width rows, the provider's mark at the left. */
++.lj-providers {
++  display: grid;
++  gap: 10px;
++}
++
++.lj-provider {
++  display: flex;
++  align-items: center;
++  gap: 14px;
++  width: 100%;
++  min-height: 58px;
++  padding: 0 20px;
++  border-radius: 18px;
++  background: var(--lj-fill-2);
++  box-shadow:
++    inset 0 0 0 1px var(--lj-line),
++    inset 0 1px 0 #ffffff14;
++  color: var(--lj-ink);
++  font-size: 16px;
++  font-weight: 550;
++  letter-spacing: -0.01em;
++  transition:
++    background 160ms ease,
++    transform 200ms var(--lj-ease);
++}
++
++.lj-provider svg {
++  width: 22px;
++  height: 22px;
++  flex-shrink: 0;
++}
++
++.lj-divider {
++  display: flex;
++  align-items: center;
++  gap: 14px;
++  margin: 18px 0 12px;
++  color: var(--lj-ink-3);
++  font-size: 13px;
++}
++
++.lj-divider::before,
++.lj-divider::after {
++  content: '';
++  flex: 1;
++  height: 1px;
++  background: var(--lj-line);
++}
++
++/* Sign-in keeps the email form folded under the providers. */
++.lj-email-fold > summary {
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  gap: 8px;
++  min-height: 44px;
++  border-radius: 99px;
++  color: var(--lj-ink-2);
++  font-size: 14px;
++  font-weight: 500;
++  list-style: none;
++  cursor: pointer;
++}
++
++.lj-email-fold > summary::-webkit-details-marker {
++  display: none;
++}
++
++.lj-email-fold > summary::after {
++  content: '+';
++  color: var(--lj-ink-3);
++}
++
++.lj-email-fold[open] > summary::after {
++  content: '–';
++}
++
++.lj-fine {
++  margin-top: 16px;
++  color: var(--lj-ink-3);
++  font-size: 12px;
++  line-height: 1.55;
++  text-align: center;
++  text-wrap: pretty;
++}
++
++.lj-fine a {
++  color: var(--lj-ink-2);
++  text-decoration: underline;
++  text-underline-offset: 3px;
++}
++
++@media (hover: hover) {
++  .lj-journey
++    :is(form button[type='submit'], [data-slot='button'].bg-primary):hover {
++    filter: brightness(1.06);
++  }
++
++  .lj-journey
++    :is(
++      form button[type='submit'],
++      [data-slot='button'].bg-primary
++    ):hover::after {
++    transform: translateX(3px);
++  }
++
++  .lj-journey [data-slot='button'].bg-secondary:hover,
++  .lj-provider:hover {
++    background: #c9dcff1f;
++  }
++
++  .lj-journey .lj-quiet:hover,
++  .lj-email-fold > summary:hover {
++    background: #c9dcff12;
++    color: var(--lj-ink);
++  }
++
++  .lj-fine a:hover,
++  .lj-footer a:hover {
++    color: var(--lj-ink);
++  }
++}
++
++@media (min-width: 761px) {
++  .lj-footer {
++    flex-direction: row;
++    justify-content: center;
++    gap: 16px;
++  }
++}
++
++@media (max-width: 760px) {
++  .lj-brand {
++    padding: 14px 16px 6px;
++    font-size: 16px;
++  }
++
++  .lj-brand img {
++    width: 28px;
++    height: 28px;
++  }
++
++  .lj-stage {
++    justify-content: flex-start;
++  }
++
++  .lj-panel {
++    width: min(100% - 32px, 440px);
++    padding-top: 12px;
++  }
++
++  .lj-title {
++    margin-bottom: 18px;
++    font-size: 30px;
++  }
++
++  .lj-providers {
++    gap: 8px;
++  }
++}
++
++/* Without a configured name or logo there is no header to clear. */
++.lj-journey:not(:has(> .lj-brand)) .lj-stage {
++  padding-top: 32px;
++}
++
++@media (prefers-reduced-motion: reduce) {
++  .lj-journey *,
++  .lj-journey *::before,
++  .lj-journey *::after {
++    transition-duration: 0.01ms !important;
++  }
++}
++
++@media (prefers-contrast: more) {
++  :root:has(.lj-journey) {
++    --lj-ink-2: #d5deec;
++    --lj-ink-3: #c2cde0;
++    --lj-line: #a6bad7;
++  }
++}
+diff --git a/packages/oauth/oauth-provider/src/lib/csp/index.ts b/packages/oauth/oauth-provider/src/lib/csp/index.ts
+index 023fff3e3..22b2b00ea 100644
+--- a/packages/oauth/oauth-provider/src/lib/csp/index.ts
++++ b/packages/oauth/oauth-provider/src/lib/csp/index.ts
+@@ -22,6 +22,7 @@ const BOOLEAN_DIRECTIVES = [
+ const ARRAY_DIRECTIVES = [
+   'connect-src',
+   'default-src',
++  'font-src',
+   'form-action',
+   'frame-ancestors',
+   'frame-src',
+diff --git a/packages/oauth/oauth-provider/src/router/assets/assets-manifest.ts b/packages/oauth/oauth-provider/src/router/assets/assets-manifest.ts
+index 242950a8c..041b29f94 100644
+--- a/packages/oauth/oauth-provider/src/router/assets/assets-manifest.ts
++++ b/packages/oauth/oauth-provider/src/router/assets/assets-manifest.ts
+@@ -65,7 +65,7 @@ export function parseAssetsManifest(manifestPath: string) {
+       // Allow "null" (ie. no header) to allow loading assets outside of a
+       // fetch context (not from a web page).
+       validateFetchSite(req, [null, 'none', 'cross-site', 'same-origin'])
+-      validateFetchDest(req, [null, 'document', 'style', 'script'])
++      validateFetchDest(req, [null, 'document', 'style', 'script', 'font'])
+     } catch (err) {
+       return next(err)
+     }
+diff --git a/packages/oauth/oauth-provider/src/router/assets/assets.ts b/packages/oauth/oauth-provider/src/router/assets/assets.ts
+index 96a11a438..0fa7b54df 100644
+--- a/packages/oauth/oauth-provider/src/router/assets/assets.ts
++++ b/packages/oauth/oauth-provider/src/router/assets/assets.ts
+@@ -31,6 +31,8 @@ const SPA_CSP: CspConfig = {
+   'connect-src': ["'self'"],
+   // Allow loading of PDS logo & User avatars
+   'img-src': ['data:', 'https:'],
++  // LinkJar: the UI's typeface (Geist) is served with the other assets
++  'font-src': ["'self'"],
+   // Prevent embedding in iframes
+   'frame-ancestors': ["'none'"],
+ }
