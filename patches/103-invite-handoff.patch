@@ -1,0 +1,563 @@
+diff --git a/packages/oauth/oauth-provider-ui/src/authorization-page.tsx b/packages/oauth/oauth-provider-ui/src/authorization-page.tsx
+index 3c34505..e83bd4e 100644
+--- a/packages/oauth/oauth-provider-ui/src/authorization-page.tsx
++++ b/packages/oauth/oauth-provider-ui/src/authorization-page.tsx
+@@ -19,6 +19,10 @@ import {
+ } from '#/contexts/notifications.tsx'
+ import { SessionProvider, useSessionContext } from '#/contexts/session.tsx'
+ import type { HydrationData } from '#/hydration-data.d.ts'
++import {
++  captureInviteHandoff,
++  forgetInviteHandoff,
++} from '#/lib/invite-handoff.ts'
+ import { sleep } from '#/lib/util.ts'
+ import { LocaleProvider } from '#/locales/locale-provider.tsx'
+ 
+@@ -28,6 +32,10 @@ const {
+   __sessions: initialSessions,
+ } = window as typeof window & HydrationData['authorization-page']
+ 
++// @NOTE LinkJar: read the invitation hand-off (`#invite=<code>`) before the
++// URL is rewritten below or by the step routing.
++captureInviteHandoff(authorizeData.requestUri)
++
+ // When the user is logging in, make sure the page URL contains the
+ // "request_uri" in case the user refreshes the page.
+ // @TODO Actually do this on the backend through a redirect.
+@@ -111,6 +119,9 @@ function App() {
+       // https://github.com/bluesky-social/atproto/issues/5077
+       await sleep(500)
+ 
++      // @NOTE LinkJar: the request has ended, and the hand-off with it.
++      forgetInviteHandoff()
++
+       window.location.replace(url)
+ 
+       // We wait a bit before showing the fallback link so that in case the
+diff --git a/packages/oauth/oauth-provider-ui/src/components/external-sign-in.tsx b/packages/oauth/oauth-provider-ui/src/components/external-sign-in.tsx
+index fbb440b..78235a1 100644
+--- a/packages/oauth/oauth-provider-ui/src/components/external-sign-in.tsx
++++ b/packages/oauth/oauth-provider-ui/src/components/external-sign-in.tsx
+@@ -12,7 +12,7 @@ type ExternalProvider = NonNullable<
+  * provider sign-in does not apply: outside an authorization request and the
+  * account pages, or when no provider is configured.
+  */
+-function useExternalProviders() {
++function useExternalProviders(inviteCode?: string) {
+   const { externalProviders } = useCustomizationData()
+   const url = new URL(window.location.href)
+   const requestUri =
+@@ -22,8 +22,11 @@ function useExternalProviders() {
+   const accountPage =
+     url.pathname === '/account' || url.pathname.startsWith('/account/')
+   if ((!requestUri && !accountPage) || !externalProviders?.length) return null
++  // @NOTE LinkJar: the start carries a handed-off invite code, which the
++  // completion needs to create an account while invites are required.
+   const query = requestUri
+-    ? `?request_uri=${encodeURIComponent(requestUri)}`
++    ? `?request_uri=${encodeURIComponent(requestUri)}` +
++      (inviteCode ? `&invite_code=${encodeURIComponent(inviteCode)}` : '')
+     : ''
+   return externalProviders.map((provider) => ({
+     ...provider,
+@@ -68,8 +71,8 @@ export function ExternalSignIn({ children }: { children: ReactNode }) {
+ }
+ 
+ /** Sign-up: the providers as the alternative under the open email form. */
+-export function ExternalSignUp() {
+-  const providers = useExternalProviders()
++export function ExternalSignUp({ inviteCode }: { inviteCode?: string }) {
++  const providers = useExternalProviders(inviteCode)
+   if (!providers) return null
+   return (
+     <>
+diff --git a/packages/oauth/oauth-provider-ui/src/components/sign-up-credentials-form.tsx b/packages/oauth/oauth-provider-ui/src/components/sign-up-credentials-form.tsx
+index 0f390f4..76b2b35 100644
+--- a/packages/oauth/oauth-provider-ui/src/components/sign-up-credentials-form.tsx
++++ b/packages/oauth/oauth-provider-ui/src/components/sign-up-credentials-form.tsx
+@@ -22,6 +22,8 @@ export type SignUpCredentialsFormProps = Omit<
+   'onSubmit' | 'onValues'
+ > & {
+   inviteCodeRequired?: boolean
++  /** LinkJar: an invite code handed off by the app, sent in place of the field. */
++  inviteHandoff?: string
+   values?: Partial<SignUpCredentialsData>
+   onValues?: (values: Partial<SignUpCredentialsData>) => void
+   handler: (
+@@ -32,6 +34,7 @@ export type SignUpCredentialsFormProps = Omit<
+ 
+ export function SignUpCredentialsForm({
+   inviteCodeRequired = true,
++  inviteHandoff,
+   values,
+   onValues,
+   handler,
+@@ -39,6 +42,7 @@ export function SignUpCredentialsForm({
+   ...props
+ }: SignUpCredentialsFormProps) {
+   const { t } = useLingui()
++  const inviteCodeField = inviteCodeRequired && inviteHandoff == null
+ 
+   return (
+     <FormShell<Values>
+@@ -61,7 +65,13 @@ export function SignUpCredentialsForm({
+       {/* @NOTE LinkJar: plain labelled fields with no leading icons, and the
+         password rule as one line of copy instead of a strength meter, as in
+         the app's onboarding. */}
+-      {inviteCodeRequired && (
++      {/* @NOTE LinkJar: a handed-off code is submitted from a hidden input, and
++        the email field takes the focus, as if there were no invite field. */}
++      {inviteCodeRequired && inviteHandoff != null && (
++        <input type="hidden" name="inviteCode" value={inviteHandoff} />
++      )}
++
++      {inviteCodeField && (
+         <TextField
+           name="inviteCode"
+           defaultValue={values?.inviteCode ?? ''}
+@@ -80,7 +90,7 @@ export function SignUpCredentialsForm({
+         defaultValue={values?.email ?? ''}
+         label={<Trans>Email</Trans>}
+         icon={null}
+-        autoFocus={!inviteCodeRequired}
++        autoFocus={!inviteCodeField}
+         autoComplete="username email"
+         enterKeyHint="next"
+         required
+diff --git a/packages/oauth/oauth-provider-ui/src/components/sign-up-view.tsx b/packages/oauth/oauth-provider-ui/src/components/sign-up-view.tsx
+index da17912..72a4471 100644
+--- a/packages/oauth/oauth-provider-ui/src/components/sign-up-view.tsx
++++ b/packages/oauth/oauth-provider-ui/src/components/sign-up-view.tsx
+@@ -1,8 +1,12 @@
+ import { msg } from '@lingui/core/macro'
+ import { Trans } from '@lingui/react/macro'
+ import { useState } from 'react'
++import { ErrorNotice } from '#/components/feedback/error-notice.tsx'
+ import { Button } from '#/components/ui/button.tsx'
+ import { useCustomizationData } from '#/contexts/customization.tsx'
++import { apiErrorParser } from '#/lib/api-error-parser.ts'
++import { InvalidInviteCodeError } from '#/lib/api.ts'
++import { forgetInviteHandoff, getInviteHandoff } from '#/lib/invite-handoff.ts'
+ import { ExternalSignUp } from './external-sign-in.tsx'
+ import { SignUpWizard } from './forms/sign-up-wizard.tsx'
+ import { AuthShell } from './layouts/auth-shell.tsx'
+@@ -50,25 +54,53 @@ export function SignUpView({
+     Partial<SignUpCredentialsData & SignUpHandleData & SignUpHcaptchaData>
+   >({})
+ 
++  // @NOTE LinkJar: an invite code handed off by the app takes the place of the
++  // "Invite code" field (see `lib/invite-handoff.ts`). If the server refuses
++  // the code, the wizard starts again on its first step with the field and the
++  // server's error, so that the visitor can type a code.
++  const [inviteHandoff, setInviteHandoff] = useState(() =>
++    inviteCodeRequired ? getInviteHandoff() : undefined,
++  )
++  const [inviteRefusal, setInviteRefusal] = useState<unknown>()
++
+   return (
+     <AuthShell
+       title={msg`Create your account.`}
+       documentTitle={msg({ message: 'Sign up' })}
+     >
+       <SignUpWizard
++        // A new key restarts the wizard on its first step.
++        key={inviteHandoff ? 'invite-handoff' : 'invite-field'}
+         onBack={onBack}
+         nextLabel={<Trans>Continue</Trans>}
+         doneLabel={<Trans>Sign up</Trans>}
+-        onDone={([credentials, handle, hcaptcha]: [
++        onDone={async ([credentials, handle, hcaptcha]: [
+           SignUpCredentialsData,
+           SignUpHandleData,
+           SignUpHcaptchaData | null,
+         ]) => {
+-          return onDone({
+-            ...credentials,
+-            ...handle,
+-            hcaptchaToken: hcaptcha?.verify.token,
+-          })
++          try {
++            await onDone({
++              ...credentials,
++              ...handle,
++              hcaptchaToken: hcaptcha?.verify.token,
++            })
++          } catch (err) {
++            if (!inviteHandoff || !(err instanceof InvalidInviteCodeError)) {
++              throw err
++            }
++            forgetInviteHandoff()
++            // Drop the refused code and the spent hCaptcha token.
++            setPending((old) => ({
++              ...old,
++              inviteCode: undefined,
++              verify: undefined,
++            }))
++            setInviteRefusal(err)
++            setInviteHandoff(undefined)
++            return
++          }
++          forgetInviteHandoff()
+         }}
+         steps={[
+           // @NOTE LinkJar: email and password come first, as in the app's
+@@ -79,15 +111,26 @@ export function SignUpView({
+           {
+             contentRender: ({ prev, prevLabel, next, nextLabel }) => (
+               <>
++                {inviteRefusal != null && (
++                  <ErrorNotice
++                    className="mb-4"
++                    error={inviteRefusal}
++                    parser={apiErrorParser}
++                  />
++                )}
+                 <SignUpCredentialsForm
+                   className="grow"
+                   submitLabel={nextLabel}
+                   values={pending}
+                   onValues={(val) => setPending((old) => ({ ...old, ...val }))}
+-                  handler={next}
++                  handler={(data) => {
++                    setInviteRefusal(undefined)
++                    return next(data)
++                  }}
+                   inviteCodeRequired={inviteCodeRequired}
++                  inviteHandoff={inviteHandoff}
+                 />
+-                <ExternalSignUp />
++                <ExternalSignUp inviteCode={inviteHandoff} />
+                 <SignUpDisclaimer links={links} className="lj-fine" />
+                 {prev && (
+                   <Button
+diff --git a/packages/oauth/oauth-provider-ui/src/lib/invite-handoff.ts b/packages/oauth/oauth-provider-ui/src/lib/invite-handoff.ts
+new file mode 100644
+index 0000000..392be07
+--- /dev/null
++++ b/packages/oauth/oauth-provider-ui/src/lib/invite-handoff.ts
+@@ -0,0 +1,83 @@
++/**
++ * @NOTE LinkJar: the invitation hand-off. The LinkJar app opens the
++ * authorization page with the invite code in the URL fragment:
++ * `#invite=<code>`, where `<code>` is the code passed through
++ * `encodeURIComponent`. The fragment never reaches the server.
++ *
++ * The page reads the code once at load, before anything rewrites the URL (the
++ * `request_uri` canonicalization, then the `#step=` routing of
++ * `location-step.ts`), and removes it from the fragment. The code stays in
++ * memory and in `sessionStorage`, bound to the authorization request, so the
++ * step routing and a reload in the same tab keep it. It is dropped once the
++ * account exists, the server refuses the code or the request ends.
++ */
++
++const STORAGE_KEY = 'linkjar-invite-handoff'
++
++type StoredHandoff = { requestUri: string; inviteCode: string }
++
++let current: string | undefined
++
++/** Call once at page load, before the page writes to the URL. */
++export function captureInviteHandoff(requestUri: string): void {
++  const params = new URLSearchParams(window.location.hash.slice(1))
++  const inviteCode = params.get('invite') || undefined
++  if (params.has('invite')) {
++    params.delete('invite')
++    const rest = params.toString()
++    window.history.replaceState(
++      window.history.state,
++      '',
++      window.location.pathname +
++        window.location.search +
++        (rest ? `#${rest}` : ''),
++    )
++  }
++
++  const stored = readStored()
++  if (inviteCode) {
++    current = inviteCode
++    writeStored({ requestUri, inviteCode })
++  } else if (stored?.requestUri === requestUri) {
++    current = stored.inviteCode
++  } else if (stored) {
++    // Left over from an earlier authorization request in this tab.
++    forgetInviteHandoff()
++  }
++}
++
++/** The invite code handed off for this authorization request, if any. */
++export function getInviteHandoff(): string | undefined {
++  return current
++}
++
++export function forgetInviteHandoff(): void {
++  current = undefined
++  try {
++    window.sessionStorage.removeItem(STORAGE_KEY)
++  } catch {
++    // Without storage, nothing was stored.
++  }
++}
++
++function readStored(): StoredHandoff | undefined {
++  try {
++    const value = JSON.parse(
++      window.sessionStorage.getItem(STORAGE_KEY) ?? 'null',
++    )
++    return typeof value?.requestUri === 'string' &&
++      typeof value?.inviteCode === 'string'
++      ? value
++      : undefined
++  } catch {
++    return undefined
++  }
++}
++
++function writeStored(value: StoredHandoff): void {
++  try {
++    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(value))
++  } catch {
++    // Without storage, the code lasts until the page unloads.
++  }
++}
+diff --git a/packages/oauth/oauth-provider/src/external/external-flow-store.ts b/packages/oauth/oauth-provider/src/external/external-flow-store.ts
+index 08b0bb6..f7c9642 100644
+--- a/packages/oauth/oauth-provider/src/external/external-flow-store.ts
++++ b/packages/oauth/oauth-provider/src/external/external-flow-store.ts
+@@ -10,6 +10,7 @@ type Flow = {
+   deviceId: DeviceId
+   requestUri?: RequestUri
+   linkDid?: Did
++  inviteCode?: string
+   verifier: string
+   nonce: string
+   expiresAt: number
+@@ -55,7 +56,10 @@ export class ExternalFlowStore {
+   }
+ 
+   create(
+-    input: Pick<Flow, 'provider' | 'deviceId' | 'requestUri' | 'linkDid'>,
++    input: Pick<
++      Flow,
++      'provider' | 'deviceId' | 'requestUri' | 'linkDid' | 'inviteCode'
++    >,
+   ): {
+     state: string
+     flow: Flow
+diff --git a/packages/oauth/oauth-provider/src/external/external-identity-store.ts b/packages/oauth/oauth-provider/src/external/external-identity-store.ts
+index 99cadeb..3b619f0 100644
+--- a/packages/oauth/oauth-provider/src/external/external-identity-store.ts
++++ b/packages/oauth/oauth-provider/src/external/external-identity-store.ts
+@@ -24,5 +24,6 @@ export interface ExternalIdentityStore {
+   createExternalAccount(
+     identity: ExternalIdentity,
+     authorization?: SignupAuthorization,
++    inviteCode?: string,
+   ): Promise<Account>
+ }
+diff --git a/packages/oauth/oauth-provider/src/router/create-external-middleware.test.ts b/packages/oauth/oauth-provider/src/router/create-external-middleware.test.ts
+index c270304..7bc74e8 100644
+--- a/packages/oauth/oauth-provider/src/router/create-external-middleware.test.ts
++++ b/packages/oauth/oauth-provider/src/router/create-external-middleware.test.ts
+@@ -5,6 +5,7 @@ import {
+   createServer,
+ } from 'node:http'
+ import { afterEach, describe, expect, it, test, vi } from 'vitest'
++import { InvalidRequestError } from '../errors/invalid-request-error.js'
+ import type {
+   ExternalProvider,
+   ExternalProviderId,
+@@ -52,12 +53,14 @@ async function fixture(
+     preauthorized = false,
+     loginHint = undefined,
+     deactivated = false,
++    inviteRequired = false,
+   }: {
+     existing?: boolean
+     trust?: boolean
+     preauthorized?: boolean
+     loginHint?: string
+     deactivated?: boolean
++    inviteRequired?: boolean
+   } = {},
+ ) {
+   let origin = ''
+@@ -96,7 +99,7 @@ async function fixture(
+     get issuer() {
+       return origin
+     },
+-    customization: { inviteCodeRequired: false },
++    customization: { inviteCodeRequired: inviteRequired },
+     externalProviders: (['apple', 'google', 'github'] as const).map(
+       (providerId) => ({
+         id: providerId,
+@@ -183,9 +186,12 @@ async function fixture(
+     }),
+   )
+   const createMiddleware = createExternalMiddleware(server, {})
+-  async function start(cookie = 'device-a') {
++  async function start(cookie = 'device-a', inviteCode?: string) {
++    const invite = inviteCode
++      ? `&invite_code=${encodeURIComponent(inviteCode)}`
++      : ''
+     return fetch(
+-      `${origin}/oauth/external/${id}/start?request_uri=${encodeURIComponent(requestUri)}`,
++      `${origin}/oauth/external/${id}/start?request_uri=${encodeURIComponent(requestUri)}${invite}`,
+       {
+         headers: {
+           cookie,
+@@ -311,6 +317,7 @@ describe('external routes', () => {
+           deviceId: 'device-a',
+           clientId: 'https://client.test/metadata.json',
+         },
++        undefined,
+       )
+       expect(f.setAuthorized).toHaveBeenCalledOnce()
+       expect(f.exchange.mock.calls[0][0]).toMatchObject({
+@@ -348,6 +355,44 @@ describe('external routes', () => {
+     })
+     expect(f.setAuthorized).not.toHaveBeenCalled()
+   })
++  it('while invites are required, creates an account only with the invite code its start carried', async () => {
++    const f = await fixture('google', { trust: true, inviteRequired: true })
++    async function complete(inviteCode?: string) {
++      const start = await f.start('device-a', inviteCode)
++      const state = new URL(start.headers.get('location')!).searchParams.get(
++        'state',
++      )!
++      const callback = await f.callback(state)
++      return fetch(f.origin + callback.headers.get('location'), {
++        headers: { cookie: 'device-a' },
++        redirect: 'manual',
++      })
++    }
++    const uninvited = await complete()
++    expect(uninvited.status).toBe(400)
++    expect(await uninvited.text()).toMatch(/^External sign-in failed/)
++    expect(f.createExternalAccount).not.toHaveBeenCalled()
++    // The error page names a refused code instead of the generic failure.
++    const refusal =
++      'This invite code is invalid. Provided invite code not available'
++    f.createExternalAccount.mockRejectedValueOnce(
++      new InvalidRequestError(refusal),
++    )
++    const refused = await complete('used-code')
++    expect(refused.status).toBe(400)
++    expect(await refused.text()).toBe(refusal)
++    const invited = await complete('invite-code')
++    expect(invited.status).toBe(303)
++    expect(invited.headers.get('location')).toContain('code=authorization-code')
++    expect(f.createExternalAccount).toHaveBeenLastCalledWith(
++      expect.objectContaining({
++        provider: 'google',
++        subject: 'stable-subject',
++      }),
++      expect.objectContaining({ deviceId: 'device-a' }),
++      'invite-code',
++    )
++  })
+   it('known subject signs in without creating or preauthorizing an existing account', async () => {
+     const f = await fixture('github', { existing: true, trust: true })
+     const start = await f.start()
+diff --git a/packages/oauth/oauth-provider/src/router/create-external-middleware.ts b/packages/oauth/oauth-provider/src/router/create-external-middleware.ts
+index 69ddc9a..f61f540 100644
+--- a/packages/oauth/oauth-provider/src/router/create-external-middleware.ts
++++ b/packages/oauth/oauth-provider/src/router/create-external-middleware.ts
+@@ -14,6 +14,7 @@ import {
+ } from '../lib/http/index.js'
+ import type { OAuthProvider } from '../oauth-provider.js'
+ import { decodeRequestUri, requestUriSchema } from '../request/request-uri.js'
++import { inviteCodeSchema } from '../types/invite-code.js'
+ import { sendAuthorizePageFactory } from './assets/send-authorization-page.js'
+ import { sendErrorPageFactory } from './assets/send-error-page.js'
+ import { sendAuthorizationResultRedirect } from './assets/send-redirect.js'
+@@ -35,6 +36,17 @@ const responseSchema = z
+ /** Only controlled linking messages may be shown by the error page. */
+ class LinkAccountError extends InvalidRequestError {}
+ 
++/**
++ * @NOTE LinkJar: the PDS refuses an invite code with this prefix. The error
++ * page recognizes it and says that the invite code is not valid.
++ */
++function isRefusedInviteCode(error: unknown): boolean {
++  return (
++    error instanceof InvalidRequestError &&
++    error.error_description.startsWith('This invite code is invalid.')
++  )
++}
++
+ export function createExternalMiddleware<
+   Ctx extends object | void = void,
+   Req extends IncomingMessage = IncomingMessage,
+@@ -75,6 +87,13 @@ export function createExternalMiddleware<
+           throw new LinkAccountError(
+             'Link sign-in methods from the account page',
+           )
++        // @NOTE LinkJar: an invite code handed off to the sign-up page. The
++        // flow keeps it for the completion, as it keeps the request URI.
++        const inviteCode = accountPage
++          ? undefined
++          : inviteCodeSchema
++              .optional()
++              .parse(url.searchParams.get('invite_code') ?? undefined)
+         if (
+           accountPage
+             ? url.searchParams.has('request_uri')
+@@ -93,6 +112,7 @@ export function createExternalMiddleware<
+           deviceId,
+           requestUri,
+           linkDid,
++          inviteCode,
+         })
+         const target = provider.authorizationUrl({
+           redirectUri,
+@@ -193,7 +213,11 @@ export function createExternalMiddleware<
+           throw new InvalidRequestError(
+             'No linked account matches the requested account',
+           )
+-        if (created && server.customization.inviteCodeRequired !== false)
++        // @NOTE LinkJar: while invites are required, only a flow started with
++        // an invite code creates an account. The store checks the code and
++        // records its use in the account transaction, as for email sign-up.
++        const inviteRequired = server.customization.inviteCodeRequired !== false
++        if (created && inviteRequired && !flow.inviteCode)
+           throw new InvalidRequestError(
+             'External account creation is disabled while invites are required',
+           )
+@@ -208,6 +232,7 @@ export function createExternalMiddleware<
+                     clientId: request.clientId,
+                   }
+                 : undefined,
++              inviteRequired ? flow.inviteCode : undefined,
+             )
+         if (
+           parameters?.login_hint &&
+@@ -310,7 +335,7 @@ export function createExternalMiddleware<
+           await sendError(
+             req,
+             res,
+-            error instanceof LinkAccountError
++            error instanceof LinkAccountError || isRefusedInviteCode(error)
+               ? error
+               : new InvalidRequestError(
+                   'External sign-in failed. Start again from your app or account page.',
+diff --git a/packages/pds/src/account-manager/oauth-store.ts b/packages/pds/src/account-manager/oauth-store.ts
+index 8561567..d67a637 100644
+--- a/packages/pds/src/account-manager/oauth-store.ts
++++ b/packages/pds/src/account-manager/oauth-store.ts
+@@ -246,6 +246,7 @@ export class OAuthStore
+   async createExternalAccount(
+     identity: ExternalIdentity,
+     authorization?: SignupAuthorization,
++    inviteCode?: string,
+   ): Promise<Account> {
+     if (!identity.emailVerified || !identity.email)
+       throw new InvalidRequestError(
+@@ -265,7 +266,7 @@ export class OAuthStore
+       })
+       try {
+         return await this.createAccountInternal(
+-          { locale: 'en', handle, email: identity.email },
++          { locale: 'en', handle, email: identity.email, inviteCode },
+           identity,
+           authorization,
+         )

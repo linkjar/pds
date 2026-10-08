@@ -46,3 +46,16 @@ CSP so the bundled font loads. Upstream issue: none filed. Owner: the
 font and pill in light and dark. Remove it when upstream's OAuth UI supports a
 configurable layout and typeface, or when LinkJar serves its own sign-up pages.
 See [scope, tests, runtime and removal](../docs/signup-journey.md).
+
+`103-invite-handoff.patch` lets the LinkJar app hand an invite code to the OAuth
+sign-up page in the URL fragment, as `#invite=<code>`. The page reads the code
+before its step routing rewrites the fragment, keeps it for the request in
+`sessionStorage`, and submits it in place of the "Invite code" field. A refused
+code brings the field back with the server's error. Provider sign-up links carry
+the code to the start request, so an invited visitor can also create an account
+with Apple or Google while invites are required. Upstream issue: none filed.
+Owner: the `linkjar/linkjar.io` onboarding build (October 2026). Tests: the
+external middleware tests in the image build and the production browser check
+in `scripts/browser-smoke.mjs`. Remove it when the app stops handing off codes or
+sign-up opens without invites.
+See [contract, behaviour, tests and removal](../docs/signup-journey.md#invitation-hand-off).

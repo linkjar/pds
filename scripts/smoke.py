@@ -4,6 +4,7 @@ import argparse
 import json
 import pathlib
 import secrets
+import socket
 import subprocess
 import time
 import urllib.error
@@ -29,7 +30,13 @@ def request(base, path, body=None):
             pass
         return {'status': response.status, 'body': content}
 
-def start(image, suffix):
+def free_port():
+    with socket.socket() as sock:
+        sock.bind(('127.0.0.1', 0))
+        return sock.getsockname()[1]
+
+def start(image, suffix, port=None, extra_env=None):
+    """A fixed port makes the PDS public URL, its OAuth issuer, match the browser origin."""
     name = 'linkjar-pds-smoke-' + secrets.token_hex(4) + '-' + suffix
     env = {
         'PDS_HOSTNAME': 'localhost', 'PDS_DEV_MODE': 'true',
@@ -42,15 +49,16 @@ def start(image, suffix):
         'PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX': '0' * 63 + '1',
         'PDS_DID_PLC_URL': 'http://127.0.0.1:9', 'PDS_CRAWLERS': '',
         'PDS_INVITE_REQUIRED': 'true', 'LOG_ENABLED': 'false',
+        **({'PDS_PORT': str(port)} if port else {}), **(extra_env or {}),
     }
     args = ['run', '-d', '--name', name, '--label', 'io.linkjar.test=issue98',
             '--tmpfs', '/tmp/pds:uid=1000,gid=1000,mode=0700',
-            '-p', '127.0.0.1::3000']
+            '-p', f'127.0.0.1:{port}:{port}' if port else '127.0.0.1::3000']
     for key, value in env.items():
         args += ['-e', key + '=' + value]
     docker(*args, image)
     try:
-        port = docker('port', name, '3000/tcp').rsplit(':', 1)[1]
+        port = docker('port', name, f'{port or 3000}/tcp').rsplit(':', 1)[1]
         base = 'http://127.0.0.1:' + port
         for _ in range(90):
             if docker('inspect', '--format', '{{.State.Running}}', name) != 'true':
@@ -106,14 +114,21 @@ def main():
             assert actual[name]['status'] in (400, 401)
         branded, branded_url = start(args.branded, 'branded')
         containers.append(branded)
-        production, production_url = start(args.production, 'production')
+        # The invite hand-off check calls the OAuth API and reads a provider
+        # link. The placeholder Google client is never contacted.
+        production_port = free_port()
+        production, production_url = start(args.production, 'production', production_port, {
+            'PDS_EXTERNAL_GOOGLE_CLIENT_ID': 'smoke.apps.googleusercontent.com',
+            'PDS_EXTERNAL_GOOGLE_CLIENT_SECRET': 'smoke-placeholder',
+        })
         containers.append(production)
         production_health = request(production_url, '/xrpc/_health')
         assert production_health == actual['health']
         assert request(production_url, '/.well-known/oauth-authorization-server')['status'] == 200
         if args.browser:
             subprocess.run(['node', str(ROOT / 'scripts/browser-smoke.mjs'),
-                            candidate_url, branded_url], check=True)
+                            candidate_url, branded_url, f'http://localhost:{production_port}'],
+                           check=True)
         result = {'upstream': pin, 'parity': actual, 'productionHealth': production_health,
                   'browserVerified': args.browser,
                   'limits': 'Local HTTP smoke only; no public signup, federation, real IdPs, TLS or staging deployment.'}

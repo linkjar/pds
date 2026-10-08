@@ -20,7 +20,9 @@ registration, secret custody, expiry monitoring, and rotation. These values are
 never included in browser hydration. `PDS_OAUTH_TRUSTED_CLIENTS` is the stock
 trusted-client allowlist; configure exact metadata URLs, never an origin wildcard.
 Keep `PDS_INVITE_REQUIRED=false` for public external signup. While invites are
-required, known identities can sign in but new external accounts are refused.
+required, known identities can sign in, and a new external account needs an
+invite code handed off to the sign-up page; without one it is refused. See the
+[invitation hand-off](signup-journey.md#invitation-hand-off).
 No provider credentials, public accounts, DNS records, or servers were created.
 
 ## Authentication boundary
