@@ -35,3 +35,14 @@ security notifications. See [scope, migration, tests and removal](../docs/signin
 
 `101-mail-templates.patch` gives all six account emails consistent HTML layouts and
 keeps a text alternative. See [scope, tests, runtime overlay and removal](../docs/mail-templates.md).
+
+`102-signup-journey.patch` opens the OAuth sign-up page on the email form, puts
+Apple and Google under it, and gives the authorization screens LinkJar's onboarding
+look (dark stage, Geist, pill actions). The app hands new members to this page,
+which looked like a separate product. It also adds `font-src 'self'` to the page
+CSP so the bundled font loads. Upstream issue: none filed. Owner: the
+`linkjar/linkjar.io` onboarding build (October 2026). Tests: the compiled
+`tests/external-ui.mjs` and `tests/provider-branding.mjs` checks cover the order,
+font and pill in light and dark. Remove it when upstream's OAuth UI supports a
+configurable layout and typeface, or when LinkJar serves its own sign-up pages.
+See [scope, tests, runtime and removal](../docs/signup-journey.md).

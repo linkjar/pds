@@ -78,7 +78,8 @@ React, preserving existing API Referrer, CSRF, device, and ephemeral-token check
 No permanent remembered account is created by an external OAuth authorization flow.
 
 Provider buttons are supplied by backend hydration on authorization sign-in and
-signup pages. Email/password remain under an expandable “Or use email” section.
+signup pages. Sign-in keeps email/password under an expandable “Or use email”
+section; sign-up opens on the email form ([sign-up journey](signup-journey.md)).
 Explicit `/account` sign-in uses the same device-bound provider verification and
 remembers the account through the stock device-account store before returning to
 `/account`; it has no PAR and never grants OAuth client scopes. The signup disclaimer applies to provider signup as well as email.
