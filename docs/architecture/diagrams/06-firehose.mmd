@@ -1,0 +1,12 @@
+flowchart LR
+  commit[commit path] -- append --> log[(repo_seq<br/>sequencer.sqlite)]
+  commit -- wakeup --> bus[broadcast, signal only]
+  subgraph subs [per-subscriber tasks]
+    sub1[subscriber A<br/>bounded queue]
+    sub2[subscriber B<br/>bounded queue]
+  end
+  bus --> sub1 & sub2
+  log -- page reads in seq order<br/>backfill then live --> sub1 & sub2
+  sub1 -- frames at most 5 MB --> relayA([relay])
+  sub2 --> relayB([indexer])
+  startup[startup repair<br/>head ahead of last seq emits #sync] --> log

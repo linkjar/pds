@@ -1,0 +1,12 @@
+{
+  "name": "linkjar-pds-diagrams",
+  "private": true,
+  "type": "module",
+  "description": "Renders docs/architecture/diagrams/*.mmd to svg/ with beautiful-mermaid",
+  "scripts": {
+    "render": "node render.mjs"
+  },
+  "dependencies": {
+    "beautiful-mermaid": "^1.1.3"
+  }
+}

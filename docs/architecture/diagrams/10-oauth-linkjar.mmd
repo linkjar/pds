@@ -1,0 +1,25 @@
+sequenceDiagram
+  participant App as LinkJar app
+  participant UI as authorize page
+  participant IdP as IdentityProviders (ext)
+  participant Apple as Apple, Google or GitHub
+  participant Gate as SignupGate (ext)
+  participant Acc as account transaction
+  participant HP as HandlePolicy (ext)
+  participant Rc as CreationReceipt (ext)
+  App->>UI: /oauth/authorize after PAR
+  UI->>IdP: start(provider, device, pending request)
+  IdP-->>UI: redirect (state, nonce, PKCE bound to device)
+  UI->>Apple: provider authorization
+  Apple-->>IdP: callback (code or id_token)
+  IdP->>IdP: verify issuer, signature, nonce, audience, verified email
+  IdP->>Gate: evaluate(signup request plus verified identity)
+  Gate-->>IdP: Allow
+  IdP->>Acc: begin
+  Acc->>HP: suggest handle, check reserved, record rename allowance
+  Acc->>Acc: create account, external_identity row, sentinel password
+  Acc->>Rc: record receipt (request, client, device, did)
+  Acc-->>IdP: commit, all or nothing
+  IdP-->>UI: resume original request with session
+  UI-->>App: code, then token with the receipt in the session row
+  App->>App: getSignupReceipt, show handle, acknowledge

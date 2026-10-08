@@ -1,0 +1,18 @@
+flowchart LR
+  core[server core<br/>no operator branches] --> P{{Profile}}
+  P --> g{{SignupGate}} & i{{IdentityProviders}} & h{{HandlePolicy}} & m{{SignInMethods}} & n{{Notices}}
+  P --> t{{MailTemplates, Branding}} & r{{CreationReceipt}} & k{{AccountHooks, migrations}} & o{{OperatorRoles}} & s{{StorageBackends}}
+  subgraph stock [stock profile: pds-ext]
+    s1[reference behaviour]
+  end
+  subgraph lj [linkjar profile: pds-ext-linkjar]
+    l1[093 handle policy]
+    l2[099 external providers]
+    l3[099b receipt]
+    l4[099c signup policy]
+    l5[100 sign-in methods, notices]
+    l6[101 mail templates]
+    l7[operator roles]
+  end
+  P -. PDS_PROFILE=stock .-> stock
+  P -. PDS_PROFILE=linkjar .-> lj

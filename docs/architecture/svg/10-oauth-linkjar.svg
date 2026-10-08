@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1480.0520000000004 850" width="1480.0520000000004" height="850" style="--bg:#ffffff;--fg:#1f2328;--line:#d1d9e0;--accent:#0969da;--muted:#59636e;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter%2C%20ui-sans-serif%2C%20system-ui%2C%20sans-serif:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter, ui-sans-serif, system-ui, sans-serif', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="seq-arrow" markerWidth="8" markerHeight="5" refX="8" refY="2.5" orient="auto-start-reverse">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" />
+  </marker>
+  <marker id="seq-arrow-open" markerWidth="8" markerHeight="5" refX="8" refY="2.5" orient="auto-start-reverse">
+    <polyline points="0 0, 8 2.5, 0 5" fill="none" stroke="var(--_arrow)" stroke-width="1" />
+  </marker>
+</defs>
+<line class="lifeline" data-actor="App" x1="83.65449999999998" y1="70" x2="83.65449999999998" y2="820" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="UI" x1="238.37349999999998" y1="70" x2="238.37349999999998" y2="820" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="IdP" x1="421.2505" y1="70" x2="421.2505" y2="820" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="Apple" x1="628.5805" y1="70" x2="628.5805" y2="820" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="Gate" x1="818.8675000000001" y1="70" x2="818.8675000000001" y2="820" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="Acc" x1="998.7805000000001" y1="70" x2="998.7805000000001" y2="820" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="HP" x1="1183.8805000000002" y1="70" x2="1183.8805000000002" y2="820" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="Rc" x1="1371.9445000000003" y1="70" x2="1371.9445000000003" y2="820" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<g class="message" data-from="App" data-to="UI" data-label="/oauth/authorize after PAR" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="83.65449999999998" y1="90" x2="238.37349999999998" y2="90" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="161.01399999999998" y="80" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">/oauth/authorize after PAR</text>
+</g>
+<g class="message" data-from="UI" data-to="IdP" data-label="start(provider, device, pending request)" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="238.37349999999998" y1="130" x2="421.2505" y2="130" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="329.812" y="120" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">start(provider, device, pending request)</text>
+</g>
+<g class="message" data-from="IdP" data-to="UI" data-label="redirect (state, nonce, PKCE bound to device)" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="421.2505" y1="170" x2="238.37349999999998" y2="170" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="329.812" y="160" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">redirect (state, nonce, PKCE bound to device)</text>
+</g>
+<g class="message" data-from="UI" data-to="Apple" data-label="provider authorization" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="238.37349999999998" y1="210" x2="628.5805" y2="210" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="433.477" y="200" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">provider authorization</text>
+</g>
+<g class="message" data-from="Apple" data-to="IdP" data-label="callback (code or id_token)" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="628.5805" y1="250" x2="421.2505" y2="250" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="524.9155000000001" y="240" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">callback (code or id_token)</text>
+</g>
+<g class="message" data-from="IdP" data-to="IdP" data-label="verify issuer, signature, nonce, audience, verified email" data-line-style="solid" data-arrow-head="filled" data-self="true">
+  <polyline points="421.2505,290 451.2505,290 451.2505,310 421.2505,310" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="459.2505" y="300" font-size="11" text-anchor="start" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">verify issuer, signature, nonce, audience, verified email</text>
+</g>
+<g class="message" data-from="IdP" data-to="Gate" data-label="evaluate(signup request plus verified identity)" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="421.2505" y1="360" x2="818.8675000000001" y2="360" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="620.059" y="350" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">evaluate(signup request plus verified identity)</text>
+</g>
+<g class="message" data-from="Gate" data-to="IdP" data-label="Allow" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="818.8675000000001" y1="400" x2="421.2505" y2="400" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="620.059" y="390" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">Allow</text>
+</g>
+<g class="message" data-from="IdP" data-to="Acc" data-label="begin" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="421.2505" y1="440" x2="998.7805000000001" y2="440" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="710.0155" y="430" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">begin</text>
+</g>
+<g class="message" data-from="Acc" data-to="HP" data-label="suggest handle, check reserved, record rename allowance" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="998.7805000000001" y1="480" x2="1183.8805000000002" y2="480" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="1091.3305" y="470" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">suggest handle, check reserved, record rename allowance</text>
+</g>
+<g class="message" data-from="Acc" data-to="Acc" data-label="create account, external_identity row, sentinel password" data-line-style="solid" data-arrow-head="filled" data-self="true">
+  <polyline points="998.7805000000001,520 1028.7805,520 1028.7805,540 998.7805000000001,540" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="1036.7805" y="530" font-size="11" text-anchor="start" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">create account, external_identity row, sentinel password</text>
+</g>
+<g class="message" data-from="Acc" data-to="Rc" data-label="record receipt (request, client, device, did)" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="998.7805000000001" y1="590" x2="1371.9445000000003" y2="590" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="1185.3625000000002" y="580" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">record receipt (request, client, device, did)</text>
+</g>
+<g class="message" data-from="Acc" data-to="IdP" data-label="commit, all or nothing" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="998.7805000000001" y1="630" x2="421.2505" y2="630" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="710.0155" y="620" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">commit, all or nothing</text>
+</g>
+<g class="message" data-from="IdP" data-to="UI" data-label="resume original request with session" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="421.2505" y1="670" x2="238.37349999999998" y2="670" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="329.812" y="660" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">resume original request with session</text>
+</g>
+<g class="message" data-from="UI" data-to="App" data-label="code, then token with the receipt in the session row" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="238.37349999999998" y1="710" x2="83.65449999999998" y2="710" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="161.01399999999998" y="700" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">code, then token with the receipt in the session row</text>
+</g>
+<g class="message" data-from="App" data-to="App" data-label="getSignupReceipt, show handle, acknowledge" data-line-style="solid" data-arrow-head="filled" data-self="true">
+  <polyline points="83.65449999999998,750 113.65449999999998,750 113.65449999999998,770 83.65449999999998,770" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="121.65449999999998" y="760" font-size="11" text-anchor="start" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">getSignupReceipt, show handle, acknowledge</text>
+</g>
+<g class="actor" data-id="App" data-label="LinkJar app" data-type="participant">
+  <rect x="29.999999999999993" y="30" width="107.30899999999998" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="83.65449999999998" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">LinkJar app</text>
+</g>
+<g class="actor" data-id="UI" data-label="authorize page" data-type="participant">
+  <rect x="177.30899999999997" y="30" width="122.129" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="238.37349999999998" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">authorize page</text>
+</g>
+<g class="actor" data-id="IdP" data-label="IdentityProviders (ext)" data-type="participant">
+  <rect x="339.438" y="30" width="163.62499999999997" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="421.2505" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">IdentityProviders (ext)</text>
+</g>
+<g class="actor" data-id="Apple" data-label="Apple, Google or GitHub" data-type="participant">
+  <rect x="543.063" y="30" width="171.035" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="628.5805" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">Apple, Google or GitHub</text>
+</g>
+<g class="actor" data-id="Gate" data-label="SignupGate (ext)" data-type="participant">
+  <rect x="754.0980000000001" y="30" width="129.539" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="818.8675000000001" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">SignupGate (ext)</text>
+</g>
+<g class="actor" data-id="Acc" data-label="account transaction" data-type="participant">
+  <rect x="923.6370000000001" y="30" width="150.287" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="998.7805000000001" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">account transaction</text>
+</g>
+<g class="actor" data-id="HP" data-label="HandlePolicy (ext)" data-type="participant">
+  <rect x="1113.9240000000002" y="30" width="139.913" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="1183.8805000000002" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">HandlePolicy (ext)</text>
+</g>
+<g class="actor" data-id="Rc" data-label="CreationReceipt (ext)" data-type="participant">
+  <rect x="1293.8370000000002" y="30" width="156.21499999999997" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="1371.9445000000003" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">CreationReceipt (ext)</text>
+</g>
+</svg>

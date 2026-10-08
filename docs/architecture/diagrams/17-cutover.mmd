@@ -1,0 +1,9 @@
+stateDiagram-v2
+  [*] --> Reference: production today
+  Reference --> Verify: stop container, run verify
+  Verify --> Candidate: start linkjar-pds on the same dir and secrets
+  Candidate --> Smoke: health, describeServer, OAuth metadata, relay resumes cursor
+  Smoke --> Watch: web, iOS, extension sign-in, write, firehose, mail
+  Watch --> Reference: rollback, start the Reference image
+  Watch --> Closed: migrate with allow-candidate-only closes the window
+  Closed --> [*]

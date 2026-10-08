@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1044.8515 660" width="1044.8515" height="660" style="--bg:#0d1117;--fg:#e6edf3;--line:#3d444d;--accent:#4493f8;--muted:#9198a1;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter%2C%20ui-sans-serif%2C%20system-ui%2C%20sans-serif:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter, ui-sans-serif, system-ui, sans-serif', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="seq-arrow" markerWidth="8" markerHeight="5" refX="8" refY="2.5" orient="auto-start-reverse">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" />
+  </marker>
+  <marker id="seq-arrow-open" markerWidth="8" markerHeight="5" refX="8" refY="2.5" orient="auto-start-reverse">
+    <polyline points="0 0, 8 2.5, 0 5" fill="none" stroke="var(--_arrow)" stroke-width="1" />
+  </marker>
+</defs>
+<line class="lifeline" data-actor="App" x1="75.5035" y1="70" x2="75.5035" y2="630" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="AS" x1="215.5035" y1="70" x2="215.5035" y2="630" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="UI" x1="389.118" y1="70" x2="389.118" y2="630" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="Acc" x1="570.1424999999999" y1="70" x2="570.1424999999999" y2="630" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<line class="lifeline" data-actor="RS" x1="730.7895" y1="70" x2="730.7895" y2="630" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="6 4" />
+<g class="message" data-from="App" data-to="AS" data-label="GET /.well-known/oauth-authorization-server" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="75.5035" y1="90" x2="215.5035" y2="90" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="145.5035" y="80" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">GET /.well-known/oauth-authorization-server</text>
+</g>
+<g class="message" data-from="App" data-to="AS" data-label="POST /oauth/par (client metadata URL, PKCE, DPoP)" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="75.5035" y1="130" x2="215.5035" y2="130" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="145.5035" y="120" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">POST /oauth/par (client metadata URL, PKCE, DPoP)</text>
+</g>
+<g class="message" data-from="AS" data-to="AS" data-label="fetch and validate client metadata (safe fetch, cache)" data-line-style="solid" data-arrow-head="filled" data-self="true">
+  <polyline points="215.5035,170 245.5035,170 245.5035,190 215.5035,190" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="253.5035" y="180" font-size="11" text-anchor="start" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">fetch and validate client metadata (safe fetch, cache)</text>
+</g>
+<g class="message" data-from="AS" data-to="App" data-label="request_uri" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="215.5035" y1="240" x2="75.5035" y2="240" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="145.5035" y="230" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">request_uri</text>
+</g>
+<g class="message" data-from="App" data-to="UI" data-label="GET /oauth/authorize?request_uri" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="75.5035" y1="280" x2="389.118" y2="280" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="232.31074999999998" y="270" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">GET /oauth/authorize?request_uri</text>
+</g>
+<g class="message" data-from="UI" data-to="Acc" data-label="sign-in (password) or remembered device account" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="389.118" y1="320" x2="570.1424999999999" y2="320" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="479.63024999999993" y="310" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">sign-in (password) or remembered device account</text>
+</g>
+<g class="message" data-from="Acc" data-to="UI" data-label="account, consent decision" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="570.1424999999999" y1="360" x2="389.118" y2="360" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="479.63024999999993" y="350" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">account, consent decision</text>
+</g>
+<g class="message" data-from="UI" data-to="App" data-label="redirect with code and iss" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="389.118" y1="400" x2="75.5035" y2="400" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="232.31074999999998" y="390" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">redirect with code and iss</text>
+</g>
+<g class="message" data-from="App" data-to="AS" data-label="POST /oauth/token (code, PKCE verifier, DPoP proof)" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="75.5035" y1="440" x2="215.5035" y2="440" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="145.5035" y="430" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">POST /oauth/token (code, PKCE verifier, DPoP proof)</text>
+</g>
+<g class="message" data-from="AS" data-to="App" data-label="access token (HS256, cnf.jkt), refresh token, scope, sub" data-line-style="dashed" data-arrow-head="filled" data-self="false">
+  <line x1="215.5035" y1="480" x2="75.5035" y2="480" stroke="var(--_line)" stroke-width="1" stroke-dasharray="6 4" marker-end="url(#seq-arrow)" />
+  <text x="145.5035" y="470" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">access token (HS256, cnf.jkt), refresh token, scope, sub</text>
+</g>
+<g class="message" data-from="App" data-to="RS" data-label="XRPC with DPoP-bound token" data-line-style="solid" data-arrow-head="filled" data-self="false">
+  <line x1="75.5035" y1="520" x2="730.7895" y2="520" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="403.1465" y="510" font-size="11" text-anchor="middle" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">XRPC with DPoP-bound token</text>
+</g>
+<g class="message" data-from="RS" data-to="RS" data-label="verify signature, jkt, nonce, scope and permissions" data-line-style="solid" data-arrow-head="filled" data-self="true">
+  <polyline points="730.7895,560 760.7895,560 760.7895,580 730.7895,580" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#seq-arrow)" />
+  <text x="768.7895" y="570" font-size="11" text-anchor="start" font-weight="400" fill="var(--_text-muted)" dy="3.8499999999999996">verify signature, jkt, nonce, scope and permissions</text>
+</g>
+<g class="actor" data-id="App" data-label="Client app" data-type="participant">
+  <rect x="30" y="30" width="91.007" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="75.5035" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">Client app</text>
+</g>
+<g class="actor" data-id="AS" data-label="pds-oauth" data-type="participant">
+  <rect x="169.25900000000001" y="30" width="92.489" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="215.5035" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">pds-oauth</text>
+</g>
+<g class="actor" data-id="UI" data-label="server-rendered pages" data-type="participant">
+  <rect x="301.748" y="30" width="174.73999999999998" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="389.118" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">server-rendered pages</text>
+</g>
+<g class="actor" data-id="Acc" data-label="pds-account" data-type="participant">
+  <rect x="516.4879999999999" y="30" width="107.30900000000001" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="570.1424999999999" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">pds-account</text>
+</g>
+<g class="actor" data-id="RS" data-label="resource server" data-type="participant">
+  <rect x="663.797" y="30" width="133.985" height="40" rx="4" ry="4" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="730.7895" y="50" font-size="13" text-anchor="middle" font-weight="500" fill="var(--_text)" dy="4.55">resource server</text>
+</g>
+</svg>

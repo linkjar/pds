@@ -1,0 +1,21 @@
+flowchart LR
+  subgraph proc [linkjar-pds process, tokio]
+    pub[public listener<br/>PDS_PORT<br/>/xrpc, /oauth, /account, /.well-known]
+    met[metrics listener<br/>PDS_METRICS_ADDRESS]
+    ops[ops listener<br/>PDS_OPS_ADDRESS<br/>internal.* and live WebSocket]
+    subgraph bg [supervised background tasks]
+      t1[crawler notify]
+      t2[scheduled deletion]
+      t3[blob GC]
+      t4[mail outbox]
+      t5[DID cache refresh]
+      t6[audit checkpoint]
+      t7[permission-set cache]
+    end
+    prov[(providers: clock, random, StorageIo)]
+    pool[(blocking pool: SQLite)]
+  end
+  proxy([reverse proxy]) --> pub
+  console[[console]] --> ops & met
+  bg --- prov
+  pub --- pool

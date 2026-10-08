@@ -1,0 +1,24 @@
+sequenceDiagram
+  participant C as Client
+  participant X as pds-xrpc
+  participant A as auth
+  participant L as pds-lexicon
+  participant S as ActorStore
+  participant R as pds-repo
+  participant Q as SequencerStore
+  participant F as firehose fan-out
+  C->>X: POST /xrpc/com.atproto.repo.createRecord
+  X->>A: verify token, scope, active account, rate limit
+  A-->>X: DID and permissions
+  X->>L: validate record (mode true, false or unset)
+  L-->>X: ok plus validation flag
+  X->>S: begin write transaction (one writer per actor)
+  S->>R: load MST root, apply op incrementally
+  R-->>S: new blocks, new root, diff CAR slice
+  S->>S: insert blocks, record row, blob refs
+  S->>Q: append #commit (seq, ops, blocks, since, rev, prevData)
+  Q-->>S: durable in the same step
+  S-->>X: commit (cid, rev)
+  X->>F: wakeup, no frame on the bus
+  F->>Q: read frames in seq order
+  X-->>C: 200 uri, cid, commit, validationStatus

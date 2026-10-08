@@ -1,0 +1,9 @@
+flowchart LR
+  lex[(lexicons/<br/>vendored at the pin plus io.linkjar.*)] -- cargo xtask codegen --> gen[crates/pds-types/src/generated]
+  interop[(interop/, CC0 vectors)] --> tests[crate tests]
+  src[crates/] --> ci[rust.yml: fmt, clippy, test, codegen check, deny, vet]
+  src --> fuzz[fuzz.yml nightly: parsers]
+  src --> sim[nightly seeds: pds-sim]
+  legacy([legacy/, reference image build]) --> build[build.yml, paths legacy/**]
+  devenv[(devenv.nix: toolchain, tools, hooks)] --- src
+  mmd[(docs/architecture/diagrams/*.mmd)] -- pnpm render, beautiful-mermaid --> svg[docs/architecture/svg/]

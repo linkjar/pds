@@ -1,0 +1,10 @@
+flowchart LR
+  req[resolve DID or handle] --> cache[(did_cache.sqlite<br/>stale TTL, max TTL)]
+  cache -- miss or stale --> fetch[safe fetch<br/>unicast only, redirect cap, size cap]
+  fetch --> plc([plc.directory<br/>did:plc])
+  fetch --> web([https host /.well-known/did.json<br/>did:web])
+  handle[verify handle] --> txt([DNS TXT _atproto.handle<br/>did=...])
+  handle --> wk([https handle /.well-known/atproto-did])
+  txt -. DNS wins on conflict .- wk
+  doc[DID document contract<br/>alsoKnownAs first at://, #atproto Multikey, #atproto_pds service]
+  plc & web --> doc

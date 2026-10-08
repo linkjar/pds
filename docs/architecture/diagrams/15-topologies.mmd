@@ -1,0 +1,12 @@
+flowchart TB
+  subgraph v1 [Version 1: single node]
+    n1[linkjar-pds<br/>embedded account and OAuth] --- d1[(data dir)]
+    d1 -- Litestream --> r2[(object storage)]
+  end
+  subgraph v2 [Scale: entryway and member hosts]
+    ew[entryway service<br/>accounts, sessions, OAuth, handles, PLC rotation keys, host map] --- edb[(entryway db)]
+    ew --> m1[member host A<br/>repos, blobs, signing keys, firehose]
+    ew --> m2[member host B]
+    ew --> m3[member host C]
+    relays([relays crawl each member]) --- m1 & m2 & m3
+  end

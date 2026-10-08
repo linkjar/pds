@@ -1,0 +1,7 @@
+flowchart LR
+  runner[parity harness<br/>TypeScript, official SDK]
+  runner --> ref([Reference image<br/>pinned digest])
+  runner --> cand[Candidate]
+  plc([local PLC]) --- ref & cand
+  relay([local Sync 1.1 relay, strict]) --- ref & cand
+  ref & cand --> o{oracles<br/>O1 responses, O2 CIDs, O3 firehose, O4 OAuth, O5 migration<br/>O6 stock equivalence, O7 LinkJar journeys, O8 Bluesky app, O9 verify at pin}

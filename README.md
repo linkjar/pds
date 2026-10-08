@@ -16,7 +16,7 @@ instead of source patches. Dual-licensed MIT or Apache-2.0.
 | Read | For |
 |---|---|
 | [docs/README.md](docs/README.md) | The documentation map |
-| [docs/architecture/README.md](docs/architecture/README.md) | Diagrams of every part of the system, kept current with the code |
+| [docs/architecture/README.md](docs/architecture/README.md) | One diagram per part of the system, rendered with beautiful-mermaid, kept current with the code |
 | [docs/SPEC.md](docs/SPEC.md) | The normative specification (RFC 2119) |
 | [docs/plan.md](docs/plan.md) | Decision record, owner decisions, delivery units, status |
 | [docs/sidecars.md](docs/sidecars.md) | The operations console and the MCP server |

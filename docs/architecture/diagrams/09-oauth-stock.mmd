@@ -1,0 +1,18 @@
+sequenceDiagram
+  participant App as Client app
+  participant AS as pds-oauth
+  participant UI as server-rendered pages
+  participant Acc as pds-account
+  participant RS as resource server
+  App->>AS: GET /.well-known/oauth-authorization-server
+  App->>AS: POST /oauth/par (client metadata URL, PKCE, DPoP)
+  AS->>AS: fetch and validate client metadata (safe fetch, cache)
+  AS-->>App: request_uri
+  App->>UI: GET /oauth/authorize?request_uri
+  UI->>Acc: sign-in (password) or remembered device account
+  Acc-->>UI: account, consent decision
+  UI-->>App: redirect with code and iss
+  App->>AS: POST /oauth/token (code, PKCE verifier, DPoP proof)
+  AS-->>App: access token (HS256, cnf.jkt), refresh token, scope, sub
+  App->>RS: XRPC with DPoP-bound token
+  RS->>RS: verify signature, jkt, nonce, scope and permissions

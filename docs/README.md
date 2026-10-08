@@ -13,7 +13,7 @@
 
 ## Architecture
 
-- [architecture/README.md](architecture/README.md): Mermaid diagrams for every part of the system: context, crates, request paths, firehose, storage, OAuth flows, extension model, simulation, audit, topologies, sidecars, cutover. Updated in the same change as the code.
+- [architecture/README.md](architecture/README.md): one diagram per part of the system (context, crates, request paths, firehose, storage, OAuth flows, extension model, simulation, audit, topologies, sidecars, cutover), Mermaid sources rendered with beautiful-mermaid in light and dark variants. Updated in the same change as the code.
 
 ## Research
 

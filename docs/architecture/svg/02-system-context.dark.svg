@@ -1,0 +1,210 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1034.2089166666665 1016.9" width="1034.2089166666665" height="1016.9" style="--bg:#0d1117;--fg:#e6edf3;--line:#3d444d;--accent:#4493f8;--muted:#9198a1;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter%2C%20ui-sans-serif%2C%20system-ui%2C%20sans-serif:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter, ui-sans-serif, system-ui, sans-serif', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<g class="subgraph" data-id="clients" data-label="Clients">
+  <rect x="48.097916666666606" y="24" width="962.111" height="96.9" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="48.097916666666606" y="24" width="962.111" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="60.097916666666606" y="38" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">Clients</text>
+</g>
+<g class="subgraph" data-id="network" data-label="Network services">
+  <rect x="139.82200000000003" y="854" width="789.754" height="96.9" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="139.82200000000003" y="854" width="789.754" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="151.82200000000003" y="868" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">Network services</text>
+</g>
+<g class="subgraph" data-id="host" data-label="Host pds.linkjar.social">
+  <rect x="238.71250000000006" y="249.20000000000002" width="552.919" height="476.5" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="238.71250000000006" y="249.20000000000002" width="552.919" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="250.71250000000006" y="263.20000000000005" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">Host pds.linkjar.social</text>
+</g>
+<polyline class="edge" data-from="app" data-to="proxy" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="XRPC, OAuth, WebSocket" points="134.71991666666662,104.9 134.7199166666666,162.9 171.21054166666647,162.9 171.21054166666647,219.20000000000002 487.5220833333334,219.20000000000002 487.5220833333334,378.1" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="ios" data-to="proxy" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="XRPC, OAuth, WebSocket" points="306.92791666666665,104.9 306.92791666666665,162.9 327.83654166666656,162.9 327.83654166666656,207.20000000000002 514.7677500000001,207.20000000000002 514.7677500000001,378.1" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="ext" data-to="proxy" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="XRPC, OAuth, WebSocket" points="733.2244166666666,104.9 733.2244166666666,219.20000000000002 569.2590833333334,219.20000000000002 569.2590833333334,378.1" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="bsky" data-to="proxy" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="XRPC, OAuth, WebSocket" points="518.4089166666666,104.9 518.4089166666666,231.20000000000002 542.0134166666667,231.20000000000002 542.0134166666667,378.1" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="ai" data-to="mcp" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="MCP over HTTP" points="916.1769166666666,104.9 916.1769166666667,231.20000000000002 673.5047500000001,231.20000000000002 673.5047500000001,293.20000000000005" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="relay" data-to="proxy" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="subscribeRepos, getRepo" points="764.112,934.9 764.112,968.9 90.5,968.9 90.5,231.20000000000005 460.2764166666667,231.20000000000005 460.2764166666667,378.1" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="pds" data-to="relay" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="requestCrawl" points="555.9070000000002,499.9000000000001 555.9070000000002,535.9000000000001 627.4305,535.9000000000001 627.4305,767.7 734.643,767.7 734.643,836 764.112,836 764.112,898" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="pds" data-to="appview" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="proxied app.bsky" points="492.94600000000014,499.9000000000001 492.94600000000014,511.9000000000001 254.7125000000001,511.9000000000001 254.7125000000001,767.7 223.108,767.7 223.108,836 202.73200000000003,836 202.73200000000003,898" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="pds" data-to="plc" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="resolve, submit ops" points="503.43950000000007,499.9000000000001 503.43950000000007,523.9000000000001 267.7125000000001,523.9000000000001 267.7125000000001,767.7 345.84175000000005,767.7 345.84175000000005,836 340.48350000000005,836 340.48350000000005,898" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="pds" data-to="dns" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="handle TXT lookups" points="524.4265,499.9000000000001 524.4265,547.9000000000001 454.4095000000001,547.9000000000001 454.40950000000004,767.7 465.6380000000001,767.7 465.63800000000003,898" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="pds" data-to="idp" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="sign-in, linkjar profile" points="545.4135000000001,499.9000000000001 545.4135000000001,547.9000000000001 614.4305,547.9000000000001 614.4305,767.7 607.186,767.7 607.186,836 611.17,836 611.1700000000001,898" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="pds" data-to="smtp" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="token and notice mail" points="566.4005000000001,499.9000000000001 566.4005000000001,523.9000000000001 640.4305,523.9000000000001 640.4305,755.7 840.3407500000001,755.7 840.3407500000001,836 873.7055,836 873.7055,898" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="proxy" data-to="pds" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="514.7677500000001,415 514.7677500000001,427 534.9200000000001,427 534.9200000000001,463" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="mcp" data-to="pds" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="OAuth client, XRPC" points="673.5047500000001,330.1 673.5047500000001,427 561.1537500000001,427 561.1537500000001,463" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="pds" data-to="data" data-style="solid" data-arrow-start="false" data-arrow-end="false" points="576.8940000000001,499.90000000000003 576.8940000000001,511.9000000000001 713.5310000000001,511.9000000000001 713.5310000000001,559.9000000000001" fill="none" stroke="var(--_line)" stroke-width="1" />
+<polyline class="edge" data-from="pds" data-to="blobs" data-style="solid" data-arrow-start="false" data-arrow-end="false" points="534.9200000000001,499.90000000000003 534.9200000000001,559.9000000000001" fill="none" stroke="var(--_line)" stroke-width="1" />
+<polyline class="edge" data-from="console" data-to="pds" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="ops listener, OTLP" points="356.46875,330.1 356.46875,427 508.6862500000001,427 508.6862500000001,463" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="pds" data-to="otel" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="metrics" points="513.9330000000001,499.90000000000003 513.9330000000001,535.9000000000001 361.56100000000004,535.9000000000001 361.56100000000004,658.8000000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="app" data-to="proxy" data-label="XRPC, OAuth, WebSocket">
+  <rect x="102.2105416666665" y="169.9" width="137.04400000000004" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="170.73254166666652" y="185.05" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">XRPC, OAuth, WebSocket</text>
+</g>
+<g class="edge-label" data-from="ios" data-to="proxy" data-label="XRPC, OAuth, WebSocket">
+  <rect x="258.83654166666656" y="169.9" width="137.04400000000004" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="327.3585416666666" y="185.05" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">XRPC, OAuth, WebSocket</text>
+</g>
+<g class="edge-label" data-from="ext" data-to="proxy" data-label="XRPC, OAuth, WebSocket">
+  <rect x="664.2244166666666" y="169.9" width="137.04400000000004" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="732.7464166666666" y="185.05" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">XRPC, OAuth, WebSocket</text>
+</g>
+<g class="edge-label" data-from="bsky" data-to="proxy" data-label="XRPC, OAuth, WebSocket">
+  <rect x="449.40891666666664" y="169.9" width="137.04400000000004" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="517.9309166666667" y="185.05" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">XRPC, OAuth, WebSocket</text>
+</g>
+<g class="edge-label" data-from="ai" data-to="mcp" data-label="MCP over HTTP">
+  <rect x="868.1769166666667" y="193.9" width="95.464" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="915.9089166666666" y="209.05" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">MCP over HTTP</text>
+</g>
+<g class="edge-label" data-from="relay" data-to="proxy" data-label="subscribeRepos, getRepo">
+  <rect x="20" y="774.7" width="140.608" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="90.304" y="789.85" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">subscribeRepos, getRepo</text>
+</g>
+<g class="edge-label" data-from="pds" data-to="relay" data-label="requestCrawl">
+  <rect x="693.643" y="774.7" width="81.80200000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="734.5440000000001" y="789.85" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">requestCrawl</text>
+</g>
+<g class="edge-label" data-from="pds" data-to="appview" data-label="proxied app.bsky">
+  <rect x="172.60800000000006" y="774.7" width="100.21600000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="222.71600000000007" y="789.85" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">proxied app.bsky</text>
+</g>
+<g class="edge-label" data-from="pds" data-to="plc" data-label="resolve, submit ops">
+  <rect x="291.84175000000005" y="774.7" width="107.93800000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="345.81075000000004" y="789.85" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">resolve, submit ops</text>
+</g>
+<g class="edge-label" data-from="pds" data-to="dns" data-label="handle TXT lookups">
+  <rect x="409.13800000000015" y="774.7" width="112.69000000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="465.4830000000002" y="789.85" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">handle TXT lookups</text>
+</g>
+<g class="edge-label" data-from="pds" data-to="idp" data-label="sign-in, linkjar profile">
+  <rect x="549.686" y="774.7" width="114.47200000000004" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="606.922" y="789.85" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">sign-in, linkjar profile</text>
+</g>
+<g class="edge-label" data-from="pds" data-to="smtp" data-label="token and notice mail">
+  <rect x="783.3407500000001" y="774.7" width="113.28400000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="839.9827500000001" y="789.85" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">token and notice mail</text>
+</g>
+<g class="edge-label" data-from="mcp" data-to="pds" data-label="OAuth client, XRPC">
+  <rect x="620.5047500000001" y="381.40000000000003" width="105.562" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="673.28575" y="396.55" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">OAuth client, XRPC</text>
+</g>
+<g class="edge-label" data-from="console" data-to="pds" data-label="ops listener, OTLP">
+  <rect x="303.46875000000006" y="381.40000000000003" width="105.562" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="356.24975000000006" y="396.55" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">ops listener, OTLP</text>
+</g>
+<g class="edge-label" data-from="pds" data-to="otel" data-label="metrics">
+  <rect x="335.06100000000004" y="570.2" width="52.102000000000004" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="361.112" y="585.35" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">metrics</text>
+</g>
+<g class="node" data-id="app" data-label="LinkJar web app" data-shape="stadium">
+  <rect x="64.0979166666666" y="68" width="141.244" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="134.71991666666662" y="86.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">LinkJar web app</text>
+</g>
+<g class="node" data-id="ios" data-label="iOS and Mac apps" data-shape="stadium">
+  <rect x="233.34191666666663" y="68" width="147.172" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="306.92791666666665" y="86.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">iOS and Mac apps</text>
+</g>
+<g class="node" data-id="ext" data-label="Browser extension" data-shape="stadium">
+  <rect x="656.3039166666666" y="68" width="153.841" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="733.2244166666667" y="86.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Browser extension</text>
+</g>
+<g class="node" data-id="bsky" data-label="Bluesky app, any atproto client" data-shape="stadium">
+  <rect x="408.51391666666666" y="68" width="219.78999999999994" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="518.4089166666666" y="86.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Bluesky app, any atproto client</text>
+</g>
+<g class="node" data-id="ai" data-label="AI clients over MCP" data-shape="stadium">
+  <rect x="838.1449166666665" y="68" width="156.06400000000002" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="916.1769166666666" y="86.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">AI clients over MCP</text>
+</g>
+<g class="node" data-id="relay" data-label="Relays" data-shape="stadium">
+  <rect x="722.389" y="898" width="83.446" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="764.112" y="916.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Relays</text>
+</g>
+<g class="node" data-id="appview" data-label="AppView" data-shape="stadium">
+  <rect x="155.82200000000003" y="898" width="93.82000000000001" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="202.73200000000003" y="916.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">AppView</text>
+</g>
+<g class="node" data-id="plc" data-label="PLC directory" data-shape="stadium">
+  <rect x="277.64200000000005" y="898" width="125.68299999999999" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="340.48350000000005" y="916.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">PLC directory</text>
+</g>
+<g class="node" data-id="dns" data-label="DNS" data-shape="stadium">
+  <rect x="431.32500000000005" y="898" width="68.62599999999999" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="465.63800000000003" y="916.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">DNS</text>
+</g>
+<g class="node" data-id="idp" data-label="Apple, Google, GitHub" data-shape="stadium">
+  <rect x="527.951" y="898" width="166.438" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="611.1700000000001" y="916.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Apple, Google, GitHub</text>
+</g>
+<g class="node" data-id="smtp" data-label="SMTP" data-shape="stadium">
+  <rect x="833.835" y="898" width="79.74100000000001" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="873.7055" y="916.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">SMTP</text>
+</g>
+<g class="node" data-id="proxy" data-label="Reverse proxy, TLS" data-shape="rectangle">
+  <rect x="433.03075" y="378.1" width="163.474" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="514.76775" y="396.55" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Reverse proxy, TLS</text>
+</g>
+<g class="node" data-id="pds" data-label="linkjar-pds" data-shape="rectangle">
+  <rect x="482.4525000000001" y="463" width="104.93499999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="534.9200000000001" y="481.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">linkjar-pds</text>
+</g>
+<g class="node" data-id="data" data-label="data directory" data-shape="cylinder">
+  <rect x="651.4305" y="566.9000000000001" width="124.20099999999998" height="36.900000000000006" fill="var(--_node-fill)" stroke="none" />
+  <line x1="651.4305" y1="566.9000000000001" x2="651.4305" y2="603.8000000000001" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="775.6315000000001" y1="566.9000000000001" x2="775.6315000000001" y2="603.8000000000001" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="713.5310000000001" cy="603.8000000000001" rx="62.10049999999999" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="713.5310000000001" cy="566.9000000000001" rx="62.10049999999999" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="713.5310000000001" y="585.3500000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">data directory</text>
+</g>
+<g class="node" data-id="blobs" data-label="blobs: disk or S3" data-shape="cylinder">
+  <rect x="465.40950000000004" y="566.9000000000001" width="139.02100000000002" height="36.900000000000006" fill="var(--_node-fill)" stroke="none" />
+  <line x1="465.40950000000004" y1="566.9000000000001" x2="465.40950000000004" y2="603.8000000000001" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="604.4305" y1="566.9000000000001" x2="604.4305" y2="603.8000000000001" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="534.9200000000001" cy="603.8000000000001" rx="69.51050000000001" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="534.9200000000001" cy="566.9000000000001" rx="69.51050000000001" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="534.9200000000001" y="585.3500000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">blobs: disk or S3</text>
+</g>
+<g class="node" data-id="console" data-label="ops console" data-shape="subroutine">
+  <rect x="299.55525" y="293.20000000000005" width="113.827" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="307.55525" y1="293.20000000000005" x2="307.55525" y2="330.1" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="405.38225" y1="293.20000000000005" x2="405.38225" y2="330.1" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="356.46875" y="311.65000000000003" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">ops console</text>
+</g>
+<g class="node" data-id="mcp" data-label="MCP server" data-shape="subroutine">
+  <rect x="616.2207500000001" y="293.20000000000005" width="114.568" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="624.2207500000001" y1="293.20000000000005" x2="624.2207500000001" y2="330.1" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="722.78875" y1="293.20000000000005" x2="722.78875" y2="330.1" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="673.5047500000001" y="311.65000000000003" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">MCP server</text>
+</g>
+<g class="node" data-id="otel" data-label="Prometheus, Grafana" data-shape="cylinder">
+  <rect x="278.7125000000001" y="665.8000000000001" width="165.697" height="36.900000000000006" fill="var(--_node-fill)" stroke="none" />
+  <line x1="278.7125000000001" y1="665.8000000000001" x2="278.7125000000001" y2="702.7" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="444.4095000000001" y1="665.8000000000001" x2="444.4095000000001" y2="702.7" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="361.5610000000001" cy="702.7" rx="82.8485" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="361.5610000000001" cy="665.8000000000001" rx="82.8485" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="361.5610000000001" y="684.2500000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Prometheus, Grafana</text>
+</g>
+</svg>

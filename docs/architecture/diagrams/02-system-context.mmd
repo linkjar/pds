@@ -1,0 +1,37 @@
+flowchart TB
+  subgraph clients [Clients]
+    app([LinkJar web app])
+    ios([iOS and Mac apps])
+    ext([Browser extension])
+    bsky([Bluesky app, any atproto client])
+    ai([AI clients over MCP])
+  end
+  subgraph network [Network services]
+    relay([Relays])
+    appview([AppView])
+    plc([PLC directory])
+    dns([DNS])
+    idp([Apple, Google, GitHub])
+    smtp([SMTP])
+  end
+  subgraph host [Host pds.linkjar.social]
+    proxy[Reverse proxy, TLS]
+    pds[linkjar-pds]
+    data[(data directory)]
+    blobs[(blobs: disk or S3)]
+    console[[ops console]]
+    mcp[[MCP server]]
+    otel[(Prometheus, Grafana)]
+  end
+  app & ios & ext & bsky -- XRPC, OAuth, WebSocket --> proxy --> pds
+  ai -- MCP over HTTP --> mcp -- OAuth client, XRPC --> pds
+  relay -- subscribeRepos, getRepo --> proxy
+  pds -- requestCrawl --> relay
+  pds -- proxied app.bsky --> appview
+  pds -- resolve, submit ops --> plc
+  pds -- handle TXT lookups --> dns
+  pds -- sign-in, linkjar profile --> idp
+  pds -- token and notice mail --> smtp
+  pds --- data & blobs
+  console -- ops listener, OTLP --> pds
+  pds -- metrics --> otel

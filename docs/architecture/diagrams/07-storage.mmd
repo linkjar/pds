@@ -1,0 +1,34 @@
+flowchart LR
+  subgraph seams [pds-storage seams]
+    direction TB
+    as[ActorStore]
+    acc[AccountStore]
+    seq[SequencerStore]
+    dc[DidCache]
+    au[AuditStore]
+    bs[BlobStore]
+    io[StorageIo<br/>OS files, or the fault VFS in tests]
+  end
+  subgraph dir [PDS_DATA_DIRECTORY, reference layout]
+    direction TB
+    st[(actors/2hex/did/store.sqlite<br/>plus the sibling key file)]
+    rk[(actors/reserved_keys/)]
+    a[(account.sqlite)]
+    s[(sequencer.sqlite)]
+    d[(did_cache.sqlite)]
+    audit[(audit.sqlite, Candidate-only)]
+    opsdb[(ops.sqlite, Candidate-only)]
+  end
+  subgraph blobs [PDS_BLOBSTORE_DISK_LOCATION or S3]
+    direction TB
+    b[(did/cid)]
+    tmp[(tempt/did/)]
+    q[(quarantine/did/)]
+  end
+  as --> st & rk
+  acc --> a
+  seq --> s
+  dc --> d
+  au --> audit
+  bs --> b & tmp & q
+  as & acc & seq & dc & au -.-> io

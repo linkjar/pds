@@ -1,0 +1,17 @@
+flowchart LR
+  subgraph console [ops console, private network]
+    cui[[live views: connections, topology, repos, jobs, audit]]
+    cact[[actions: takedown, suspend, quarantine, GC, verify, repair, #sync]]
+    cotel[[OTLP receiver and capped store<br/>traces, metrics, logs]]
+  end
+  subgraph mcp [MCP server, mcp.domain]
+    rs[[MCP over Streamable HTTP<br/>OAuth 2.1 resource server: PRM, CIMD, PKCE]]
+    br[[bridge: confidential atproto OAuth client<br/>DPoP key per session, encrypted session store]]
+    tools[[tools and resources generated from lexicons<br/>public records and account only]]
+  end
+  op([operator with a role-bearing OAuth session]) --> cui & cact
+  cact -- internal.* ops API with reason --> pds[linkjar-pds]
+  pds -- OTLP over HTTP --> cotel
+  cotel -- forward --> graf([Prometheus, Grafana])
+  ai([AI client]) --> rs --> br -- PAR, consent on the PDS page, XRPC --> pds
+  pds --> audit[(audit log: both client ids)]

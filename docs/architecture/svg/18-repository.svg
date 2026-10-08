@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880.434 452.54999999999995" width="880.434" height="452.54999999999995" style="--bg:#ffffff;--fg:#1f2328;--line:#d1d9e0;--accent:#0969da;--muted:#59636e;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter%2C%20ui-sans-serif%2C%20system-ui%2C%20sans-serif:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter, ui-sans-serif, system-ui, sans-serif', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="lex" data-to="gen" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="cargo xtask codegen" points="266.76099999999997,57.89999999999998 458.8345,57.89999999999998" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="interop" data-to="tests" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="189.697,145.25 237.697,145.25" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="src" data-to="ci" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="385.2395,289.05 422.03700000000003,289.05 422.03700000000003,198.7 524.311,198.7" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="src" data-to="fuzz" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="385.2395,289.05 422.03700000000003,289.05 422.03700000000003,263.6 524.311,263.6" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="src" data-to="sim" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="385.2395,289.05 422.03700000000003,289.05 422.03700000000003,328.5 458.8345,328.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="legacy" data-to="build" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="240.82600000000005,217.14999999999998 301.0525,217.14999999999998" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="devenv" data-to="src" data-style="solid" data-arrow-start="false" data-arrow-end="false" points="265.279,289.05 301.0525,289.05" fill="none" stroke="var(--_line)" stroke-width="1" />
+<polyline class="edge" data-from="mmd" data-to="svg" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="pnpm render, beautiful-mermaid" points="269.725,393.4 524.311,393.4" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="lex" data-to="gen" data-label="cargo xtask codegen">
+  <rect x="310.76099999999997" y="41.89999999999998" width="117.44200000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="369.48199999999997" y="57.049999999999976" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">cargo xtask codegen</text>
+</g>
+<g class="edge-label" data-from="mmd" data-to="svg" data-label="pnpm render, beautiful-mermaid">
+  <rect x="313.725" y="377.4" width="163.18" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="395.31500000000005" y="392.54999999999995" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">pnpm render, beautiful-mermaid</text>
+</g>
+<g class="node" data-id="lex" data-label="lexicons/
+vendored at the pin plus io.linkjar.*" data-shape="cylinder">
+  <rect x="24.000000000000057" y="31" width="242.76099999999994" height="53.80000000000001" fill="var(--_node-fill)" stroke="none" />
+  <line x1="24.000000000000057" y1="31" x2="24.000000000000057" y2="84.80000000000001" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="266.76099999999997" y1="31" x2="266.76099999999997" y2="84.80000000000001" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="145.38050000000004" cy="84.80000000000001" rx="121.38049999999997" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="145.38050000000004" cy="31" rx="121.38049999999997" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="145.38050000000004" y="57.900000000000006" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="145.38050000000004" dy="-3.9000000000000012">lexicons/</tspan><tspan x="145.38050000000004" dy="16.900000000000002">vendored at the pin plus io.linkjar.*</tspan></text>
+</g>
+<g class="node" data-id="gen" data-label="crates/pds-types/src/generated" data-shape="rectangle">
+  <rect x="458.8345" y="39.44999999999999" width="231.64599999999996" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="574.6575" y="57.89999999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">crates/pds-types/src/generated</text>
+</g>
+<g class="node" data-id="interop" data-label="interop/, CC0 vectors" data-shape="cylinder">
+  <rect x="24" y="126.80000000000001" width="165.697" height="36.900000000000006" fill="var(--_node-fill)" stroke="none" />
+  <line x1="24" y1="126.80000000000001" x2="24" y2="163.70000000000002" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="189.697" y1="126.80000000000001" x2="189.697" y2="163.70000000000002" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="106.8485" cy="163.70000000000002" rx="82.8485" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="106.8485" cy="126.80000000000001" rx="82.8485" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="106.8485" y="145.25" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">interop/, CC0 vectors</text>
+</g>
+<g class="node" data-id="tests" data-label="crate tests" data-shape="rectangle">
+  <rect x="237.697" y="126.80000000000001" width="103.453" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="289.4235" y="145.25" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">crate tests</text>
+</g>
+<g class="node" data-id="src" data-label="crates/" data-shape="rectangle">
+  <rect x="301.0525" y="270.6" width="84.187" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="343.146" y="289.05" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">crates/</text>
+</g>
+<g class="node" data-id="ci" data-label="rust.yml: fmt, clippy, test, codegen check, deny, vet" data-shape="rectangle">
+  <rect x="524.311" y="180.25" width="328.7169999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="688.6695" y="198.7" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">rust.yml: fmt, clippy, test, codegen check, deny, vet</text>
+</g>
+<g class="node" data-id="fuzz" data-label="fuzz.yml nightly: parsers" data-shape="rectangle">
+  <rect x="524.311" y="245.15" width="184.22199999999998" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="616.422" y="263.6" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">fuzz.yml nightly: parsers</text>
+</g>
+<g class="node" data-id="sim" data-label="nightly seeds: pds-sim" data-shape="rectangle">
+  <rect x="458.8345" y="310.05" width="170.14299999999997" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="543.906" y="328.5" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">nightly seeds: pds-sim</text>
+</g>
+<g class="node" data-id="legacy" data-label="legacy/, reference image build" data-shape="stadium">
+  <rect x="24.000000000000057" y="198.7" width="216.826" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="132.41300000000007" y="217.14999999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">legacy/, reference image build</text>
+</g>
+<g class="node" data-id="build" data-label="build.yml, paths legacy/**" data-shape="rectangle">
+  <rect x="301.0525" y="198.7" width="190.891" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="396.498" y="217.14999999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">build.yml, paths legacy/**</text>
+</g>
+<g class="node" data-id="devenv" data-label="devenv.nix: toolchain, tools, hooks" data-shape="cylinder">
+  <rect x="24" y="270.6" width="241.27899999999997" height="36.900000000000006" fill="var(--_node-fill)" stroke="none" />
+  <line x1="24" y1="270.6" x2="24" y2="307.5" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="265.279" y1="270.6" x2="265.279" y2="307.5" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="144.6395" cy="307.5" rx="120.63949999999998" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="144.6395" cy="270.6" rx="120.63949999999998" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="144.6395" y="289.05" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">devenv.nix: toolchain, tools, hooks</text>
+</g>
+<g class="node" data-id="mmd" data-label="docs/architecture/diagrams/*.mmd" data-shape="cylinder">
+  <rect x="24.00000000000003" y="374.95" width="245.72499999999997" height="36.900000000000006" fill="var(--_node-fill)" stroke="none" />
+  <line x1="24.00000000000003" y1="374.95" x2="24.00000000000003" y2="411.85" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="269.725" y1="374.95" x2="269.725" y2="411.85" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="146.8625" cy="411.85" rx="122.86249999999998" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="146.8625" cy="374.95" rx="122.86249999999998" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="146.8625" y="393.4" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">docs/architecture/diagrams/*.mmd</text>
+</g>
+<g class="node" data-id="svg" data-label="docs/architecture/svg/" data-shape="rectangle">
+  <rect x="524.311" y="374.95" width="177.55300000000003" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="613.0875000000001" y="393.4" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">docs/architecture/svg/</text>
+</g>
+</svg>

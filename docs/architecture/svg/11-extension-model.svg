@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 829.7169999999999 1270.7499999999998" width="829.7169999999999" height="1270.7499999999998" style="--bg:#ffffff;--fg:#1f2328;--line:#d1d9e0;--accent:#0969da;--muted:#59636e;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter%2C%20ui-sans-serif%2C%20system-ui%2C%20sans-serif:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter, ui-sans-serif, system-ui, sans-serif', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<g class="subgraph" data-id="stock" data-label="stock profile: pds-ext">
+  <rect x="609.502" y="635.55" width="196.21499999999997" height="96.9" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="609.502" y="635.55" width="196.21499999999997" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="621.502" y="649.55" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">stock profile: pds-ext</text>
+</g>
+<g class="subgraph" data-id="lj" data-label="linkjar profile: pds-ext-linkjar">
+  <rect x="533.124" y="760.4499999999998" width="232.52399999999997" height="486.29999999999995" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="533.124" y="760.4499999999998" width="232.52399999999997" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="545.124" y="774.4499999999998" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">linkjar profile: pds-ext-linkjar</text>
+</g>
+<polyline class="edge" data-from="core" data-to="P" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="194.884,399.3999999999999 242.884,399.39999999999986" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="P" data-to="g" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="343.366,383.78846153846143 355.366,383.78846153846143 355.366,42.45 397.36600000000004,42.45" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="P" data-to="i" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="343.366,386.62692307692294 367.366,386.62692307692294 367.366,107.35 397.36600000000004,107.35" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="P" data-to="h" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="343.366,389.4653846153845 379.366,389.4653846153845 379.366,172.25 397.36600000000004,172.25" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="P" data-to="m" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="343.366,392.30384615384605 391.366,392.30384615384605 391.366,237.14999999999998 397.36600000000004,237.14999999999998" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="P" data-to="n" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="343.366,395.14230769230755 403.366,395.14230769230755 403.366,302.04999999999995 397.36600000000004,302.04999999999995" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="P" data-to="t" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="343.366,397.9807692307691 415.366,397.9807692307691 415.366,366.94999999999993 397.36600000000004,366.94999999999993" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="P" data-to="r" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="343.366,400.81923076923067 415.36600000000004,400.81923076923067 415.36600000000004,431.8499999999999 397.36600000000004,431.8499999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="P" data-to="k" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="343.366,403.6576923076922 403.36600000000004,403.6576923076922 403.36600000000004,496.7499999999999 397.36600000000004,496.7499999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="P" data-to="o" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="343.366,406.49615384615373 391.36600000000004,406.49615384615373 391.36600000000004,561.6499999999999 397.36600000000004,561.6499999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="P" data-to="s" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="343.366,409.33461538461523 379.36600000000004,409.33461538461523 379.36600000000004,626.55 397.36600000000004,626.55" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="P" data-to="stock" data-style="dotted" data-arrow-start="false" data-arrow-end="true" data-label="PDS_PROFILE=stock" points="343.366,412.1730769230768 367.36600000000004,412.1730769230768 367.36600000000004,683.9999999999998 609.502,684" fill="none" stroke="var(--_line)" stroke-width="1" stroke-dasharray="4 4" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="P" data-to="lj" data-style="dotted" data-arrow-start="false" data-arrow-end="true" data-label="PDS_PROFILE=linkjar" points="343.366,415.01153846153835 355.36600000000004,415.01153846153835 355.36600000000004,1003.5999999999999 533.124,1003.5999999999999" fill="none" stroke="var(--_line)" stroke-width="1" stroke-dasharray="4 4" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="P" data-to="stock" data-label="PDS_PROFILE=stock">
+  <rect x="443.30800000000005" y="667.9999999999998" width="122.19399999999999" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="504.40500000000003" y="683.1499999999997" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">PDS_PROFILE=stock</text>
+</g>
+<g class="edge-label" data-from="P" data-to="lj" data-label="PDS_PROFILE=linkjar">
+  <rect x="363.36600000000004" y="987.5999999999999" width="125.75800000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="426.24500000000006" y="1002.7499999999999" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">PDS_PROFILE=linkjar</text>
+</g>
+<g class="node" data-id="core" data-label="server core
+no operator branches" data-shape="rectangle">
+  <rect x="24" y="372.49999999999994" width="170.884" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="109.442" y="399.3999999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="109.442" dy="-3.9000000000000012">server core</tspan><tspan x="109.442" dy="16.900000000000002">no operator branches</tspan></text>
+</g>
+<g class="node" data-id="P" data-label="Profile" data-shape="hexagon">
+  <polygon points="252.10899999999998,380.9499999999999 334.14099999999996,380.9499999999999 343.366,399.39999999999986 334.14099999999996,417.8499999999999 252.10899999999998,417.8499999999999 242.884,399.39999999999986" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="293.125" y="399.39999999999986" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Profile</text>
+</g>
+<g class="node" data-id="g" data-label="SignupGate" data-shape="hexagon">
+  <polygon points="406.59100000000007,24 518.263,24 527.488,42.45 518.263,60.900000000000006 406.59100000000007,60.900000000000006 397.36600000000004,42.45" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="462.427" y="42.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">SignupGate</text>
+</g>
+<g class="node" data-id="i" data-label="IdentityProviders" data-shape="hexagon">
+  <polygon points="406.59100000000007,88.89999999999999 552.349,88.89999999999999 561.5740000000001,107.35 552.349,125.8 406.59100000000007,125.8 397.36600000000004,107.35" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="479.47" y="107.35" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">IdentityProviders</text>
+</g>
+<g class="node" data-id="h" data-label="HandlePolicy" data-shape="hexagon">
+  <polygon points="406.59100000000007,153.79999999999998 528.6370000000001,153.79999999999998 537.8620000000001,172.25 528.6370000000001,190.7 406.59100000000007,190.7 397.36600000000004,172.25" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="467.61400000000003" y="172.25" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">HandlePolicy</text>
+</g>
+<g class="node" data-id="m" data-label="SignInMethods" data-shape="hexagon">
+  <polygon points="406.59100000000007,218.7 538.2700000000001,218.7 547.4950000000001,237.14999999999998 538.2700000000001,255.6 406.59100000000007,255.6 397.36600000000004,237.14999999999998" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="472.43050000000005" y="237.14999999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">SignInMethods</text>
+</g>
+<g class="node" data-id="n" data-label="Notices" data-shape="hexagon">
+  <polygon points="406.59100000000007,283.59999999999997 494.55100000000004,283.59999999999997 503.77600000000007,302.04999999999995 494.55100000000004,320.5 406.59100000000007,320.5 397.36600000000004,302.04999999999995" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="450.571" y="302.04999999999995" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Notices</text>
+</g>
+<g class="node" data-id="t" data-label="MailTemplates, Branding" data-shape="hexagon">
+  <polygon points="406.59100000000007,348.49999999999994 595.327,348.49999999999994 604.552,366.94999999999993 595.327,385.4 406.59100000000007,385.4 397.36600000000004,366.94999999999993" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="500.95900000000006" y="366.94999999999993" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">MailTemplates, Branding</text>
+</g>
+<g class="node" data-id="r" data-label="CreationReceipt" data-shape="hexagon">
+  <polygon points="406.59100000000007,413.3999999999999 544.939,413.3999999999999 554.164,431.8499999999999 544.939,450.29999999999995 406.59100000000007,450.29999999999995 397.36600000000004,431.8499999999999" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="475.76500000000004" y="431.8499999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">CreationReceipt</text>
+</g>
+<g class="node" data-id="k" data-label="AccountHooks, migrations" data-shape="hexagon">
+  <polygon points="406.59100000000007,478.2999999999999 603.478,478.2999999999999 612.703,496.7499999999999 603.478,515.1999999999999 406.59100000000007,515.1999999999999 397.36600000000004,496.7499999999999" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="505.03450000000004" y="496.7499999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">AccountHooks, migrations</text>
+</g>
+<g class="node" data-id="o" data-label="OperatorRoles" data-shape="hexagon">
+  <polygon points="406.59100000000007,543.1999999999998 537.529,543.1999999999998 546.754,561.6499999999999 537.529,580.0999999999998 406.59100000000007,580.0999999999998 397.36600000000004,561.6499999999999" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="472.06000000000006" y="561.6499999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">OperatorRoles</text>
+</g>
+<g class="node" data-id="s" data-label="StorageBackends" data-shape="hexagon">
+  <polygon points="406.59100000000007,608.0999999999999 558.277,608.0999999999999 567.5020000000001,626.55 558.277,644.9999999999999 406.59100000000007,644.9999999999999 397.36600000000004,626.55" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="482.434" y="626.55" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">StorageBackends</text>
+</g>
+<g class="node" data-id="s1" data-label="reference behaviour" data-shape="rectangle">
+  <rect x="625.502" y="679.55" width="164.21499999999997" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="707.6094999999999" y="698" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">reference behaviour</text>
+</g>
+<g class="node" data-id="l1" data-label="093 handle policy" data-shape="rectangle">
+  <rect x="570.4277500000001" y="869.3499999999998" width="144.208" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="642.5317500000001" y="887.7999999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">093 handle policy</text>
+</g>
+<g class="node" data-id="l2" data-label="099 external providers" data-shape="rectangle">
+  <rect x="570.4277500000001" y="1064.0499999999997" width="176.81199999999998" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="658.83375" y="1082.4999999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">099 external providers</text>
+</g>
+<g class="node" data-id="l3" data-label="099b receipt" data-shape="rectangle">
+  <rect x="570.4277500000001" y="804.4499999999998" width="115.30900000000001" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="628.08225" y="822.8999999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">099b receipt</text>
+</g>
+<g class="node" data-id="l4" data-label="099c signup policy" data-shape="rectangle">
+  <rect x="570.4277500000001" y="1128.9499999999998" width="151.618" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="646.23675" y="1147.3999999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">099c signup policy</text>
+</g>
+<g class="node" data-id="l5" data-label="100 sign-in methods, notices" data-shape="rectangle">
+  <rect x="570.4277500000001" y="1193.85" width="200.52399999999997" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="670.68975" y="1212.3" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">100 sign-in methods, notices</text>
+</g>
+<g class="node" data-id="l6" data-label="101 mail templates" data-shape="rectangle">
+  <rect x="570.4277500000001" y="934.2499999999998" width="136.798" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="638.8267500000001" y="952.6999999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">101 mail templates</text>
+</g>
+<g class="node" data-id="l7" data-label="operator roles" data-shape="rectangle">
+  <rect x="570.4277500000001" y="999.1499999999999" width="127.16499999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="634.01025" y="1017.5999999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">operator roles</text>
+</g>
+</svg>

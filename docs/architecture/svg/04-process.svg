@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 810.2479999999998 873.5" width="810.2479999999998" height="873.5" style="--bg:#ffffff;--fg:#1f2328;--line:#d1d9e0;--accent:#0969da;--muted:#59636e;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter%2C%20ui-sans-serif%2C%20system-ui%2C%20sans-serif:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter, ui-sans-serif, system-ui, sans-serif', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<g class="subgraph" data-id="proc" data-label="linkjar-pds process, tokio">
+  <rect x="206.647" y="24" width="579.6009999999999" height="825.5" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="206.647" y="24" width="579.6009999999999" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="218.647" y="38" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">linkjar-pds process, tokio</text>
+<g class="subgraph" data-id="bg" data-label="supervised background tasks">
+  <rect x="270.67499999999995" y="248.5" width="199.92" height="486.29999999999995" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="270.67499999999995" y="248.5" width="199.92" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="282.67499999999995" y="262.5" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">supervised background tasks</text>
+</g>
+</g>
+<polyline class="edge" data-from="proxy" data-to="pub" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="152.647,103.35000000000001 222.647,103.35" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="console" data-to="ops" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="152.647,199.75 187.647,199.75 187.647,798.15 222.647,798.15" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="console" data-to="met" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="152.647,199.75 187.647,199.75 187.647,193.60000000000002 222.647,193.60000000000002" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="bg" data-to="prov" data-style="solid" data-arrow-start="false" data-arrow-end="false" points="263.9479999999999,467.65 311.9479999999999,467.65" fill="none" stroke="var(--_line)" stroke-width="1" />
+<polyline class="edge" data-from="pub" data-to="pool" data-style="solid" data-arrow-start="false" data-arrow-end="false" points="470.5949999999999,103.35 518.5949999999999,103.35" fill="none" stroke="var(--_line)" stroke-width="1" />
+<g class="node" data-id="proxy" data-label="reverse proxy" data-shape="stadium">
+  <rect x="24" y="84.9" width="128.647" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="88.3235" y="103.35000000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">reverse proxy</text>
+</g>
+<g class="node" data-id="console" data-label="console" data-shape="subroutine">
+  <rect x="63.272999999999996" y="181.3" width="89.374" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="71.273" y1="181.3" x2="71.273" y2="218.20000000000002" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="144.647" y1="181.3" x2="144.647" y2="218.20000000000002" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="107.96" y="199.75" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">console</text>
+</g>
+<g class="node" data-id="pub" data-label="public listener
+PDS_PORT
+/xrpc, /oauth, /account, /.well-known" data-shape="rectangle">
+  <rect x="222.647" y="68" width="247.94799999999992" height="70.7" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="346.621" y="103.35" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="346.621" dy="-12.350000000000001">public listener</tspan><tspan x="346.621" dy="16.900000000000002">PDS_PORT</tspan><tspan x="346.621" dy="16.900000000000002">/xrpc, /oauth, /account, /.well-known</tspan></text>
+</g>
+<g class="node" data-id="met" data-label="metrics listener
+PDS_METRICS_ADDRESS" data-shape="rectangle">
+  <rect x="222.647" y="166.70000000000002" width="204.22899999999993" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="324.76149999999996" y="193.60000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="324.76149999999996" dy="-3.9000000000000012">metrics listener</tspan><tspan x="324.76149999999996" dy="16.900000000000002">PDS_METRICS_ADDRESS</tspan></text>
+</g>
+<g class="node" data-id="ops" data-label="ops listener
+PDS_OPS_ADDRESS
+internal.* and live WebSocket" data-shape="rectangle">
+  <rect x="222.647" y="762.8" width="213.86199999999997" height="70.7" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="329.578" y="798.15" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="329.578" dy="-12.350000000000001">ops listener</tspan><tspan x="329.578" dy="16.900000000000002">PDS_OPS_ADDRESS</tspan><tspan x="329.578" dy="16.900000000000002">internal.* and live WebSocket</tspan></text>
+</g>
+<g class="node" data-id="prov" data-label="providers: clock, random, StorageIo" data-shape="cylinder">
+  <rect x="518.5949999999999" y="473.2" width="251.65299999999996" height="36.900000000000006" fill="var(--_node-fill)" stroke="none" />
+  <line x1="518.5949999999999" y1="473.2" x2="518.5949999999999" y2="510.1" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="770.2479999999998" y1="473.2" x2="770.2479999999998" y2="510.1" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="644.4214999999999" cy="510.1" rx="125.82649999999998" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="644.4214999999999" cy="473.2" rx="125.82649999999998" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="644.4214999999999" y="491.65" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">providers: clock, random, StorageIo</text>
+</g>
+<g class="node" data-id="pool" data-label="blocking pool: SQLite" data-shape="cylinder">
+  <rect x="518.5949999999999" y="84.89999999999999" width="164.95600000000002" height="36.900000000000006" fill="var(--_node-fill)" stroke="none" />
+  <line x1="518.5949999999999" y1="84.89999999999999" x2="518.5949999999999" y2="121.8" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="683.5509999999999" y1="84.89999999999999" x2="683.5509999999999" y2="121.8" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="601.0729999999999" cy="121.80000000000001" rx="82.47800000000001" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="601.0729999999999" cy="84.89999999999999" rx="82.47800000000001" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="601.0729999999999" y="103.35" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">blocking pool: SQLite</text>
+</g>
+<g class="node" data-id="t1" data-label="crawler notify" data-shape="rectangle">
+  <rect x="306.86724999999996" y="357.4" width="121.23700000000001" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="367.48574999999994" y="375.84999999999997" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">crawler notify</text>
+</g>
+<g class="node" data-id="t2" data-label="scheduled deletion" data-shape="rectangle">
+  <rect x="306.86724999999996" y="552.1" width="152.359" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="383.04675" y="570.5500000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">scheduled deletion</text>
+</g>
+<g class="node" data-id="t3" data-label="blob GC" data-shape="rectangle">
+  <rect x="306.86724999999996" y="292.5" width="87.151" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="350.44274999999993" y="310.95" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">blob GC</text>
+</g>
+<g class="node" data-id="t4" data-label="mail outbox" data-shape="rectangle">
+  <rect x="306.86724999999996" y="617" width="106.41699999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="360.07574999999997" y="635.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">mail outbox</text>
+</g>
+<g class="node" data-id="t5" data-label="DID cache refresh" data-shape="rectangle">
+  <rect x="306.86724999999996" y="681.9" width="148.654" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="381.19424999999995" y="700.35" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">DID cache refresh</text>
+</g>
+<g class="node" data-id="t6" data-label="audit checkpoint" data-shape="rectangle">
+  <rect x="306.86724999999996" y="422.29999999999995" width="137.539" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="375.63674999999995" y="440.74999999999994" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">audit checkpoint</text>
+</g>
+<g class="node" data-id="t7" data-label="permission-set cache" data-shape="rectangle">
+  <rect x="306.86724999999996" y="487.2" width="167.92" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="390.82724999999994" y="505.65" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">permission-set cache</text>
+</g>
+</svg>

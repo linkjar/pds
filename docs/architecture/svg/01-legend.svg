@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 819.502 98.9" width="819.502" height="98.9" style="--bg:#ffffff;--fg:#1f2328;--line:#d1d9e0;--accent:#0969da;--muted:#59636e;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter%2C%20ui-sans-serif%2C%20system-ui%2C%20sans-serif:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter, ui-sans-serif, system-ui, sans-serif', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="a" data-to="b" data-style="solid" data-arrow-start="false" data-arrow-end="false" points="156.352,49.45 204.352,49.45" fill="none" stroke="var(--_line)" stroke-width="1" />
+<polyline class="edge" data-from="b" data-to="c" data-style="solid" data-arrow-start="false" data-arrow-end="false" points="325.589,49.45 373.589,49.45" fill="none" stroke="var(--_line)" stroke-width="1" />
+<polyline class="edge" data-from="c" data-to="d" data-style="solid" data-arrow-start="false" data-arrow-end="false" points="461.481,49.45 509.481,49.45" fill="none" stroke="var(--_line)" stroke-width="1" />
+<polyline class="edge" data-from="d" data-to="e" data-style="solid" data-arrow-start="false" data-arrow-end="false" points="597.373,49.45 645.373,49.45" fill="none" stroke="var(--_line)" stroke-width="1" />
+<g class="node" data-id="a" data-label="outside the host" data-shape="stadium">
+  <rect x="24" y="31" width="132.352" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="90.176" y="49.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">outside the host</text>
+</g>
+<g class="node" data-id="b" data-label="PDS process" data-shape="rectangle">
+  <rect x="204.352" y="31" width="121.237" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="264.9705" y="49.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">PDS process</text>
+</g>
+<g class="node" data-id="c" data-label="sidecar" data-shape="subroutine">
+  <rect x="373.589" y="31" width="87.892" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="381.589" y1="31" x2="381.589" y2="67.9" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="453.481" y1="31" x2="453.481" y2="67.9" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="417.53499999999997" y="49.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">sidecar</text>
+</g>
+<g class="node" data-id="d" data-label="storage" data-shape="cylinder">
+  <rect x="509.481" y="31" width="87.892" height="36.900000000000006" fill="var(--_node-fill)" stroke="none" />
+  <line x1="509.481" y1="31" x2="509.481" y2="67.9" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="597.373" y1="31" x2="597.373" y2="67.9" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="553.427" cy="67.9" rx="43.946" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="553.427" cy="31" rx="43.946" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="553.427" y="49.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">storage</text>
+</g>
+<g class="node" data-id="e" data-label="extension point" data-shape="hexagon">
+  <polygon points="654.5980000000001,31 786.277,31 795.5020000000001,49.45 786.277,67.9 654.5980000000001,67.9 645.373,49.45" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="720.4375" y="49.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">extension point</text>
+</g>
+</svg>

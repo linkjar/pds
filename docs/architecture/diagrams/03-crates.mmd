@@ -1,0 +1,32 @@
+flowchart BT
+  types[pds-types<br/>syntax, data model, generated API types]
+  lexicon[pds-lexicon<br/>lexicon model, validation, permission sets]
+  repo[pds-repo<br/>MST, commits, CAR, diffs]
+  storage[pds-storage<br/>seams, SQLite, StorageIo]
+  blob[pds-blob]
+  identity[pds-identity<br/>DID, handle, PLC, keys]
+  sequencer[pds-sequencer<br/>event log, firehose]
+  account[pds-account<br/>accounts, sessions, mail]
+  oauth[pds-oauth<br/>authorization server, pages]
+  audit[pds-audit<br/>chain, checkpoints, verifier]
+  xrpc[pds-xrpc<br/>routing, limits, proxy]
+  ext{{pds-ext<br/>extension traits, stock profile}}
+  linkjar{{pds-ext-linkjar<br/>linkjar profile}}
+  sim[pds-sim<br/>fault VFS, fail points, turmoil]
+  bin[linkjar-pds<br/>binary, CLI, ops listener]
+  xtask[xtask<br/>codegen]
+  lexicon --> types
+  repo --> types
+  storage --> types & repo
+  blob --> storage
+  identity --> types & storage
+  sequencer --> repo & storage
+  account --> storage & identity & ext & audit
+  oauth --> account & lexicon & ext
+  audit --> storage & repo
+  xrpc --> types & lexicon & repo & sequencer & account & oauth & blob
+  ext --> types & storage
+  linkjar --> ext
+  sim --> storage & sequencer
+  bin --> xrpc & linkjar & sim
+  xtask --> lexicon

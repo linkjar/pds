@@ -53,6 +53,7 @@
       cargo xtask codegen --check
     '';
     "pds:codegen".exec = "cargo xtask codegen";
+    "docs:diagrams".exec = "cd docs/architecture && pnpm install --silent && pnpm render";
   };
 
   enterShell = ''

@@ -1,0 +1,11 @@
+flowchart TB
+  seed[seed plus commit] --> plan[interaction plan<br/>writes, subscribers, imports, lifecycle, OAuth, mail]
+  plan --> run[pds-sim run, single thread]
+  run --> vfs[fault VFS via sqlite-plugin<br/>I/O error after N, fsync failure, torn write, bit flip, disk full, power loss]
+  run --> fp[fail points<br/>commit, sequence, outbox, PLC, checkpoint]
+  run --> net[turmoil plus mad-turmoil<br/>partitions, delays, crashes, seeded time and randomness]
+  vfs & fp & net --> sut[linkjar-pds, same code as production]
+  sut --> o1{verify passes or repair restores the recorded MST root}
+  sut --> o2{no acknowledged write lost}
+  sut --> o3{every seq delivered once, in order}
+  sut --> o4{TRACE logs identical on rerun}

@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1554.8469999999998 301.95000000000005" width="1554.8469999999998" height="301.95000000000005" style="--bg:#0d1117;--fg:#e6edf3;--line:#3d444d;--accent:#4493f8;--muted:#9198a1;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter%2C%20ui-sans-serif%2C%20system-ui%2C%20sans-serif:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter, ui-sans-serif, system-ui, sans-serif', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="req" data-to="cache" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="192.661,91.80000000000001 240.661,91.80000000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="cache" data-to="fetch" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="miss or stale" points="397.466,91.80000000000001 561.328,91.80000000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="fetch" data-to="plc" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="805.5709999999999,91.80000000000001 829.5709999999999,91.80000000000001 829.5709999999999,50.900000000000006 956.5699999999998,50.900000000000006" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="fetch" data-to="web" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="805.5709999999999,91.80000000000001 829.5709999999999,91.80000000000001 829.5709999999999,132.70000000000002 853.5709999999999,132.70000000000002" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="handle" data-to="txt" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="142.27299999999997,217.27500000000003 166.27299999999997,217.27500000000003 166.27299999999997,180.60000000000002 613.939,180.60000000000002" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="handle" data-to="wk" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="142.27299999999997,217.27500000000003 166.27299999999997,217.27500000000003 166.27299999999997,253.95000000000005 190.27299999999997,253.95000000000005" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="plc" data-to="doc" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1074.1019999999999,50.900000000000006 1098.1019999999999,50.900000000000006 1098.1019999999999,91.80000000000001 1122.1019999999999,91.80000000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="web" data-to="doc" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1074.1019999999999,132.70000000000002 1098.1019999999999,132.70000000000002 1098.1019999999999,91.80000000000001 1122.1019999999999,91.80000000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="cache" data-to="fetch" data-label="miss or stale">
+  <rect x="441.466" y="75.80000000000001" width="75.86200000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="479.397" y="90.95000000000002" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">miss or stale</text>
+</g>
+<g class="node" data-id="req" data-label="resolve DID or handle" data-shape="rectangle">
+  <rect x="24.000000000000014" y="73.35000000000002" width="168.661" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="108.33050000000001" y="91.80000000000003" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">resolve DID or handle</text>
+</g>
+<g class="node" data-id="cache" data-label="did_cache.sqlite
+stale TTL, max TTL" data-shape="cylinder">
+  <rect x="240.661" y="64.9" width="156.80499999999998" height="53.80000000000001" fill="var(--_node-fill)" stroke="none" />
+  <line x1="240.661" y1="64.9" x2="240.661" y2="118.70000000000002" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="397.466" y1="64.9" x2="397.466" y2="118.70000000000002" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="319.0635" cy="118.70000000000002" rx="78.40249999999999" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="319.0635" cy="64.9" rx="78.40249999999999" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="319.0635" y="91.80000000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="319.0635" dy="-3.9000000000000012">did_cache.sqlite</tspan><tspan x="319.0635" dy="16.900000000000002">stale TTL, max TTL</tspan></text>
+</g>
+<g class="node" data-id="fetch" data-label="safe fetch
+unicast only, redirect cap, size cap" data-shape="rectangle">
+  <rect x="561.328" y="64.9" width="244.243" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="683.4495" y="91.80000000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="683.4495" dy="-3.9000000000000012">safe fetch</tspan><tspan x="683.4495" dy="16.900000000000002">unicast only, redirect cap, size cap</tspan></text>
+</g>
+<g class="node" data-id="plc" data-label="plc.directory
+did:plc" data-shape="stadium">
+  <rect x="956.5699999999998" y="24" width="117.53200000000001" height="53.800000000000004" rx="26.900000000000002" ry="26.900000000000002" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1015.3359999999998" y="50.900000000000006" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="1015.3359999999998" dy="-3.9000000000000012">plc.directory</tspan><tspan x="1015.3359999999998" dy="16.900000000000002">did:plc</tspan></text>
+</g>
+<g class="node" data-id="web" data-label="https host /.well-known/did.json
+did:web" data-shape="stadium">
+  <rect x="853.5709999999999" y="105.80000000000001" width="220.53099999999995" height="53.800000000000004" rx="26.900000000000002" ry="26.900000000000002" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="963.8364999999999" y="132.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="963.8364999999999" dy="-3.9000000000000012">https host /.well-known/did.json</tspan><tspan x="963.8364999999999" dy="16.900000000000002">did:web</tspan></text>
+</g>
+<g class="node" data-id="handle" data-label="verify handle" data-shape="rectangle">
+  <rect x="24" y="198.82500000000002" width="118.27299999999998" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="83.13649999999998" y="217.27500000000003" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">verify handle</text>
+</g>
+<g class="node" data-id="txt" data-label="DNS TXT _atproto.handle
+did=..." data-shape="stadium">
+  <rect x="613.939" y="153.70000000000002" width="191.63199999999998" height="53.800000000000004" rx="26.900000000000002" ry="26.900000000000002" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="709.755" y="180.60000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="709.755" dy="-3.9000000000000012">DNS TXT _atproto.handle</tspan><tspan x="709.755" dy="16.900000000000002">did=...</tspan></text>
+</g>
+<g class="node" data-id="wk" data-label="https handle /.well-known/atproto-did" data-shape="stadium">
+  <rect x="190.27299999999997" y="235.50000000000003" width="252.39399999999998" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="316.46999999999997" y="253.95000000000005" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">https handle /.well-known/atproto-did</text>
+</g>
+<g class="node" data-id="doc" data-label="DID document contract
+alsoKnownAs first at://, #atproto Multikey, #atproto_pds service" data-shape="rectangle">
+  <rect x="1122.1019999999999" y="64.9" width="408.74499999999983" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1326.4744999999998" y="91.80000000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="1326.4744999999998" dy="-3.9000000000000012">DID document contract</tspan><tspan x="1326.4744999999998" dy="16.900000000000002">alsoKnownAs first at://, #atproto Multikey, #atproto_pds service</tspan></text>
+</g>
+</svg>

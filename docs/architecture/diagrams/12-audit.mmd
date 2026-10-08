@@ -1,0 +1,7 @@
+flowchart LR
+  act[account, operator or MCP action] --> e1[(entry n<br/>DAG-CBOR, prev hash)] --> e2[(entry n+1)] --> e3[(...)]
+  e3 --> ck[checkpoint every 5 min<br/>Merkle root, key id, Ed25519 signature]
+  ck --> rec[record io.linkjar.pds.audit.checkpoint<br/>in the operator's own repo]
+  rec --> fh[firehose] --> relays([relays, indexers, mirrors as witnesses])
+  ck --> db[(audit.sqlite)]
+  ver([audit verify, standalone binary<br/>recomputes chain, roots, signatures offline]) -.-> db

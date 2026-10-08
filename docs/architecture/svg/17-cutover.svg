@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 449.833 1071.1999999999998" width="449.833" height="1071.1999999999998" style="--bg:#ffffff;--fg:#1f2328;--line:#d1d9e0;--accent:#0969da;--muted:#59636e;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter%2C%20ui-sans-serif%2C%20system-ui%2C%20sans-serif:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter, ui-sans-serif, system-ui, sans-serif', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="_start" data-to="Reference" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="production today" points="258.3075,52 258.3075,168.3" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Reference" data-to="Verify" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="stop container, run verify" points="240.94183333333336,205.2 240.94183333333336,241.2 176,241.2 176,321.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Verify" data-to="Candidate" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="start linkjar-pds on the same dir and secrets" points="176,358.4 176,474.70000000000005" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Candidate" data-to="Smoke" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="health, describeServer, OAuth metadata, relay resumes cursor" points="176,511.6 176,627.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Smoke" data-to="Watch" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="web, iOS, extension sign-in, write, firehose, mail" points="176,664.8 176,769.0999999999999 245.26433333333335,769.0999999999999 245.26433333333335,781.0999999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Watch" data-to="Reference" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="rollback, start the Reference image" points="271.35066666666665,781.0999999999999 271.35066666666665,769.0999999999999 340.615,769.0999999999999 340.615,394.40000000000003 275.6731666666667,394.40000000000003 275.6731666666667,205.2" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Watch" data-to="Closed" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="migrate with allow-candidate-only closes the window" points="258.3075,817.9999999999999 258.30750000000006,934.2999999999998" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="Closed" data-to="_end" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="258.30750000000006,971.1999999999998 258.30750000000006,1019.1999999999998" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="_start" data-to="Reference" data-label="production today">
+  <rect x="209.8075" y="95" width="96.65200000000003" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="258.1335" y="110.15" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">production today</text>
+</g>
+<g class="edge-label" data-from="Reference" data-to="Verify" data-label="stop container, run verify">
+  <rect x="108.5" y="248.19999999999996" width="134.668" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="175.834" y="263.34999999999997" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">stop container, run verify</text>
+</g>
+<g class="edge-label" data-from="Verify" data-to="Candidate" data-label="start linkjar-pds on the same dir and secrets">
+  <rect x="65.50000000000001" y="401.40000000000003" width="220.7980000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="175.89900000000006" y="416.55" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">start linkjar-pds on the same dir and secrets</text>
+</g>
+<g class="edge-label" data-from="Candidate" data-to="Smoke" data-label="health, describeServer, OAuth metadata, relay resumes cursor">
+  <rect x="20" y="554.6" width="311.0859999999999" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="175.54299999999995" y="569.75" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">health, describeServer, OAuth metadata, relay resumes cursor</text>
+</g>
+<g class="edge-label" data-from="Smoke" data-to="Watch" data-label="web, iOS, extension sign-in, write, firehose, mail">
+  <rect x="58.999999999999986" y="707.8" width="233.27199999999996" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="175.63599999999997" y="722.9499999999999" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">web, iOS, extension sign-in, write, firehose, mail</text>
+</g>
+<g class="edge-label" data-from="Watch" data-to="Reference" data-label="rollback, start the Reference image">
+  <rect x="250.61500000000004" y="522.3000000000001" width="179.21800000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="340.22400000000005" y="537.45" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">rollback, start the Reference image</text>
+</g>
+<g class="edge-label" data-from="Watch" data-to="Closed" data-label="migrate with allow-candidate-only closes the window">
+  <rect x="130.3075" y="860.9999999999999" width="255.84400000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="258.22950000000003" y="876.1499999999999" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">migrate with allow-candidate-only closes the window</text>
+</g>
+<g class="node" data-id="_start" data-label="" data-shape="state-start">
+  <circle cx="258.3075" cy="38" r="12" fill="var(--_text)" stroke="none" />
+</g>
+<g class="node" data-id="Reference" data-label="Reference" data-shape="rounded">
+  <rect x="206.21050000000002" y="168.3" width="104.194" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="258.3075" y="186.75" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Reference</text>
+</g>
+<g class="node" data-id="Verify" data-label="Verify" data-shape="rounded">
+  <rect x="137.24099999999999" y="321.5" width="77.518" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="176" y="339.95" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Verify</text>
+</g>
+<g class="node" data-id="Candidate" data-label="Candidate" data-shape="rounded">
+  <rect x="125.385" y="474.70000000000005" width="101.22999999999999" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="176" y="493.15000000000003" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Candidate</text>
+</g>
+<g class="node" data-id="Smoke" data-label="Smoke" data-shape="rounded">
+  <rect x="135.018" y="627.9" width="81.964" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="176" y="646.35" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Smoke</text>
+</g>
+<g class="node" data-id="Watch" data-label="Watch" data-shape="rounded">
+  <rect x="219.178" y="781.0999999999999" width="78.259" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="258.3075" y="799.55" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Watch</text>
+</g>
+<g class="node" data-id="Closed" data-label="Closed" data-shape="rounded">
+  <rect x="216.58450000000005" y="934.2999999999998" width="83.446" height="36.900000000000006" rx="6" ry="6" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="258.30750000000006" y="952.7499999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Closed</text>
+</g>
+<g class="node" data-id="_end" data-label="" data-shape="state-end">
+  <circle cx="258.30750000000006" cy="1033.1999999999998" r="12" fill="none" stroke="var(--_text)" stroke-width="1.5" />
+  <circle cx="258.30750000000006" cy="1033.1999999999998" r="8" fill="var(--_text)" stroke="none" />
+</g>
+</svg>

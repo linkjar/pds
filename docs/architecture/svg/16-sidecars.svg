@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1487.4959999999999 564.5" width="1487.4959999999999" height="564.5" style="--bg:#ffffff;--fg:#1f2328;--line:#d1d9e0;--accent:#0969da;--muted:#59636e;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter%2C%20ui-sans-serif%2C%20system-ui%2C%20sans-serif:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter, ui-sans-serif, system-ui, sans-serif', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<g class="subgraph" data-id="console" data-label="ops console, private network">
+  <rect x="368.926" y="24" width="451.1189999999998" height="243.60000000000002" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="368.926" y="24" width="451.1189999999998" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="380.926" y="38" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">ops console, private network</text>
+</g>
+<g class="subgraph" data-id="mcp" data-label="MCP server, mcp.domain">
+  <rect x="165.151" y="344.9" width="709.2759999999998" height="195.60000000000002" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <rect x="165.151" y="344.9" width="709.2759999999998" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+  <text x="177.151" y="358.9" font-size="12" font-weight="600" fill="var(--_text-sec)" dy="4.199999999999999">MCP server, mcp.domain</text>
+</g>
+<polyline class="edge" data-from="pds" data-to="audit" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1241.648,306.6 1289.648,306.6" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="op" data-to="cui" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="314.926,118.9 349.926,118.9 349.926,86.45 384.926,86.45" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="op" data-to="cact" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="314.926,118.9 349.926,118.9 349.926,151.35000000000002 384.926,151.35000000000002" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="cact" data-to="pds" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="internal.* ops API with reason" points="804.0449999999998,151.35000000000002 1033.5029999999997,151.35000000000002 1033.5029999999997,297.375 1136.713,297.375" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="pds" data-to="cotel" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="OTLP over HTTP" points="1136.713,306.6 350.926,306.6 350.926,224.70000000000002 476.4394999999999,224.70000000000002" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="cotel" data-to="graf" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="forward" points="712.5314999999998,224.70000000000002 1045.5029999999997,224.69999999999996" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="ai" data-to="rs" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="111.15100000000001,497.6 182.07725000000002,497.6" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="br" data-to="pds" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="PAR, consent on the PDS page, XRPC" points="858.4269999999999,497.6 1124.713,497.6 1124.713,315.825 1136.713,315.825" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="rs" data-to="br" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="489.30525,497.6 536.379,497.6" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="cact" data-to="pds" data-label="internal.* ops API with reason">
+  <rect x="870.0449999999998" y="135.35000000000002" width="155.458" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="947.7739999999999" y="150.50000000000003" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">internal.* ops API with reason</text>
+</g>
+<g class="edge-label" data-from="pds" data-to="cotel" data-label="OTLP over HTTP">
+  <rect x="924.6929999999998" y="290.6" width="100.81" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="975.0979999999997" y="305.75" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">OTLP over HTTP</text>
+</g>
+<g class="edge-label" data-from="cotel" data-to="graf" data-label="forward">
+  <rect x="947.0249999999999" y="208.69999999999996" width="54.478" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="974.2639999999999" y="223.84999999999997" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">forward</text>
+</g>
+<g class="edge-label" data-from="br" data-to="pds" data-label="PAR, consent on the PDS page, XRPC">
+  <rect x="924.4269999999999" y="481.6" width="192.286" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="1020.5699999999999" y="496.75" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">PAR, consent on the PDS page, XRPC</text>
+</g>
+<g class="node" data-id="op" data-label="operator with a role-bearing OAuth session" data-shape="stadium">
+  <rect x="24.000000000000057" y="100.45" width="290.92599999999993" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="169.46300000000002" y="118.9" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">operator with a role-bearing OAuth session</text>
+</g>
+<g class="node" data-id="pds" data-label="linkjar-pds" data-shape="rectangle">
+  <rect x="1136.713" y="288.15" width="104.93499999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1189.1805" y="306.59999999999997" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">linkjar-pds</text>
+</g>
+<g class="node" data-id="graf" data-label="Prometheus, Grafana" data-shape="stadium">
+  <rect x="1045.5029999999997" y="206.24999999999997" width="165.697" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1128.3514999999998" y="224.7" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Prometheus, Grafana</text>
+</g>
+<g class="node" data-id="ai" data-label="AI client" data-shape="stadium">
+  <rect x="24" y="479.15" width="87.15100000000001" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="67.5755" y="497.59999999999997" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">AI client</text>
+</g>
+<g class="node" data-id="audit" data-label="audit log: both client ids" data-shape="cylinder">
+  <rect x="1289.648" y="288.15" width="173.848" height="36.900000000000006" fill="var(--_node-fill)" stroke="none" />
+  <line x1="1289.648" y1="288.15" x2="1289.648" y2="325.04999999999995" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="1463.4959999999999" y1="288.15" x2="1463.4959999999999" y2="325.04999999999995" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="1376.572" cy="325.04999999999995" rx="86.924" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="1376.572" cy="288.15" rx="86.924" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1376.572" y="306.59999999999997" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">audit log: both client ids</text>
+</g>
+<g class="node" data-id="cui" data-label="live views: connections, topology, repos, jobs, audit" data-shape="subroutine">
+  <rect x="384.926" y="68" width="336.8679999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="392.926" y1="68" x2="392.926" y2="104.9" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="713.7939999999999" y1="68" x2="713.7939999999999" y2="104.9" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="553.3599999999999" y="86.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">live views: connections, topology, repos, jobs, audit</text>
+</g>
+<g class="node" data-id="cact" data-label="actions: takedown, suspend, quarantine, GC, verify, repair, #sync" data-shape="subroutine">
+  <rect x="384.926" y="132.9" width="419.1189999999998" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="392.926" y1="132.9" x2="392.926" y2="169.8" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="796.0449999999998" y1="132.9" x2="796.0449999999998" y2="169.8" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="594.4854999999999" y="151.35000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">actions: takedown, suspend, quarantine, GC, verify, repair, #sync</text>
+</g>
+<g class="node" data-id="cotel" data-label="OTLP receiver and capped store
+traces, metrics, logs" data-shape="subroutine">
+  <rect x="476.4394999999999" y="197.8" width="236.09199999999998" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="484.4394999999999" y1="197.8" x2="484.4394999999999" y2="251.60000000000002" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="704.5314999999998" y1="197.8" x2="704.5314999999998" y2="251.60000000000002" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="594.4854999999999" y="224.70000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="594.4854999999999" dy="-3.9000000000000012">OTLP receiver and capped store</tspan><tspan x="594.4854999999999" dy="16.900000000000002">traces, metrics, logs</tspan></text>
+</g>
+<g class="node" data-id="rs" data-label="MCP over Streamable HTTP
+OAuth 2.1 resource server: PRM, CIMD, PKCE" data-shape="subroutine">
+  <rect x="182.07725000000002" y="470.7" width="307.228" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="190.07725000000002" y1="470.7" x2="190.07725000000002" y2="524.5" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="481.30525" y1="470.7" x2="481.30525" y2="524.5" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="335.69125" y="497.59999999999997" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="335.69125" dy="-3.9000000000000012">MCP over Streamable HTTP</tspan><tspan x="335.69125" dy="16.900000000000002">OAuth 2.1 resource server: PRM, CIMD, PKCE</tspan></text>
+</g>
+<g class="node" data-id="br" data-label="bridge: confidential atproto OAuth client
+DPoP key per session, encrypted session store" data-shape="subroutine">
+  <rect x="536.379" y="470.7" width="322.0479999999999" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="544.379" y1="470.7" x2="544.379" y2="524.5" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="850.4269999999999" y1="470.7" x2="850.4269999999999" y2="524.5" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="697.403" y="497.59999999999997" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="697.403" dy="-3.9000000000000012">bridge: confidential atproto OAuth client</tspan><tspan x="697.403" dy="16.900000000000002">DPoP key per session, encrypted session store</tspan></text>
+</g>
+<g class="node" data-id="tools" data-label="tools and resources generated from lexicons
+public records and account only" data-shape="subroutine">
+  <rect x="182.07725000000002" y="388.9" width="303.52299999999997" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="190.07725000000002" y1="388.9" x2="190.07725000000002" y2="442.7" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="477.60024999999996" y1="388.9" x2="477.60024999999996" y2="442.7" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="333.83875" y="415.79999999999995" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="333.83875" dy="-3.9000000000000012">tools and resources generated from lexicons</tspan><tspan x="333.83875" dy="16.900000000000002">public records and account only</tspan></text>
+</g>
+</svg>

@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1329.0673166666666 778.4" width="1329.0673166666666" height="778.4" style="--bg:#ffffff;--fg:#1f2328;--line:#d1d9e0;--accent:#0969da;--muted:#59636e;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter%2C%20ui-sans-serif%2C%20system-ui%2C%20sans-serif:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter, ui-sans-serif, system-ui, sans-serif', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="lexicon" data-to="types" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1164.7913166666667,383.2 1164.7913166666667,101.79999999999998 471.40148333333326,101.79999999999998 471.40148333333326,77.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="repo" data-to="types" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="393.87514999999996,125.79999999999995 393.87514999999996,101.79999999999998 471.40148333333326,101.79999999999998 471.40148333333326,77.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="storage" data-to="types" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="682.8010666666667,203.59999999999997 682.8010666666667,191.59999999999997 471.40148333333326,191.59999999999997 471.40148333333326,77.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="storage" data-to="repo" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="682.8010666666667,203.59999999999997 682.8010666666667,191.59999999999997 393.87514999999996,191.59999999999997 393.87514999999996,179.59999999999997" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="blob" data-to="storage" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="655.3757333333333,521 655.3757333333333,329.3999999999999 706.3845666666666,329.3999999999999 706.3845666666666,257.4" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="identity" data-to="types" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="148.33449999999993,281.4 148.33449999999993,269.4 471.40148333333326,269.4 471.40148333333326,77.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="identity" data-to="storage" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="148.33449999999993,281.4 148.33449999999993,269.4 682.8010666666667,269.4 682.8010666666667,257.4" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="sequencer" data-to="repo" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="571.0487333333333,323.4 571.0487333333333,290.4 393.87514999999996,290.4 393.87514999999996,179.59999999999997" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="sequencer" data-to="storage" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="571.0487333333333,323.4 571.0487333333333,290.4 682.8010666666667,290.4 682.8010666666667,257.4" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="account" data-to="storage" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="423.4945916666667,425.2 423.4945916666667,401.2 682.8010666666667,401.2 682.8010666666667,257.4" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="account" data-to="identity" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="423.4945916666667,425.2 423.4945916666667,401.2 148.33449999999993,401.2 148.33449999999993,335.2" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="account" data-to="ext" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="423.4945916666667,425.2 423.4945916666667,401.2 928.6884416666666,401.2 928.6884416666666,335.2" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="account" data-to="audit" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="423.4945916666667,425.2 423.4945916666667,401.2 363.8909999999999,401.2 363.8909999999999,377.2" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="oauth" data-to="account" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="901.0303166666666,521 901.0303166666666,500 423.4945916666667,500 423.4945916666667,479" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="oauth" data-to="lexicon" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="901.0303166666666,521 901.0303166666666,500 1164.7913166666667,500 1164.7913166666667,437" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="oauth" data-to="ext" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="901.0303166666666,521 901.0303166666666,500 928.6884416666666,500 928.6884416666666,335.2" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="audit" data-to="storage" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="363.8909999999999,323.4 363.8909999999999,290.4 682.8010666666667,290.4 682.8010666666667,257.4" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="audit" data-to="repo" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="363.8909999999999,323.4 363.8909999999999,290.4 393.87514999999996,290.4 393.87514999999996,179.59999999999997" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="xrpc" data-to="types" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="570.3102999999999,616.8 570.3102999999999,595.8 471.40148333333326,595.8 471.40148333333326,77.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="xrpc" data-to="lexicon" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="570.3102999999999,616.8 570.3102999999999,595.8 1164.7913166666667,595.8 1164.7913166666667,437" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="xrpc" data-to="repo" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="570.3102999999999,616.8 570.3102999999999,595.8 393.87514999999996,595.8 393.87514999999996,179.59999999999997" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="xrpc" data-to="sequencer" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="570.3102999999999,616.8 570.3102999999999,595.8 571.0487333333333,595.8 571.0487333333333,377.2" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="xrpc" data-to="account" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="570.3102999999999,616.8 570.3102999999999,595.8 423.4945916666667,595.8 423.4945916666667,479" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="xrpc" data-to="oauth" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="570.3102999999999,616.8 570.3102999999999,595.8 901.0303166666666,595.8 901.0303166666666,574.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="xrpc" data-to="blob" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="570.3102999999999,616.8 570.3102999999999,595.8 655.3757333333332,595.8 655.3757333333332,557.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="ext" data-to="types" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="928.6884416666666,281.4 928.6884416666666,269.4 471.40148333333326,269.4 471.40148333333326,77.8" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="ext" data-to="storage" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="928.6884416666666,281.4 928.6884416666666,269.4 682.8010666666667,269.4 682.8010666666667,257.4" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="linkjar" data-to="ext" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1013.5153166666665,616.8 1013.5153166666665,347.19999999999993 985.8571916666665,347.19999999999993 985.8571916666665,335.2" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="sim" data-to="storage" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="765.1557333333333,425.2 765.1557333333333,401.2 682.8010666666667,401.2 682.8010666666667,257.4" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="sim" data-to="sequencer" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="765.1557333333333,425.2 765.1557333333333,401.2 571.0487333333333,401.2 571.0487333333333,377.2" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="bin" data-to="xrpc" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="804.9975369047619,700.6 804.9975369047619,685.5999999999999 570.3102999999999,685.5999999999999 570.3102999999999,670.5999999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="bin" data-to="linkjar" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="804.9975369047619,700.6 804.9975369047619,685.5999999999999 1013.5153166666665,685.5999999999999 1013.5153166666665,670.5999999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="bin" data-to="sim" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="804.9975369047619,700.6 804.9975369047619,685.5999999999999 765.1557333333333,685.5999999999999 765.1557333333333,479" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="xtask" data-to="lexicon" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1234.9293166666664,485 1234.9293166666664,437" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="node" data-id="types" data-label="pds-types
+syntax, data model, generated API types" data-shape="rectangle">
+  <rect x="335.2009833333333" y="23.999999999999993" width="272.40099999999995" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="471.40148333333326" y="50.89999999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="471.40148333333326" dy="-3.9000000000000012">pds-types</tspan><tspan x="471.40148333333326" dy="16.900000000000002">syntax, data model, generated API types</tspan></text>
+</g>
+<g class="node" data-id="lexicon" data-label="pds-lexicon
+lexicon model, validation, permission sets" data-shape="rectangle">
+  <rect x="1024.5153166666666" y="383.2" width="280.5519999999999" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1164.7913166666667" y="410.09999999999997" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="1164.7913166666667" dy="-3.9000000000000012">pds-lexicon</tspan><tspan x="1164.7913166666667" dy="16.900000000000002">lexicon model, validation, permission sets</tspan></text>
+</g>
+<g class="node" data-id="repo" data-label="pds-repo
+MST, commits, CAR, diffs" data-shape="rectangle">
+  <rect x="302.50514999999996" y="125.79999999999995" width="182.73999999999995" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="393.87514999999996" y="152.69999999999996" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="393.87514999999996" dy="-3.9000000000000012">pds-repo</tspan><tspan x="393.87514999999996" dy="16.900000000000002">MST, commits, CAR, diffs</tspan></text>
+</g>
+<g class="node" data-id="storage" data-label="pds-storage
+seams, SQLite, StorageIo" data-shape="rectangle">
+  <rect x="588.4670666666666" y="203.59999999999997" width="188.668" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="682.8010666666667" y="230.49999999999997" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="682.8010666666667" dy="-3.9000000000000012">pds-storage</tspan><tspan x="682.8010666666667" dy="16.900000000000002">seams, SQLite, StorageIo</tspan></text>
+</g>
+<g class="node" data-id="blob" data-label="pds-blob" data-shape="rectangle">
+  <rect x="608.8362333333332" y="521" width="93.07900000000001" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="655.3757333333332" y="539.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">pds-blob</text>
+</g>
+<g class="node" data-id="identity" data-label="pds-identity
+DID, handle, PLC, keys" data-shape="rectangle">
+  <rect x="61.039999999999964" y="281.4" width="174.58899999999997" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="148.33449999999993" y="308.29999999999995" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="148.33449999999993" dy="-3.9000000000000012">pds-identity</tspan><tspan x="148.33449999999993" dy="16.900000000000002">DID, handle, PLC, keys</tspan></text>
+</g>
+<g class="node" data-id="sequencer" data-label="pds-sequencer
+event log, firehose" data-shape="rectangle">
+  <rect x="496.72173333333325" y="323.4" width="148.654" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="571.0487333333333" y="350.29999999999995" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="571.0487333333333" dy="-3.9000000000000012">pds-sequencer</tspan><tspan x="571.0487333333333" dy="16.900000000000002">event log, firehose</tspan></text>
+</g>
+<g class="node" data-id="account" data-label="pds-account
+accounts, sessions, mail" data-shape="rectangle">
+  <rect x="331.3835916666667" y="425.2" width="184.22199999999998" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="423.4945916666667" y="452.09999999999997" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="423.4945916666667" dy="-3.9000000000000012">pds-account</tspan><tspan x="423.4945916666667" dy="16.900000000000002">accounts, sessions, mail</tspan></text>
+</g>
+<g class="node" data-id="oauth" data-label="pds-oauth
+authorization server, pages" data-shape="rectangle">
+  <rect x="798.5453166666666" y="521" width="204.96999999999997" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="901.0303166666666" y="547.9" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="901.0303166666666" dy="-3.9000000000000012">pds-oauth</tspan><tspan x="901.0303166666666" dy="16.900000000000002">authorization server, pages</tspan></text>
+</g>
+<g class="node" data-id="audit" data-label="pds-audit
+chain, checkpoints, verifier" data-shape="rectangle">
+  <rect x="263.6289999999999" y="323.4" width="200.52399999999997" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="363.8909999999999" y="350.29999999999995" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="363.8909999999999" dy="-3.9000000000000012">pds-audit</tspan><tspan x="363.8909999999999" dy="16.900000000000002">chain, checkpoints, verifier</tspan></text>
+</g>
+<g class="node" data-id="xrpc" data-label="pds-xrpc
+routing, limits, proxy" data-shape="rectangle">
+  <rect x="491.5372999999999" y="616.8" width="157.54600000000002" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="570.3102999999999" y="643.6999999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="570.3102999999999" dy="-3.9000000000000012">pds-xrpc</tspan><tspan x="570.3102999999999" dy="16.900000000000002">routing, limits, proxy</tspan></text>
+</g>
+<g class="node" data-id="ext" data-label="pds-ext
+extension traits, stock profile" data-shape="hexagon">
+  <polygon points="827.8009416666666,281.4 1029.5759416666665,281.4 1043.0259416666665,308.29999999999995 1029.5759416666665,335.2 827.8009416666666,335.2 814.3509416666666,308.29999999999995" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="928.6884416666666" y="308.29999999999995" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="928.6884416666666" dy="-3.9000000000000012">pds-ext</tspan><tspan x="928.6884416666666" dy="16.900000000000002">extension traits, stock profile</tspan></text>
+</g>
+<g class="node" data-id="linkjar" data-label="pds-ext-linkjar
+linkjar profile" data-shape="hexagon">
+  <polygon points="953.7533166666666,616.8 1073.2773166666666,616.8 1086.7273166666666,643.6999999999999 1073.2773166666666,670.5999999999999 953.7533166666666,670.5999999999999 940.3033166666665,643.6999999999999" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1013.5153166666665" y="643.6999999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="1013.5153166666665" dy="-3.9000000000000012">pds-ext-linkjar</tspan><tspan x="1013.5153166666665" dy="16.900000000000002">linkjar profile</tspan></text>
+</g>
+<g class="node" data-id="sim" data-label="pds-sim
+fault VFS, fail points, turmoil" data-shape="rectangle">
+  <rect x="666.3757333333333" y="425.2" width="197.55999999999997" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="765.1557333333333" y="452.09999999999997" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="765.1557333333333" dy="-3.9000000000000012">pds-sim</tspan><tspan x="765.1557333333333" dy="16.900000000000002">fault VFS, fail points, turmoil</tspan></text>
+</g>
+<g class="node" data-id="bin" data-label="linkjar-pds
+binary, CLI, ops listener" data-shape="rectangle">
+  <rect x="714.7390369047619" y="700.6" width="180.51700000000002" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="804.9975369047619" y="727.5" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="804.9975369047619" dy="-3.9000000000000012">linkjar-pds</tspan><tspan x="804.9975369047619" dy="16.900000000000002">binary, CLI, ops listener</tspan></text>
+</g>
+<g class="node" data-id="xtask" data-label="xtask
+codegen" data-shape="rectangle">
+  <rect x="1188.0193166666666" y="485" width="93.82" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1234.9293166666666" y="511.9" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="1234.9293166666666" dy="-3.9000000000000012">xtask</tspan><tspan x="1234.9293166666666" dy="16.900000000000002">codegen</tspan></text>
+</g>
+</svg>
