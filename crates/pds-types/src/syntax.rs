@@ -1,8 +1,9 @@
-//! Syntax types. Each type validates in `parse` and is otherwise a thin
-//! wrapper over a `String`. Rules follow the atproto syntax specifications and
-//! the reference `@atproto/syntax` package so that the interop vectors pass;
-//! policy rules that go beyond syntax (disallowed handle TLDs, dev-only
-//! `.test`) are exposed as predicates, not folded into parsing.
+//! Syntax types that validate in `parse` and wrap a `String`.
+//!
+//! Rules follow the atproto syntax specifications and the reference
+//! `@atproto/syntax` package so that the interop vectors pass. Policy rules
+//! that go beyond syntax (disallowed handle TLDs, dev-only `.test`) are
+//! exposed as predicates, not folded into parsing.
 
 use std::fmt;
 use std::str::FromStr;
@@ -12,8 +13,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use regex::Regex;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-/// A syntax violation. The message names the rule in the words the reference
-/// implementation uses, so harness diffs read the same on both servers.
+/// A syntax violation.
+///
+/// The message names the rule in the words the reference implementation
+/// uses, so harness diffs read the same on both servers.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("{kind}: {message}")]
 pub struct SyntaxError {
@@ -32,6 +35,7 @@ impl SyntaxError {
 macro_rules! string_newtype {
     ($(#[$meta:meta])* $name:ident, $kind:literal, $validate:path) => {
         $(#[$meta])*
+        #[allow(clippy::too_long_first_doc_paragraph)]
         #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
         pub struct $name(String);
 
@@ -140,14 +144,20 @@ pub const DISALLOWED_TLDS: &[&str] = &[
 fn validate_handle(s: &str) -> Result<(), SyntaxError> {
     const K: &str = "handle";
     if !is_ascii_set(s, b".-") {
-        return Err(SyntaxError::new(K, "Disallowed characters in handle (ASCII letters, digits, dashes, periods only)"));
+        return Err(SyntaxError::new(
+            K,
+            "Disallowed characters in handle (ASCII letters, digits, dashes, periods only)",
+        ));
     }
     if s.len() > HANDLE_MAX_LEN {
         return Err(SyntaxError::new(K, "Handle is too long (253 chars max)"));
     }
     let labels: Vec<&str> = s.split('.').collect();
     if labels.len() < 2 {
-        return Err(SyntaxError::new(K, "Handle domain needs at least two parts"));
+        return Err(SyntaxError::new(
+            K,
+            "Handle domain needs at least two parts",
+        ));
     }
     for label in &labels {
         if label.is_empty() {
@@ -157,12 +167,18 @@ fn validate_handle(s: &str) -> Result<(), SyntaxError> {
             return Err(SyntaxError::new(K, "Handle part too long (max 63 chars)"));
         }
         if label.starts_with('-') || label.ends_with('-') {
-            return Err(SyntaxError::new(K, "Handle parts can not start or end with hyphens"));
+            return Err(SyntaxError::new(
+                K,
+                "Handle parts can not start or end with hyphens",
+            ));
         }
     }
     let last = labels[labels.len() - 1];
     if !last.as_bytes()[0].is_ascii_alphabetic() {
-        return Err(SyntaxError::new(K, "Handle final component (TLD) must start with ASCII letter"));
+        return Err(SyntaxError::new(
+            K,
+            "Handle final component (TLD) must start with ASCII letter",
+        ));
     }
     Ok(())
 }
@@ -189,6 +205,7 @@ impl Handle {
     }
 
     /// The lowercase, normalized form used for comparison and storage.
+    #[must_use]
     pub fn normalized(&self) -> Handle {
         Handle(self.0.to_ascii_lowercase())
     }
@@ -203,11 +220,17 @@ pub const DID_MAX_LEN: usize = 2048;
 fn validate_did(s: &str) -> Result<(), SyntaxError> {
     const K: &str = "did";
     if !is_ascii_set(s, b"._:%-") {
-        return Err(SyntaxError::new(K, "Disallowed characters in DID (ASCII letters, digits, and a couple other characters only)"));
+        return Err(SyntaxError::new(
+            K,
+            "Disallowed characters in DID (ASCII letters, digits, and a couple other characters only)",
+        ));
     }
     let parts: Vec<&str> = s.split(':').collect();
     if parts.len() < 3 {
-        return Err(SyntaxError::new(K, "DID requires prefix, method, and method-specific content"));
+        return Err(SyntaxError::new(
+            K,
+            "DID requires prefix, method, and method-specific content",
+        ));
     }
     if parts[0] != "did" {
         return Err(SyntaxError::new(K, "DID requires \"did:\" prefix"));
@@ -247,7 +270,10 @@ pub const NSID_MAX_LEN: usize = 253 + 1 + 63;
 fn validate_nsid(s: &str) -> Result<(), SyntaxError> {
     const K: &str = "nsid";
     if !is_ascii_set(s, b".-") {
-        return Err(SyntaxError::new(K, "Disallowed characters in NSID (ASCII letters, digits, dashes, periods only)"));
+        return Err(SyntaxError::new(
+            K,
+            "Disallowed characters in NSID (ASCII letters, digits, dashes, periods only)",
+        ));
     }
     if s.len() > NSID_MAX_LEN {
         return Err(SyntaxError::new(K, "NSID is too long (317 chars max)"));
@@ -265,16 +291,25 @@ fn validate_nsid(s: &str) -> Result<(), SyntaxError> {
             return Err(SyntaxError::new(K, "NSID part too long (max 63 chars)"));
         }
         if label.starts_with('-') || label.ends_with('-') {
-            return Err(SyntaxError::new(K, "NSID parts can not start or end with hyphen"));
+            return Err(SyntaxError::new(
+                K,
+                "NSID parts can not start or end with hyphen",
+            ));
         }
         if i == 0 && label.as_bytes()[0].is_ascii_digit() {
-            return Err(SyntaxError::new(K, "NSID first part may not start with a digit"));
+            return Err(SyntaxError::new(
+                K,
+                "NSID first part may not start with a digit",
+            ));
         }
         if i == last
             && !(label.as_bytes()[0].is_ascii_alphabetic()
                 && label.bytes().all(|b| b.is_ascii_alphanumeric()))
         {
-            return Err(SyntaxError::new(K, "NSID name part must be only letters and digits (and no leading digit)"));
+            return Err(SyntaxError::new(
+                K,
+                "NSID name part must be only letters and digits (and no leading digit)",
+            ));
         }
     }
     Ok(())
@@ -333,14 +368,17 @@ impl Tid {
             let shift = 60 - 5 * i;
             *slot = TID_ALPHABET[((v >> shift) & 0x1f) as usize];
         }
-        Tid(String::from_utf8(out.to_vec()).expect("alphabet is ASCII"))
+        Tid(out.iter().map(|&b| char::from(b)).collect())
     }
 
     /// The integer the TID encodes.
     pub fn to_u64(&self) -> u64 {
         self.0.bytes().fold(0u64, |acc, c| {
-            let idx = TID_ALPHABET.iter().position(|a| *a == c).expect("validated");
-            (acc << 5) | idx as u64
+            let idx = TID_ALPHABET
+                .iter()
+                .position(|a| *a == c)
+                .map_or(0, |i| i as u64);
+            (acc << 5) | idx
         })
     }
 
@@ -365,7 +403,9 @@ pub struct TidGenerator {
 
 impl fmt::Debug for TidGenerator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("TidGenerator").field("clock_id", &self.clock_id).finish_non_exhaustive()
+        f.debug_struct("TidGenerator")
+            .field("clock_id", &self.clock_id)
+            .finish_non_exhaustive()
     }
 }
 
@@ -382,8 +422,13 @@ impl TidGenerator {
     }
 
     /// A generator over an injected clock (dev mode and simulation).
+    #[must_use]
     pub fn with_clock(clock_id: u16, now_micros: impl Fn() -> u64 + Send + Sync + 'static) -> Self {
-        Self { last: AtomicU64::new(0), clock_id: clock_id & 0x3ff, now_micros: Box::new(now_micros) }
+        Self {
+            last: AtomicU64::new(0),
+            clock_id: clock_id & 0x3ff,
+            now_micros: Box::new(now_micros),
+        }
     }
 
     /// The next TID, strictly greater than every TID this generator produced.
@@ -392,7 +437,10 @@ impl TidGenerator {
         let mut prev = self.last.load(Ordering::SeqCst);
         loop {
             let next = if now > prev { now } else { prev + 1 };
-            match self.last.compare_exchange(prev, next, Ordering::SeqCst, Ordering::SeqCst) {
+            match self
+                .last
+                .compare_exchange(prev, next, Ordering::SeqCst, Ordering::SeqCst)
+            {
                 Ok(_) => return Tid::from_parts(next, self.clock_id),
                 Err(actual) => prev = actual,
             }
@@ -412,7 +460,10 @@ impl Default for TidGenerator {
 fn validate_record_key(s: &str) -> Result<(), SyntaxError> {
     const K: &str = "record-key";
     if s.is_empty() || s.len() > 512 {
-        return Err(SyntaxError::new(K, "record key must be 1 to 512 characters"));
+        return Err(SyntaxError::new(
+            K,
+            "record key must be 1 to 512 characters",
+        ));
     }
     if !is_ascii_set(s, b"_~.:-") {
         return Err(SyntaxError::new(K, "record key syntax not valid (regex)"));
@@ -497,40 +548,71 @@ fn validate_at_uri(s: &str) -> Result<(), SyntaxError> {
     let uri = hash_parts.next().unwrap_or("");
     let fragment = hash_parts.next();
     if hash_parts.next().is_some() {
-        return Err(SyntaxError::new(K, "ATURI can have at most one \"#\", separating fragment out"));
+        return Err(SyntaxError::new(
+            K,
+            "ATURI can have at most one \"#\", separating fragment out",
+        ));
     }
     if !is_ascii_set(uri, b"._~:@!$&')(*+,;=%/-") {
-        return Err(SyntaxError::new(K, "Disallowed characters in ATURI (ASCII)"));
+        return Err(SyntaxError::new(
+            K,
+            "Disallowed characters in ATURI (ASCII)",
+        ));
     }
     let parts: Vec<&str> = uri.split('/').collect();
     if parts.len() >= 3 && (parts[0] != "at:" || !parts[1].is_empty()) {
         return Err(SyntaxError::new(K, "ATURI must start with \"at://\""));
     }
     if parts.len() < 3 {
-        return Err(SyntaxError::new(K, "ATURI requires at least method and authority sections"));
+        return Err(SyntaxError::new(
+            K,
+            "ATURI requires at least method and authority sections",
+        ));
     }
-    AtIdentifier::parse(parts[2]).map_err(|_| SyntaxError::new(K, "ATURI authority must be a valid handle or DID"))?;
+    AtIdentifier::parse(parts[2])
+        .map_err(|_| SyntaxError::new(K, "ATURI authority must be a valid handle or DID"))?;
     if parts.len() >= 4 {
         if parts[3].is_empty() {
-            return Err(SyntaxError::new(K, "ATURI can not have a slash after authority without a path segment"));
+            return Err(SyntaxError::new(
+                K,
+                "ATURI can not have a slash after authority without a path segment",
+            ));
         }
-        validate_nsid(parts[3]).map_err(|_| SyntaxError::new(K, "ATURI requires first path segment (if supplied) to be valid NSID"))?;
+        validate_nsid(parts[3]).map_err(|_| {
+            SyntaxError::new(
+                K,
+                "ATURI requires first path segment (if supplied) to be valid NSID",
+            )
+        })?;
     }
     if parts.len() >= 5 {
         if parts[4].is_empty() {
-            return Err(SyntaxError::new(K, "ATURI can not have a slash after collection, unless record key is provided"));
+            return Err(SyntaxError::new(
+                K,
+                "ATURI can not have a slash after collection, unless record key is provided",
+            ));
         }
-        validate_record_key(parts[4]).map_err(|_| SyntaxError::new(K, "ATURI record key syntax not valid"))?;
+        validate_record_key(parts[4])
+            .map_err(|_| SyntaxError::new(K, "ATURI record key syntax not valid"))?;
     }
     if parts.len() >= 6 {
-        return Err(SyntaxError::new(K, "ATURI path can have at most two parts, and no trailing slash"));
+        return Err(SyntaxError::new(
+            K,
+            "ATURI path can have at most two parts, and no trailing slash",
+        ));
     }
     if let Some(frag) = fragment {
         if frag.is_empty() || !frag.starts_with('/') {
-            return Err(SyntaxError::new(K, "ATURI fragment must be non-empty and start with slash"));
+            return Err(SyntaxError::new(
+                K,
+                "ATURI fragment must be non-empty and start with slash",
+            ));
         }
         if !is_ascii_set(frag, b"._~:@!$&')(*+,;=%[]/-") {
-            return Err(SyntaxError::new(K, "Disallowed characters in ATURI fragment (ASCII)"));
+            return Err(SyntaxError::new(
+                K,
+                "Disallowed characters in ATURI fragment (ASCII)",
+            ));
         }
     }
     if s.len() > AT_URI_MAX_LEN {
@@ -552,6 +634,7 @@ impl AtUri {
     }
 
     /// The authority (a DID or handle).
+    #[allow(clippy::expect_used)] // the authority was validated by `parse`
     pub fn authority(&self) -> AtIdentifier {
         let body = self.0.split('#').next().unwrap_or("");
         let part = body.split('/').nth(2).unwrap_or("");
@@ -561,7 +644,9 @@ impl AtUri {
     /// The collection NSID, when present.
     pub fn collection(&self) -> Option<Nsid> {
         let body = self.0.split('#').next().unwrap_or("");
-        body.split('/').nth(3).map(|s| Nsid::new_unchecked(s.to_owned()))
+        body.split('/')
+            .nth(3)
+            .map(|s| Nsid::new_unchecked(s.to_owned()))
     }
 
     /// The record key, when present.
@@ -574,6 +659,7 @@ impl AtUri {
 // ---------------------------------------------------------------------------
 // Datetime
 
+#[allow(clippy::expect_used)] // a static pattern that does not compile is a build defect
 static DATETIME_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^[0-9]{4}-[01][0-9]-[0-3][0-9]T[0-2][0-9]:[0-6][0-9]:[0-6][0-9](\.[0-9]{1,20})?(Z|([+-][0-2][0-9]:[0-5][0-9]))$")
         .expect("static regex")
@@ -585,12 +671,18 @@ fn validate_datetime(s: &str) -> Result<(), SyntaxError> {
         return Err(SyntaxError::new(K, "datetime didn't validate via regex"));
     }
     if s.ends_with("-00:00") {
-        return Err(SyntaxError::new(K, "datetime can not use \"-00:00\" as timezone"));
+        return Err(SyntaxError::new(
+            K,
+            "datetime can not use \"-00:00\" as timezone",
+        ));
     }
     let parsed = chrono::DateTime::parse_from_rfc3339(s)
         .map_err(|_| SyntaxError::new(K, "datetime did not parse as ISO 8601"))?;
     if chrono::Datelike::year(&parsed.with_timezone(&chrono::Utc)) < 0 {
-        return Err(SyntaxError::new(K, "datetime normalized to a negative time"));
+        return Err(SyntaxError::new(
+            K,
+            "datetime normalized to a negative time",
+        ));
     }
     Ok(())
 }
@@ -613,6 +705,7 @@ impl Datetime {
     }
 
     /// The parsed instant.
+    #[allow(clippy::expect_used)] // the string was parsed by `parse`
     pub fn to_chrono(&self) -> chrono::DateTime<chrono::FixedOffset> {
         chrono::DateTime::parse_from_rfc3339(&self.0).expect("validated")
     }
@@ -621,6 +714,7 @@ impl Datetime {
 // ---------------------------------------------------------------------------
 // Language (BCP 47)
 
+#[allow(clippy::expect_used)] // a static pattern that does not compile is a build defect
 static LANGUAGE_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(concat!(
         r"^(",
@@ -635,7 +729,10 @@ static LANGUAGE_RE: LazyLock<Regex> = LazyLock::new(|| {
 fn validate_language(s: &str) -> Result<(), SyntaxError> {
     const K: &str = "language";
     if !LANGUAGE_RE.is_match(s) {
-        return Err(SyntaxError::new(K, "language tag syntax not valid (BCP 47)"));
+        return Err(SyntaxError::new(
+            K,
+            "language tag syntax not valid (BCP 47)",
+        ));
     }
     // RFC 5646 §2.2.9 and §4.1: variant subtags and extension singletons may
     // not repeat, case-insensitively.
@@ -653,7 +750,10 @@ fn validate_language(s: &str) -> Result<(), SyntaxError> {
                 break;
             }
             if seen_singletons.contains(tag) {
-                return Err(SyntaxError::new(K, "language tag repeats an extension singleton"));
+                return Err(SyntaxError::new(
+                    K,
+                    "language tag repeats an extension singleton",
+                ));
             }
             seen_singletons.push(tag);
             in_extension = true;
@@ -683,6 +783,7 @@ string_newtype!(
 // ---------------------------------------------------------------------------
 // Generic URI
 
+#[allow(clippy::expect_used)] // a static pattern that does not compile is a build defect
 static URI_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^[A-Za-z][A-Za-z0-9+.-]*:[^\s]+$").expect("static regex"));
 
@@ -692,7 +793,10 @@ fn validate_uri(s: &str) -> Result<(), SyntaxError> {
         return Err(SyntaxError::new(K, "URI is far too long"));
     }
     if !URI_RE.is_match(s) {
-        return Err(SyntaxError::new(K, "URI syntax not valid (needs a scheme and a body)"));
+        return Err(SyntaxError::new(
+            K,
+            "URI syntax not valid (needs a scheme and a body)",
+        ));
     }
     Ok(())
 }
@@ -707,7 +811,8 @@ string_newtype!(
 
 fn validate_cid_string(s: &str) -> Result<(), SyntaxError> {
     const K: &str = "cid";
-    if s.is_empty() || s.len() > 256 || !s.is_ascii() || s.bytes().any(|b| b.is_ascii_whitespace()) {
+    if s.is_empty() || s.len() > 256 || !s.is_ascii() || s.bytes().any(|b| b.is_ascii_whitespace())
+    {
         return Err(SyntaxError::new(K, "CID string has disallowed characters"));
     }
     let c = cid::Cid::try_from(s).map_err(|_| SyntaxError::new(K, "CID string did not parse"))?;
@@ -726,6 +831,7 @@ string_newtype!(
 
 impl CidString {
     /// The decoded CID.
+    #[allow(clippy::expect_used)] // the string was parsed by `parse`
     pub fn to_cid(&self) -> cid::Cid {
         cid::Cid::try_from(self.0.as_str()).expect("validated")
     }
@@ -743,8 +849,11 @@ mod vectors {
     use std::path::PathBuf;
 
     fn lines(name: &str) -> Vec<String> {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../interop/syntax").join(name);
-        let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../interop/syntax")
+            .join(name);
+        let text =
+            std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
         text.lines()
             .filter(|l| !l.starts_with('#') && !l.is_empty())
             .map(str::to_owned)
@@ -755,11 +864,19 @@ mod vectors {
         check_with_known(valid, invalid, &[], f);
     }
 
-    fn check_with_known(valid: &str, invalid: &str, known_failures: &[&str], f: impl Fn(&str) -> bool) {
+    fn check_with_known(
+        valid: &str,
+        invalid: &str,
+        known_failures: &[&str],
+        f: impl Fn(&str) -> bool,
+    ) {
         let mut failures = Vec::new();
         for l in lines(valid) {
             if known_failures.contains(&l.as_str()) {
-                assert!(!f(&l), "{valid}: {l:?} is listed in KNOWN_FAILURES but now passes; remove it");
+                assert!(
+                    !f(&l),
+                    "{valid}: {l:?} is listed in KNOWN_FAILURES but now passes; remove it"
+                );
                 continue;
             }
             if !f(&l) {
@@ -776,66 +893,102 @@ mod vectors {
 
     #[test]
     fn handle() {
-        check("handle_syntax_valid.txt", "handle_syntax_invalid.txt", |s| Handle::parse(s).is_ok());
+        check(
+            "handle_syntax_valid.txt",
+            "handle_syntax_invalid.txt",
+            |s| Handle::parse(s).is_ok(),
+        );
     }
 
     #[test]
     fn did() {
-        check("did_syntax_valid.txt", "did_syntax_invalid.txt", |s| Did::parse(s).is_ok());
+        check("did_syntax_valid.txt", "did_syntax_invalid.txt", |s| {
+            Did::parse(s).is_ok()
+        });
     }
 
     #[test]
     fn nsid() {
-        check("nsid_syntax_valid.txt", "nsid_syntax_invalid.txt", |s| Nsid::parse(s).is_ok());
+        check("nsid_syntax_valid.txt", "nsid_syntax_invalid.txt", |s| {
+            Nsid::parse(s).is_ok()
+        });
     }
 
     #[test]
     fn tid() {
-        check("tid_syntax_valid.txt", "tid_syntax_invalid.txt", |s| Tid::parse(s).is_ok());
+        check("tid_syntax_valid.txt", "tid_syntax_invalid.txt", |s| {
+            Tid::parse(s).is_ok()
+        });
     }
 
     #[test]
     fn record_key() {
-        check("recordkey_syntax_valid.txt", "recordkey_syntax_invalid.txt", |s| RecordKey::parse(s).is_ok());
+        check(
+            "recordkey_syntax_valid.txt",
+            "recordkey_syntax_invalid.txt",
+            |s| RecordKey::parse(s).is_ok(),
+        );
     }
 
     #[test]
     fn at_identifier() {
-        check("atidentifier_syntax_valid.txt", "atidentifier_syntax_invalid.txt", |s| AtIdentifier::parse(s).is_ok());
+        check(
+            "atidentifier_syntax_valid.txt",
+            "atidentifier_syntax_invalid.txt",
+            |s| AtIdentifier::parse(s).is_ok(),
+        );
     }
 
     #[test]
     fn at_uri() {
-        check("aturi_syntax_valid.txt", "aturi_syntax_invalid.txt", |s| AtUri::parse(s).is_ok());
+        check("aturi_syntax_valid.txt", "aturi_syntax_invalid.txt", |s| {
+            AtUri::parse(s).is_ok()
+        });
     }
 
     #[test]
     fn datetime_syntax() {
-        check("datetime_syntax_valid.txt", "datetime_syntax_invalid.txt", |s| Datetime::parse(s).is_ok());
+        check(
+            "datetime_syntax_valid.txt",
+            "datetime_syntax_invalid.txt",
+            |s| Datetime::parse(s).is_ok(),
+        );
     }
 
     #[test]
     fn datetime_parse() {
         for l in lines("datetime_parse_invalid.txt") {
-            assert!(Datetime::parse(&l).is_err(), "expected parse-invalid: {l:?}");
+            assert!(
+                Datetime::parse(&l).is_err(),
+                "expected parse-invalid: {l:?}"
+            );
         }
     }
 
     #[test]
     fn language_syntax() {
-        check("language_syntax_valid.txt", "language_syntax_invalid.txt", |s| Language::parse(s).is_ok());
+        check(
+            "language_syntax_valid.txt",
+            "language_syntax_invalid.txt",
+            |s| Language::parse(s).is_ok(),
+        );
     }
 
     #[test]
     fn language_parse() {
         for l in lines("language_parse_invalid.txt") {
-            assert!(Language::parse(&l).is_err(), "expected parse-invalid: {l:?}");
+            assert!(
+                Language::parse(&l).is_err(),
+                "expected parse-invalid: {l:?}"
+            );
         }
     }
 
     #[test]
     fn uri() {
-        check("uri_syntax_valid.txt", "uri_syntax_invalid.txt", |s| Uri::parse(s).is_ok());
+        check("uri_syntax_valid.txt", "uri_syntax_invalid.txt", |s| {
+            Uri::parse(s).is_ok()
+        });
     }
 
     /// Upstream lists three contrived strings that the JavaScript
@@ -851,10 +1004,16 @@ mod vectors {
 
     #[test]
     fn cid() {
-        check_with_known("cid_syntax_valid.txt", "cid_syntax_invalid.txt", CID_KNOWN_FAILURES, |s| CidString::parse(s).is_ok());
+        check_with_known(
+            "cid_syntax_valid.txt",
+            "cid_syntax_invalid.txt",
+            CID_KNOWN_FAILURES,
+            |s| CidString::parse(s).is_ok(),
+        );
     }
 
     #[test]
+    #[allow(clippy::many_single_char_names)]
     fn tid_roundtrip_and_monotonic() {
         let t = Tid::from_parts(1_700_000_000_123_456, 7);
         assert_eq!(t.timestamp_micros(), 1_700_000_000_123_456);
@@ -874,6 +1033,10 @@ mod vectors {
     fn handle_predicates() {
         assert!(Handle::parse("alice.local").unwrap().is_disallowed_tld());
         assert!(Handle::parse("alice.test").unwrap().is_test_tld());
-        assert!(!Handle::parse("alice.example.com").unwrap().is_disallowed_tld());
+        assert!(
+            !Handle::parse("alice.example.com")
+                .unwrap()
+                .is_disallowed_tld()
+        );
     }
 }

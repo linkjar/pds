@@ -16,7 +16,7 @@
 pub mod data;
 pub mod syntax;
 
-#[allow(missing_docs, clippy::all, clippy::pedantic)]
+#[allow(missing_docs, clippy::all, clippy::pedantic, clippy::nursery)]
 pub mod generated;
 
 pub use data::{BlobRef, Bytes, CidLink, Data};

@@ -73,9 +73,10 @@ through the PDS.
 ## Where it lives
 
 - This repository, branch `feat/rust-pds`, until the first unit merges.
-- The Cargo workspace lands at the repository root (SPEC D4). The image build
-  for the reference stays where it is until cutover and then moves under
-  `image/`.
+- The Cargo workspace is at the repository root. The reference image build
+  moved under `legacy/` on 2026-10-08 (owner's request) with its workflows
+  repointed; it stays buildable for security fixes until cutover and is
+  removed afterwards.
 - The `linkjar.io` repository gets only a pointer from its research index and
   a PDS URL setting for its browser gate and kit self-test (unit 1).
 - The `linkjar/infra` repository changes in unit 7: service definition, alert
@@ -112,6 +113,7 @@ upstream bumps, which nothing does today beyond the image smoke gate.
 
 | Date | Event |
 |---|---|
+| 2026-10-08 | Unit 0 in progress on `feat/rust-pds`: Cargo workspace with fifteen crates and `xtask`; the legacy image build moved under `legacy/` with its workflows repointed; docs reorganised with a root README and Mermaid architecture pages; `pds-types` passes every interop syntax and data-model vector (three contrived CID strings recorded as known failures); `pds-lexicon` parses and validates all 263 vendored lexicons with every reference resolved; `cargo xtask codegen` generates the API types (about 10,000 lines) and they compile and round-trip real records; CI gates (fmt, clippy with the deny-panic set, tests, codegen check, deny, vet, scheduled audit and fuzz) and devenv are in place. Seven of twelve "verify at pin" items answered from the pinned source ([parity/verify-at-pin.md](../parity/verify-at-pin.md)). |
 | 2026-10-08 | Decision taken. Branch `feat/rust-pds` created from `main`. SPEC revision 0 written from the reference source at the pin and the six patch documents. No code yet. |
 | 2026-10-08 | Documentation sweep against atproto.com completed; SPEC revision 1 written: decisions applied, the research's sections added (storage seams, simulation, audit, topologies, sidecars), every gap-report item folded in, units renumbered 0 to 12 with the cutover bar after unit 8. Patch pin recorded. No code yet. |
 | 2026-10-08 | Scope widened by the owner: storage and auth extensibility, clustering, audit and provenance, simulation testing, a database switch, devenv. [State-of-the-art research](research/2026-10-08-state-of-the-art.md) recorded; its §9 lists the SPEC sections to add in revision 1. Headline: the account and OAuth crate should run embedded or as an entryway, which is how the protocol itself scales; audit checkpoints can be published as repository records so the firehose witnesses them. |

@@ -4,8 +4,10 @@ An AT Protocol Personal Data Server in Rust, compatible with the reference
 implementation, with LinkJar's account behaviour as native extension points
 instead of source patches. Dual-licensed MIT or Apache-2.0.
 
-> Status: unit 0 of 13. The workspace builds and the specification is
-> complete; the server does not serve traffic yet. The reference image under
+> Status: unit 0 of 13. The workspace builds, the syntax and data-model
+> crates pass the upstream interop vectors, the API types are generated from
+> the vendored lexicons, and the specification is complete; the server does
+> not serve traffic yet. The reference image under
 > [`legacy/`](legacy/README.md) remains the deployed server until cutover.
 > Progress is logged in [docs/plan.md](docs/plan.md#status).
 

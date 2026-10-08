@@ -1,6 +1,8 @@
-//! The lexicon schema language as Rust data (atproto Lexicon specification,
-//! revision with `permission-set` and `permission` types). This is the model
-//! the loader fills, the validator walks and the code generator reads.
+//! The lexicon schema language as Rust data.
+//!
+//! Follows the atproto Lexicon specification, including the `permission-set`
+//! and `permission` types. This is the model the loader fills, the validator
+//! walks and the code generator reads.
 
 use std::collections::BTreeMap;
 
@@ -150,7 +152,7 @@ pub struct LexXrpcSubscription {
 }
 
 /// The message schema of a subscription.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LexXrpcSubscriptionMessage {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     /// Description.
@@ -161,7 +163,7 @@ pub struct LexXrpcSubscriptionMessage {
 
 /// A subscription message schema is a union, written either inline as a
 /// `union` type object or as a reference.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "kebab-case")]
 pub enum LexRefUnionOrUnion {
     /// An inline union.
@@ -214,7 +216,7 @@ pub enum LexObjectOrRef {
 }
 
 /// A named XRPC error.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LexXrpcError {
     /// The error name.
     pub name: String,
@@ -224,7 +226,7 @@ pub struct LexXrpcError {
 }
 
 /// A permission set.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LexPermissionSet {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     /// Description.
@@ -244,7 +246,7 @@ pub struct LexPermissionSet {
 }
 
 /// A single permission inside a set.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LexPermission {
     /// The resource, for example `repo`, `rpc`, `blob`, `account`, `identity`.
     pub resource: String,
@@ -315,7 +317,7 @@ pub enum LexPrimitiveOrArray {
 }
 
 /// A string with optional format and constraints.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct LexString {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     /// Description.
@@ -332,10 +334,18 @@ pub struct LexString {
     #[serde(default, rename = "maxLength", skip_serializing_if = "Option::is_none")]
     /// Maximum length in UTF-8 bytes.
     pub max_length: Option<u64>,
-    #[serde(default, rename = "minGraphemes", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        rename = "minGraphemes",
+        skip_serializing_if = "Option::is_none"
+    )]
     /// Minimum length in graphemes.
     pub min_graphemes: Option<u64>,
-    #[serde(default, rename = "maxGraphemes", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        rename = "maxGraphemes",
+        skip_serializing_if = "Option::is_none"
+    )]
     /// Maximum length in graphemes.
     pub max_graphemes: Option<u64>,
     #[serde(default, rename = "enum", skip_serializing_if = "Option::is_none")]
@@ -344,13 +354,17 @@ pub struct LexString {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     /// A fixed value.
     pub const_: Option<String>,
-    #[serde(default, rename = "knownValues", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        rename = "knownValues",
+        skip_serializing_if = "Option::is_none"
+    )]
     /// Suggested values; others remain valid.
     pub known_values: Option<Vec<String>>,
 }
 
 /// An integer with optional range and constraints.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct LexInteger {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     /// Description.
@@ -373,7 +387,7 @@ pub struct LexInteger {
 }
 
 /// A boolean.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct LexBoolean {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     /// Description.
@@ -387,7 +401,7 @@ pub struct LexBoolean {
 }
 
 /// A byte string with optional length limits.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct LexBytes {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     /// Description.
@@ -401,7 +415,7 @@ pub struct LexBytes {
 }
 
 /// A CID link.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct LexCidLink {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     /// Description.
@@ -409,7 +423,7 @@ pub struct LexCidLink {
 }
 
 /// A blob reference with optional accept list and size limit.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct LexBlob {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     /// Description.
@@ -439,7 +453,7 @@ pub struct LexArray {
 }
 
 /// A reference: `#local`, `nsid#def` or `nsid` (meaning `nsid#main`).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LexRef {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     /// Description.
@@ -450,7 +464,7 @@ pub struct LexRef {
 }
 
 /// A union of references, open unless `closed` is true.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct LexRefUnion {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     /// Description.
@@ -464,7 +478,7 @@ pub struct LexRefUnion {
 }
 
 /// A token definition.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct LexToken {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     /// Description.
@@ -472,7 +486,7 @@ pub struct LexToken {
 }
 
 /// Any data model value.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct LexUnknown {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     /// Description.

@@ -10,7 +10,10 @@ pub mod model;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use model::{LexArray, LexObject, LexObjectOrRef, LexRefUnionOrUnion, LexType, LexUserType, LexXrpcParameters, LexiconDoc};
+use model::{
+    LexArray, LexObject, LexObjectOrRef, LexRefUnionOrUnion, LexType, LexUserType,
+    LexXrpcParameters, LexiconDoc,
+};
 
 /// A loaded set of lexicon documents indexed by NSID.
 #[derive(Debug, Default, Clone)]
@@ -69,32 +72,53 @@ impl LexiconDoc {
     /// types only as `main`, no bare `ref` or `unknown` definitions, and
     /// `params` typed as such.
     pub fn validate(&self) -> Result<(), DocError> {
-        let err = |message: String| DocError { id: self.id.clone(), message };
+        let err = |message: String| DocError {
+            id: self.id.clone(),
+            message,
+        };
         if self.lexicon != 1 {
             return Err(err("lexicon version must be 1".into()));
         }
-        pds_types::Nsid::parse(&self.id).map_err(|e| err(format!("id is not a valid NSID: {e}")))?;
+        pds_types::Nsid::parse(&self.id)
+            .map_err(|e| err(format!("id is not a valid NSID: {e}")))?;
         for (name, def) in &self.defs {
             if name.is_empty() {
                 return Err(err("definition names must be non-empty".into()));
             }
             let primary = matches!(
                 def,
-                LexUserType::Record(_) | LexUserType::Query(_) | LexUserType::Procedure(_) | LexUserType::Subscription(_)
+                LexUserType::Record(_)
+                    | LexUserType::Query(_)
+                    | LexUserType::Procedure(_)
+                    | LexUserType::Subscription(_)
             );
             if primary && name != "main" {
-                return Err(err(format!("primary definition {name:?} must be named main")));
+                return Err(err(format!(
+                    "primary definition {name:?} must be named main"
+                )));
             }
             match def {
-                LexUserType::Ref(_) => return Err(err(format!("definition {name:?} may not be a bare ref"))),
-                LexUserType::Unknown(_) => return Err(err(format!("definition {name:?} may not be a bare unknown"))),
+                LexUserType::Ref(_) => {
+                    return Err(err(format!("definition {name:?} may not be a bare ref")));
+                }
+                LexUserType::Unknown(_) => {
+                    return Err(err(format!(
+                        "definition {name:?} may not be a bare unknown"
+                    )));
+                }
                 LexUserType::Query(q) => check_params(q.parameters.as_ref()).map_err(err)?,
                 LexUserType::Procedure(p) => check_params(p.parameters.as_ref()).map_err(err)?,
                 LexUserType::Subscription(s) => check_params(s.parameters.as_ref()).map_err(err)?,
                 LexUserType::Record(r) => {
                     let key = r.key.as_str();
-                    if !(key == "tid" || key == "nsid" || key == "any" || key.starts_with("literal:")) {
-                        return Err(err(format!("record key type {key:?} is not tid, nsid, any or literal:<value>")));
+                    if !(key == "tid"
+                        || key == "nsid"
+                        || key == "any"
+                        || key.starts_with("literal:"))
+                    {
+                        return Err(err(format!(
+                            "record key type {key:?} is not tid, nsid, any or literal:<value>"
+                        )));
                     }
                 }
                 _ => {}
@@ -106,7 +130,10 @@ impl LexiconDoc {
 
 fn check_params(p: Option<&LexXrpcParameters>) -> Result<(), String> {
     match p {
-        Some(p) if p.type_ != "params" => Err(format!("parameters must have type \"params\", found {:?}", p.type_)),
+        Some(p) if p.type_ != "params" => Err(format!(
+            "parameters must have type \"params\", found {:?}",
+            p.type_
+        )),
         _ => Ok(()),
     }
 }
@@ -139,12 +166,22 @@ impl Corpus {
     /// Loads every `*.json` file under `root`, recursively, sorted by path.
     pub fn load_dir(root: &Path) -> Result<Self, LoadError> {
         let mut files = Vec::new();
-        collect_json(root, &mut files).map_err(|source| LoadError::Io { path: root.to_path_buf(), source })?;
+        collect_json(root, &mut files).map_err(|source| LoadError::Io {
+            path: root.to_path_buf(),
+            source,
+        })?;
         files.sort();
         let mut corpus = Self::new();
         for path in files {
-            let text = std::fs::read_to_string(&path).map_err(|source| LoadError::Io { path: path.clone(), source })?;
-            let doc: LexiconDoc = serde_json::from_str(&text).map_err(|source| LoadError::Parse { path: path.clone(), source })?;
+            let text = std::fs::read_to_string(&path).map_err(|source| LoadError::Io {
+                path: path.clone(),
+                source,
+            })?;
+            let doc: LexiconDoc =
+                serde_json::from_str(&text).map_err(|source| LoadError::Parse {
+                    path: path.clone(),
+                    source,
+                })?;
             if doc.lexicon != 1 {
                 return Err(LoadError::Version { path });
             }
@@ -179,7 +216,11 @@ impl Corpus {
     ///
     /// `#local` resolves inside `from`; `nsid#def` and `nsid` (meaning
     /// `nsid#main`) resolve across the corpus.
-    pub fn resolve_ref<'a>(&'a self, from: &str, reference: &str) -> Result<(&'a str, &'a LexUserType), UnresolvedRef> {
+    pub fn resolve_ref<'a>(
+        &'a self,
+        from: &str,
+        reference: &str,
+    ) -> Result<(&'a str, &'a LexUserType), UnresolvedRef> {
         let (nsid, def) = match reference.split_once('#') {
             Some(("", def)) => (from, def),
             Some((nsid, def)) => (nsid, def),
@@ -187,8 +228,15 @@ impl Corpus {
         };
         self.docs
             .get(nsid)
-            .and_then(|doc| doc.defs.get_key_value(def).map(|(_, t)| (doc.id.as_str(), t)))
-            .ok_or_else(|| UnresolvedRef { from: from.to_owned(), reference: reference.to_owned() })
+            .and_then(|doc| {
+                doc.defs
+                    .get_key_value(def)
+                    .map(|(_, t)| (doc.id.as_str(), t))
+            })
+            .ok_or_else(|| UnresolvedRef {
+                from: from.to_owned(),
+                reference: reference.to_owned(),
+            })
     }
 
     /// Every reference in the corpus that does not resolve.
@@ -323,7 +371,11 @@ mod tests {
     #[test]
     fn every_vendored_lexicon_parses_and_every_ref_resolves() {
         let corpus = Corpus::load_dir(&repo_root().join("lexicons")).expect("lexicons load");
-        assert!(corpus.len() > 250, "expected the vendored corpus, got {}", corpus.len());
+        assert!(
+            corpus.len() > 250,
+            "expected the vendored corpus, got {}",
+            corpus.len()
+        );
         assert!(corpus.get("com.atproto.repo.createRecord").is_some());
         assert!(corpus.get("io.linkjar.account.getSignupReceipt").is_some());
         assert!(corpus.get("io.linkjar.pds.audit.checkpoint").is_some());
@@ -331,7 +383,15 @@ mod tests {
             doc.validate().unwrap_or_else(|e| panic!("{e}"));
         }
         let unresolved = corpus.unresolved_refs();
-        assert!(unresolved.is_empty(), "unresolved references:\n{}", unresolved.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n"));
+        assert!(
+            unresolved.is_empty(),
+            "unresolved references:\n{}",
+            unresolved
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
     }
 
     #[test]
@@ -341,23 +401,37 @@ mod tests {
         assert_eq!(corpus.len(), 5);
     }
 
+    const KNOWN_FAILURES: &[&str] = &[];
+
     #[test]
     fn interop_valid_lexicons_parse_and_invalid_ones_do_not() {
         let dir = repo_root().join("interop/lexicon");
-        let valid: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(dir.join("lexicon-valid.json")).unwrap()).unwrap();
+        let valid: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(dir.join("lexicon-valid.json")).unwrap())
+                .unwrap();
         for case in valid.as_array().unwrap() {
             let name = case["name"].as_str().unwrap_or("");
             let text = serde_json::to_string(&case["lexicon"]).unwrap();
             let parsed: Result<LexiconDoc, _> = serde_json::from_str(&text);
-            assert!(parsed.is_ok(), "valid case {name:?} failed to parse: {:?}", parsed.err());
+            assert!(
+                parsed.is_ok(),
+                "valid case {name:?} failed to parse: {:?}",
+                parsed.err()
+            );
             let validated = parsed.unwrap().validate();
-            assert!(validated.is_ok(), "valid case {name:?} failed validation: {:?}", validated.err());
+            assert!(
+                validated.is_ok(),
+                "valid case {name:?} failed validation: {:?}",
+                validated.err()
+            );
         }
-        let invalid: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(dir.join("lexicon-invalid.json")).unwrap()).unwrap();
-        // Structural problems fail at parse time; semantic ones (for example
-        // a record key of the wrong form) need the document validator that
-        // lands with record validation. KNOWN_FAILURES lists the latter.
-        const KNOWN_FAILURES: &[&str] = &[];
+        let invalid: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(dir.join("lexicon-invalid.json")).unwrap(),
+        )
+        .unwrap();
+        // Structural problems fail at parse time; semantic ones go through
+        // `LexiconDoc::validate`. KNOWN_FAILURES lists any the validator
+        // does not catch yet.
         let mut unexpected = Vec::new();
         for case in invalid.as_array().unwrap() {
             let name = case["name"].as_str().unwrap_or("");
@@ -368,6 +442,9 @@ mod tests {
                 unexpected.push(name.to_owned());
             }
         }
-        assert!(unexpected.is_empty(), "invalid lexicons accepted by the parser (add a validator rule or a KNOWN_FAILURES entry): {unexpected:?}");
+        assert!(
+            unexpected.is_empty(),
+            "invalid lexicons accepted by the parser (add a validator rule or a KNOWN_FAILURES entry): {unexpected:?}"
+        );
     }
 }

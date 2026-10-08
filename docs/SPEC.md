@@ -285,9 +285,10 @@ Reference's pipethrough does:
   document with a `service` entry whose id matches the fragment; only
   `/xrpc/<nsid>` paths are forwarded.
 - Forwarding mints a service-auth JWT (§5.4) for the target with `lxm` set
-  to the method and `aud` set to `<did>#<service id>`. The Reference at the
-  pin may still send a bare DID as `aud`; the Candidate follows the pin for
-  C1 and switches when the pin moves (verify at pin).
+  to the method. At the pin the Reference sends the bare DID as `aud` while
+  checking scopes against `<did>#<service id>` ([VP-2](../parity/verify-at-pin.md));
+  the Candidate does the same for C1 and switches to the fragment form when
+  the pin moves.
 - `atproto-accept-labelers` passes through on the request and
   `atproto-content-labelers` on the response; a malformed accept header is
   an `InvalidRequest`.
@@ -342,14 +343,15 @@ break-glass path; the console (§22) authenticates operators by account (§12.11
   repository signing key, `iss` the caller DID, `aud` our service DID with or
   without the `#atproto_pds` fragment, `iat` present, `exp` short, `jti`
   checked against a replay cache for the token's validity, `lxm` equal to
-  the method NSID. The Candidate requires `lxm` on every authenticated XRPC
-  request; the Harness confirms the Reference does the same at the pin
-  (verify at pin). An optional `kid` header names the verification-method
+  the method NSID. A token without `lxm` is refused where a method is
+  expected, as the Reference's verifier does at the pin
+  ([VP-3](../parity/verify-at-pin.md)). An optional `kid` header names the verification-method
   fragment, default `#atproto`; only expected key types are accepted. The
   key comes from the resolved DID document (§9.3).
-- Outbound: the same shape, signed with the actor's signing key, `exp` 60
-  seconds, `lxm` set, `aud` per §4.4, for proxying and for `getServiceAuth`
-  with the Reference's expiry cap.
+- Outbound: the same shape, signed with the actor's signing key, `exp` of
+  `iat` plus 60 seconds as the Reference's default ([VP-4](../parity/verify-at-pin.md)),
+  `lxm` set, `aud` per §4.4, for proxying and for `getServiceAuth` with the
+  Reference's expiry cap.
 
 ### 5.5 OAuth sessions and permissions
 
@@ -376,9 +378,10 @@ the DPoP proof, nonce, scope.
   no DNS hierarchy walk. The cache is shared across accounts, stale at most
   24 hours, kept at least the access-token lifetime, expired after 90 days.
   An authorization request fails if a set is unresolvable and uncached.
-  Permissions are recomputed on refresh. Whether the Reference at the pin
-  serves `com.atproto.lexicon.resolveLexicon` is verified in unit 0; the
-  Candidate serves it when the pin does.
+  Permissions are recomputed on refresh. The Reference at the pin has no
+  handler for `com.atproto.lexicon.resolveLexicon` ([VP-6](../parity/verify-at-pin.md));
+  the Candidate answers it as the Reference does and serves it natively once
+  the pin does.
 
 ## 6. Repository Engine
 
@@ -525,10 +528,10 @@ sends are ignored. The public listener serves `wss://` behind the proxy.
 | `cursor` older than `PDS_REPO_BACKFILL_LIMIT_MS` (default 1 day) | `#info` with `OutdatedCursor`, then stream from the earliest retained event |
 | subscriber falls behind `PDS_MAX_SUBSCRIPTION_BUFFER` events (default 500) | error `ConsumerTooSlow`, close |
 
-Whether backfill is exclusive of `cursor` (the Reference's outbox, verify at
-pin) or inclusive (the event-stream specification's wording) is pinned by
-the Harness; the Candidate follows the Reference for C1 and documents the
-choice in revision 2.
+Backfill is exclusive of `cursor`: the Reference selects `seq > cursor`
+(`sequencer.ts` at the pin, [VP-1](../parity/verify-at-pin.md)). The
+event-stream specification's "greater-or-equal" wording is noted as the
+discrepancy; the Candidate follows the Reference for C1.
 
 ### 7.4 Durability and crash boundaries
 
@@ -1412,12 +1415,12 @@ return `MethodNotImplemented`), **Ext** (`linkjar` profile only),
 |---|---|---|
 | `com.atproto.server` | `describeServer`, `createAccount`, `createSession`, `getSession`, `refreshSession`, `deleteSession`, `createAppPassword`, `listAppPasswords`, `revokeAppPassword`, `createInviteCode`, `createInviteCodes`, `getAccountInviteCodes`, `requestEmailConfirmation`, `confirmEmail`, `requestEmailUpdate`, `updateEmail`, `requestPasswordReset`, `resetPassword`, `requestAccountDelete`, `deleteAccount`, `deactivateAccount`, `activateAccount`, `checkAccountStatus`, `getServiceAuth`, `reserveSigningKey` | |
 | `com.atproto.repo` | `applyWrites`, `createRecord`, `putRecord`, `deleteRecord`, `getRecord`, `listRecords`, `describeRepo`, `uploadBlob`, `importRepo`, `listMissingBlobs` | |
-| `com.atproto.sync` | `getRepo` (with `since`), `getRecord`, `getLatestCommit`, `getRepoStatus`, `listRepos`, `listBlobs`, `getBlob`, `subscribeRepos` | Deprecated, removable under Sync 1.1: `getHead`, `getCheckout`, the `commit` parameter of `getRecord`; `getBlocks` served while the pin serves it. Relay-only: `getHostStatus`, `listHosts`, `listReposByCollection`, `notifyOfUpdate`, `requestCrawl` (accepted as the Reference accepts them). |
+| `com.atproto.sync` | `getRepo` (with `since`), `getRecord`, `getLatestCommit`, `getRepoStatus`, `listRepos`, `listBlobs`, `getBlob`, `getBlocks`, `subscribeRepos` | Deprecated, served at the pin ([VP-5](../parity/verify-at-pin.md)), removable under Sync 1.1: `getHead`, `getCheckout`, the `commit` parameter of `getRecord`. Not served at the pin, 501 ([VP-7](../parity/verify-at-pin.md)): `listReposByCollection`. Relay-only, 501: `getHostStatus`, `listHosts`, `notifyOfUpdate`; `requestCrawl` accepted as the Reference accepts it. |
 | `com.atproto.identity` | `resolveHandle`, `updateHandle`, `getRecommendedDidCredentials`, `requestPlcOperationSignature`, `signPlcOperation`, `submitPlcOperation` | Proxy or 501 as the Reference: `resolveDid`, `resolveIdentity`, `refreshIdentity`. |
 | `com.atproto.admin` | `deleteAccount`, `disableAccountInvites`, `enableAccountInvites`, `disableInviteCodes`, `getInviteCodes`, `getAccountInfo`, `getAccountInfos`, `getSubjectStatus`, `updateSubjectStatus`, `sendEmail`, `updateAccountEmail`, `updateAccountHandle`, `updateAccountPassword`, `updateAccountSigningKey` | `searchAccounts`: as the Reference. |
 | `com.atproto.moderation` | `createReport` (forwarded) | |
 | `com.atproto.temp` | `checkSignupQueue` | Others: as the Reference (proxy or 501). |
-| `com.atproto.lexicon` | `resolveLexicon` when the pin serves it (verify at pin) | `schema` records are resolved per §5.5. |
+| `com.atproto.lexicon` | | `resolveLexicon`: no handler at the pin ([VP-6](../parity/verify-at-pin.md)), proxy or 501 as the Reference; `schema` records are resolved per §5.5. |
 | `com.atproto.label` | | Proxy or 501 as the Reference; header passthrough per §4.4. |
 | `app.bsky.actor` | | Local: `getPreferences`, `putPreferences`, `getProfile`, `getProfiles`. |
 | `app.bsky.feed` | | Local: `getActorLikes`, `getAuthorFeed`, `getFeed`, `getPostThread`, `getTimeline`. |
