@@ -211,3 +211,12 @@ The current operator host is the provisioned ARM64 NixOS system in
 credentials. The [runbook](docs/runbooks/pds.md) describes the handoff and remaining
 recovery integration. Compose and the Ubuntu bootstrap are fixture/legacy paths,
 not the deployment procedure for that host.
+
+## Rust implementation
+
+[LinkJar PDS in Rust](docs/rust/README.md) records the decision to replace
+this patched reference build with a Rust server whose account behaviour is
+native extension points. [Its specification](docs/rust/SPEC.md) defines
+compatibility with the pinned reference, the extension model, the parity
+harness and the in-place cutover. The reference image stays the deployed
+server until that cutover unit runs.
