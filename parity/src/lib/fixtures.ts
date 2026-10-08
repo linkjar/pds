@@ -31,6 +31,11 @@ export class Fixtures {
     return this.call('GET', `/requests?host=${encodeURIComponent(host)}&since=${since}`)
   }
 
+  /** The XRPC calls a fixture service received since `since`, without the DID document fetches. */
+  async calls(host: string, since = 0): Promise<RecordedRequest[]> {
+    return (await this.requests(host, since)).filter((request) => request.path.startsWith('/xrpc/'))
+  }
+
   /** Serves a document, for example OAuth client metadata, at `https://<host><path>`. */
   serve(document: Document): Promise<void> {
     return this.call('PUT', '/document', document)
