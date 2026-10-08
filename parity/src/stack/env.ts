@@ -107,6 +107,9 @@ export function pdsEnv(spec: TargetSpec, profile: Profile, secrets: Secrets): Re
     PDS_REPORT_SERVICE_DID: `did:web:${HOSTS.mod}`,
     PDS_EMAIL_SMTP_URL: 'smtp://mail:1025',
     PDS_EMAIL_FROM_ADDRESS: 'accounts@linkjar.io',
+    // Without these `com.atproto.admin.sendEmail` answers `sent: true` and sends nothing.
+    PDS_MODERATION_EMAIL_SMTP_URL: 'smtp://mail:1025',
+    PDS_MODERATION_EMAIL_ADDRESS: 'moderation@linkjar.io',
     // Every outside name resolves to a private address inside the stack.
     PDS_DISABLE_SSRF_PROTECTION: 'true',
 

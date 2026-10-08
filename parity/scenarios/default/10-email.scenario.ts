@@ -72,6 +72,7 @@ scenario('10-email', {}, async (s) => {
   // Delete account (SPEC 10.1), with its firehose event (SPEC 10.4).
   const live = subscribe(s.target, HOSTS.pds)
   s.onCleanup(() => live.close())
+  const mark = await live.quiet()
   const deleteRequest = await s.procedure('requestAccountDelete', 'com.atproto.server.requestAccountDelete', undefined, { auth: alice })
   assert.equal(deleteRequest.status, 200)
   const deleteMail = await nextMail(s, alice.email, 2)
@@ -80,9 +81,9 @@ scenario('10-email', {}, async (s) => {
   refused(await s.procedure('deleteAccount with a wrong token', 'com.atproto.server.deleteAccount', { did: alice.did, password: alice.password, token: 'AAAAA-BBBBB' }), 'InvalidToken')
   const deleted = await s.procedure('deleteAccount', 'com.atproto.server.deleteAccount', { did: alice.did, password: alice.password, token: mailToken(deleteMail) })
   assert.equal(deleted.status, 200)
-  const events = await live.waitFor(forDids([alice.did]), 1)
+  const events = await live.after(mark, forDids([alice.did]), 1)
   await live.settle()
-  s.note('events of account deletion', await summariseAll(live.frames.filter(forDids([alice.did]))))
+  s.note('events of account deletion', await summariseAll(live.frames.slice(mark).filter(forDids([alice.did]))))
   assert.equal(events.filter(isEvent)[0]!.type, '#account')
   assert.equal(events.filter(isEvent)[0]!.body.status, 'deleted')
 

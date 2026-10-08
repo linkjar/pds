@@ -168,6 +168,8 @@ export class Scenario {
       // The reset time is a clock reading; only its presence is comparable.
       if (response.headers.has('ratelimit-reset')) compared['ratelimit-reset'] = '<time>'
       if (response.headers.has('dpop-nonce')) compared['dpop-nonce'] = '<nonce>'
+      // Milliseconds between the AppView's revision and the local one: a clock reading.
+      if (response.headers.has('atproto-upstream-lag')) compared['atproto-upstream-lag'] = '<ms>'
       this.entries.push({
         step,
         // Decoded, so that an identifier in the query is aliased like any other.

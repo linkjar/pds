@@ -20,9 +20,14 @@ const RULES: Rule[] = [
   { kind: 'oauth', pattern: /\b(?:req|cod|tok|ref|dev|ses)-[0-9a-f]{16,}\b/g },
   { kind: 'email-token', pattern: /\b[A-Z2-7]{5}-[A-Z2-7]{5}\b/g },
   { kind: 'app-password', pattern: /\b[a-z2-7]{4}-[a-z2-7]{4}-[a-z2-7]{4}-[a-z2-7]{4}\b/g },
+  // A 64-byte signature in base64url, as PLC operations carry it.
+  { kind: 'sig', pattern: /(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{86}(?![A-Za-z0-9_-])/g },
 ]
 
 const TIME = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})/g
+// A clock reading as Unix seconds or milliseconds, inside a string (a cursor, for example).
+const UNIX_TIME = /(?<!\d)1[5-9]\d{8}(?:\d{3})?(?!\d)/g
+const isUnixTime = (n: number) => Number.isInteger(n) && ((n >= 1.5e9 && n < 2.2e9) || (n >= 1.5e12 && n < 2.2e12))
 const JWT = /\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*/g
 
 export class Normaliser {
@@ -65,7 +70,7 @@ export class Normaliser {
 
   text(input: string): string {
     let out = input.replace(JWT, (token) => this.jwt(token))
-    out = out.replace(TIME, '<time>')
+    out = out.replace(TIME, '<time>').replace(UNIX_TIME, '<unix-time>')
     for (const rule of RULES) {
       out = out.replace(rule.pattern, (match) => {
         const alias = this.alias(rule.kind, match)
@@ -78,6 +83,7 @@ export class Normaliser {
   /** Deep-normalises a decoded JSON or DAG-CBOR value. */
   value(input: unknown): unknown {
     if (typeof input === 'string') return this.text(input)
+    if (typeof input === 'number' && isUnixTime(input)) return '<unix-time>'
     if (input === null || typeof input !== 'object') return input
     if (input instanceof Uint8Array) return `<bytes:${input.byteLength}>`
     const cid = CID.asCID(input)

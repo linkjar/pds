@@ -29,6 +29,16 @@ export type Subscription = {
   waitFor(match: (frame: Frame) => boolean, count?: number, timeoutMs?: number): Promise<Frame[]>
   /** Resolves when no frame has arrived for `quietMs`. */
   settle(quietMs?: number): Promise<Frame[]>
+  /**
+   * Waits until the stream is quiet and returns a position in it. The
+   * Reference hands events to live subscribers from a database poll that
+   * backs off to one second, so a subscription opened right after a write
+   * still receives that write. A scenario that subscribes in mid-flight calls
+   * this first and then reads with `after`.
+   */
+  quiet(): Promise<number>
+  /** Like `waitFor`, counting only frames at or after `mark`. */
+  after(mark: number, match: (frame: Frame) => boolean, count?: number, timeoutMs?: number): Promise<Frame[]>
   close(): void
 }
 
@@ -79,6 +89,18 @@ export function subscribe(target: Target, host: string, cursor?: number | string
         await new Promise((resolve) => setTimeout(resolve, 50))
       }
       return frames
+    },
+    async quiet() {
+      await this.settle(1_500)
+      return frames.length
+    },
+    after(mark, match, count = 1, timeoutMs = 15_000) {
+      const position = new Map<Frame, number>()
+      return this.waitFor((frame) => {
+        let index = position.get(frame)
+        if (index === undefined) position.set(frame, (index = frames.indexOf(frame)))
+        return index >= mark && match(frame)
+      }, count, timeoutMs)
     },
     close() {
       socket.close()

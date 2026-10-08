@@ -1,10 +1,10 @@
 // Runs the scenarios of one profile against one target.
 
 import { spawn } from 'node:child_process'
-import { existsSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { FixtureServer } from './fixtures/server.ts'
-import { down, readState, up } from './stack/compose.ts'
+import { down, logs, readState, up } from './stack/compose.ts'
 import type { Profile } from './stack/env.ts'
 import { PARITY_DIR, targetSpec } from './stack/targets.ts'
 import type { TargetName } from './stack/targets.ts'
@@ -55,6 +55,13 @@ export async function runScenarios(target: TargetName, options: RunOptions): Pro
   })
   const status = await new Promise<number>((resolve) => child.on('exit', (code) => resolve(code ?? 1)))
   await fixtures.stop()
+  if (status !== 0) {
+    // The stack is about to go; keep what its services said.
+    const dir = join(targetSpec(target).runDir, 'logs')
+    mkdirSync(dir, { recursive: true })
+    for (const service of ['pds', 'relay', 'plc', 'edge']) writeFileSync(join(dir, `${service}.log`), logs(target, service, 2000))
+    console.error(`Scenarios failed. Service logs are in ${dir}`)
+  }
   if (!options.keep && !options.reuse) down(target)
   return status
 }

@@ -103,12 +103,20 @@ scenario('08-proxy', {}, async (s) => {
   assert.equal(token.lifetime, 60, 'VP-4')
   assert.equal(token.claims.aud, APPVIEW_DID)
   assert.equal(token.claims.lxm, 'app.bsky.feed.getTimeline')
+  // A requested expiry is an absolute time, so these exchanges are kept out
+  // of the transcript and their outcomes recorded instead.
   const now = Math.floor(Date.now() / 1000)
-  const longer = await s.query('getServiceAuth with exp in 30 minutes', 'com.atproto.server.getServiceAuth', { aud: APPVIEW_DID, lxm: 'app.bsky.feed.getTimeline', exp: now + 1800 }, { auth: alice })
+  const withExp = async (step: string, exp: number, lxm?: string) => {
+    const result = await s.query(step, 'com.atproto.server.getServiceAuth', { aud: APPVIEW_DID, lxm, exp }, { auth: alice, silent: true })
+    s.note(step, result.status === 200 ? { status: 200 } : { status: result.status, error: result.json?.error, message: result.json?.message })
+    return result
+  }
+  const longer = await withExp('getServiceAuth with exp in 30 minutes', now + 1800, 'app.bsky.feed.getTimeline')
   assert.equal(longer.status, 200)
-  refused(await s.query('getServiceAuth with exp over an hour away', 'com.atproto.server.getServiceAuth', { aud: APPVIEW_DID, lxm: 'app.bsky.feed.getTimeline', exp: now + 3700 }, { auth: alice }), 'BadExpiration')
-  refused(await s.query('getServiceAuth with exp in the past', 'com.atproto.server.getServiceAuth', { aud: APPVIEW_DID, lxm: 'app.bsky.feed.getTimeline', exp: now - 10 }, { auth: alice }), 'BadExpiration')
-  refused(await s.query('getServiceAuth without lxm and exp over a minute away', 'com.atproto.server.getServiceAuth', { aud: APPVIEW_DID, exp: now + 120 }, { auth: alice }), 'BadExpiration')
+  assert.equal((await verifyServiceToken(s, longer.json.token, alice.did)).claims.exp, now + 1800, 'the requested expiry is used as given')
+  refused(await withExp('getServiceAuth with exp over an hour away', now + 3700, 'app.bsky.feed.getTimeline'), 'BadExpiration')
+  refused(await withExp('getServiceAuth with exp in the past', now - 10, 'app.bsky.feed.getTimeline'), 'BadExpiration')
+  refused(await withExp('getServiceAuth without lxm and exp over a minute away', now + 120), 'BadExpiration')
   const methodless = await s.query('getServiceAuth without lxm', 'com.atproto.server.getServiceAuth', { aud: PDS_DID }, { auth: alice })
   assert.equal(methodless.status, 200)
   assert.equal((await verifyServiceToken(s, methodless.json.token, alice.did)).claims.lxm, undefined)

@@ -56,7 +56,7 @@ scenario('11-identity', {}, async (s) => {
   // updateHandle: PLC first, then local state, then #identity (SPEC 9.2).
   const live = subscribe(s.target, HOSTS.pds)
   s.onCleanup(() => live.close())
-  await new Promise((resolve) => setTimeout(resolve, 300))
+  let mark = await live.quiet()
   refused(await s.procedure('updateHandle to a handle that is taken', 'com.atproto.identity.updateHandle', { handle: alice.handle }, { auth: bob }))
   refused(await s.procedure('updateHandle to a reserved name', 'com.atproto.identity.updateHandle', { handle: `admin${HOSTS.handleDomain}` }, { auth: bob }))
 
@@ -67,7 +67,7 @@ scenario('11-identity', {}, async (s) => {
   await s.fixtures.serve({ host: HOSTS.customHandle, path: '/.well-known/atproto-did', contentType: 'text/plain', body: `  ${bob.did}\n` })
   const custom = await s.procedure('updateHandle to a custom domain', 'com.atproto.identity.updateHandle', { handle: HOSTS.customHandle }, { auth: bob })
   assert.equal(custom.status, 200)
-  const events = await live.waitFor(forDids([bob.did]), 1)
+  const events = await live.after(mark, forDids([bob.did]), 1)
   s.note('events of a handle change to a custom domain', await summariseAll(events))
   assert.equal(events.filter(isEvent)[0]!.body.handle, HOSTS.customHandle)
   const bobDocument = await s.http('PLC document after the handle change', { host: HOSTS.plc, path: `/${bob.did}` })
@@ -111,7 +111,7 @@ scenario('11-identity', {}, async (s) => {
   assert.deepEqual(afterSubmit.json.rotationKeys, [extraKey, ...recommended.json.rotationKeys])
   const log = await s.http('PLC operation log', { host: HOSTS.plc, path: `/${alice.did}/log` })
   assert.equal(log.json.length, 2)
-  const identityEvents = await live.waitFor(forDids([alice.did]), 1)
+  const identityEvents = await live.after(mark, forDids([alice.did]), 1)
   s.note('events of a submitted PLC operation', await summariseAll(identityEvents))
 
   // Keys and status.

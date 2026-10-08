@@ -58,3 +58,11 @@ test('bytes are reduced to their length and field order is ignored', () => {
   assert.deepEqual(n.value({ b: new Uint8Array(64), a: [1, 'x'] }), { a: [1, 'x'], b: '<bytes:64>' })
   assert.equal(JSON.stringify(n.value({ z: 1, a: 2 })), '{"a":2,"z":1}')
 })
+
+test('clock readings and signatures are replaced wherever they appear', () => {
+  const n = new Normaliser()
+  assert.equal(n.text('1791501334106::pds-linkjar-social-abcde-fghij'), '<unix-time>::<invite:1>')
+  assert.deepEqual(n.value({ exp: 1791502972, size: 5242880, seq: 12 }), { exp: '<unix-time>', seq: 12, size: 5242880 })
+  const sig = '6_eqAec0bieHrkFJpl8jV4BOFF_5wYrpZfltFpPEuf43d6fG3V6KUEEbiF3t39_YFAGp84dI02jVP1FwMkKGoA'
+  assert.equal(n.text(sig), '<sig:1>')
+})
