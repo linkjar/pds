@@ -179,9 +179,7 @@ export async function viaSession(
   } catch {
     json = undefined
   }
-  const headers: Record<string, string> = {}
-  const challenge = response.headers.get('www-authenticate')
-  if (challenge) headers['www-authenticate'] = s.norm.text(challenge)
-  s.entries.push({ step, request: `${init.method ?? (init.json === undefined ? 'GET' : 'POST')} ${path} (OAuth session)`, status: response.status, headers, body: s.norm.value(json ?? text) })
-  return { status: response.status, headers: response.headers, text, bytes, json }
+  const result: Result = { status: response.status, headers: response.headers, text, bytes, json }
+  s.record(step, init.method ?? (init.json === undefined ? 'GET' : 'POST'), `${path.split('?')[0]} (OAuth session)`, result)
+  return result
 }

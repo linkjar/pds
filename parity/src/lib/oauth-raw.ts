@@ -50,8 +50,7 @@ export function pkce(): { verifier: string; challenge: string } {
 
 /**
  * Sends a form to an authorization-server endpoint with a DPoP proof. A
- * `use_dpop_nonce` answer is retried once with the nonce the server gave,
- * which is the protocol's own first step and is kept out of the transcript.
+ * `use_dpop_nonce` answer is retried once with the nonce the server gave.
  */
 export async function tokenEndpoint(
   s: Scenario,
@@ -62,7 +61,7 @@ export async function tokenEndpoint(
   opts: { key?: DpopKey; dpop?: boolean } = {},
 ): Promise<Result> {
   const url = `${ISSUER}${path}`
-  const send = async (silent: boolean) => {
+  const send = async () => {
     const headers: Record<string, string> = {}
     if (opts.dpop !== false) headers.dpop = await proof(opts.key ?? client.key, 'POST', url, client.nonce.as)
     const result = await s.http(step, {
@@ -71,23 +70,17 @@ export async function tokenEndpoint(
       body: new URLSearchParams({ client_id: client.clientId, ...form }).toString(),
       contentType: 'application/x-www-form-urlencoded',
       headers,
-      silent,
+      silent: true,
     })
     const nonce = result.headers.get('dpop-nonce')
     if (nonce) client.nonce.as = nonce
     return result
   }
-  const first = await send(true)
-  if (first.json?.error === 'use_dpop_nonce') return send(false)
-  // Record the exchange that counted. Replaying it would change server state, so record from the result.
-  s.entries.push({
-    step,
-    request: `POST ${HOSTS.pds}${path}`,
-    status: first.status,
-    headers: first.headers.has('dpop-nonce') ? { 'dpop-nonce': '<nonce>' } : {},
-    body: s.norm.value(first.json ?? first.text),
-  })
-  return first
+  // The nonce round trip is the protocol's own first step; only the exchange that counted is recorded.
+  let result = await send()
+  if (result.json?.error === 'use_dpop_nonce') result = await send()
+  s.record(step, 'POST', `${HOSTS.pds}${path}`, result)
+  return result
 }
 
 /** Calls the resource server with a DPoP-bound access token. */
@@ -101,7 +94,7 @@ export async function resource(
 ): Promise<Result> {
   const method = request.method ?? (request.json === undefined ? 'GET' : 'POST')
   const url = `${ISSUER}${request.path}`
-  const send = async (silent: boolean) => {
+  const send = async () => {
     const result = await s.http(step, {
       method,
       path: request.path,
@@ -111,20 +104,14 @@ export async function resource(
         authorization: `${opts.scheme ?? 'DPoP'} ${accessToken}`,
         dpop: await proof(opts.key ?? client.key, method, url, client.nonce.rs, accessToken),
       },
-      silent,
+      silent: true,
     })
     const nonce = result.headers.get('dpop-nonce')
     if (nonce) client.nonce.rs = nonce
     return result
   }
-  const first = await send(true)
-  if (first.status === 401 && /use_dpop_nonce/.test(first.headers.get('www-authenticate') ?? '')) return send(false)
-  s.entries.push({
-    step,
-    request: `${method} ${HOSTS.pds}${request.path}`,
-    status: first.status,
-    headers: first.headers.has('www-authenticate') ? { 'www-authenticate': s.norm.text(first.headers.get('www-authenticate')!) } : {},
-    body: s.norm.value(first.json ?? first.text),
-  })
-  return first
+  let result = await send()
+  if (result.status === 401 && /use_dpop_nonce/.test(result.headers.get('www-authenticate') ?? '')) result = await send()
+  s.record(step, method, `${HOSTS.pds}${request.path}`, result)
+  return result
 }

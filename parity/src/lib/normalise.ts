@@ -26,7 +26,7 @@ const RULES: Rule[] = [
 
 const TIME = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})/g
 // A clock reading as Unix seconds or milliseconds, inside a string (a cursor, for example).
-const UNIX_TIME = /(?<!\d)1[5-9]\d{8}(?:\d{3})?(?!\d)/g
+const UNIX_TIME = /(?<![0-9A-Za-z])1[5-9]\d{8}(?:\d{3})?(?![0-9A-Za-z])/g
 const isUnixTime = (n: number) => Number.isInteger(n) && ((n >= 1.5e9 && n < 2.2e9) || (n >= 1.5e12 && n < 2.2e12))
 const JWT = /\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*/g
 
@@ -70,14 +70,14 @@ export class Normaliser {
 
   text(input: string): string {
     let out = input.replace(JWT, (token) => this.jwt(token))
-    out = out.replace(TIME, '<time>').replace(UNIX_TIME, '<unix-time>')
+    out = out.replace(TIME, '<time>')
     for (const rule of RULES) {
       out = out.replace(rule.pattern, (match) => {
         const alias = this.alias(rule.kind, match)
         return rule.render ? rule.render(alias, match) : `<${rule.kind}:${alias}>`
       })
     }
-    return out
+    return out.replace(UNIX_TIME, '<unix-time>')
   }
 
   /** Deep-normalises a decoded JSON or DAG-CBOR value. */
@@ -91,7 +91,9 @@ export class Normaliser {
     if (Array.isArray(input)) return input.map((item) => this.value(item))
     const out: Record<string, unknown> = {}
     for (const key of Object.keys(input).sort()) {
-      out[this.text(key)] = this.value((input as Record<string, unknown>)[key])
+      const value = (input as Record<string, unknown>)[key]
+      // A lifetime counted down from the moment of issue: 299 and 300 are the same five minutes.
+      out[this.text(key)] = key === 'expires_in' && typeof value === 'number' ? Math.round(value / 60) * 60 : this.value(value)
     }
     return out
   }

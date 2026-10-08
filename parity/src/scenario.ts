@@ -159,27 +159,37 @@ export class Scenario {
         json = undefined
       }
     }
-    if (!request.silent) {
-      const compared: Record<string, string> = {}
-      for (const name of COMPARED_HEADERS) {
-        const value = response.headers.get(name)
-        if (value !== null) compared[name] = this.norm.text(value)
-      }
-      // The reset time is a clock reading; only its presence is comparable.
-      if (response.headers.has('ratelimit-reset')) compared['ratelimit-reset'] = '<time>'
-      if (response.headers.has('dpop-nonce')) compared['dpop-nonce'] = '<nonce>'
-      // Milliseconds between the AppView's revision and the local one: a clock reading.
-      if (response.headers.has('atproto-upstream-lag')) compared['atproto-upstream-lag'] = '<ms>'
-      this.entries.push({
-        step,
-        // Decoded, so that an identifier in the query is aliased like any other.
-        request: `${method} ${this.norm.text(decodeURIComponent(url.host + url.pathname + url.search))}`,
-        status: response.status,
-        headers: compared,
-        body: this.recordedBody(type, text, json, bytes),
-      })
+    const result: Result = { status: response.status, headers: response.headers, text, bytes, json }
+    if (!request.silent) this.record(step, method, url, result)
+    return result
+  }
+
+  /**
+   * Adds an exchange to the transcript. `http` calls this itself; a caller
+   * that sent the request silently, to decide first whether it counts, calls
+   * it for the exchange that did.
+   */
+  record(step: string, method: string, url: URL | string, result: Result): void {
+    const target = typeof url === 'string' ? url : decodeURIComponent(url.host + url.pathname + url.search)
+    const compared: Record<string, string> = {}
+    for (const name of COMPARED_HEADERS) {
+      const value = result.headers.get(name)
+      if (value !== null) compared[name] = this.norm.text(value)
     }
-    return { status: response.status, headers: response.headers, text, bytes, json }
+    // The reset time is a clock reading; only its presence is comparable.
+    if (result.headers.has('ratelimit-reset')) compared['ratelimit-reset'] = '<time>'
+    if (result.headers.has('dpop-nonce')) compared['dpop-nonce'] = '<nonce>'
+    // Milliseconds between the AppView's revision and the local one: a clock reading.
+    if (result.headers.has('atproto-upstream-lag')) compared['atproto-upstream-lag'] = '<ms>'
+    const type = result.headers.get('content-type') ?? ''
+    this.entries.push({
+      step,
+      // Decoded, so that an identifier in the query is aliased like any other.
+      request: `${method} ${this.norm.text(target)}`,
+      status: result.status,
+      headers: compared,
+      body: this.recordedBody(type, result.text, result.json, result.bytes),
+    })
   }
 
   private recordedBody(type: string, text: string, json: unknown, bytes: Uint8Array): unknown {

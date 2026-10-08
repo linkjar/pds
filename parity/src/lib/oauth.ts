@@ -2,7 +2,7 @@
 // oracle O4). Client metadata is served by the fixture server under the
 // client's own hostname, as a real client's would be.
 
-import { JoseKey, NodeOAuthClient } from '@atproto/oauth-client-node'
+import { JoseKey, NodeOAuthClient, atprotoLoopbackClientMetadata } from '@atproto/oauth-client-node'
 import type { NodeSavedSession, NodeSavedState, OAuthClientMetadataInput } from '@atproto/oauth-client-node'
 import type { Scenario } from '../scenario.ts'
 import { HOSTS } from '../stack/targets.ts'
@@ -78,4 +78,25 @@ export async function makeClient(
     plcDirectoryUrl: `https://${HOSTS.plc}`,
   })
   return { client, clientId, redirectUri, metadata, key, sessions: sessions.map }
+}
+
+/**
+ * A loopback client (SPEC 11.2): the client_id is `http://localhost` with the
+ * redirect URI and the scope in its query, and the server synthesizes the
+ * metadata. Nothing is published.
+ */
+export function makeLoopbackClient(s: Scenario, scope = 'atproto transition:generic'): TestClient {
+  const redirectUri = 'http://127.0.0.1/callback'
+  const clientId = `http://localhost?redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}`
+  const metadata = atprotoLoopbackClientMetadata(clientId)
+  const sessions = memoryStore<NodeSavedSession>()
+  const client = new NodeOAuthClient({
+    clientMetadata: metadata,
+    stateStore: memoryStore<NodeSavedState>(),
+    sessionStore: sessions,
+    fetch: s.target.fetch({ ip: s.ip }),
+    handleResolver: `https://${HOSTS.pds}`,
+    plcDirectoryUrl: `https://${HOSTS.plc}`,
+  })
+  return { client, clientId, redirectUri, metadata: { ...metadata, client_name: 'Loopback client' }, sessions: sessions.map }
 }
