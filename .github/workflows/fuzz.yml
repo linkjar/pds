@@ -37,6 +37,13 @@ jobs:
       - uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
         with:
           tool: cargo-fuzz@0.13.1
+      # A night starts from the corpus the nights before it built. A job that
+      # finds a crash fails and saves nothing; its input is the artifact below.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: fuzz/corpus/${{ matrix.target }}
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
+          restore-keys: fuzz-corpus-${{ matrix.target }}-
       # The prebuilt cargo-fuzz is a musl binary and builds for its own
       # triple unless told otherwise; the sanitizers need the gnu target.
       - run: cargo +nightly fuzz run --target x86_64-unknown-linux-gnu ${{ matrix.target }} -- -max_total_time=600
