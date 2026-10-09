@@ -36,6 +36,11 @@ class PinTests(unittest.TestCase):
         self.assertTrue(absent(1, 'manifest unknown\n'))
         self.assertTrue(absent(1, 'no such manifest: ghcr.io/linkjar/pds:unused\n'))
 
+    def test_release_tag_is_the_docker_form_of_the_pin(self):
+        tag = load('release-tag').release_tag
+        self.assertEqual(tag({'tag': '@atproto/pds@0.5.34', 'revision': 11}), 'atproto-pds-0.5.34-11')
+        self.assertEqual(tag({'tag': '@atproto/pds@0.6.0', 'revision': 1}), 'atproto-pds-0.6.0-1')
+
     def test_release_platforms_require_both_native_images(self):
         import copy
         validate = load('release-platforms').validate

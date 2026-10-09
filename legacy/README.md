@@ -89,6 +89,8 @@ images to GHCR, with provenance and SBOMs. Tags normalize the upstream package t
 to Docker syntax: `ghcr.io/linkjar/pds:atproto-pds-0.5.34-1`.
 Increment `revision` for each new image from the same upstream release. Existing
 release tags are protected against replacement by the publish job; deploy digests.
+A main push that leaves `revision` at a published tag runs the verification and
+publishes nothing; the run carries a notice that says so.
 There is no mutable `latest` tag and no automatic deployment.
 
 First publication uses the same path as later releases: push the verified build

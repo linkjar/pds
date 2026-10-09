@@ -93,9 +93,45 @@ jobs:
       - name: Verify CAPTCHA signup policy
         run: docker run --rm --entrypoint node -v "$PWD/tests:/linkjar-tests:ro" linkjar-pds:production --test /linkjar-tests/signup-policy.mjs
       - run: python3 scripts/smoke.py --browser
-  publish-amd64:
+  release:
+    name: Release tag
     needs: verify
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      published: ${{ steps.published.outputs.published }}
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+      - uses: docker/login-action@0a596b2e7a325f0cedf8e9bd21ab002cbd3c9241
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Release tag
+        id: release
+        run: python3 scripts/release-tag.py >> "$GITHUB_OUTPUT"
+      # A push that leaves the revision at a published tag has nothing to
+      # release: it verifies and stops here. Only a tag that is seen to exist
+      # counts. Every other answer goes on to the publish jobs, where
+      # release-guard.py decides after the staging push.
+      - name: Is this revision published already?
+        id: published
+        env:
+          RELEASE: ghcr.io/${{ github.repository }}:${{ steps.release.outputs.tag }}
+        run: |
+          if docker manifest inspect "$RELEASE" > /dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::$RELEASE exists. This push verified the build and published nothing. Increment revision in upstream.json to release a new image."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+  publish-amd64:
+    needs: [verify, release]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.release.outputs.published == 'false'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -127,8 +163,8 @@ jobs:
           cache-from: type=gha,scope=pds-production-amd64
           cache-to: type=gha,mode=max,scope=pds-production-amd64
   publish-arm64:
-    needs: verify
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: [verify, release]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.release.outputs.published == 'false'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     permissions:
@@ -171,14 +207,7 @@ jobs:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
       - name: Release tag
         id: release
-        run: |
-          python3 - <<'PYTAG'
-          import json, os
-          p = json.load(open('../upstream.json'))
-          version = p['tag'].split('@')[-1]
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-              f.write(f"tag=atproto-pds-{version}-{p['revision']}\n")
-          PYTAG
+        run: python3 scripts/release-tag.py >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@5ac4a31b15f1c45ec652b8af78c2096c3a08368c
       - uses: docker/login-action@0a596b2e7a325f0cedf8e9bd21ab002cbd3c9241
         with:
