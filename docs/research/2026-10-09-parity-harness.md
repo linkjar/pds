@@ -140,6 +140,30 @@ backs off exponentially "with a max of a second wait" when it finds nothing.
 A scenario that subscribes in mid-flight waits for a quiet stream first.
 Source: `packages/pds/src/sequencer/sequencer.ts` lines 156 to 162 at the pin.
 
+**A 502 from the Reference can be the PLC directory's.** The server maps a
+PLC client error with a status of 500 or more to `UpstreamFailure`, which is
+502. Observed once: with three stacks running at the same time on one host,
+`updateHandle` answered 502. The scenarios of one target now run alone.
+Source: `packages/pds/src/index.ts` lines 165 to 183 at the pin.
+
+**Under a thousand subscribers the Reference falls behind.** Observed in two
+full-scale runs of S4 on one host: with 1, 10 and 100 subscribers a writer
+at 50 commits a second sees a median delivery lag of about 12 ms, with a
+99th percentile near half a second, which is the idle poll. With 1,000
+subscribers the median lag and the median commit time are both about 11
+seconds. The write throughput of fifty writers is back to its earlier value
+once the subscribers have left.
+Source: [`parity/results/perf-reference.md`](../../parity/results/perf-reference.md).
+
+**One run suggests that a large repository in the same process disturbs
+writes to other repositories.** Observed once: S9 ran in the process that
+had just built and exported a repository of 100,000 records, and 420 of
+3,000 writes across fifty other actors came back from the edge as 502, with
+a median commit time near four seconds. After a restart of the server the same scenario
+answered all 3,000 with a median of 161 ms, twice. The cause was not
+established. The performance scenarios now start each file from a fresh
+process, and the first observation is recorded here and not in the baseline.
+
 ## 5. What this means for the Candidate
 
 - The Candidate image needs nothing harness-specific. It must honour
@@ -149,6 +173,10 @@ Source: `packages/pds/src/sequencer/sequencer.ts` lines 156 to 162 at the pin.
   The Reference accepts the variable on its own. Unit 3 has to decide how
   the Candidate runs in the stack: honour the variable without dev mode when
   a test build is used, or run with dev mode on.
+- The Reference sets its keep-alive timeout to 90 seconds
+  (`packages/pds/src/index.ts` line 220 at the pin), below Caddy's default
+  of two minutes for upstream connections. The Candidate should set its own
+  above the proxy's, or the runbook the proxy's below it.
 - The SQL tool of the harness reads and ages rows in the data directory.
   It works on a Candidate as long as schema version 1 is the Reference
   schema (SPEC §8.2).

@@ -26,6 +26,8 @@ export function decodeFrame(data: Uint8Array): Frame {
 
 export type Subscription = {
   frames: Frame[]
+  /** Messages received, whether or not they were decoded or kept. */
+  received(): number
   /** Set when the server closed the socket or the upgrade failed. */
   closed: Promise<{ code: number; httpStatus?: number; httpBody?: string }>
   /** Resolves when `count` frames matching `match` have arrived, or rejects after `timeoutMs`. */
@@ -54,16 +56,32 @@ export type Subscription = {
   close(): void
 }
 
+export type SubscribeOptions = {
+  /**
+   * Called for every decoded frame. With `keep: false` the frame is not
+   * stored, which a measurement over hundreds of thousands of frames needs.
+   */
+  onFrame?: (frame: Frame) => void
+  keep?: boolean
+  /** Count messages without decoding them. For subscribers that only add load. */
+  countOnly?: boolean
+}
+
 /** Subscribes to `subscribeRepos` on the PDS or the relay of a stack. */
-export function subscribe(target: Target, host: string, cursor?: number | string): Subscription {
+export function subscribe(target: Target, host: string, cursor?: number | string, options: SubscribeOptions = {}): Subscription {
   const query = cursor === undefined ? '' : `?cursor=${cursor}`
   const socket: WebSocket = target.socket(host, `/xrpc/com.atproto.sync.subscribeRepos${query}`)
   const frames: Frame[] = []
   let lastFrameAt = Date.now()
+  let received = 0
   const listeners = new Set<() => void>()
   socket.on('message', (data: Buffer) => {
-    frames.push(decodeFrame(new Uint8Array(data)))
+    received++
     lastFrameAt = Date.now()
+    if (options.countOnly) return
+    const frame = decodeFrame(new Uint8Array(data))
+    if (options.keep !== false) frames.push(frame)
+    options.onFrame?.(frame)
     for (const listener of listeners) listener()
   })
   const closed = new Promise<{ code: number; httpStatus?: number; httpBody?: string }>((resolve) => {
@@ -77,6 +95,7 @@ export function subscribe(target: Target, host: string, cursor?: number | string
   })
   return {
     frames,
+    received: () => received,
     closed,
     waitFor(match, count = 1, timeoutMs = 15_000) {
       return new Promise((resolve, reject) => {

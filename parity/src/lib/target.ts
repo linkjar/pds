@@ -36,9 +36,12 @@ export class Target {
     this.name = name
     this.state = readState(name)
     this.ca = readFileSync(this.state.caFile, 'utf8')
-    const connect = buildConnector({ ca: this.ca })
+    const connect = buildConnector({ ca: this.ca, allowH2: false })
     const port = String(this.state.edgePort)
     this.dispatcher = new Agent({
+      // HTTP/1.1, one connection per concurrent request: the edge resets an
+      // HTTP/2 connection that carries many large uploads at once.
+      allowH2: false,
       connect: (opts, callback) =>
         connect({ ...opts, hostname: '127.0.0.1', port, servername: opts.servername ?? opts.hostname }, callback),
     })

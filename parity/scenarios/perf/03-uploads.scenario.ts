@@ -9,6 +9,7 @@ const UPLOADS = SCALE === 'full' ? 20 : 5
 const SIZE = 5 * 1024 * 1024
 
 scenario('03-uploads', { timeoutMs: 30 * 60 * 1000 }, async (s) => {
+  await s.target.restart()
   const alice = await s.createAccount('alice', {}, { silent: true })
   const bodies = Array.from({ length: UPLOADS }, () => randomBytes(SIZE))
   const [growth, [wall, latencies]] = await memoryGrowth(s, () =>

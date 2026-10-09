@@ -3,9 +3,11 @@
 
 import assert from 'node:assert/strict'
 import { readCarWithRoot } from '@atproto/repo'
+import { subscribe } from '../../src/lib/firehose.ts'
 import { SCALE, memoryGrowth, saveResults, summary, timed } from '../../src/lib/perf.ts'
 import { scenario } from '../../src/scenario.ts'
 import type { Account, Scenario } from '../../src/scenario.ts'
+import { HOSTS } from '../../src/stack/targets.ts'
 
 const NOTE = 'com.example.parity.note'
 const SIZES = SCALE === 'full' ? [10, 1_000, 10_000, 100_000] : [10, 400, 2_000]
@@ -17,6 +19,7 @@ async function blocks(s: Scenario, account: Account): Promise<{ rows: number; by
 }
 
 scenario('01-repository', { timeoutMs: 3 * 60 * 60 * 1000 }, async (s) => {
+  await s.target.restart()
   const alice = await s.createAccount('alice', {}, { silent: true })
   let written = 0
   const record = (n: number) => ({ $type: NOTE, n, text: `record ${n} of a repository that grows` })
@@ -36,16 +39,39 @@ scenario('01-repository', { timeoutMs: 3 * 60 * 60 * 1000 }, async (s) => {
       const response = await batch(Math.min(200, size - written))
       assert.equal(response.status, 200, response.text)
     }
-    // S1: single creates at this size.
+    // S1: single creates at this size. What a write stores is read off its
+    // commit on the firehose: the CAR slice holds exactly the blocks that the
+    // revision added. The block table's net growth is smaller, because the
+    // Reference deletes the tree nodes and the commit that a write replaces.
     const before = await blocks(s, alice)
+    const revs = new Set<string>()
+    const commits: { rev: string; bytes: number }[] = []
+    const live = subscribe(s.target, HOSTS.pds, undefined, {
+      keep: false,
+      onFrame: (frame) => {
+        if (frame.kind === 'event' && frame.type === '#commit') commits.push({ rev: String(frame.body.rev), bytes: (frame.body.blocks as Uint8Array).byteLength })
+      },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 1_500))
     const latencies: number[] = []
     for (let i = 0; i < SAMPLES; i++) {
       const [ms, response] = await timed(single)
       assert.equal(response.status, 200, response.text)
+      revs.add(response.json.commit.rev)
       latencies.push(ms)
     }
+    await new Promise((resolve) => setTimeout(resolve, 2_500))
+    live.close()
+    const mine = commits.filter((commit) => revs.has(commit.rev))
+    assert.equal(mine.length, SAMPLES, 'every write was seen on the firehose')
     const after = await blocks(s, alice)
-    s1.push({ records: size, ...summary(latencies), blockRowsPerWrite: Math.round(((after.rows - before.rows) / SAMPLES) * 10) / 10, blockBytesPerWrite: Math.round((after.bytes - before.bytes) / SAMPLES) })
+    s1.push({
+      records: size,
+      ...summary(latencies),
+      carBytesPerWrite: Math.round(mine.reduce((sum, w) => sum + w.bytes, 0) / SAMPLES),
+      netBlockRowsPerWrite: Math.round(((after.rows - before.rows) / SAMPLES) * 10) / 10,
+      netBlockBytesPerWrite: Math.round((after.bytes - before.bytes) / SAMPLES),
+    })
     // S2: batches of 200 at this size.
     const batches: number[] = []
     for (let i = 0; i < 5; i++) {

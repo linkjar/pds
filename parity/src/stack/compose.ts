@@ -1,6 +1,6 @@
 // Starts, stops and inspects the compose stack of one target.
 
-import { spawnSync } from 'node:child_process'
+import { execFile, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -172,6 +172,18 @@ export function sqlite(target: TargetName, database: Database, sql: string, para
   }
   const run = compose(target, ['run', '--rm', '--no-deps', '-T', 'sqlite'], { input: JSON.stringify({ file, sql, params }) })
   return JSON.parse(run.stdout)
+}
+
+/**
+ * Like `execPds`, without blocking the caller's event loop. A measurement
+ * that samples the container while it also reads a stream needs this.
+ */
+export function execPdsAsync(target: TargetName, command: string[]): Promise<string> {
+  const spec = targetSpec(target)
+  const secrets = ensureSecrets(spec.runDir)
+  return new Promise((resolve) => {
+    execFile('docker', ['compose', '-f', COMPOSE_FILE, 'exec', '-T', 'pds', ...command], { env: composeEnv(spec, secrets), encoding: 'utf8' }, (_error, stdout) => resolve(stdout ?? ''))
+  })
 }
 
 export function logs(target: TargetName, service: string, tail = 200): string {

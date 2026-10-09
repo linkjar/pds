@@ -7,6 +7,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import type { Scenario } from '../scenario.ts'
+import { execPdsAsync } from '../stack/compose.ts'
 import { targetSpec } from '../stack/targets.ts'
 
 export type Scale = 'full' | 'smoke'
@@ -34,27 +35,27 @@ export async function timed<T>(fn: () => Promise<T>): Promise<[number, T]> {
   return [performance.now() - start, value]
 }
 
-/** Anonymous memory of the PDS container, in bytes. */
-export function memory(s: Scenario): number {
-  const stat = s.target.exec(['cat', '/sys/fs/cgroup/memory.stat']).stdout
+/** Anonymous memory of the PDS container, in bytes. Asynchronous, so that sampling does not stall a stream the caller is reading. */
+export async function memory(s: Scenario): Promise<number> {
+  const stat = await execPdsAsync(s.target.name, ['cat', '/sys/fs/cgroup/memory.stat'])
   const anon = /^anon (\d+)$/m.exec(stat)
   return anon ? Number(anon[1]) : Number.NaN
 }
 
 /** Samples memory while `fn` runs and returns the growth of the peak over the starting value, in MiB. */
 export async function memoryGrowth<T>(s: Scenario, fn: () => Promise<T>): Promise<[number, T]> {
-  const before = memory(s)
+  const before = await memory(s)
   let peak = before
   let running = true
   const sampler = (async () => {
     while (running) {
-      peak = Math.max(peak, memory(s))
+      peak = Math.max(peak, await memory(s))
       await new Promise((resolve) => setTimeout(resolve, 250))
     }
   })()
   try {
     const value = await fn()
-    peak = Math.max(peak, memory(s))
+    peak = Math.max(peak, await memory(s))
     return [Math.round(((peak - before) / (1024 * 1024)) * 10) / 10, value]
   } finally {
     running = false

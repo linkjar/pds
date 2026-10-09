@@ -90,6 +90,7 @@ Three things in the stack exist because a component has no test switch:
 - **The relay image is published for amd64 only.** An arm64 host runs it under
   emulation.
 
+
 ### Scenarios and transcripts
 
 A scenario gets a `Scenario` object. `s.http`, `s.query` and `s.procedure`
