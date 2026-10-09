@@ -83,7 +83,8 @@ scenario('21-oauth-negative', { timeoutMs: 300_000 }, async (s) => {
   // PAR is mandatory: the authorization endpoint does not take the parameters directly.
   const direct = await s.http('authorize without a pushed request', {
     path: '/oauth/authorize',
-    query: { client_id: client.clientId, redirect_uri: client.redirectUri, response_type: 'code', scope: SCOPE, state: 'x', code_challenge: pkce().challenge, code_challenge_method: 'S256' },
+    // A fixed challenge: the request is recorded, and a random one would differ on every run.
+    query: { client_id: client.clientId, redirect_uri: client.redirectUri, response_type: 'code', scope: SCOPE, state: 'x', code_challenge: 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM', code_challenge_method: 'S256' },
   })
   s.note('authorize without a pushed request', { status: direct.status, location: direct.headers.get('location')?.replace(/state=[^&]+/, 'state=…') ?? null })
   assert.notEqual(direct.status, 200)

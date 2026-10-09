@@ -65,6 +65,8 @@ export function diffTranscripts(left: Map<string, Transcript>, right: Map<string
     if (a.outcome !== b.outcome) {
       differences.push({ scenario: key, step: '(scenario)', path: 'outcome', left: a.outcome, right: b.outcome })
     }
+    // A scenario that one target skipped is one difference, not one for each step the other target took.
+    if (a.outcome.startsWith('skipped') || b.outcome.startsWith('skipped')) continue
     const length = Math.max(a.entries.length, b.entries.length)
     for (let i = 0; i < length; i++) {
       const found: { path: string; left: unknown; right: unknown }[] = []

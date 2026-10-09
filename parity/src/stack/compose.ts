@@ -133,7 +133,8 @@ export function bootPds(target: TargetName, env: Record<string, string>, waitMs 
   const spec = targetSpec(target)
   const secrets = ensureSecrets(spec.runDir)
   const name = `parity-${target}-boot-${Date.now()}`
-  const overrides = { PDS_DATA_DIRECTORY: '/tmp/boot', PDS_BLOBSTORE_DISK_LOCATION: '/tmp/boot/blocks', ...env }
+  // /tmp exists and is writable in the image; the server does not create its data directory.
+  const overrides = { PDS_DATA_DIRECTORY: '/tmp', PDS_BLOBSTORE_DISK_LOCATION: '/tmp/blocks', ...env }
   const args = ['compose', '-f', COMPOSE_FILE, 'run', '--detach', '--no-deps', '--name', name]
   for (const [key, value] of Object.entries(overrides)) args.push('-e', `${key}=${value}`)
   const options = { env: composeEnv(spec, secrets), encoding: 'utf8' as const }

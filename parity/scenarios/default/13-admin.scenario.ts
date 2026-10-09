@@ -4,6 +4,7 @@
 
 import assert from 'node:assert/strict'
 import { forDids, isEvent, subscribe } from '../../src/lib/firehose.ts'
+import type { Frame } from '../../src/lib/firehose.ts'
 import { describeMail, nextMail } from '../../src/lib/mail.ts'
 import { NOTE, surfaces } from '../../src/oracles/account-surfaces.ts'
 import { summariseAll } from '../../src/oracles/firehose.ts'
@@ -44,10 +45,13 @@ scenario('13-admin', {}, async (s) => {
   assert.equal(takedown.status, 200)
   const set = await s.query('getSubjectStatus after the takedown', 'com.atproto.admin.getSubjectStatus', { did: alice.did }, { auth: 'admin' })
   assert.deepEqual(set.json.takedown, { applied: true, ref: 'parity-1' })
-  const takedownEvents = await live.after(mark, mine, 1)
+  const accountEvent = (active: boolean, status?: string) => (frame: Frame) =>
+    isEvent(frame) && frame.type === '#account' && frame.body.active === active && frame.body.status === status
+  const takedownEvents = await live.collect(mark, mine, accountEvent(false, 'takendown'))
   s.note('events of an account takedown', await summariseAll(takedownEvents))
-  assert.equal(takedownEvents.filter(isEvent)[0]!.body.status, 'takendown')
+  assert.equal(takedownEvents.length, 1)
 
+  const takedownMark = await live.quiet()
   const down = await surfaces(s, 'taken down', alice, blob.ref.$link)
   assert.notEqual(down.getRepo, 200)
   assert.notEqual(down.getBlob, 200)
@@ -61,9 +65,10 @@ scenario('13-admin', {}, async (s) => {
 
   const reversed = await s.procedure('updateSubjectStatus: reverse the takedown', 'com.atproto.admin.updateSubjectStatus', { subject: repoRef, takedown: { applied: false } }, { auth: 'admin' })
   assert.equal(reversed.status, 200)
-  mark = await live.quiet()
-  const reversedEvents = live.frames.filter(mine).slice(-1)
+  mark = takedownMark
+  const reversedEvents = await live.collect(mark, mine, accountEvent(true))
   s.note('events of a reversed takedown', await summariseAll(reversedEvents))
+  assert.equal(reversedEvents.length, 1)
   const signIn = await s.procedure('createSession after the takedown is reversed', 'com.atproto.server.createSession', { identifier: alice.handle, password: alice.password })
   assert.equal(signIn.status, 200)
   alice.accessJwt = signIn.json.accessJwt
@@ -123,10 +128,11 @@ scenario('13-admin', {}, async (s) => {
   assert.ok(codes.json.codes.some((c: { code: string }) => c.code === code.json.code))
 
   // Admin deletion, with its event.
+  const deletionMark = await live.quiet()
   const deleted = await s.procedure('admin deleteAccount', 'com.atproto.admin.deleteAccount', { did: bob.did }, { auth: 'admin' })
   assert.equal(deleted.status, 200)
-  mark = await live.quiet()
-  const deleted2 = live.frames.filter(forDids([bob.did])).slice(-1)
-  s.note('events of an admin deletion', await summariseAll(deleted2))
+  const deletion = await live.collect(deletionMark, forDids([bob.did]), accountEvent(false, 'deleted'))
+  s.note('events of an admin deletion', await summariseAll(deletion))
+  assert.equal(deletion.length, 1)
   refused(await s.procedure('createSession of an account the admin deleted', 'com.atproto.server.createSession', { identifier: s.handle('robert'), password: 'set-by-admin-1' }))
 })

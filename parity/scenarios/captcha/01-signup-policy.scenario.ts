@@ -18,8 +18,11 @@ scenario('01-signup-policy', { timeoutMs: 240_000 }, async (s) => {
   const health = await s.http('health with hCaptcha configured', { path: '/xrpc/_health' })
   assert.equal(health.status, 200)
 
+  // The check on the check: with all three variables a second server starts.
+  assert.equal(s.target.boot({}).started, true, 'a complete configuration starts')
+
   // Partial configuration: each variable removed in turn. The LinkJar build refuses to start
-  // and its message names no secret.
+  // and its message names no secret. Upstream reads a partial configuration as none and starts.
   const partial: Record<string, unknown> = {}
   for (const missing of Object.keys(captcha)) {
     const boot = s.target.boot({ [missing]: '' })

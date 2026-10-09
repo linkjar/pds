@@ -84,7 +84,9 @@ scenario('30-linkjar-external', { linkjar: true, timeoutMs: 420_000 }, async (s)
 
   // A second person with the same display name: the handle gets a six-hex suffix.
   const twin = await externalSignIn(s, await device(), app, { provider: 'google', subject: `google-${s.tag}-2`, email: s.email('twin'), emailVerified: true, name })
-  const twinHandle = (await viaSession(s, 'getSession of the second account', twin.session!, '/xrpc/com.atproto.server.getSession')).json.handle as string
+  // The suffix is random, so the exchange stays out of the transcript and the shape of the handle goes in.
+  const twinSession = await twin.session!.fetchHandler('/xrpc/com.atproto.server.getSession')
+  const twinHandle = ((await twinSession.json()) as { handle: string }).handle
   assert.match(twinHandle, new RegExp(`^nova-${s.tag}-[0-9a-f]{6}\\.linkjar\\.social$`))
   s.note('handle on a collision', twinHandle.replace(/-[0-9a-f]{6}\./, '-<six hex>.'))
 

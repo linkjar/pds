@@ -1,0 +1,251 @@
+[
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "start with a partial hCaptcha configuration",
+    "path": "note.without PDS_HCAPTCHA_SECRET_KEY.saysPartial",
+    "left": true,
+    "right": false
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "start with a partial hCaptcha configuration",
+    "path": "note.without PDS_HCAPTCHA_SECRET_KEY.started",
+    "left": false,
+    "right": true
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "start with a partial hCaptcha configuration",
+    "path": "note.without PDS_HCAPTCHA_SITE_KEY.saysPartial",
+    "left": true,
+    "right": false
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "start with a partial hCaptcha configuration",
+    "path": "note.without PDS_HCAPTCHA_SITE_KEY.started",
+    "left": false,
+    "right": true
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "start with a partial hCaptcha configuration",
+    "path": "note.without PDS_HCAPTCHA_TOKEN_SALT.saysPartial",
+    "left": true,
+    "right": false
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "start with a partial hCaptcha configuration",
+    "path": "note.without PDS_HCAPTCHA_TOKEN_SALT.started",
+    "left": false,
+    "right": true
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "legacy createAccount, fresh",
+    "path": "body.accessJwt",
+    "right": "<jwt alg=HS256 typ=at+jwt scope=com.atproto.access sub=did:plc:<1> aud=did:web:pds.linkjar.social lifetime=7200>"
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "legacy createAccount, fresh",
+    "path": "body.did",
+    "right": "did:plc:<1>"
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "legacy createAccount, fresh",
+    "path": "body.didDoc",
+    "right": {
+      "@context": [
+        "https://www.w3.org/ns/did/v1",
+        "https://w3id.org/security/multikey/v1",
+        "https://w3id.org/security/suites/secp256k1-2019/v1"
+      ],
+      "alsoKnownAs": [
+        "at://fresh-3fac64.linkjar.social"
+      ],
+      "id": "did:plc:<1>",
+      "service": [
+        {
+          "id": "#atproto_pds",
+          "serviceEndpoint": "https://pds.linkjar.social",
+          "type": "AtprotoPersonalDataServer"
+        }
+      ],
+      "verificationMethod": [
+        {
+          "controller": "did:plc:<1>",
+          "id": "did:plc:<1>#atproto",
+          "publicKeyMultibase": "<multikey:1>",
+          "type": "Multikey"
+        }
+      ]
+    }
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "legacy createAccount, fresh",
+    "path": "body.error",
+    "left": "InvalidRequest"
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "legacy createAccount, fresh",
+    "path": "body.handle",
+    "right": "fresh-3fac64.linkjar.social"
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "legacy createAccount, fresh",
+    "path": "body.message",
+    "left": "Create an account through the OAuth signup page"
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "legacy createAccount, fresh",
+    "path": "body.refreshJwt",
+    "right": "<jwt alg=HS256 typ=refresh+jwt scope=com.atproto.refresh sub=did:plc:<1> aud=did:web:pds.linkjar.social lifetime=7776000 jti>"
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "legacy createAccount, fresh",
+    "path": "status",
+    "left": 400,
+    "right": 200
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "legacy createAccount with an invite code",
+    "path": "body.error",
+    "left": "InvalidRequest",
+    "right": "InvalidInviteCode"
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "legacy createAccount with an invite code",
+    "path": "body.message",
+    "left": "Create an account through the OAuth signup page",
+    "right": "Provided invite code not available"
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "legacy createAccount naming a DID, without service auth",
+    "path": "body.error",
+    "left": "InvalidRequest",
+    "right": "AuthenticationRequired"
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "legacy createAccount naming a DID, without service auth",
+    "path": "body.message",
+    "left": "Create an account through the OAuth signup page",
+    "right": "Missing auth to create account with did: did:plc:<2>"
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "legacy createAccount naming a DID, without service auth",
+    "path": "status",
+    "left": 400,
+    "right": 401
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "legacy signup with hCaptcha configured",
+    "path": "note.claimingDid",
+    "left": 400,
+    "right": 401
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "legacy signup with hCaptcha configured",
+    "path": "note.fresh",
+    "left": 400,
+    "right": 200
+  },
+  {
+    "scenario": "captcha/01-signup-policy",
+    "step": "legacy signup with hCaptcha configured",
+    "path": "note.moverAvailable",
+    "left": false,
+    "right": true
+  },
+  {
+    "scenario": "default/10-email",
+    "step": "confirm-email mail",
+    "path": "note.text",
+    "left": "Confirm your email — LinkJar\n\nLinkJar [https://linkjar.io/logo/linkjar-128.png] [https://linkjar.io] ACCOUNT\nSECURITY\n\n\nCONFIRM YOUR EMAIL\n\nConfirm this email address for your account.\n\n<email-token:1>\n\nEnter this code in the app to confirm your email. Or confirm your email\n[https://bsky.app/intent/verify-email?code=<email-token:1>].\n\nIf you did not request this confirmation, ignore this email.\n\nOpen LinkJar [https://linkjar.io]  ·  Get help [https://linkjar.io/support/]\nNever share your password, confirmation codes or Private Jar Recovery Kit.\nLinkJar. Your links. Your jar. Forever.",
+    "right": "LinkJar [https://linkjar.io/logo/linkjar-128.png]\n\n\nCONFIRM YOUR EMAIL\n\nTo confirm this email for your account, please enter the code below in the app\nor click here [https://bsky.app/intent/verify-email?code=<email-token:1>].\n\n<email-token:1>\n\nIf you didn't request an email confirmation, you can safely ignore this email.\n\n--------------------------------------------------------------------------------\n\nLinkJar [https://linkjar.io]\n\nLinkJar [https://linkjar.io/logo/linkjar-128.png]"
+  },
+  {
+    "scenario": "default/10-email",
+    "step": "update-email mail",
+    "path": "note.text",
+    "left": "Update your email — LinkJar\n\nLinkJar [https://linkjar.io/logo/linkjar-128.png] [https://linkjar.io] ACCOUNT\nSECURITY\n\n\nUPDATE YOUR EMAIL\n\nWe received a request to change your account’s email address.\n\n<email-token:2>\n\nEnter this code in the app with your new email address.\n\nIf you did not request an email update, ignore this email.\n\nOpen LinkJar [https://linkjar.io]  ·  Get help [https://linkjar.io/support/]\nNever share your password, confirmation codes or Private Jar Recovery Kit.\nLinkJar. Your links. Your jar. Forever.",
+    "right": "LinkJar [https://linkjar.io/logo/linkjar-128.png]\n\n\nUPDATE YOUR EMAIL\n\nTo update the email for your account, enter the code below in the app along with\nyour new email.\n\n<email-token:2>\n\nIf you didn't request an email update, you can safely ignore this email.\n\n--------------------------------------------------------------------------------\n\nLinkJar [https://linkjar.io]\n\nLinkJar [https://linkjar.io/logo/linkjar-128.png]"
+  },
+  {
+    "scenario": "default/10-email",
+    "step": "reset-password mail",
+    "path": "note.text",
+    "left": "Reset your password — LinkJar\n\nLinkJar [https://linkjar.io/logo/linkjar-128.png] [https://linkjar.io] ACCOUNT\nSECURITY\n\n\nRESET YOUR PASSWORD\n\nWe received a request to reset the password for @alice-2d4cef.linkjar.social.\n\n<email-token:3>\n\nEnter this code in the app with your new password.\n\nIf you did not request a password reset, ignore this email. Your password has\nnot changed.\n\nOpen LinkJar [https://linkjar.io]  ·  Get help [https://linkjar.io/support/]\nNever share your password, confirmation codes or Private Jar Recovery Kit.\nLinkJar. Your links. Your jar. Forever.",
+    "right": "LinkJar [https://linkjar.io/logo/linkjar-128.png]\n\n\nRESET PASSWORD\n\nWe received a request to reset the password for the account\n@alice-2d4cef.linkjar.social.\n\n<email-token:3>\n\nTo choose a new password, please enter the code above in the app along with your\nnew password.\n\n--------------------------------------------------------------------------------\n\nLinkJar [https://linkjar.io]\n\nLinkJar [https://linkjar.io/logo/linkjar-128.png]"
+  },
+  {
+    "scenario": "default/10-email",
+    "step": "delete-account mail",
+    "path": "note.text",
+    "left": "Account deletion requested — LinkJar\n\nLinkJar [https://linkjar.io/logo/linkjar-128.png] [https://linkjar.io] ACCOUNT\nSECURITY\n\n\nACCOUNT DELETION REQUESTED\n\nWe received a request to permanently delete your account.\n\n<email-token:4>\n\nEnter this code in the app with your password to confirm deletion.\n\nIf you did not request deletion, review your account security and change your\npassword if one is set.\n\nOpen LinkJar [https://linkjar.io]  ·  Get help [https://linkjar.io/support/]\nNever share your password, confirmation codes or Private Jar Recovery Kit.\nLinkJar. Your links. Your jar. Forever.",
+    "right": "LinkJar [https://linkjar.io/logo/linkjar-128.png]\n\n\nDELETE YOUR ACCOUNT\n\nTo permanently delete your account, please enter the code below in the app along\nwith your password.\n\n<email-token:4>\n\n👉 If you didn't request an account deletion, you should update your password\nimmediately.\n\n--------------------------------------------------------------------------------\n\nLinkJar [https://linkjar.io]\n\nLinkJar [https://linkjar.io/logo/linkjar-128.png]"
+  },
+  {
+    "scenario": "default/11-identity",
+    "step": "PLC-operation mail",
+    "path": "note.text",
+    "left": "Identity update requested — LinkJar\n\nLinkJar [https://linkjar.io/logo/linkjar-128.png] [https://linkjar.io] ACCOUNT\nSECURITY\n\n\nIDENTITY UPDATE REQUESTED\n\nWe received a request to update your PLC identity.\n\n<email-token:1>\n\nUse this confirmation code to authorize the identity update.\n\nUpdating your PLC identity is a sensitive operation. Proceed only if you\nunderstand and requested the change.\n\nOpen LinkJar [https://linkjar.io]  ·  Get help [https://linkjar.io/support/]\nNever share your password, confirmation codes or Private Jar Recovery Kit.\nLinkJar. Your links. Your jar. Forever.",
+    "right": "LinkJar [https://linkjar.io/logo/linkjar-128.png]\n\n\nPLC UPDATE REQUESTED\n\nWe received a request to update your PLC identity. Your confirmation code is:\n\n<email-token:1>\n\nUpdating your PLC identity is a very sensitive operation. Please only proceed if\nyou are confident in what you are doing.\n\n--------------------------------------------------------------------------------\n\nLinkJar [https://linkjar.io]\n\nLinkJar [https://linkjar.io/logo/linkjar-128.png]"
+  },
+  {
+    "scenario": "default/21-oauth-negative",
+    "step": "authorize without a pushed request",
+    "path": "headers.content-security-policy",
+    "left": "upgrade-insecure-requests; connect-src 'self'; default-src 'none'; font-src 'self'; frame-ancestors 'none'; img-src data: https:; script-src 'sha256-0ikpyqCGQohuU0f/ZcbAxe1sSKOzB3bc3/i9awbIArg=' 'self'; style-src 'self' 'sha256-8XX/IAj7CIlu+V+O5msSv/OYehj6XJvZtPIGvgLFAs8='",
+    "right": "upgrade-insecure-requests; connect-src 'self'; default-src 'none'; frame-ancestors 'none'; img-src data: https:; script-src 'sha256-nU2qyhQsC0ZvwICISFDQq6GUygBYnQma8osKDU63zu8=' 'self'; style-src 'self' 'sha256-8XX/IAj7CIlu+V+O5msSv/OYehj6XJvZtPIGvgLFAs8='"
+  },
+  {
+    "scenario": "default/30-linkjar-external",
+    "step": "(scenario)",
+    "path": "outcome",
+    "left": "passed",
+    "right": "skipped: LinkJar behaviour, not present in a stock build"
+  },
+  {
+    "scenario": "default/31-linkjar-handles",
+    "step": "(scenario)",
+    "path": "outcome",
+    "left": "passed",
+    "right": "skipped: LinkJar behaviour, not present in a stock build"
+  },
+  {
+    "scenario": "default/32-linkjar-signup-journey",
+    "step": "(scenario)",
+    "path": "outcome",
+    "left": "passed",
+    "right": "skipped: LinkJar behaviour, not present in a stock build"
+  },
+  {
+    "scenario": "default/33-linkjar-signin-methods",
+    "step": "(scenario)",
+    "path": "outcome",
+    "left": "passed",
+    "right": "skipped: LinkJar behaviour, not present in a stock build"
+  },
+  {
+    "scenario": "invites/02-linkjar-invite-handoff",
+    "step": "(scenario)",
+    "path": "outcome",
+    "left": "passed",
+    "right": "skipped: LinkJar behaviour, not present in a stock build"
+  }
+]

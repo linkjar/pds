@@ -69,7 +69,9 @@ export class Normaliser {
   }
 
   text(input: string): string {
-    let out = input.replace(JWT, (token) => this.jwt(token))
+    // A DID inside a URL arrives percent-encoded; it is the same DID.
+    let out = input.replace(/did%3Aplc%3A([a-z2-7]{24})/gi, 'did:plc:$1')
+    out = out.replace(JWT, (token) => this.jwt(token))
     out = out.replace(TIME, '<time>')
     for (const rule of RULES) {
       out = out.replace(rule.pattern, (match) => {

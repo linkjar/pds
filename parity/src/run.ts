@@ -11,7 +11,7 @@ import type { TargetName } from './stack/targets.ts'
 
 export type RunOptions = {
   profile: Profile
-  /** Run only scenarios whose file name contains this text. */
+  /** Run only scenarios whose file name contains this text, or one of several separated by commas. */
   only?: string
   /** Leave the stack running afterwards, for inspection. */
   keep?: boolean
@@ -24,7 +24,7 @@ export function scenarioFiles(profile: Profile, only?: string): string[] {
   if (!existsSync(dir)) return []
   return readdirSync(dir)
     .filter((name) => name.endsWith('.scenario.ts'))
-    .filter((name) => !only || name.includes(only))
+    .filter((name) => !only || only.split(',').some((part) => name.includes(part)))
     .sort()
     .map((name) => join(dir, name))
 }
@@ -42,7 +42,8 @@ export async function runScenarios(target: TargetName, options: RunOptions): Pro
     // A fresh stack for every run: scenarios use fixed handles, and state
     // left by an earlier run would change what they observe.
     await up(target, options.profile, { fresh: true })
-    rmSync(join(targetSpec(target).runDir, 'transcripts', options.profile), { recursive: true, force: true })
+    // A full run replaces the profile's transcripts. A partial run replaces only those it writes.
+    if (!options.only) rmSync(join(targetSpec(target).runDir, 'transcripts', options.profile), { recursive: true, force: true })
   }
   const fixtures = new FixtureServer(targetSpec(target).fixturePort)
   await fixtures.start()

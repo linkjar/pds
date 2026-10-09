@@ -66,3 +66,9 @@ test('clock readings and signatures are replaced wherever they appear', () => {
   const sig = '6_eqAec0bieHrkFJpl8jV4BOFF_5wYrpZfltFpPEuf43d6fG3V6KUEEbiF3t39_YFAGp84dI02jVP1FwMkKGoA'
   assert.equal(n.text(sig), '<sig:1>')
 })
+
+test('a percent-encoded DID gets the alias of the DID', () => {
+  const n = new Normaliser()
+  assert.equal(n.text('did:plc:e6d3i5xexqzag6j6t2kupjm6'), 'did:plc:<1>')
+  assert.equal(n.text('https://linkjar.io/jar/did%3Aplc%3Ae6d3i5xexqzag6j6t2kupjm6'), 'https://linkjar.io/jar/did:plc:<1>')
+})
