@@ -6,7 +6,7 @@ flowchart LR
   src --> sim[nightly seeds: pds-sim]
   legacy([legacy/, reference image build]) --> build[build.yml, paths legacy/**]
   build -- publishes by digest --> image[(ghcr.io/linkjar/pds)]
-  parity[parity/, scenarios and oracles] --> gate[parity.yml: scenarios on three targets, two comparisons]
+  parity[parity/, scenarios and oracles] --> gate[parity.yml: scenarios on four targets, three comparisons]
   image --> gate
   legacy --> gate
   devenv[(devenv.nix: toolchain, tools, hooks)] --- src

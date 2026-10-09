@@ -85,10 +85,10 @@ jobs:
           build-args: PATCH_PROFILE=none
           # The same cache the image workflow fills.
           cache-from: type=gha,scope=pds-none-amd64
-      - name: Scenarios, every profile, three targets
+      - name: Scenarios, every profile, four targets
         run: |
           set -euo pipefail
-          for target in reference repeat stock; do
+          for target in reference repeat stock official; do
             for profile in default invites firehose captcha; do
               pnpm parity run "$target" --profile "$profile"
             done
@@ -97,6 +97,8 @@ jobs:
         run: pnpm parity compare reference repeat
       - name: Reference against Stock Reference shows the recorded differences
         run: pnpm parity compare reference stock
+      - name: Stock Reference against the official distribution shows no difference
+        run: pnpm parity compare stock official
       - name: Keep transcripts and service logs
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

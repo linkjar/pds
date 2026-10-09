@@ -31,6 +31,9 @@ pnpm parity compare reference repeat    # must show no difference
 pnpm parity images build-stock          # PATCH_PROFILE=none build of ../legacy
 pnpm parity run stock
 pnpm parity compare reference stock     # must show exactly the recorded differences
+
+pnpm parity run official                # the upstream distribution, by digest
+pnpm parity compare stock official      # must show no difference
 ```
 
 Each `run` builds a fresh stack, runs the scenarios of one profile in file

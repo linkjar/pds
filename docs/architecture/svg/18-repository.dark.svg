@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1450.5529999999999 531.7125" width="1450.5529999999999" height="531.7125" style="--bg:#0d1117;--fg:#e6edf3;--line:#3d444d;--accent:#4493f8;--muted:#9198a1;background:var(--bg)">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1454.9989999999998 531.7125" width="1454.9989999999998" height="531.7125" style="--bg:#0d1117;--fg:#e6edf3;--line:#3d444d;--accent:#4493f8;--muted:#9198a1;background:var(--bg)">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter%2C%20ui-sans-serif%2C%20system-ui%2C%20sans-serif:wght@400;500;600;700&amp;display=swap');
   text { font-family: 'Inter, ui-sans-serif, system-ui, sans-serif', system-ui, sans-serif; }
@@ -111,9 +111,9 @@ vendored at the pin plus io.linkjar.*" data-shape="cylinder">
   <rect x="798.183" y="257.025" width="218.308" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
   <text x="907.337" y="275.47499999999997" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">parity/, scenarios and oracles</text>
 </g>
-<g class="node" data-id="gate" data-label="parity.yml: scenarios on three targets, two comparisons" data-shape="rectangle">
-  <rect x="1064.491" y="227.575" width="362.0619999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="1245.522" y="246.02499999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">parity.yml: scenarios on three targets, two comparisons</text>
+<g class="node" data-id="gate" data-label="parity.yml: scenarios on four targets, three comparisons" data-shape="rectangle">
+  <rect x="1064.491" y="227.575" width="366.50799999999987" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1247.745" y="246.02499999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">parity.yml: scenarios on four targets, three comparisons</text>
 </g>
 <g class="node" data-id="devenv" data-label="devenv.nix: toolchain, tools, hooks" data-shape="cylinder">
   <rect x="24" y="324.3125" width="241.27899999999997" height="36.900000000000006" fill="var(--_node-fill)" stroke="none" />

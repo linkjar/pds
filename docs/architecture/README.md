@@ -229,8 +229,8 @@ open until the first Candidate-only migration. Source:
 
 How the repository is organised and what the gates run. The parity gate
 runs the scenarios of [`parity/`](../../parity/README.md) on the published
-reference image, a second boot of it, and the stock build, and then the two
-comparisons. Source: [`18-repository.mmd`](diagrams/18-repository.mmd).
+reference image, a second boot of it, the stock build and the upstream
+distribution, and then the three comparisons. Source: [`18-repository.mmd`](diagrams/18-repository.mmd).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="svg/18-repository.dark.svg">

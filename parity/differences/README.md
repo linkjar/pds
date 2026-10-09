@@ -11,6 +11,7 @@ recorded difference that no longer appears.
 |---|---|---|
 | `reference` against `repeat` (two boots of the reference image) | none | None is allowed. This is the check on the normaliser. |
 | `reference` against `stock` (the production build against the `PATCH_PROFILE=none` build) | [reference-vs-stock.json](reference-vs-stock.json) | 33, in the four groups below. |
+| `stock` against `official` (the `PATCH_PROFILE=none` build against the upstream distribution `ghcr.io/bluesky-social/pds`) | none | None is allowed: the two are different packagings of the same package version. |
 
 Regenerate a file with `--update` after a change that is meant to move it,
 and review the result like code.
@@ -42,8 +43,8 @@ steps the page driver took.
 - **The data directory.** The patches add tables and migrations `007a` to
   `007d` to the account database (SPEC §8.2). The harness compares
   behaviour over HTTP and does not diff schemas.
-- **Packaging.** The official distribution `ghcr.io/bluesky-social/pds` is a
-  different packaging of the same package version; the image workflow's
-  smoke test compares it with the stock build
-  ([`legacy/scripts/smoke.py`](../../legacy/scripts/smoke.py)). The harness
-  can run it as the `official` target.
+- **Packaging.** The official distribution runs its server as root and lays
+  the package out differently. Neither shows over HTTP: the `official`
+  target compares equal to `stock` on every scenario. The image workflow's
+  smoke test ([`legacy/scripts/smoke.py`](../../legacy/scripts/smoke.py))
+  makes the same comparison on six requests.

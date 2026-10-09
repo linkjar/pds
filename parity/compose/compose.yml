@@ -177,7 +177,8 @@ services:
   sqlite:
     image: ${TOOL_IMAGE:?}
     profiles: [tools]
-    user: "1000:1000"
+    # Root only to become the owner of the database file; see the tool.
+    user: "0:0"
     network_mode: none
     entrypoint: [node, /tool/sqlite-tool.cjs]
     volumes:

@@ -178,6 +178,8 @@ export class Scenario {
     }
     // The reset time is a clock reading; only its presence is comparable.
     if (result.headers.has('ratelimit-reset')) compared['ratelimit-reset'] = '<time>'
+    // Seconds left in the window, counted from the moment of the request.
+    if (result.headers.has('retry-after')) compared['retry-after'] = '<seconds>'
     if (result.headers.has('dpop-nonce')) compared['dpop-nonce'] = '<nonce>'
     // Milliseconds between the AppView's revision and the local one: a clock reading.
     if (result.headers.has('atproto-upstream-lag')) compared['atproto-upstream-lag'] = '<ms>'
