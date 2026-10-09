@@ -6,11 +6,13 @@
 //   pnpm parity stack logs <target> [service]
 //   pnpm parity run <target> [--profile <name>] [--only <text>] [--keep] [--reuse]
 //   pnpm parity compare <left> <right> [--update]
+//   pnpm parity perf report <target>
 
 import { spawnSync } from 'node:child_process'
 import { PROFILES, isProfile } from './stack/env.ts'
 import type { Profile } from './stack/env.ts'
 import { compare } from './compare.ts'
+import { perfReport } from './perf-report.ts'
 import { runScenarios } from './run.ts'
 import { down, logs, up } from './stack/compose.ts'
 import { REPO_DIR, TARGET_NAMES, images, isTargetName, targetSpec, upstream } from './stack/targets.ts'
@@ -94,10 +96,14 @@ async function main(): Promise<void> {
     })
     process.exit(status)
   }
+  if (group === 'perf' && command === 'report') {
+    console.log(perfReport(target(rest[0])))
+    return
+  }
   if (group === 'compare') {
     process.exit(compare(target(command), target(rest[0]), { update: rest.includes('--update') }))
   }
-  fail('Usage: pnpm parity <images verify|images build-stock|stack up|stack down|stack logs|run|compare> ...')
+  fail('Usage: pnpm parity <images verify|images build-stock|stack up|stack down|stack logs|run|compare|perf report> ...')
 }
 
 await main()

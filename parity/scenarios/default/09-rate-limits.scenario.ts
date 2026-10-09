@@ -16,7 +16,8 @@ const policy = (result: Result) => ({
   remaining: Number(result.headers.get('ratelimit-remaining')),
 })
 
-scenario('09-rate-limits', {}, async (s) => {
+// Thirty failed sign-ins each cost a password hash; allow for a busy host.
+scenario('09-rate-limits', { timeoutMs: 300_000 }, async (s) => {
   const ip = (n: number) => `203.0.113.${n}`
   const limited = (step: string, request: Request, address: string): Promise<Result> => s.http(step, { ...request, bypass: false, ip: address })
   const xrpcGet = (step: string, nsid: string, query: Request['query'], address: string, extra: Partial<Request> = {}) =>

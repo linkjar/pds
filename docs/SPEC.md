@@ -1,6 +1,6 @@
 # LinkJar PDS Specification
 
-Status: Draft, revision 1, 2026-10-08
+Status: Draft, revision 2, 2026-10-09
 Normative keywords: **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, **MAY** ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119))
 
 LinkJar PDS is an AT Protocol Personal Data Server written in Rust. It is
@@ -16,6 +16,12 @@ Revision 1 applies the owner's decisions of 2026-10-08, the
 [atproto.com gap report](research/2026-10-08-atproto-doc-sweep.md) and the
 [sidecar design](sidecars.md). Changes from revision 0 are listed in
 Appendix E.
+
+Revision 2 replaces each "verify at pin" mark with what the parity harness
+observed on the reference image, and corrects the places where revision 1
+described the protocol documents and not the Reference. The evidence is in
+[parity/verify-at-pin.md](../parity/verify-at-pin.md); the changes are listed
+in Appendix F.
 
 ## Table of Contents
 
@@ -47,6 +53,7 @@ Appendix E.
 - [Appendix C. Configuration](#appendix-c-configuration)
 - [Appendix D. Open Decisions](#appendix-d-open-decisions)
 - [Appendix E. Changes in Revision 1](#appendix-e-changes-in-revision-1)
+- [Appendix F. Changes in Revision 2](#appendix-f-changes-in-revision-2)
 
 ## 0. Conventions and Terminology
 
@@ -68,9 +75,14 @@ Appendix E.
   specification in the `linkjar.io` repository. This document never changes
   that specification: hosted accounts are ordinary AT Protocol accounts and the
   client-side key model is unchanged.
-- **Verify at pin** marks a requirement taken from atproto.com whose exact
-  behaviour in the Reference at the pin has not been confirmed. Unit 0
-  confirms each and the Harness pins the Reference's behaviour for C1.
+- **Verify at pin** marked, in revision 1, a requirement taken from
+  atproto.com whose exact behaviour in the Reference had not been confirmed.
+  Units 0 and 1 confirmed each one from the pinned source and with a Harness
+  scenario ([verify-at-pin.md](../parity/verify-at-pin.md), ids `VP-n`). No
+  mark remains in this revision.
+- **At the pin** introduces a statement of what the Reference does that a
+  reader of the protocol documents would not expect. The Candidate does the
+  same for C1.
 
 ## 1. Goals and Non-Goals
 
@@ -241,18 +253,31 @@ authorization pages would otherwise share an origin with the app.
   `RecordNotFound`, `BlobNotFound`, `InvalidSwap`, `MethodNotImplemented`,
   `RateLimitExceeded`, `UpstreamFailure`, `UpstreamTimeout`,
   `InternalServerError`.
-- Status conventions: 401 responses carry `WWW-Authenticate`; 413 for bodies
-  over the configured limit; 429 with the rate-limit headers of §4.3 and
-  MAY carry `Retry-After`; 501 `MethodNotImplemented` for a method with no
-  handler and no proxy target.
+- Status conventions: a request without a credential is 401 `AuthMissing`;
+  a credential that cannot be read is 400 `InvalidToken`, and one past its
+  expiry 400 `ExpiredToken`; a DPoP failure is 401 with `WWW-Authenticate`;
+  the wrong HTTP method is 400 `InvalidRequest`; 413 `PayloadTooLarge` for
+  bodies over the configured limit; 429 `RateLimitExceeded` with the
+  rate-limit headers of §4.3 and `Retry-After`.
+- At the pin a method with no local handler is never 501. It goes to the
+  catch-all proxy of §4.4: 401 `AuthMissing` without a session, forwarded
+  with one ([VP-6, VP-7](../parity/verify-at-pin.md)). `MethodNotImplemented`
+  remains the answer of a build with no proxy target configured, which the
+  Harness does not run.
 - Response bodies are `application/json` unless the lexicon declares another
   encoding (`getBlob`, `getRepo`, `getRecord` and `getBlocks` stream CAR or
   raw bytes).
-- CORS: XRPC responses carry permissive CORS headers as the Reference does
-  (verify at pin). The OAuth metadata, PAR and token endpoints MUST support
-  CORS (§11.1).
-- Read-after-write responses carry `Atproto-Repo-Rev` naming the repository
-  revision they reflect.
+- CORS ([VP-11](../parity/verify-at-pin.md)): every XRPC response carries
+  `Access-Control-Allow-Origin: *`. A preflight answers 204 with
+  `Access-Control-Allow-Methods: GET,HEAD,PUT,PATCH,POST,DELETE`, the
+  requested headers echoed in `Access-Control-Allow-Headers`, and
+  `Access-Control-Max-Age: 86400`. A response that carries rate-limit headers
+  lists them in `Access-Control-Expose-Headers`. The OAuth endpoints set
+  their own headers (§11.1).
+- At the pin a read-after-write response that was overlaid (§4.5) carries
+  `Atproto-Upstream-Lag`, the distance to the AppView in milliseconds, and
+  not the AppView's `Atproto-Repo-Rev`. A response that needed no overlay
+  passes `Atproto-Repo-Rev` through from the AppView.
 
 ### 4.3 Rate limits
 
@@ -265,11 +290,24 @@ reproduce the Reference's limiters and their `RateLimit-Limit`,
 | `global-ip` | 5 minutes | 3,000 | client IP |
 | `repo-write-hour` | 1 hour | 5,000 (create 3, put 2, delete 1) | DID |
 | `repo-write-day` | 24 hours | 35,000 (same weights) | DID |
-| blob upload | 24 hours | 1,000 | client IP |
-| per-route limiters | as declared on each Reference handler, enumerated in unit 0 and listed here in revision 2 | | IP or DID |
+| `sync.getRepo` (exempt from `global-ip`) | 5 minutes | 6,000 | client IP |
+| `repo.uploadBlob` | 24 hours | 1,000 | client IP |
+| `server.createAccount` | 5 minutes | 100 | client IP |
+| `server.createSession` | 5 minutes, and 24 hours | 30, and 300 | identifier and client IP together |
+| `server.resetPassword` | 5 minutes | 50 | client IP |
+| `server.requestPasswordReset` | 1 hour, and 24 hours | 15, and 50 | client IP |
+| `server.deleteAccount` | 5 minutes | 50 | client IP |
+| `server.requestEmailConfirmation`, `server.requestEmailUpdate`, `server.requestAccountDelete` | 1 hour, and 24 hours | 5, and 15 | DID |
+| `identity.updateHandle` | 5 minutes, and 24 hours | 10, and 50 | DID |
+
+This is the complete list at the pin ([VP-12](../parity/verify-at-pin.md)).
+A response reports the limiter with the fewest points left:
+`RateLimit-Policy` is `<limit>;w=<window in seconds>`. A 429 adds
+`Retry-After` in seconds and exposes it to browsers.
 
 `PDS_RATE_LIMIT_BYPASS_KEY` (presented in the `x-ratelimit-bypass` header)
-and `PDS_RATE_LIMIT_BYPASS_IPS` bypass as in the Reference. Client IP comes
+and `PDS_RATE_LIMIT_BYPASS_IPS` bypass as in the Reference: no limiter runs
+and no rate-limit header is set. Client IP comes
 from the configured trusted-proxy policy, never from an unverified header.
 Rate limits apply to proxied requests too.
 
@@ -278,8 +316,14 @@ Rate limits apply to proxied requests too.
 Requests for methods the Candidate does not serve locally are forwarded as the
 Reference's pipethrough does:
 
-- The caller MUST hold an authenticated session for an **active** account;
-  deactivated, taken-down and suspended accounts are refused.
+- The caller MUST hold an authenticated session. At the pin a deactivated
+  account still proxies, because an account that is migrating in is
+  deactivated until it is activated; a taken-down account's sessions are
+  refused.
+- A method with no local handler goes to the configured AppView, whatever
+  its namespace; `com.atproto.moderation.createReport` goes to the report
+  service. `com.atproto.repo.getRecord` for a repository this server does
+  not host is forwarded to the AppView without a credential.
 - The target is the `atproto-proxy` header (`<did>#<service id>`) or the
   configured AppView for `app.bsky.*`. The target DID MUST resolve to a
   document with a `service` entry whose id matches the fragment; only
@@ -290,8 +334,11 @@ Reference's pipethrough does:
   the Candidate does the same for C1 and switches to the fragment form when
   the pin moves.
 - `atproto-accept-labelers` passes through on the request and
-  `atproto-content-labelers` on the response; a malformed accept header is
-  an `InvalidRequest`.
+  `atproto-content-labelers` on the response. At the pin the request header
+  is not parsed: a malformed value is forwarded and the upstream decides.
+- An XRPC error from the upstream comes back with its status and body. A
+  failed upstream is 502 `UpstreamFailure`. A proxy target whose service id
+  the DID document lacks, or that has no service id, is 400 `InvalidRequest`.
 - Header filtering, timeouts (`PDS_PROXY_*`), response size caps, retry
   policy and HTTP/2 preference follow the Reference configuration.
 - Procedures are proxied only where the Reference proxies them.
@@ -302,7 +349,10 @@ The `app.bsky` methods the Reference serves locally or munges (preferences,
 push registration, profile and feed reads with local record overlay) are
 classified in Appendix A. The Candidate SHOULD implement them in version 1
 and MUST implement them before the official Bluesky app is claimed compatible.
-Munged responses carry `Atproto-Repo-Rev`.
+The overlay applies when the AppView's `Atproto-Repo-Rev` is a revision at
+or after which this repository holds a record; the response then carries
+`Atproto-Upstream-Lag` (§4.2). A feed is recognised as the account's own by
+its first item.
 
 ## 5. Authentication and Authorization
 
@@ -314,8 +364,12 @@ Munged responses carry `Atproto-Repo-Rev`.
   `com.atproto.appPass`, `com.atproto.appPassPrivileged`,
   `com.atproto.signupQueued`, `com.atproto.takendown`; `sub` the DID; `aud`
   the service DID; `jti` on refresh tokens.
-- Lifetimes, refresh rotation and the grace period for a just-rotated refresh
-  token (`used_refresh_token`) match the Reference.
+- An access token lives 120 minutes and a refresh token 90 days. Refresh
+  rotates the token. A rotated refresh token stays valid for a grace period
+  of two hours and leads to the same successor, so two racing clients end
+  with one session; after the grace period it is `ExpiredToken`
+  ([VP-9](../parity/verify-at-pin.md)). A password reset and
+  `deleteSession` end the session at once.
 - The Candidate MUST accept tokens the Reference minted with the same secret,
   so cutover keeps users signed in.
 
@@ -341,17 +395,23 @@ break-glass path; the console (§22) authenticates operators by account (§12.11
 
 - Inbound: an ES256K or ES256 JWT with `typ: JWT`, signed by the caller's
   repository signing key, `iss` the caller DID, `aud` our service DID with or
-  without the `#atproto_pds` fragment, `iat` present, `exp` short, `jti`
-  checked against a replay cache for the token's validity, `lxm` equal to
-  the method NSID. A token without `lxm` is refused where a method is
-  expected, as the Reference's verifier does at the pin
-  ([VP-3](../parity/verify-at-pin.md)). An optional `kid` header names the verification-method
+  without the `#atproto_pds` fragment, `iat` present, `exp` short, `lxm`
+  equal to the method NSID. A wrong `aud` is 401 `BadJwtAudience`; a wrong
+  or missing `lxm` is 401 `BadJwtLexiconMethod`
+  ([VP-3](../parity/verify-at-pin.md)). At the pin two methods accept
+  service auth, `createAccount` and `uploadBlob`, and `uploadBlob` reads a
+  token without `lxm` as a session token, which fails as `InvalidToken`. At
+  the pin `jti` is not checked for replay; a replay cache in the Candidate
+  is a hardening that the Harness would record as a difference (Appendix D,
+  D16). An optional `kid` header names the verification-method
   fragment, default `#atproto`; only expected key types are accepted. The
   key comes from the resolved DID document (§9.3).
 - Outbound: the same shape, signed with the actor's signing key, `exp` of
   `iat` plus 60 seconds as the Reference's default ([VP-4](../parity/verify-at-pin.md)),
-  `lxm` set, `aud` per §4.4, for proxying and for `getServiceAuth` with the
-  Reference's expiry cap.
+  `lxm` set, `aud` per §4.4, for proxying and for `getServiceAuth`.
+  `getServiceAuth` accepts a requested expiry of up to one hour with `lxm`
+  and up to one minute without, and answers `BadExpiration` otherwise; it
+  refuses the account-management methods.
 
 ### 5.5 OAuth sessions and permissions
 
@@ -380,8 +440,8 @@ the DPoP proof, nonce, scope.
   An authorization request fails if a set is unresolvable and uncached.
   Permissions are recomputed on refresh. The Reference at the pin has no
   handler for `com.atproto.lexicon.resolveLexicon` ([VP-6](../parity/verify-at-pin.md));
-  the Candidate answers it as the Reference does and serves it natively once
-  the pin does.
+  the Candidate answers it through the proxy as the Reference does and
+  serves it natively once the pin does.
 
 ## 6. Repository Engine
 
@@ -438,7 +498,10 @@ the DPoP proof, nonce, scope.
 - A commit writes the new blocks, record rows, blob references and the
   sequencer event, then publishes. The commit path MUST update the MST
   incrementally and MUST NOT rewrite unchanged records or blocks.
-- A write that changes nothing makes no commit.
+- A write that changes nothing makes no commit and no firehose event.
+- At the pin `createRecord` on a key that exists, and a batch that contains
+  such an operation, answer 500 `InternalServerError`; the batch writes
+  nothing (Appendix D, D15).
 - Writes are refused for deactivated, taken-down and deleted repositories with
   the Reference's errors. A profile MAY refuse writes when the account's
   handle no longer verifies (§12.4).
@@ -450,15 +513,27 @@ the DPoP proof, nonce, scope.
   the declared MIME type is reconciled with sniffed content as in the
   Reference; `PDS_BLOB_UPLOAD_LIMIT` (default 5 MiB) caps size. The limit is
   a superset of every supported lexicon's blob constraints.
+- An upload needs `Content-Type`; a body over the limit is 413
+  `PayloadTooLarge`; an empty body is accepted. The stored type follows the
+  content when the declared type contradicts it.
 - An unreferenced upload is not downloadable and is absent from `listBlobs`.
-- A blob becomes durable when a record references it. Deleting the last
-  referencing record deletes the blob after a grace period of at least one
-  hour. Account deletion deletes all blobs within the scheduled purge.
-  `listMissingBlobs` reports referenced blobs the store lacks.
+  A blob belongs to the account that uploaded it: a record that references
+  another account's upload is `BlobNotFound`.
+- A blob becomes durable when a record references it. At the pin there is no
+  grace period: the commit that removes the last reference, by a delete or by
+  an update, removes the blob with it, and `getBlob` stops serving it within
+  seconds ([VP-10](../parity/verify-at-pin.md)). A blob that another record
+  still references stays. An upload that no record ever references is never
+  collected at the pin; the Candidate MAY collect it after at least one hour
+  (Appendix D, D16). Account deletion deletes all blobs within the scheduled
+  purge. `listMissingBlobs` reports referenced blobs the store lacks.
 - `getBlob` serves by CID with `Content-Type`, `Content-Length`,
   `Content-Security-Policy: default-src 'none'; sandbox` and
-  `X-Content-Type-Options: nosniff`, and serves nothing for deactivated,
-  taken-down or suspended accounts.
+  `X-Content-Type-Options: nosniff`. A blob the account does not hold is 400
+  `InvalidRequest`, "Blob not found". For a deactivated or taken-down
+  account it serves nothing to others (`RepoDeactivated`, `RepoTakendown`)
+  and still serves the owner; a blob that was taken down on its own is not
+  found.
 - The PDS performs no resizing or transcoding.
 
 ### 6.5 Preferences and imports
@@ -513,9 +588,11 @@ Each message is two DAG-CBOR objects: a header `{"op": 1, "t": "#<type>"}`
 and the body. Errors are `{"op": -1, "error": "<Name>", "message": "<text>"}`
 followed by close. Frames never exceed 5 MB.
 
-Connection errors use HTTP: 405 for a method other than GET, 426 when
-`Upgrade` is missing, 429 and 5xx with JSON XRPC bodies. Frames the client
-sends are ignored. The public listener serves `wss://` behind the proxy.
+An error frame is followed by a close with code 1008. At the pin
+`subscribeRepos` has no HTTP route: a request without an upgrade, with any
+method, falls to the catch-all proxy and is 401 `AuthMissing`. Frames the
+client sends are ignored. The public listener serves `wss://` behind the
+proxy.
 
 ### 7.3 Cursor semantics
 
@@ -533,6 +610,11 @@ Backfill is exclusive of `cursor`: the Reference selects `seq > cursor`
 event-stream specification's "greater-or-equal" wording is noted as the
 discrepancy; the Candidate follows the Reference for C1.
 
+`cursor=0` is a cursor like any other: when events older than the window
+exist, the stream starts with `#info` `OutdatedCursor`. A cursor that is not
+an integer is an `InvalidRequest` error frame. A cursor at the head replays
+nothing.
+
 ### 7.4 Durability and crash boundaries
 
 - A commit's sequencer row MUST become durable in the same step as the commit,
@@ -546,6 +628,11 @@ discrepancy; the Candidate follows the Reference for C1.
 - Frames are served only from the durable log in `seq` order. The in-process
   broadcast carries a wakeup, never a frame, so a lost wakeup costs latency
   and a duplicate wakeup costs an empty query, and neither can cost an event.
+- At the pin the Reference feeds live subscribers from a poll of the log that
+  backs off to one second when idle. An event therefore reaches a quiet
+  stream up to a second after its commit, and a subscription opened just
+  after a write still receives that write. The Candidate is not required to
+  reproduce the delay; a consumer must not depend on it.
 
 ### 7.5 Fan-out
 
@@ -558,9 +645,11 @@ discrepancy; the Candidate follows the Reference for C1.
 
 ### 7.6 Crawlers
 
-On startup and after the first commit of a new repository the Candidate calls
-`com.atproto.sync.requestCrawl` on every host in `PDS_CRAWLERS`, with
-backoff. `notifyOfUpdate` is accepted and treated as the Reference treats it.
+At the pin the Reference calls `com.atproto.sync.requestCrawl` on every host
+in `PDS_CRAWLERS`, with its bare hostname, when it sequences the first event
+after a start, and then at most once in twenty minutes. It sends nothing at
+startup. The Candidate does the same. Inbound `requestCrawl` and
+`notifyOfUpdate` have no handler and go to the catch-all proxy (§4.2).
 
 ## 8. Storage and Data Directory
 
@@ -749,15 +838,19 @@ The Candidate emits events in these orders:
 
 | Moment | Events |
 |---|---|
-| account created | `#identity`, `#account` (active), `#sync`, then the first `#commit` |
-| handle changed | `#identity` |
-| deactivated, taken down, suspended, deleted | `#account` only; no `#commit` while inactive |
-| reactivated | `#account`, then an empty `#commit` if the account was inactive long enough that consumers may have dropped state |
+| account created | `#identity`, `#account` (active), the first `#commit` (no operations, `since` null), then `#sync` |
+| handle changed | `#identity` with the new handle |
+| PLC operation submitted | `#identity` without a handle |
+| deactivated, taken down, deleted | `#account` only, with `active: false` and the status; no `#commit` while inactive |
+| takedown reversed | `#account` (active) |
+| reactivated by the account | `#account` (active), `#identity`, then `#sync`; no commit |
 | migrated in and activated | `#account`, then `#sync`, then an empty `#commit` signed with the new key at a higher `rev` |
 | CAR imported | `#sync` |
 | repair after a crash boundary (§7.4) | `#sync` |
 
-The server MAY wait until a new handle resolves before emitting `#identity`.
+The first six rows are the Reference's sequences at the pin, as the Harness
+records them. The server MAY wait until a new handle resolves before
+emitting `#identity`.
 
 ## 11. OAuth Authorization Server
 
@@ -800,13 +893,24 @@ The server MAY wait until a new handle resolves before emitting `#identity`.
 - Metadata is cached with a TTL short enough that a confidential client's
   removed key is rejected promptly; the server re-fetches periodically for
   live confidential sessions and revokes a session whose key disappeared.
+  At the pin the cache is in memory: a session keeps refreshing until the
+  cache lets the document go, and then the refresh is `invalid_client`.
+- A `client_id` under a local top-level domain (`.test`, `.local` and the
+  like) is refused, and the Reference's fetcher refuses the documentation
+  domains (`example.com` and the like) as hostnames.
 - `PDS_OAUTH_TRUSTED_CLIENTS` lists metadata URLs whose grants get the
   Reference's trusted treatment.
 
 ### 11.3 Flows
 
-- **PAR** is mandatory. Requests expire as the Reference's do (lifetime
-  verified in unit 0). Duplicate `state` values are rejected.
+- **PAR** is mandatory: the authorization endpoint answers 400 to
+  parameters sent directly. A pushed request lives five minutes
+  (`expires_in` 300); opening the authorization page extends it by five
+  minutes of inactivity; an expired request redirects to the client with
+  `error=access_denied` ([VP-8](../parity/verify-at-pin.md)). PAR refuses a
+  missing or `plain` code challenge, a redirect URI or a scope the client
+  did not declare, a scope without `atproto`, and a `client_id` under a
+  local top-level domain.
 - **Authorize** runs on a device session (cookie, `device` and
   `device_account` tables) with remembered accounts, `prompt`, `login_hint`
   (which restricts sign-in to that account), sign-in (password, or §12.3
@@ -823,17 +927,26 @@ The server MAY wait until a new handle resolves before emitting `#identity`.
   assertion `aud` equal to the issuer, `jti` unique for the validity period
   and `iat` within the last minute. Token responses always include `scope`
   and `sub`.
-- **Lifetimes**: access tokens under 30 minutes and at most 15 minutes when
-  not individually revocable, 5 minutes recommended; public-client sessions
-  and refresh tokens at most 2 weeks; confidential-client refresh tokens at
-  most 180 days. The Reference's values at the pin are used for C1; where
-  they exceed these bounds the Candidate follows the pin during the rollback
-  window and tightens afterwards (Appendix D, D14).
+- **Lifetimes** at the pin (`oauth-constants.ts`, `client/client.ts`):
+  access tokens 60 minutes; sessions and refresh tokens 2 weeks; for a
+  confidential client, and for a first-party client on the trusted list, 2
+  years for the session and 3 months without a refresh; the DPoP nonce 3
+  minutes; a client assertion 1 minute; a code challenge refused for reuse
+  for 1 day; `AUTHENTICATION_MAX_AGE` 7 days and `EPHEMERAL_SESSION_MAX_AGE`
+  15 minutes for the device session. The protocol documents ask for access
+  tokens under 30 minutes and confidential refresh tokens of at most 180
+  days. The Candidate follows the pin during the rollback window and
+  tightens afterwards (Appendix D, D14).
 - **DPoP**: the nonce rotates with `PDS_DPOP_SECRET` with a lifetime of at
   most 5 minutes; recently stale nonces are accepted; the `jti` replay set
   is scoped to the nonce; `AccountDeactivated` is enforced.
 - **Revoke** and **introspect** per their RFCs with the Reference's
-  constraints.
+  constraints. Revoking a token nobody holds succeeds. Redeeming a code
+  twice and replaying a rotated refresh token are `invalid_grant`, and both
+  end the session: its access token becomes `invalid_token`.
+- A resource request with a proof from another key is 401 `invalid_token`,
+  "Invalid DPoP key binding"; without a proof 401 `invalid_dpop_proof`; a
+  DPoP-bound token presented as `Bearer` is 400 `InvalidToken`.
 - **Account pages** under `/account` for settings, a session list with
   per-session revocation, devices, sign-out, and the §12.5 sign-in methods.
 - The Reference's provider key set is one HS256 key built from
@@ -953,7 +1066,7 @@ operator. The `linkjar` profile grants roles to named accounts.
 
 ## 13. The LinkJar Profile
 
-The `linkjar` profile implements the six patches with their documented
+The `linkjar` profile implements the eight patches with their documented
 invariants at the **patch pin**: the patch stack of this repository at the
 commit recorded in `plan.md` on the day revision 1 was written. The patch
 stack is frozen except for security fixes while the Candidate is built
@@ -968,6 +1081,11 @@ mirrored behaviour here.
 | [`099c-signup-policy`](legacy/provider-policy.md) | §12.2 | All three hCaptcha variables or startup failure; fresh legacy `createAccount` refused when hCaptcha is configured, with migrations via service auth still allowed. |
 | [`100-signin-methods`](legacy/signin-methods.md) | §12.5, §12.6 | Device-bound linking from the account page; idempotent self-link; a foreign identity is refused with only that account's handle; last-method protection in the transaction; notices enqueued in the same transaction, 100 per minute, retry from one minute to one hour, stable `Message-ID`. |
 | [`101-mail-templates`](legacy/mail-templates.md) | §12.7 | Six templates in LinkJar's email style with a text alternative and no tracking. |
+| [`102-signup-journey`](legacy/signup-journey.md) | §11.4, §12.7 | The sign-up page opens on the email form (email and password, then the username) with the providers under it; the sign-in form sits behind "Or use email" under the providers; the page CSP allows the bundled font. Revision 1 omitted this patch. |
+| [`103-invite-handoff`](legacy/signup-journey.md#invitation-hand-off) | §12.2 | A code in the URL fragment `#invite=<code>` is submitted in place of the invite field; a refused code brings the field back with the server's error; the provider start request carries the code, so an invited person can sign up with a provider while invites are required. Revision 1 omitted this patch. |
+
+Each row has Harness scenarios against the running server
+([parity/README.md](../parity/README.md#the-port-of-legacytests)).
 
 ### 13.1 Configuration
 
@@ -1124,7 +1242,8 @@ Initial targets, to be revised after unit 2 publishes measurements:
   commit on the sequencer file.
 
 Results are published in the README with hardware, versions and image
-digests.
+digests. The Reference's baseline for S1 to S5, S8 and S9 is in
+[parity/results/](../parity/results/).
 
 ## 17. Parity and Conformance
 
@@ -1132,11 +1251,15 @@ digests.
 
 `parity/` is a TypeScript project using `@atproto/api`,
 `@atproto/oauth-client-node`, `@atproto/repo` and `@atproto/xrpc` at the
-pin. A compose file boots the Reference image by digest, the Candidate, a
-local PLC directory and, for relay scenarios, a local Sync 1.1 relay, all
-with the same configuration. Each scenario runs against both servers and the
-oracles below compare the outcomes. Parity scenarios run without fault
-injection; fault scenarios (§19) run against the Candidate alone.
+pin. Each target (the Reference image by digest, the Stock Reference, the
+Candidate) gets its own compose stack with the same configuration: the
+production hostnames behind a TLS edge, a local PLC directory, a local Sync
+1.1 relay in strict mode, a mail catcher, and fixture services for
+everything else the server talks to. Each scenario runs against each target
+and writes a transcript; the oracles below compare the transcripts of two
+targets. Parity scenarios run without fault injection; fault scenarios (§19)
+run against the Candidate alone. [parity/README.md](../parity/README.md)
+describes the harness and the contract its page driver relies on.
 
 ### 17.2 Interop vectors
 
@@ -1173,9 +1296,10 @@ upstream protocol test suite is adopted when published.
   suites ported to run against an HTTP endpoint.
 - **O8 Official app.** A recorded manual acceptance: the Bluesky app signs in
   through the Candidate and posts.
-- **O9 Verify at pin.** Every item marked "verify at pin" in this document
-  has a scenario that records the Reference's behaviour; revision 2 replaces
-  the mark with the result.
+- **O9 Verify at pin.** Every item that revision 1 marked "verify at pin"
+  has a scenario that records the Reference's behaviour
+  ([verify-at-pin.md](../parity/verify-at-pin.md)). This revision carries
+  the results.
 
 ### 17.4 Gates
 
@@ -1407,21 +1531,22 @@ touching the data directory.
 
 Classes: **Core** (MUST, as the Reference), **Deprecated** (MUST while the
 pin serves it, marked removable under Sync 1.1), **Proxy** (MUST forward per
-§4.4), **Local** (SHOULD, read-after-write per §4.5), **Relay-only** (MUST
-return `MethodNotImplemented`), **Ext** (`linkjar` profile only),
+§4.4), **Local** (SHOULD, read-after-write per §4.5), **Unhandled** (no handler at
+the pin, so the catch-all proxy of §4.4 answers: 401 without a session,
+forwarded with one), **Ext** (`linkjar` profile only),
 **Project** (project lexicons, both profiles unless noted).
 
 | Namespace | Core | Other |
 |---|---|---|
 | `com.atproto.server` | `describeServer`, `createAccount`, `createSession`, `getSession`, `refreshSession`, `deleteSession`, `createAppPassword`, `listAppPasswords`, `revokeAppPassword`, `createInviteCode`, `createInviteCodes`, `getAccountInviteCodes`, `requestEmailConfirmation`, `confirmEmail`, `requestEmailUpdate`, `updateEmail`, `requestPasswordReset`, `resetPassword`, `requestAccountDelete`, `deleteAccount`, `deactivateAccount`, `activateAccount`, `checkAccountStatus`, `getServiceAuth`, `reserveSigningKey` | |
 | `com.atproto.repo` | `applyWrites`, `createRecord`, `putRecord`, `deleteRecord`, `getRecord`, `listRecords`, `describeRepo`, `uploadBlob`, `importRepo`, `listMissingBlobs` | |
-| `com.atproto.sync` | `getRepo` (with `since`), `getRecord`, `getLatestCommit`, `getRepoStatus`, `listRepos`, `listBlobs`, `getBlob`, `getBlocks`, `subscribeRepos` | Deprecated, served at the pin ([VP-5](../parity/verify-at-pin.md)), removable under Sync 1.1: `getHead`, `getCheckout`, the `commit` parameter of `getRecord`. Not served at the pin, 501 ([VP-7](../parity/verify-at-pin.md)): `listReposByCollection`. Relay-only, 501: `getHostStatus`, `listHosts`, `notifyOfUpdate`; `requestCrawl` accepted as the Reference accepts it. |
-| `com.atproto.identity` | `resolveHandle`, `updateHandle`, `getRecommendedDidCredentials`, `requestPlcOperationSignature`, `signPlcOperation`, `submitPlcOperation` | Proxy or 501 as the Reference: `resolveDid`, `resolveIdentity`, `refreshIdentity`. |
+| `com.atproto.sync` | `getRepo` (with `since`), `getRecord`, `getLatestCommit`, `getRepoStatus`, `listRepos`, `listBlobs`, `getBlob`, `getBlocks`, `subscribeRepos` | Deprecated, served at the pin ([VP-5](../parity/verify-at-pin.md)), removable under Sync 1.1: `getHead`, `getCheckout`, the `commit` parameter of `getRecord`. Unhandled ([VP-7](../parity/verify-at-pin.md)): `listReposByCollection`, `getHostStatus`, `listHosts`, `notifyOfUpdate`, `requestCrawl`. |
+| `com.atproto.identity` | `resolveHandle`, `updateHandle`, `getRecommendedDidCredentials`, `requestPlcOperationSignature`, `signPlcOperation`, `submitPlcOperation` | Unhandled: `resolveDid`, `resolveIdentity`, `refreshIdentity`. |
 | `com.atproto.admin` | `deleteAccount`, `disableAccountInvites`, `enableAccountInvites`, `disableInviteCodes`, `getInviteCodes`, `getAccountInfo`, `getAccountInfos`, `getSubjectStatus`, `updateSubjectStatus`, `sendEmail`, `updateAccountEmail`, `updateAccountHandle`, `updateAccountPassword`, `updateAccountSigningKey` | `searchAccounts`: as the Reference. |
 | `com.atproto.moderation` | `createReport` (forwarded) | |
-| `com.atproto.temp` | `checkSignupQueue` | Others: as the Reference (proxy or 501). |
-| `com.atproto.lexicon` | | `resolveLexicon`: no handler at the pin ([VP-6](../parity/verify-at-pin.md)), proxy or 501 as the Reference; `schema` records are resolved per §5.5. |
-| `com.atproto.label` | | Proxy or 501 as the Reference; header passthrough per §4.4. |
+| `com.atproto.temp` | `checkSignupQueue` | Others: Unhandled. |
+| `com.atproto.lexicon` | | Unhandled ([VP-6](../parity/verify-at-pin.md)): `resolveLexicon`. `schema` records are resolved per §5.5. |
+| `com.atproto.label` | | Unhandled; header passthrough per §4.4. |
 | `app.bsky.actor` | | Local: `getPreferences`, `putPreferences`, `getProfile`, `getProfiles`. |
 | `app.bsky.feed` | | Local: `getActorLikes`, `getAuthorFeed`, `getFeed`, `getPostThread`, `getTimeline`. |
 | `app.bsky.notification` | | Local: `registerPush`, `unregisterPush`. |
@@ -1430,8 +1555,9 @@ return `MethodNotImplemented`), **Ext** (`linkjar` profile only),
 | `io.linkjar.pds.audit` | | Project: the `checkpoint` record type (§20.3). |
 | `internal.*` | | Project: ops-listener methods (§22.1), private listener only. |
 
-Unit 0 reconciles this table against the Reference's handler tree and
-pipethrough rules and records any correction here.
+Unit 0 reconciled this table against the Reference's handler tree. Unit 1
+replaced the 501 classifications after the Harness showed that the pin
+answers them through the catch-all proxy.
 
 ## Appendix B. Extension Traits (Informative)
 
@@ -1529,6 +1655,8 @@ New in the Candidate:
 | D12 | Resolved 2026-10-08: entryway mode is a post-cutover unit (§21.3). | post-cutover |
 | D13 | Atproto Spaces: out of scope for version 1; the `ActorStore` seam reserves room for per-space tables so the upstream per-actor design can be adopted when schemas stabilise. | post-cutover |
 | D14 | OAuth lifetimes where the Reference at the pin exceeds the specification's bounds: follow the pin through the rollback window, tighten afterwards. | 5 |
+| D15 | Reference defects that answer 500 to a client error: `createRecord` and `applyWrites` on a key that exists, `createAppPassword` with a name in use, an `atproto-proxy` value that is not a resolvable DID. Keep them for C1, or answer 400 and record the difference in the Harness. | 4, 5 |
+| D16 | Hardenings that the pin does not have and a client could observe: a replay cache for inbound service-auth `jti` (§5.4), collection of uploads that no record ever referenced (§6.4), and a grace period before a dereferenced blob is deleted (§6.4). Each one adopted becomes a recorded difference. | 4 |
 
 ## Appendix E. Changes in Revision 1
 
@@ -1560,3 +1688,38 @@ New in the Candidate:
 - Appendix A marks Sync 1.1 removals and adds project lexicons; Appendix C
   adds the new variables; Appendix D resolves D5, D6, D9, D10, D12 and adds
   D11, D13, D14.
+
+## Appendix F. Changes in Revision 2
+
+Revision 2 follows unit 1, the parity harness. Every change states what the
+reference image did under a Harness scenario; the scenario for each is named
+in [verify-at-pin.md](../parity/verify-at-pin.md).
+
+- "Verify at pin" marks resolved: CORS (§4.2), the per-route rate limiters
+  (§4.3), the legacy session lifetimes and refresh grace period (§5.1), the
+  blob lifecycle (§6.4), and the lifetime of a pushed request (§11.3). The
+  term's definition in §0 is joined by "at the pin".
+- A method with no handler goes to the catch-all proxy and is never 501
+  (§4.2, §4.4, Appendix A); the class "Relay-only" is replaced by
+  "Unhandled".
+- Status conventions stated as observed: `AuthMissing`, `InvalidToken`,
+  `ExpiredToken`, the wrong HTTP method, `PayloadTooLarge` (§4.2).
+- Overlaid reads carry `Atproto-Upstream-Lag`, and when the overlay applies
+  (§4.2, §4.5).
+- The proxy serves a deactivated account; the labeler header is not parsed;
+  upstream errors and failures (§4.4).
+- Service auth: the error names, the two methods that accept it, no `jti`
+  replay check, and the expiry rules of `getServiceAuth` (§5.4).
+- Blob uploads and `getBlob` errors as observed (§6.4).
+- `subscribeRepos` without an upgrade, the close code, `cursor=0`, and a
+  non-integer cursor (§7.2, §7.3). The Reference's one-second poll (§7.4).
+  When `requestCrawl` is sent (§7.6).
+- The lifecycle event sequences of account creation, reactivation, takedown
+  and PLC operations (§10.4).
+- OAuth: the refusals of PAR, the lifetimes from the pinned constants, the
+  effects of code replay and refresh reuse, DPoP errors, the client metadata
+  cache, and the hostnames a client may not use (§11.2, §11.3).
+- The patch stack at the patch pin has eight patches: `102-signup-journey`
+  and `103-invite-handoff` are added (§13).
+- The Harness as built: one stack per target, fixtures, transcripts (§17.1).
+- Appendix D adds D15 and D16.

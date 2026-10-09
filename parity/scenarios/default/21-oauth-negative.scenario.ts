@@ -76,6 +76,9 @@ scenario('21-oauth-negative', { timeoutMs: 300_000 }, async (s) => {
   refused(await push(s, 'PAR with response_type token', client, alice, { response_type: 'token' }).then((r) => r.result))
   const unknownClient = { ...client, clientId: `https://${HOSTS.client}/no-such-client/client-metadata.json` }
   refused(await push(s, 'PAR from a client whose metadata does not exist', unknownClient, alice).then((r) => r.result))
+  // Hostnames a client may not use (SPEC 11.2): a local top-level domain, and the documentation domains.
+  refused(await push(s, 'PAR from a client under a local top-level domain', { ...client, clientId: 'https://client.test/client-metadata.json' }, alice).then((r) => r.result), 'invalid_client_id')
+  refused(await push(s, 'PAR from a client under a documentation domain', { ...client, clientId: 'https://client.example.com/client-metadata.json' }, alice).then((r) => r.result), 'invalid_client_metadata')
 
   // PAR is mandatory: the authorization endpoint does not take the parameters directly.
   const direct = await s.http('authorize without a pushed request', {

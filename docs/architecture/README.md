@@ -178,12 +178,19 @@ check verify, repair and firehose delivery. Source:
 
 ## Parity harness
 
-SPEC §17. Same scenario, two servers, nine oracles. Fault scenarios run
-against the Candidate alone. Source: [`14-parity.mmd`](diagrams/14-parity.mmd).
+SPEC §17, [`parity/`](../../parity/README.md). Each target runs in its own
+stack under the production hostnames: the PDS behind a TLS edge, with a PLC
+directory, a strict Sync 1.1 relay and a mail catcher on a network that
+cannot reach the internet. The edge forwards every outside name to the
+fixture server in the harness process. Scenarios write one transcript per
+target, and the comparison checks two targets against a recorded difference
+list. Unit 1 runs reference builds only; the Candidate is one more target.
+Fault scenarios run against the Candidate alone. Source:
+[`14-parity.mmd`](diagrams/14-parity.mmd).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="svg/14-parity.dark.svg">
-  <img alt="Parity harness driving the reference image and the Candidate through the oracles" src="svg/14-parity.svg">
+  <img alt="Parity harness: one stack per target, the fixture server, transcripts and the comparison" src="svg/14-parity.svg">
 </picture>
 
 ## Deployment topologies
@@ -220,8 +227,10 @@ open until the first Candidate-only migration. Source:
 
 ## Repository and build
 
-How the repository is organised and what the gates run. Source:
-[`18-repository.mmd`](diagrams/18-repository.mmd).
+How the repository is organised and what the gates run. The parity gate
+runs the scenarios of [`parity/`](../../parity/README.md) on the published
+reference image, a second boot of it, and the stock build, and then the two
+comparisons. Source: [`18-repository.mmd`](diagrams/18-repository.mmd).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="svg/18-repository.dark.svg">

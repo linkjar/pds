@@ -2,23 +2,26 @@
 // same libraries the SDK uses: two DAG-CBOR objects per message, and the CAR
 // slice of a commit through `@atproto/repo`.
 
+import { performance } from 'node:perf_hooks'
 import * as dagCbor from '@ipld/dag-cbor'
 import { readCarWithRoot } from '@atproto/repo'
 import { decodeFirst } from 'cborg'
 import type WebSocket from 'ws'
 import type { Target } from './target.ts'
 
+/** `at` is when the frame arrived, on the monotonic clock, for the delivery-lag measurements. */
 export type Frame =
-  | { kind: 'event'; type: string; body: Record<string, unknown>; bytes: number }
-  | { kind: 'error'; error: string; message?: string; bytes: number }
+  | { kind: 'event'; type: string; body: Record<string, unknown>; bytes: number; at: number }
+  | { kind: 'error'; error: string; message?: string; bytes: number; at: number }
 
 export function decodeFrame(data: Uint8Array): Frame {
   const [header, rest] = decodeFirst(data, dagCbor.decodeOptions) as [{ op: number; t?: string }, Uint8Array]
   const body = dagCbor.decode(rest) as Record<string, unknown>
+  const at = performance.now()
   if (header.op === -1) {
-    return { kind: 'error', error: String(body.error), message: body.message as string | undefined, bytes: data.byteLength }
+    return { kind: 'error', error: String(body.error), message: body.message as string | undefined, bytes: data.byteLength, at }
   }
-  return { kind: 'event', type: String(header.t), body, bytes: data.byteLength }
+  return { kind: 'event', type: String(header.t), body, bytes: data.byteLength, at }
 }
 
 export type Subscription = {

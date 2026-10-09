@@ -1,7 +1,7 @@
 { pkgs, config, ... }:
 
 {
-  # LinkJar PDS development environment. See docs/rust/SPEC.md section 14.5.
+  # LinkJar PDS development environment. See docs/SPEC.md section 14.5.
   languages.rust = {
     enable = true;
     toolchainFile = ./rust-toolchain.toml;
@@ -53,6 +53,16 @@
       cargo xtask codegen --check
     '';
     "pds:codegen".exec = "cargo xtask codegen";
+    # The parity harness (SPEC section 17). `parity:run reference` needs Docker.
+    "parity:check".exec = ''
+      set -euo pipefail
+      cd parity
+      pnpm install --frozen-lockfile
+      pnpm typecheck
+      pnpm test
+    '';
+    "parity:run".exec = ''cd parity && pnpm install --frozen-lockfile --silent && pnpm parity run "$@"'';
+    "parity:compare".exec = ''cd parity && pnpm parity compare "$@"'';
     "docs:diagrams".exec = "cd docs/architecture && pnpm install --silent && pnpm render";
   };
 

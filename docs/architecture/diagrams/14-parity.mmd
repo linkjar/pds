@@ -1,7 +1,26 @@
 flowchart LR
-  runner[parity harness<br/>TypeScript, official SDK]
-  runner --> ref([Reference image<br/>pinned digest])
-  runner --> cand[Candidate]
-  plc([local PLC]) --- ref & cand
-  relay([local Sync 1.1 relay, strict]) --- ref & cand
-  ref & cand --> o{oracles<br/>O1 responses, O2 CIDs, O3 firehose, O4 OAuth, O5 migration<br/>O6 stock equivalence, O7 LinkJar journeys, O8 Bluesky app, O9 verify at pin}
+  runner([parity harness<br/>scenarios, SDK at the pin, Chromium])
+  fixtures([fixture server<br/>AppView, report service, OAuth clients<br/>Apple, Google, GitHub, hCaptcha])
+  edge([TLS edge<br/>Caddy, production snippet])
+  pds[PDS under test<br/>Reference, Stock Reference or Candidate]
+  plc([PLC directory])
+  relay([Sync 1.1 relay, strict])
+  mail([mail catcher])
+  data[(data volume)]
+  sql[[SQL tool<br/>reads and ages rows]]
+  transcripts[(transcripts<br/>one per scenario and target)]
+  compare{compare two targets<br/>O1 responses, O2 CIDs, O3 firehose<br/>O4 OAuth, O9 verify at pin}
+  later{later units<br/>O5 migration, O6 stock equivalence<br/>O7 on the Candidate, O8 Bluesky app}
+  runner --> edge
+  edge --> pds
+  edge --> fixtures
+  pds --> plc
+  pds --> mail
+  pds --> relay
+  relay --> edge
+  pds --> data
+  sql --> data
+  runner --> sql
+  runner --> transcripts
+  transcripts --> compare
+  compare --> later

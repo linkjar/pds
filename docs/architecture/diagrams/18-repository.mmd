@@ -5,5 +5,9 @@ flowchart LR
   src --> fuzz[fuzz.yml nightly: parsers]
   src --> sim[nightly seeds: pds-sim]
   legacy([legacy/, reference image build]) --> build[build.yml, paths legacy/**]
+  build -- publishes by digest --> image[(ghcr.io/linkjar/pds)]
+  parity[parity/, scenarios and oracles] --> gate[parity.yml: scenarios on three targets, two comparisons]
+  image --> gate
+  legacy --> gate
   devenv[(devenv.nix: toolchain, tools, hooks)] --- src
   mmd[(docs/architecture/diagrams/*.mmd)] -- pnpm render, beautiful-mermaid --> svg[docs/architecture/svg/]

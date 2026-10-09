@@ -16,8 +16,10 @@ of production data.
 
 Reasons, in the order they weigh:
 
-1. **The patch stack is the cost.** Six source patches, about 7,500 lines,
-   reapplied on every upstream bump and verified by image builds. Each new
+1. **The patch stack is the cost.** Eight source patches, about 10,400 lines
+   (six and about 7,500 when this was decided; the sign-up journey and the
+   invitation hand-off came after), reapplied on every upstream bump and
+   verified by image builds. Each new
    upstream release risks a conflict in the OAuth provider, the part upstream
    changes most. Native extension points remove the conflict surface.
 2. **Ownership of the account and OAuth layer.** External sign-in, the
@@ -98,7 +100,7 @@ units 2 and 5 land. Units 0 to 8 ship before cutover (the cutover bar of
 | 3 | Read-only server: `sync.*`, `repo.get*`, `describeRepo`, `describeServer`, identity reads, `verify`, served from a staging restore of a reference data directory | O1 and O2 on read scenarios; `verify` zero differences on a staging restore | 2 weeks |
 | 4 | Writes, sequencer, firehose, blob store, crawler notification, lifecycle event sequences, and the simulation seam: `StorageIo`, fault-injecting VFS, fail points, turmoil, seed runner, determinism meta-test, nightly runs | O1 to O3 on write and firehose scenarios including the crash injection; a local Sync 1.1 relay in strict mode converges; first nightly seed run green | 4 weeks |
 | 5 | Accounts, legacy sessions, app passwords, admin, mail, permission sets, and the OAuth authorization server with the extension traits and the stock profile, designed for embedded and entryway modes | O4 and O6; the Bluesky app signs in (O8 recorded) | 6 weeks |
-| 6 | The `linkjar` extension crate replacing the six patches at the patch pin; handle hosts; `io.linkjar.account.*`; operator roles | O7 green; the patch docs' invariants have tests in the crate | 2 to 3 weeks |
+| 6 | The `linkjar` extension crate replacing the eight patches at the patch pin; handle hosts; `io.linkjar.account.*`; operator roles | O7 green; the patch docs' invariants have tests in the crate | 2 to 3 weeks |
 | 7 | Audit log: entries, chain, checkpoints, checkpoint record, verifier, export; the pre-cutover snapshot procedure | Every §20.1 action produces an entry; verifier accepts an export and rejects a tampered one; checkpoint record appears on the firehose | 2 weeks |
 | 8 | Migration endpoints, performance targets, metrics and OTLP export, alert rules, Nix package, restore drill on staging, cutover runbook, cutover | SPEC §16 targets met or revised with evidence; §18.1 preconditions met; cutover done and the 48-hour watch passed | 3 weeks |
 | 9 | Operations console sidecar: ops listener, live connections and topology, moderation and cleanup actions, embedded OTLP pane ([sidecars.md](sidecars.md) §1) | Every action lands in the audit log with operator and reason; console runs with no database access | 3 weeks |
@@ -113,6 +115,7 @@ upstream bumps, which nothing does today beyond the image smoke gate.
 
 | Date | Event |
 |---|---|
+| 2026-10-09 | Unit 1 done on `feat/rust-pds`, stacked on unit 0. The parity harness (`parity/`) runs 28 scenarios in five profiles against the reference image `ghcr.io/linkjar/pds` revision 11 by digest, a second boot of it, and the stock build, each in its own compose stack: the production hostnames behind a TLS edge, a PLC directory, a strict Sync 1.1 relay, a mail catcher, and fixtures for everything else. Oracles O1 to O4 and O9 are in place: two Reference boots compare equal, the difference between the stock and the production build is recorded by patch ([differences](../parity/differences/README.md)), every commit is verified against the PLC key and its MST root rebuilt, the relay re-emits every commit, and the OAuth flows run through the official client and Chromium. VP-8 to VP-12 are answered from the pinned source and confirmed by scenario ([verify-at-pin.md](../parity/verify-at-pin.md)). The legacy suites are ported to HTTP scenarios, with the assertions HTTP cannot observe listed. SPEC revision 2 carries the results and seventeen corrections that the scenarios forced, among them: a method without a handler is proxied and never 501, a deleted blob has no grace period, and the patch stack has eight patches, not six. Reference baselines for S1 to S5, S8 and S9 are in [parity/results](../parity/results/perf-reference.md). The `linkjar.io` browser gate takes `E2E_PDS_URL`. |
 | 2026-10-08 | Unit 0 in progress on `feat/rust-pds`: Cargo workspace with fifteen crates and `xtask`; the legacy image build moved under `legacy/` with its workflows repointed; docs reorganised with a root README and an architecture page whose Mermaid sources render through beautiful-mermaid; `pds-types` passes every interop syntax and data-model vector (three contrived CID strings recorded as known failures); `pds-lexicon` parses and validates all 263 vendored lexicons with every reference resolved; `cargo xtask codegen` generates the API types (about 10,000 lines) and they compile and round-trip real records; CI gates (fmt, clippy with the deny-panic set, tests, codegen check, deny, vet, scheduled audit and fuzz) and devenv are in place. Seven of twelve "verify at pin" items answered from the pinned source ([parity/verify-at-pin.md](../parity/verify-at-pin.md)). |
 | 2026-10-08 | Decision taken. Branch `feat/rust-pds` created from `main`. SPEC revision 0 written from the reference source at the pin and the six patch documents. No code yet. |
 | 2026-10-08 | Documentation sweep against atproto.com completed; SPEC revision 1 written: decisions applied, the research's sections added (storage seams, simulation, audit, topologies, sidecars), every gap-report item folded in, units renumbered 0 to 12 with the cutover bar after unit 8. Patch pin recorded. No code yet. |
@@ -141,5 +144,14 @@ Revision 1 of the SPEC applies them.
 
 ## Open questions for the owner
 
-None at the moment. The documentation sweep against atproto.com (in
-progress on 2026-10-08) may add items.
+Two, from unit 1, recorded as SPEC Appendix D, D15 and D16. Neither blocks
+unit 2.
+
+- **D15.** The Reference answers 500 to four client errors (a record key
+  that exists, a batch with one, an app-password name in use, a proxy target
+  that is not a resolvable DID). Keep them in the Candidate for C1, or
+  answer 400 and record the difference.
+- **D16.** Three hardenings the pin does not have and a client could
+  observe: a replay cache for service-auth `jti`, collection of uploads no
+  record ever referenced, and a grace period before a dereferenced blob is
+  deleted. Adopt any of them, or follow the pin.

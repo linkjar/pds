@@ -80,6 +80,10 @@ scenario('11-identity', {}, async (s) => {
   const signIn = await s.procedure('createSession by the custom handle', 'com.atproto.server.createSession', { identifier: HOSTS.customHandle, password: bob.password })
   assert.equal(signIn.status, 200)
 
+  // Hand the custom domain back, so that another scenario can verify it for another account.
+  const released = await s.procedure('updateHandle back to a hosted handle', 'com.atproto.identity.updateHandle', { handle: s.handle('bobby') }, { auth: bob })
+  assert.equal(released.status, 200)
+
   // PLC operations (SPEC 9.1).
   const recommended = await s.query('getRecommendedDidCredentials', 'com.atproto.identity.getRecommendedDidCredentials', {}, { auth: alice })
   assert.equal(recommended.status, 200)

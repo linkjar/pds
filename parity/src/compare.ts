@@ -22,7 +22,8 @@ export type Difference = {
 
 function transcripts(target: TargetName): Map<string, Transcript> {
   const out = new Map<string, Transcript>()
-  for (const profile of PROFILES) {
+  // The performance profile records measurements, which no two runs share.
+  for (const profile of PROFILES.filter((name) => name !== 'perf')) {
     const dir = join(targetSpec(target).runDir, 'transcripts', profile)
     if (!existsSync(dir)) continue
     for (const file of readdirSync(dir).filter((name) => name.endsWith('.json')).sort()) {

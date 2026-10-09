@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 974.8289999999997 555.5859999999998" width="974.8289999999997" height="555.5859999999998" style="--bg:#0d1117;--fg:#e6edf3;--line:#3d444d;--accent:#4493f8;--muted:#9198a1;background:var(--bg)">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1169.2599999999998 642.5093333333333" width="1169.2599999999998" height="642.5093333333333" style="--bg:#0d1117;--fg:#e6edf3;--line:#3d444d;--accent:#4493f8;--muted:#9198a1;background:var(--bg)">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter%2C%20ui-sans-serif%2C%20system-ui%2C%20sans-serif:wght@400;500;600;700&amp;display=swap');
   text { font-family: 'Inter, ui-sans-serif, system-ui, sans-serif', system-ui, sans-serif; }
@@ -26,40 +26,86 @@
     <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
   </marker>
 </defs>
-<polyline class="edge" data-from="runner" data-to="ref" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="205.258,157.35366666666656 229.99900000000002,157.35366666666656 229.99900000000002,193.19533333333325 254.74,193.19533333333325" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
-<polyline class="edge" data-from="runner" data-to="cand" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="205.258,157.35366666666656 229.99900000000002,157.35366666666656 229.99900000000002,362.3906666666665 294.01300000000003,362.3906666666665" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
-<polyline class="edge" data-from="plc" data-to="ref" data-style="solid" data-arrow-start="false" data-arrow-end="false" points="194.74,277.7929999999999 224.74,277.7929999999999 224.74,193.19533333333325 254.74,193.19533333333325" fill="none" stroke="var(--_line)" stroke-width="1" />
-<polyline class="edge" data-from="plc" data-to="cand" data-style="solid" data-arrow-start="false" data-arrow-end="false" points="194.74,277.7929999999999 224.74,277.7929999999999 224.74,362.3906666666665 294.01300000000003,362.3906666666665" fill="none" stroke="var(--_line)" stroke-width="1" />
-<polyline class="edge" data-from="relay" data-to="ref" data-style="solid" data-arrow-start="false" data-arrow-end="false" points="208.222,393.3031666666665 231.481,393.3031666666665 231.481,193.19533333333325 254.74,193.19533333333325" fill="none" stroke="var(--_line)" stroke-width="1" />
-<polyline class="edge" data-from="relay" data-to="cand" data-style="solid" data-arrow-start="false" data-arrow-end="false" points="208.222,393.3031666666665 231.481,393.3031666666665 231.481,362.3906666666665 294.01300000000003,362.3906666666665" fill="none" stroke="var(--_line)" stroke-width="1" />
-<polyline class="edge" data-from="ref" data-to="o" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="395.243,193.19533333333325 419.24300000000005,193.19533333333325 419.24300000000005,277.7929999999999 443.243,277.7929999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
-<polyline class="edge" data-from="cand" data-to="o" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="395.24300000000005,362.3906666666665 419.24300000000005,362.3906666666665 419.24300000000005,277.7929999999999 443.243,277.7929999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="runner" data-to="edge" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="274.17099999999994,388.5259999999999 292.17099999999994,388.5259999999999 292.17099999999994,388.5259999999999 310.17099999999994,388.5259999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="edge" data-to="pds" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="504.7669999999999,388.5259999999999 528.7669999999998,388.5259999999999 528.7669999999998,478.7759999999999 552.7669999999998,478.7759999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="edge" data-to="fixtures" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="504.7669999999999,388.5259999999999 528.7669999999998,388.5259999999999 528.7669999999998,388.52599999999995 552.7669999999998,388.52599999999995" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="pds" data-to="plc" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="837.7649999999998,478.7759999999999 850.9484999999997,478.7759999999999 850.9484999999997,446.3259999999999 864.1319999999998,446.3259999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="pds" data-to="mail" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="837.7649999999998,478.7759999999999 850.9484999999997,478.7759999999999 850.9484999999997,511.22599999999994 864.1319999999998,511.22599999999994" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="pds" data-to="relay" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="837.7649999999998,478.7759999999999 850.9484999999997,478.7759999999999 850.9484999999997,348.3259999999999 864.1319999999998,348.3259999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="relay" data-to="edge" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="864.1319999999998,342.17599999999993 552.7669999999998,342.17599999999993 552.7669999999998,375.0759999999999 504.7669999999998,375.0759999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="pds" data-to="data" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="837.7649999999998,478.7759999999999 850.9484999999997,478.7759999999999 850.9484999999997,583.126 864.1319999999998,583.126" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="sql" data-to="data" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="801.7649999999999,591.6093333333332 864.1319999999998,591.6093333333332" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="runner" data-to="sql" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="274.17099999999994,388.5259999999999 292.17099999999994,388.5259999999999 292.17099999999994,591.6093333333332 636.0679999999998,591.6093333333332" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="runner" data-to="transcripts" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="274.17099999999994,388.5259999999999 292.17099999999994,388.5259999999999 292.17099999999994,162.9379999999999 310.17099999999994,162.9379999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="transcripts" data-to="compare" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="513.6589999999999,162.93799999999987 552.7669999999998,162.93799999999993" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="compare" data-to="later" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="822.4919999999997,162.93799999999993 864.1319999999998,162.93799999999993" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
 <g class="node" data-id="runner" data-label="parity harness
-TypeScript, official SDK" data-shape="rectangle">
-  <rect x="25.482" y="130.45366666666655" width="179.776" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="115.37" y="157.35366666666656" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="115.37" dy="-3.9000000000000012">parity harness</tspan><tspan x="115.37" dy="16.900000000000002">TypeScript, official SDK</tspan></text>
+scenarios, SDK at the pin, Chromium" data-shape="stadium">
+  <rect x="24" y="361.6259999999999" width="250.17099999999994" height="53.800000000000004" rx="26.900000000000002" ry="26.900000000000002" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="149.08549999999997" y="388.5259999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="149.08549999999997" dy="-3.9000000000000012">parity harness</tspan><tspan x="149.08549999999997" dy="16.900000000000002">scenarios, SDK at the pin, Chromium</tspan></text>
 </g>
-<g class="node" data-id="ref" data-label="Reference image
-pinned digest" data-shape="stadium">
-  <rect x="254.74" y="166.29533333333325" width="140.503" height="53.800000000000004" rx="26.900000000000002" ry="26.900000000000002" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="324.9915" y="193.19533333333325" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="324.9915" dy="-3.9000000000000012">Reference image</tspan><tspan x="324.9915" dy="16.900000000000002">pinned digest</tspan></text>
+<g class="node" data-id="fixtures" data-label="fixture server
+AppView, report service, OAuth clients
+Apple, Google, GitHub, hCaptcha" data-shape="stadium">
+  <rect x="552.7669999999998" y="353.17599999999993" width="265.73199999999997" height="70.7" rx="35.35" ry="35.35" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="685.6329999999998" y="388.52599999999995" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="685.6329999999998" dy="-12.350000000000001">fixture server</tspan><tspan x="685.6329999999998" dy="16.900000000000002">AppView, report service, OAuth clients</tspan><tspan x="685.6329999999998" dy="16.900000000000002">Apple, Google, GitHub, hCaptcha</tspan></text>
 </g>
-<g class="node" data-id="cand" data-label="Candidate" data-shape="rectangle">
-  <rect x="294.01300000000003" y="343.9406666666665" width="101.22999999999999" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="344.62800000000004" y="362.3906666666665" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Candidate</text>
+<g class="node" data-id="edge" data-label="TLS edge
+Caddy, production snippet" data-shape="stadium">
+  <rect x="310.17099999999994" y="361.6259999999999" width="194.59599999999995" height="53.800000000000004" rx="26.900000000000002" ry="26.900000000000002" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="407.46899999999994" y="388.5259999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="407.46899999999994" dy="-3.9000000000000012">TLS edge</tspan><tspan x="407.46899999999994" dy="16.900000000000002">Caddy, production snippet</tspan></text>
 </g>
-<g class="node" data-id="plc" data-label="local PLC" data-shape="stadium">
-  <rect x="95.733" y="259.3429999999999" width="99.007" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="145.2365" y="277.7929999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">local PLC</text>
+<g class="node" data-id="pds" data-label="PDS under test
+Reference, Stock Reference or Candidate" data-shape="rectangle">
+  <rect x="552.7669999999998" y="451.8759999999999" width="284.99799999999993" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="695.2659999999998" y="478.7759999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="695.2659999999998" dy="-3.9000000000000012">PDS under test</tspan><tspan x="695.2659999999998" dy="16.900000000000002">Reference, Stock Reference or Candidate</tspan></text>
 </g>
-<g class="node" data-id="relay" data-label="local Sync 1.1 relay, strict" data-shape="stadium">
-  <rect x="25.482" y="374.85316666666654" width="182.74" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="116.852" y="393.3031666666665" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">local Sync 1.1 relay, strict</text>
+<g class="node" data-id="plc" data-label="PLC directory" data-shape="stadium">
+  <rect x="864.1319999999998" y="427.8759999999999" width="125.68299999999999" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="926.9734999999998" y="446.3259999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">PLC directory</text>
 </g>
-<g class="node" data-id="o" data-label="oracles
-O1 responses, O2 CIDs, O3 firehose, O4 OAuth, O5 migration
-O6 stock equivalence, O7 LinkJar journeys, O8 Bluesky app, O9 verify at pin" data-shape="diamond">
-  <polygon points="697.0359999999998,24.00000000000003 950.8289999999997,277.7929999999999 697.0359999999998,531.5859999999998 443.24299999999994,277.7929999999999" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="697.0359999999998" y="277.7929999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="697.0359999999998" dy="-12.350000000000001">oracles</tspan><tspan x="697.0359999999998" dy="16.900000000000002">O1 responses, O2 CIDs, O3 firehose, O4 OAuth, O5 migration</tspan><tspan x="697.0359999999998" dy="16.900000000000002">O6 stock equivalence, O7 LinkJar journeys, O8 Bluesky app, O9 verify at pin</tspan></text>
+<g class="node" data-id="relay" data-label="Sync 1.1 relay, strict" data-shape="stadium">
+  <rect x="864.1319999999998" y="329.8759999999999" width="152.35900000000004" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="940.3114999999998" y="348.3259999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Sync 1.1 relay, strict</text>
+</g>
+<g class="node" data-id="mail" data-label="mail catcher" data-shape="stadium">
+  <rect x="864.1319999999998" y="492.77599999999995" width="112.345" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="920.3044999999998" y="511.22599999999994" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">mail catcher</text>
+</g>
+<g class="node" data-id="data" data-label="data volume" data-shape="cylinder">
+  <rect x="864.1319999999998" y="564.6759999999999" width="110.86299999999999" height="36.900000000000006" fill="var(--_node-fill)" stroke="none" />
+  <line x1="864.1319999999998" y1="564.6759999999999" x2="864.1319999999998" y2="601.5759999999999" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="974.9949999999998" y1="564.6759999999999" x2="974.9949999999998" y2="601.5759999999999" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="919.5634999999999" cy="601.5759999999999" rx="55.43149999999999" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="919.5634999999999" cy="564.6759999999999" rx="55.43149999999999" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="919.5634999999999" y="583.126" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">data volume</text>
+</g>
+<g class="node" data-id="sql" data-label="SQL tool
+reads and ages rows" data-shape="subroutine">
+  <rect x="636.0679999999998" y="564.7093333333332" width="165.697" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="644.0679999999998" y1="564.7093333333332" x2="644.0679999999998" y2="618.5093333333332" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="793.7649999999998" y1="564.7093333333332" x2="793.7649999999998" y2="618.5093333333332" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="718.9164999999998" y="591.6093333333332" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="718.9164999999998" dy="-3.9000000000000012">SQL tool</tspan><tspan x="718.9164999999998" dy="16.900000000000002">reads and ages rows</tspan></text>
+</g>
+<g class="node" data-id="transcripts" data-label="transcripts
+one per scenario and target" data-shape="cylinder">
+  <rect x="310.17099999999994" y="136.0379999999999" width="203.48799999999997" height="53.80000000000001" fill="var(--_node-fill)" stroke="none" />
+  <line x1="310.17099999999994" y1="136.0379999999999" x2="310.17099999999994" y2="189.8379999999999" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <line x1="513.6589999999999" y1="136.0379999999999" x2="513.6589999999999" y2="189.8379999999999" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="411.9149999999999" cy="189.8379999999999" rx="101.74399999999999" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <ellipse cx="411.9149999999999" cy="136.0379999999999" rx="101.74399999999999" ry="7" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="411.9149999999999" y="162.9379999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="411.9149999999999" dy="-3.9000000000000012">transcripts</tspan><tspan x="411.9149999999999" dy="16.900000000000002">one per scenario and target</tspan></text>
+</g>
+<g class="node" data-id="compare" data-label="compare two targets
+O1 responses, O2 CIDs, O3 firehose
+O4 OAuth, O9 verify at pin" data-shape="diamond">
+  <polygon points="687.6294999999998,28.075499999999977 822.4919999999997,162.93799999999993 687.6294999999998,297.8004999999999 552.7669999999998,162.93799999999993" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="687.6294999999998" y="162.93799999999993" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="687.6294999999998" dy="-12.350000000000001">compare two targets</tspan><tspan x="687.6294999999998" dy="16.900000000000002">O1 responses, O2 CIDs, O3 firehose</tspan><tspan x="687.6294999999998" dy="16.900000000000002">O4 OAuth, O9 verify at pin</tspan></text>
+</g>
+<g class="node" data-id="later" data-label="later units
+O5 migration, O6 stock equivalence
+O7 on the Candidate, O8 Bluesky app" data-shape="diamond">
+  <polygon points="1003.0699999999998,23.999999999999943 1142.0079999999998,162.93799999999993 1003.0699999999998,301.8759999999999 864.1319999999998,162.93799999999993" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1003.0699999999998" y="162.93799999999993" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="1003.0699999999998" dy="-12.350000000000001">later units</tspan><tspan x="1003.0699999999998" dy="16.900000000000002">O5 migration, O6 stock equivalence</tspan><tspan x="1003.0699999999998" dy="16.900000000000002">O7 on the Candidate, O8 Bluesky app</tspan></text>
 </g>
 </svg>

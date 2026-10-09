@@ -4,10 +4,11 @@ An AT Protocol Personal Data Server in Rust, compatible with the reference
 implementation, with LinkJar's account behaviour as native extension points
 instead of source patches. Dual-licensed MIT or Apache-2.0.
 
-> Status: unit 0 of 13. The workspace builds, the syntax and data-model
+> Status: unit 1 of 13. The workspace builds, the syntax and data-model
 > crates pass the upstream interop vectors, the API types are generated from
-> the vendored lexicons, and the specification is complete; the server does
-> not serve traffic yet. The reference image under
+> the vendored lexicons, the specification is at revision 2, and the
+> [parity harness](parity/README.md) holds the reference image to it. The
+> server does not serve traffic yet. The reference image under
 > [`legacy/`](legacy/README.md) remains the deployed server until cutover.
 > Progress is logged in [docs/plan.md](docs/plan.md#status).
 
@@ -68,7 +69,7 @@ engine to the firehose, is shared.
 | `lexicons/` | Vendored upstream lexicons at the pin, LinkJar lexicons, project lexicons ([notice](lexicons/NOTICE.md)) |
 | `interop/` | CC0 interop test vectors from upstream ([notice](interop/README.md)) |
 | `fuzz/` | cargo-fuzz targets for every parser of untrusted bytes |
-| `parity/` | The parity harness against the reference image (unit 1) |
+| `parity/` | The parity harness: the compose stack, scenarios and oracles that hold a target to the reference image ([README](parity/README.md)) |
 | `docs/` | Specification, plan, architecture, research ([map](docs/README.md)) |
 | `legacy/` | The reference-image build with its patches, tests, recovery tooling and staging files; frozen except security fixes ([legacy README](legacy/README.md)) |
 | `upstream.json` | The reference pin shared by the legacy build and the vendored lexicons |
@@ -85,6 +86,15 @@ cargo test --workspace
 cargo xtask codegen --check     # generated types are current
 cargo deny check                 # advisories, licences, bans, sources
 devenv shell -- pds:check        # everything CI runs
+```
+
+The parity harness needs Docker and runs on its own
+([parity/README.md](parity/README.md#run-it)):
+
+```sh
+cd parity && pnpm install
+pnpm parity run reference        # scenarios against the reference image
+pnpm parity compare reference repeat
 ```
 
 ## Contributing

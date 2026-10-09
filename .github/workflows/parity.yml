@@ -1,0 +1,139 @@
+name: Parity harness
+
+# The parity harness (parity/, docs/SPEC.md section 17) against the reference
+# image. It guards the patch stack across upstream bumps, and from unit 3 it
+# holds the Candidate to the Reference.
+#
+# Actions are pinned by commit SHA. The runner is amd64 because the relay
+# image is published for amd64 only.
+
+on:
+  pull_request:
+    paths: ['parity/**', 'legacy/**', 'upstream.json', '.github/workflows/parity.yml']
+  push:
+    branches: [main]
+    paths: ['parity/**', 'legacy/**', 'upstream.json', '.github/workflows/parity.yml']
+  schedule:
+    # Mondays, after the upstream updater.
+    - cron: '47 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      perf:
+        description: Also run the performance scenarios (SPEC 16.1) at full scale
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  # The reference image is a private package of this repository.
+  packages: read
+
+concurrency:
+  group: parity-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+defaults:
+  run:
+    working-directory: parity
+
+jobs:
+  check:
+    name: typecheck and unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@94196ee1d15439c1b6651cd87ef14e88ec435966
+        with:
+          node-version-file: parity/.node-version
+      - run: npm install --global pnpm@12.4.1
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  parity:
+    name: scenarios against the reference image
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@94196ee1d15439c1b6651cd87ef14e88ec435966
+        with:
+          node-version-file: parity/.node-version
+      - run: npm install --global pnpm@12.4.1
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - uses: docker/login-action@0a596b2e7a325f0cedf8e9bd21ab002cbd3c9241
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: The pinned Reference is the image upstream.json describes
+        run: pnpm parity images verify
+      - uses: docker/setup-buildx-action@5ac4a31b15f1c45ec652b8af78c2096c3a08368c
+      - name: Build the Stock Reference
+        uses: docker/build-push-action@91670ba5a4df99a24efff8637a78c83fd1b0f6b1
+        with:
+          context: legacy
+          load: true
+          tags: linkjar-pds:unpatched
+          build-args: PATCH_PROFILE=none
+          # The same cache the image workflow fills.
+          cache-from: type=gha,scope=pds-none-amd64
+      - name: Scenarios, every profile, three targets
+        run: |
+          set -euo pipefail
+          for target in reference repeat stock; do
+            for profile in default invites firehose captcha; do
+              pnpm parity run "$target" --profile "$profile"
+            done
+          done
+      - name: Two boots of the Reference show no difference
+        run: pnpm parity compare reference repeat
+      - name: Reference against Stock Reference shows the recorded differences
+        run: pnpm parity compare reference stock
+      - name: Keep transcripts and service logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: parity-transcripts
+          path: |
+            parity/.run/*/transcripts
+            parity/.run/*/logs
+          if-no-files-found: ignore
+          retention-days: 14
+
+  perf:
+    name: performance baseline (SPEC 16.1)
+    if: github.event_name == 'schedule' || inputs.perf
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@94196ee1d15439c1b6651cd87ef14e88ec435966
+        with:
+          node-version-file: parity/.node-version
+      - run: npm install --global pnpm@12.4.1
+      - run: pnpm install --frozen-lockfile
+      - uses: docker/login-action@0a596b2e7a325f0cedf8e9bd21ab002cbd3c9241
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: pnpm parity run reference --profile perf
+      - run: pnpm parity perf report reference >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: parity-perf
+          path: |
+            parity/.run/reference/perf
+            parity/results
+          retention-days: 90
