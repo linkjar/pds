@@ -1,6 +1,6 @@
 # Differences between targets
 
-[Harness README](../README.md) · [Specification §2.2, C6](../../docs/SPEC.md#22-definition-of-compatible)
+[Harness README](../README.md) · [Specification §2.2, C6](../../docs/SPEC.md#22-definition-of-compatible) · [§2.3, deliberate differences](../../docs/SPEC.md#23-deliberate-differences)
 
 `pnpm parity compare <left> <right>` compares the transcripts of two targets.
 The differences it may find are recorded here, one file per pair. A
@@ -12,6 +12,7 @@ recorded difference that no longer appears.
 | `reference` against `repeat` (two boots of the reference image) | none | None is allowed. This is the check on the normaliser. |
 | `reference` against `stock` (the production build against the `PATCH_PROFILE=none` build) | [reference-vs-stock.json](reference-vs-stock.json) | 33, in the four groups below. |
 | `stock` against `official` (the `PATCH_PROFILE=none` build against the upstream distribution `ghcr.io/bluesky-social/pds`) | none | None is allowed: the two are different packagings of the same package version. |
+| `reference` against `candidate` (the reference image against the Rust server) | `reference-vs-candidate.json`, written when the Candidate first answers these scenarios | The five deliberate differences [below](#the-reference-against-the-candidate), and no others. |
 
 Regenerate a file with `--update` after a change that is meant to move it,
 and review the result like code.
@@ -48,3 +49,19 @@ steps the page driver took.
   target compares equal to `stock` on every scenario. The image workflow's
   smoke test ([`legacy/scripts/smoke.py`](../../legacy/scripts/smoke.py))
   makes the same comparison on six requests.
+
+## The Reference against the Candidate
+
+The Candidate does not exist as a target yet. When it does, its comparison
+with the Reference may show the deliberate differences of SPEC §2.3 and
+nothing else. Each one is one step of one scenario.
+
+| Id | Scenario | Step | Reference | Candidate |
+|---|---|---|---|---|
+| DD-1 | `default/03-repo-writes` | createRecord with a key that exists | 500 `InternalServerError` | 400 `InvalidRequest` |
+| DD-2 | `default/03-repo-writes` | applyWrites with one invalid operation | 500 `InternalServerError` | 400 `InvalidRequest` |
+| DD-3 | `default/02-sessions` | createAppPassword with a used name | 500 `InternalServerError` | 400 `InvalidRequest` |
+| DD-4 | `default/08-proxy` | proxy target that is not a DID | 500 `InternalServerError` | 400 `InvalidRequest` |
+| DD-5 | `default/08-proxy` | uploadBlob with the same service token again | 200 | 401 `BadJwt` |
+
+The owner decided these on 2026-10-09 ([plan.md](../../docs/plan.md#decisions-taken-2026-10-09)).

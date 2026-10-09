@@ -104,8 +104,8 @@ scenario('02-sessions', {}, async (s) => {
   const privileged = await s.procedure('createAppPassword, privileged', 'com.atproto.server.createAppPassword', { name: 'chat', privileged: true }, { auth: alice })
   assert.equal(privileged.json.privileged, true)
   // Reference defect, recorded as observed: the unique constraint surfaces as
-  // 500 InternalServerError. The transcript holds the Candidate to whatever
-  // the owner decides; the scenario only requires a refusal.
+  // 500 InternalServerError. The Candidate answers 400 (SPEC 2.3, DD-3), so
+  // the scenario only requires a refusal.
   const duplicate = await s.procedure('createAppPassword with a used name', 'com.atproto.server.createAppPassword', { name: 'reader' }, { auth: alice })
   assert.ok(duplicate.status >= 400)
 
