@@ -4,7 +4,7 @@
 
 ## Normative
 
-- [SPEC.md](SPEC.md): the LinkJar PDS specification, revision 2. Compatibility baseline, protocol surface, storage, identity, accounts, OAuth, extension points, the LinkJar profile, operations, security, performance, parity, cutover, simulation, audit log, topologies, sidecars.
+- [SPEC.md](SPEC.md): the LinkJar PDS specification, revision 3. Compatibility baseline, protocol surface, storage, identity, accounts, OAuth, extension points, the LinkJar profile, operations, security, performance, parity, cutover, simulation, audit log, topologies, sidecars.
 
 ## Plan and decisions
 

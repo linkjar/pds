@@ -142,7 +142,8 @@ scenario('08-proxy', {}, async (s) => {
   refused(await upload('uploadBlob with a service token for another method', otherMethod.json.token))
   const otherAudience = await s.query('getServiceAuth for another audience', 'com.atproto.server.getServiceAuth', { aud: APPVIEW_DID, lxm: 'com.atproto.repo.uploadBlob' }, { auth: alice })
   refused(await upload('uploadBlob with a service token for another audience', otherAudience.json.token))
-  // A replayed token: the same jti twice.
+  // A replayed token: the same jti twice. The Reference accepts it; the
+  // Candidate refuses it (SPEC 2.3, DD-5).
   const replay = await upload('uploadBlob with the same service token again', forUpload.json.token)
   s.note('replayed service token', { status: replay.status, error: replay.json?.error })
 

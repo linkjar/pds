@@ -74,7 +74,14 @@ the Reference's behaviour in each place; C1 holds the Candidate to it.
 | 11.3 | Access tokens live under 30 minutes. | 60 minutes (`TOKEN_MAX_AGE`). Appendix D, D14 already defers to the pin. | `default/20-oauth-flow` |
 | 13 | Six patches. | Eight at the patch pin: `102-signup-journey` and `103-invite-handoff` were missing. | `default/32-linkjar-signup-journey`, `invites/02-linkjar-invite-handoff` |
 
-Two defects of the Reference are recorded as observed and left to the owner
-to keep or fix in the Candidate: `createAppPassword` with a name in use
-answers 500 (`default/02-sessions`), and an `atproto-proxy` value that is
-not a resolvable DID answers 500 (`default/08-proxy`).
+Two more defects of the Reference are recorded as observed.
+`createAppPassword` with a name in use answers 500 (`default/02-sessions`).
+An `atproto-proxy` value that does not start with a DID answers 500, while a
+DID that does not resolve answers 400 (`default/08-proxy`).
+
+**Decided on 2026-10-09.** The Candidate does not follow the Reference in
+five places: it answers 400 `InvalidRequest` in these two cases and in the
+two of the §6.3 row, and it refuses a replayed service token (the §5.4
+row). SPEC §2.3 lists them as DD-1 to DD-5, and
+[differences/README.md](differences/README.md#the-reference-against-the-candidate)
+names the scenario step of each.

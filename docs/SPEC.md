@@ -1,6 +1,6 @@
 # LinkJar PDS Specification
 
-Status: Draft, revision 2, 2026-10-09
+Status: Draft, revision 3, 2026-10-09
 Normative keywords: **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, **MAY** ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119))
 
 LinkJar PDS is an AT Protocol Personal Data Server written in Rust. It is
@@ -22,6 +22,11 @@ observed on the reference image, and corrects the places where revision 1
 described the protocol documents and not the Reference. The evidence is in
 [parity/verify-at-pin.md](../parity/verify-at-pin.md); the changes are listed
 in Appendix F.
+
+Revision 3 applies the owner's decisions of 2026-10-09 on Appendix D, D15 and
+D16. The Candidate answers 400 where the Reference answers 500 to four client
+errors, and it refuses a replayed service token. §2.3 lists these deliberate
+differences; the changes are listed in Appendix G.
 
 ## Table of Contents
 
@@ -54,6 +59,7 @@ in Appendix F.
 - [Appendix D. Open Decisions](#appendix-d-open-decisions)
 - [Appendix E. Changes in Revision 1](#appendix-e-changes-in-revision-1)
 - [Appendix F. Changes in Revision 2](#appendix-f-changes-in-revision-2)
+- [Appendix G. Changes in Revision 3](#appendix-g-changes-in-revision-3)
 
 ## 0. Conventions and Terminology
 
@@ -82,7 +88,7 @@ in Appendix F.
   mark remains in this revision.
 - **At the pin** introduces a statement of what the Reference does that a
   reader of the protocol documents would not expect. The Candidate does the
-  same for C1.
+  same for C1, unless §2.3 lists the behaviour as a deliberate difference.
 
 ## 1. Goals and Non-Goals
 
@@ -157,12 +163,32 @@ at the same pin:
   Reference to Candidate and from Candidate to Reference.
 - **C6 Stock equivalence.** With the `stock` profile, the Harness cannot
   distinguish Candidate from Stock Reference on any protocol response
-  (XRPC, OAuth endpoints, firehose) except by the version string. HTML pages
+  (XRPC, OAuth endpoints, firehose) except by the version string and the
+  deliberate differences of §2.3. HTML pages
   are out of scope for C6: the Candidate's pages are server-rendered and the
   Reference's are a React bundle.
 
-Divergence from the Reference is permitted only through §12 extension points,
-and only in a non-stock profile.
+Divergence from the Reference is permitted in two ways only: through §12
+extension points, in a non-stock profile; and through the deliberate
+differences of §2.3, in every profile.
+
+### 2.3 Deliberate differences
+
+The Candidate differs from the Reference at the pin in the places below, in
+every profile. Each is an owner's decision recorded in [plan.md](plan.md).
+The Harness records each one as a difference between the Reference and the
+Candidate (§17.3): the comparison fails when one is missing and when another
+appears.
+
+| Id | Request and state | Reference at the pin | Candidate | Decided |
+|---|---|---|---|---|
+| DD-1 | `createRecord` with a record key that exists (§6.3) | 500 `InternalServerError` | 400 `InvalidRequest` | 2026-10-09, D15 |
+| DD-2 | `applyWrites` with a create whose record key exists (§6.3) | 500 `InternalServerError` | 400 `InvalidRequest` | 2026-10-09, D15 |
+| DD-3 | `createAppPassword` with a name the account already uses (§5.2) | 500 `InternalServerError` | 400 `InvalidRequest` | 2026-10-09, D15 |
+| DD-4 | A proxied request whose `atproto-proxy` value does not start with a DID (§4.4) | 500 `InternalServerError` | 400 `InvalidRequest` | 2026-10-09, D15 |
+| DD-5 | A service token that an earlier successful request has spent (§5.4) | accepted again | 401 `BadJwt` | 2026-10-09, D16 |
+
+A difference that is not in this table is a defect of the Candidate.
 
 ## 3. Architecture
 
@@ -338,7 +364,10 @@ Reference's pipethrough does:
   is not parsed: a malformed value is forwarded and the upstream decides.
 - An XRPC error from the upstream comes back with its status and body. A
   failed upstream is 502 `UpstreamFailure`. A proxy target whose service id
-  the DID document lacks, or that has no service id, is 400 `InvalidRequest`.
+  the DID document lacks, or that has no service id, or whose DID does not
+  resolve, is 400 `InvalidRequest`. At the pin a value that does not start
+  with a DID is 500 `InternalServerError`; the Candidate answers 400
+  `InvalidRequest` (§2.3, DD-4).
 - Header filtering, timeouts (`PDS_PROXY_*`), response size caps, retry
   policy and HTTP/2 preference follow the Reference configuration.
 - Procedures are proxied only where the Reference proxies them.
@@ -383,6 +412,9 @@ its first item.
   open.
 - App passwords use the Reference's `xxxx-xxxx-xxxx-xxxx` form, are hashed
   the same way, and carry the privileged flag.
+- At the pin `createAppPassword` with a name the account already uses is 500
+  `InternalServerError`; the Candidate answers 400 `InvalidRequest` (§2.3,
+  DD-3).
 
 ### 5.3 Admin
 
@@ -401,11 +433,22 @@ break-glass path; the console (§22) authenticates operators by account (§12.11
   ([VP-3](../parity/verify-at-pin.md)). At the pin two methods accept
   service auth, `createAccount` and `uploadBlob`, and `uploadBlob` reads a
   token without `lxm` as a session token, which fails as `InvalidToken`. At
-  the pin `jti` is not checked for replay; a replay cache in the Candidate
-  is a hardening that the Harness would record as a difference (Appendix D,
-  D16). An optional `kid` header names the verification-method
+  the pin `jti` is not checked for replay; the Candidate checks it (next
+  item). An optional `kid` header names the verification-method
   fragment, default `#atproto`; only expected key types are accepted. The
   key comes from the resolved DID document (§9.3).
+- Replay: a service token is good for one successful request. The
+  Candidate MUST refuse a token that an earlier request has spent, until the
+  token's `exp`, with 401 `BadJwt` (§2.3, DD-5). A request spends its token
+  when the server answers it with a 2xx status. The server reserves the key
+  when it verifies the token and releases it when the answer is not 2xx, so
+  a caller can retry a failed request with the same token, and two
+  concurrent uses cannot both pass. The key is `iss` with `jti`; a token
+  without `jti` is keyed by the SHA-256 of the token, so it cannot be
+  replayed either. The cache is bounded, per process, and empty after a
+  restart. Where more than one process verifies service tokens (§21), a
+  token can be used once in each until the shared tier carries the cache.
+  The unit that builds the cache sets its bound and adds it to Appendix C.
 - Outbound: the same shape, signed with the actor's signing key, `exp` of
   `iat` plus 60 seconds as the Reference's default ([VP-4](../parity/verify-at-pin.md)),
   `lxm` set, `aud` per §4.4, for proxying and for `getServiceAuth`.
@@ -500,8 +543,10 @@ the DPoP proof, nonce, scope.
   incrementally and MUST NOT rewrite unchanged records or blocks.
 - A write that changes nothing makes no commit and no firehose event.
 - At the pin `createRecord` on a key that exists, and a batch that contains
-  such an operation, answer 500 `InternalServerError`; the batch writes
-  nothing (Appendix D, D15).
+  such an operation, answer 500 `InternalServerError`. The Candidate answers
+  400 `InvalidRequest` (§2.3, DD-1 and DD-2). In both servers nothing is
+  written: no commit, no firehose event, and no other operation of the
+  batch.
 - Writes are refused for deactivated, taken-down and deleted repositories with
   the Reference's errors. A profile MAY refuse writes when the account's
   handle no longer verifies (§12.4).
@@ -1277,7 +1322,8 @@ upstream protocol test suite is adopted when published.
 - **O1 Response diff.** Status, `error`, headers named in §4.2 and §6.4,
   and the JSON body normalised: field order ignored; server-generated
   identifiers aliased on first sight; times compared when the dev clock is
-  injected.
+  injected. Between the Reference and the Candidate the recorded differences
+  are the deliberate differences of §2.3 and no others.
 - **O2 Repository CIDs.** MST root CID after every write scenario; commit CID
   when `rev` is injected (§3.3).
 - **O3 Firehose.** Frames decoded and compared as events: type, `ops`,
@@ -1658,8 +1704,8 @@ New in the Candidate:
 | D12 | Resolved 2026-10-08: entryway mode is a post-cutover unit (§21.3). | post-cutover |
 | D13 | Atproto Spaces: out of scope for version 1; the `ActorStore` seam reserves room for per-space tables so the upstream per-actor design can be adopted when schemas stabilise. | post-cutover |
 | D14 | OAuth lifetimes where the Reference at the pin exceeds the specification's bounds: follow the pin through the rollback window, tighten afterwards. | 5 |
-| D15 | Reference defects that answer 500 to a client error: `createRecord` and `applyWrites` on a key that exists, `createAppPassword` with a name in use, an `atproto-proxy` value that is not a resolvable DID. Keep them for C1, or answer 400 and record the difference in the Harness. | 4, 5 |
-| D16 | Hardenings that the pin does not have and a client could observe: a replay cache for inbound service-auth `jti` (§5.4), collection of uploads that no record ever referenced (§6.4), and a grace period before a dereferenced blob is deleted (§6.4). Each one adopted becomes a recorded difference. | 4 |
+| D15 | Resolved 2026-10-09: where the Reference answers 500 to a client error, the Candidate answers 400 `InvalidRequest`. Four cases: `createRecord` and `applyWrites` on a key that exists, `createAppPassword` with a name in use, an `atproto-proxy` value that does not start with a DID (§2.3, DD-1 to DD-4). | 4, 5 |
+| D16 | Hardenings that the pin does not have and a client could observe. Resolved 2026-10-09: the Candidate refuses a replayed service token (§5.4; §2.3, DD-5). Open: collection of uploads that no record ever referenced, and a grace period before a dereferenced blob is deleted (§6.4). Each one adopted becomes a deliberate difference. | 4 |
 
 ## Appendix E. Changes in Revision 1
 
@@ -1726,3 +1772,20 @@ in [verify-at-pin.md](../parity/verify-at-pin.md).
   and `103-invite-handoff` are added (§13).
 - The Harness as built: one stack per target, fixtures, transcripts (§17.1).
 - Appendix D adds D15 and D16.
+
+## Appendix G. Changes in Revision 3
+
+Revision 3 applies two owner's decisions of 2026-10-09.
+
+- §2.3 is new: the deliberate differences between the Candidate and the
+  Reference, DD-1 to DD-5. §2.2 names them as the second permitted kind of
+  divergence, C6 excepts them, and the definition of "at the pin" in §0
+  refers to them.
+- D15 is resolved: 400 `InvalidRequest` where the Reference answers 500 to a
+  client error, in four cases (§4.4, §5.2, §6.3). The fourth case is
+  restated as observed: at the pin a proxy value that does not start with a
+  DID answers 500, and a DID that does not resolve answers 400.
+- D16 is resolved in part: the Candidate refuses a replayed service token,
+  and §5.4 says when a token is spent. The two blob hardenings stay open.
+- The comparison of the Reference with the Candidate may record the
+  deliberate differences and no others (§17.3).

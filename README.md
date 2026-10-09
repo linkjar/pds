@@ -6,7 +6,7 @@ instead of source patches. Dual-licensed MIT or Apache-2.0.
 
 > Status: unit 1 of 13. The workspace builds, the syntax and data-model
 > crates pass the upstream interop vectors, the API types are generated from
-> the vendored lexicons, the specification is at revision 2, and the
+> the vendored lexicons, the specification is at revision 3, and the
 > [parity harness](parity/README.md) holds the reference image to it. The
 > server does not serve traffic yet. The reference image under
 > [`legacy/`](legacy/README.md) remains the deployed server until cutover.
