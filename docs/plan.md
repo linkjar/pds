@@ -115,7 +115,8 @@ upstream bumps, which nothing does today beyond the image smoke gate.
 
 | Date | Event |
 |---|---|
-| 2026-10-09 | Unit 1 done on `feat/rust-pds`, stacked on unit 0. The parity harness (`parity/`) runs 28 scenarios in five profiles against the reference image `ghcr.io/linkjar/pds` revision 11 by digest, a second boot of it, and the stock build, each in its own compose stack: the production hostnames behind a TLS edge, a PLC directory, a strict Sync 1.1 relay, a mail catcher, and fixtures for everything else. Oracles O1 to O4 and O9 are in place: two Reference boots compare equal, the difference between the stock and the production build is recorded by patch ([differences](../parity/differences/README.md)), every commit is verified against the PLC key and its MST root rebuilt, the relay re-emits every commit, and the OAuth flows run through the official client and Chromium. VP-8 to VP-12 are answered from the pinned source and confirmed by scenario ([verify-at-pin.md](../parity/verify-at-pin.md)). The legacy suites are ported to HTTP scenarios, with the assertions HTTP cannot observe listed. SPEC revision 2 carries the results and seventeen corrections that the scenarios forced, among them: a method without a handler is proxied and never 501, a deleted blob has no grace period, and the patch stack has eight patches, not six. Reference baselines for S1 to S5, S8 and S9 are in [parity/results](../parity/results/perf-reference.md). The `linkjar.io` browser gate takes `E2E_PDS_URL`. |
+| 2026-10-09 | Units 0 and 1 merged to `main` (pull requests #14 and #15) with every gate green in CI. Their first CI runs showed four faults, all repaired: the Rust workflow gave its pinned toolchain action no `toolchain` input; a `main` push that touches `legacy/` tried to publish revision 11 again, so a `release` job now publishes only when `upstream.json` names an unused tag; and the nightly fuzz workflow could not build, first for the workspace manifest and then for the target of the prebuilt cargo-fuzz (#16, #17). The parity workflow runs its four targets side by side, the fuzz corpus is kept between nights, and the Rust gates run every Monday (#18). The owner decided D15 and the service-token part of D16 ([below](#decisions-taken-2026-10-09)); SPEC revision 3 carries them as §2.3. `linkjar.io` has the PDS URL setting on `main`. Next: unit 2, from `main`. |
+| 2026-10-09 | Unit 1 done on `feat/unit-1-parity`, stacked on unit 0. The parity harness (`parity/`) runs 28 scenarios in five profiles against the reference image `ghcr.io/linkjar/pds` revision 11 by digest, a second boot of it, and the stock build, each in its own compose stack: the production hostnames behind a TLS edge, a PLC directory, a strict Sync 1.1 relay, a mail catcher, and fixtures for everything else. Oracles O1 to O4 and O9 are in place: two Reference boots compare equal, the difference between the stock and the production build is recorded by patch ([differences](../parity/differences/README.md)), every commit is verified against the PLC key and its MST root rebuilt, the relay re-emits every commit, and the OAuth flows run through the official client and Chromium. VP-8 to VP-12 are answered from the pinned source and confirmed by scenario ([verify-at-pin.md](../parity/verify-at-pin.md)). The legacy suites are ported to HTTP scenarios, with the assertions HTTP cannot observe listed. SPEC revision 2 carries the results and seventeen corrections that the scenarios forced, among them: a method without a handler is proxied and never 501, a deleted blob has no grace period, and the patch stack has eight patches, not six. Reference baselines for S1 to S5, S8 and S9 are in [parity/results](../parity/results/perf-reference.md). The `linkjar.io` browser gate takes `E2E_PDS_URL`. |
 | 2026-10-08 | Unit 0 in progress on `feat/rust-pds`: Cargo workspace with fifteen crates and `xtask`; the legacy image build moved under `legacy/` with its workflows repointed; docs reorganised with a root README and an architecture page whose Mermaid sources render through beautiful-mermaid; `pds-types` passes every interop syntax and data-model vector (three contrived CID strings recorded as known failures); `pds-lexicon` parses and validates all 263 vendored lexicons with every reference resolved; `cargo xtask codegen` generates the API types (about 10,000 lines) and they compile and round-trip real records; CI gates (fmt, clippy with the deny-panic set, tests, codegen check, deny, vet, scheduled audit and fuzz) and devenv are in place. Seven of twelve "verify at pin" items answered from the pinned source ([parity/verify-at-pin.md](../parity/verify-at-pin.md)). |
 | 2026-10-08 | Decision taken. Branch `feat/rust-pds` created from `main`. SPEC revision 0 written from the reference source at the pin and the six patch documents. No code yet. |
 | 2026-10-08 | Documentation sweep against atproto.com completed; SPEC revision 1 written: decisions applied, the research's sections added (storage seams, simulation, audit, topologies, sidecars), every gap-report item folded in, units renumbered 0 to 12 with the cutover bar after unit 8. Patch pin recorded. No code yet. |
@@ -142,16 +143,23 @@ Revision 1 of the SPEC applies them.
 | Local MCP | The private-data MCP mode is a TypeScript process in `linkjar.io` beside the kit. This repository ships the hosted, public-data MCP server only. |
 | Work mode | Sequential units, one worktree at a time, each merged to `main` with its gate green. |
 
+## Decisions taken 2026-10-09
+
+Answered by the owner after unit 1. Revision 3 of the SPEC applies them.
+
+| Topic | Decision |
+|---|---|
+| D15, client errors that the Reference answers with 500 | The Candidate answers 400 `InvalidRequest`. Four cases: `createRecord` on a key that exists, `applyWrites` with such a create, `createAppPassword` with a name in use, an `atproto-proxy` value that does not start with a DID. They are deliberate differences DD-1 to DD-4 in SPEC §2.3, and the Harness records them. |
+| D16, replay of a service token | A service token is good for one successful request. The Candidate refuses a spent token until it expires: 401 `BadJwt` (SPEC §5.4, DD-5). A request that fails does not spend its token, so a caller can retry with the same one. |
+
 ## Open questions for the owner
 
-Two, from unit 1, recorded as SPEC Appendix D, D15 and D16. Neither blocks
-unit 2.
+One, the rest of SPEC Appendix D, D16. It does not block units 2 and 3;
+unit 4 builds the blob store and needs the answer.
 
-- **D15.** The Reference answers 500 to four client errors (a record key
-  that exists, a batch with one, an app-password name in use, a proxy target
-  that is not a resolvable DID). Keep them in the Candidate for C1, or
-  answer 400 and record the difference.
-- **D16.** Three hardenings the pin does not have and a client could
-  observe: a replay cache for service-auth `jti`, collection of uploads no
-  record ever referenced, and a grace period before a dereferenced blob is
-  deleted. Adopt any of them, or follow the pin.
+- **D16, blobs.** Two behaviours that the pin does not have. The Reference
+  deletes a blob in the commit that removes its last reference, with no
+  grace period, and it never collects an upload that no record came to
+  reference. The Candidate can keep a dereferenced blob for a grace period,
+  and it can collect orphaned uploads after an hour. Adopt either, or follow
+  the pin.
