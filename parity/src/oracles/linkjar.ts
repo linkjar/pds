@@ -52,3 +52,90 @@ export async function externalSignIn(
     await page.close()
   }
 }
+
+/**
+ * The account pages (`/account`), where a person manages sign-in methods
+ * (patch 100, SPEC 12.5). The driver relies on these names: a "Sign in"
+ * choice on the welcome page, the password form of the sign-in step, a link
+ * to the account's `manage` page, and the controls "Link <Provider>" and
+ * "Unlink <Provider>" in a section headed "Sign-in methods".
+ */
+export class AccountPage {
+  readonly page: import('../lib/browser.ts').Page
+
+  private constructor(page: import('../lib/browser.ts').Page) {
+    this.page = page
+  }
+
+  /** Signs in on the account pages with a password, or with a provider identity queued by the caller. */
+  static async open(device: BrowserContext, opts: { identifier?: string; password?: string; provider?: 'Apple' | 'Google' | 'GitHub' }): Promise<AccountPage> {
+    const page = await device.newPage()
+    page.setDefaultTimeout(10_000)
+    await page.goto(`https://${HOSTS.pds}/account`, { waitUntil: 'domcontentloaded' })
+    await page.getByRole('button', { name: 'Sign in', exact: true }).first().click()
+    if (opts.provider) {
+      await page.getByText(`Continue with ${opts.provider}`, { exact: true }).first().click()
+    } else {
+      const password = page.locator('input[type=password]').first()
+      await password.waitFor({ state: 'attached' })
+      if (!(await password.isVisible())) await page.getByText('Or use email').first().click()
+      await page.locator('input[name=username]').fill(opts.identifier ?? '')
+      await password.fill(opts.password ?? '')
+      await page.locator('input[name=remember]').check({ force: true })
+      await page.locator('button[type=submit]').first().click()
+    }
+    const manage = page.locator('a[href$="/manage"]').first()
+    await manage.waitFor({ state: 'visible', timeout: 15_000 })
+    await manage.click()
+    await page.getByText('Sign-in methods').first().waitFor({ state: 'visible' })
+    return new AccountPage(page)
+  }
+
+  /** The providers the page lists as linked, and those it offers to link. */
+  async methods(): Promise<{ linked: string[]; offered: string[] }> {
+    await this.page.waitForTimeout(600)
+    const text = (await this.page.locator('body').innerText()).replace(/\n+/g, ' | ')
+    const linked = [...text.matchAll(/Unlink (Apple|Google|GitHub)/g)].map((m) => m[1]!.toLowerCase()).sort()
+    const offered = [...text.matchAll(/Link (Apple|Google|GitHub)/g)].map((m) => m[1]!.toLowerCase()).filter((p) => !linked.includes(p)).sort()
+    return { linked, offered: [...new Set(offered)] }
+  }
+
+  /**
+   * Clicks "Link <Provider>" and follows the round trip through the provider
+   * back to the page. Returns when the page lists the method as linked, or
+   * after the wait when the server refused.
+   */
+  async link(provider: 'Apple' | 'Google' | 'GitHub'): Promise<void> {
+    const outbound = this.page.waitForRequest((request) => request.isNavigationRequest() && /\/oauth\/external\/[a-z]+\/start/.test(request.url()), { timeout: 10_000 })
+    await this.page.getByText(`Link ${provider}`, { exact: true }).first().click()
+    await outbound.catch(() => undefined)
+    await this.page.waitForURL(/\/account\//, { timeout: 15_000 }).catch(() => undefined)
+    await this.page.getByRole('button', { name: `Unlink ${provider}`, exact: true }).first().waitFor({ state: 'visible', timeout: 6_000 }).catch(() => undefined)
+  }
+
+  async unlink(provider: 'Apple' | 'Google' | 'GitHub'): Promise<void> {
+    const button = this.page.getByRole('button', { name: `Unlink ${provider}`, exact: true }).first()
+    await button.click()
+    await button.waitFor({ state: 'detached', timeout: 6_000 }).catch(() => undefined)
+  }
+
+  /** Whether the page lets the person remove a method. It must not, for the last one (SPEC 12.5). */
+  canUnlink(provider: 'Apple' | 'Google' | 'GitHub'): Promise<boolean> {
+    return this.page.getByRole('button', { name: `Unlink ${provider}`, exact: true }).first().isEnabled()
+  }
+
+  /** Whether the page shows an error after the last action. */
+  async errorShown(): Promise<boolean> {
+    const alert = this.page.getByRole('alert')
+    return (await alert.count()) > 0 && (await alert.first().isVisible())
+  }
+
+  /** What the page says, for a scenario that looks for a specific fact. */
+  text(): Promise<string> {
+    return this.page.locator('body').innerText()
+  }
+
+  close(): Promise<void> {
+    return this.page.close()
+  }
+}

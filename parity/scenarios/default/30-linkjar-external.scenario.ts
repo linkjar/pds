@@ -9,7 +9,7 @@
 
 import assert from 'node:assert/strict'
 import { launchBrowser, newDevice } from '../../src/lib/browser.ts'
-import { makeClient } from '../../src/lib/oauth.ts'
+import { makeAppClient, makeClient } from '../../src/lib/oauth.ts'
 import { externalSignIn } from '../../src/oracles/linkjar.ts'
 import { viaSession } from '../../src/oracles/oauth.ts'
 import { refused, scenario } from '../../src/scenario.ts'
@@ -23,7 +23,7 @@ scenario('30-linkjar-external', { linkjar: true, timeoutMs: 420_000 }, async (s)
   s.onCleanup(() => browser.close())
   const device = () => newDevice(browser, { ip: s.ip })
   // The LinkJar web app is on the trusted list; the other client is not.
-  const app = await makeClient(s, 'app', 'public', { host: HOSTS.app, path: '/client-metadata.json', metadata: { client_name: 'LinkJar' } })
+  const app = await makeAppClient(s)
   const other = await makeClient(s, 'other', 'public')
   const name = `Nova ${s.tag}`
   const derived = `nova-${s.tag}${HOSTS.handleDomain}`

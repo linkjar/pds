@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { JoseKey } from '@atproto/oauth-client-node'
 import { launchBrowser, newDevice } from '../../src/lib/browser.ts'
 import { decodeJwt } from '../../src/lib/jwt.ts'
-import { makeClient, makeLoopbackClient } from '../../src/lib/oauth.ts'
+import { makeAppClient, makeClient, makeLoopbackClient } from '../../src/lib/oauth.ts'
 import { signIn, viaSession } from '../../src/oracles/oauth.ts'
 import { refused, scenario } from '../../src/scenario.ts'
 import { HOSTS } from '../../src/stack/targets.ts'
@@ -51,7 +51,7 @@ scenario('22-oauth-clients', { timeoutMs: 300_000 }, async (s) => {
   assert.equal(loopbackToken.claims.client_id, loopback.clientId)
 
   // A client on the trusted list (PDS_OAUTH_TRUSTED_CLIENTS) against one that is not.
-  const trusted = await makeClient(s, 'app', 'public', { host: HOSTS.app, path: '/client-metadata.json', metadata: { client_name: 'LinkJar' } })
+  const trusted = await makeAppClient(s)
   const t = await signIn(s, await device(), trusted, alice, { label: 'alice signs in through a trusted client' })
   const untrusted = await makeClient(s, 'other', 'public')
   const u = await signIn(s, await device(), untrusted, alice, { label: 'alice signs in through an untrusted client' })

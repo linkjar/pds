@@ -34,7 +34,7 @@ export type DriveOptions = {
   /** Continue with an external identity provider instead of a password (SPEC 12.3). */
   provider?: 'Apple' | 'Google' | 'GitHub'
   /** Create an account with email and password on the sign-up page. */
-  signUp?: { email: string; password: string; inviteCode?: string }
+  signUp?: { email: string; password: string; handle: string; inviteCode?: string }
   /** Tick "remember this account" at sign-in, so that the device keeps the account. */
   remember?: boolean
   /** The handle to pick when the device offers accounts it remembers. */
@@ -103,6 +103,7 @@ export async function driveAuthorization(page: Page, url: string, opts: DriveOpt
       if (signUpStep === 1 && (await handle.count()) > 0 && (await handle.first().isVisible())) {
         facts.steps.push('sign-up:handle')
         facts.suggestedHandle = await handle.first().inputValue()
+        await handle.first().fill(opts.signUp.handle)
         signUpStep = 2
         await page.locator('button[type=submit]').first().click({ timeout: 5_000 }).catch(() => undefined)
         await page.waitForTimeout(800)

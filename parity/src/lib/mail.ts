@@ -43,11 +43,15 @@ export async function mailsTo(s: Scenario, address: string): Promise<Mail[]> {
 }
 
 /** Waits for the `count`-th message to an address and returns the newest. */
-export async function nextMail(s: Scenario, address: string, count = 1): Promise<Mail> {
-  const mails = await s.eventually(`mail number ${count} to ${address}`, async () => {
-    const all = await mailsTo(s, address)
-    return all.length >= count && all
-  })
+export async function nextMail(s: Scenario, address: string, count = 1, timeoutMs = 15_000): Promise<Mail> {
+  const mails = await s.eventually(
+    `mail number ${count} to ${address}`,
+    async () => {
+      const all = await mailsTo(s, address)
+      return all.length >= count && all
+    },
+    timeoutMs,
+  )
   return mails[0]!
 }
 

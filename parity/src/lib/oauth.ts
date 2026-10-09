@@ -44,12 +44,12 @@ export async function makeClient(
   s: Scenario,
   name: string,
   kind: ClientKind,
-  opts: { host?: string; path?: string; scope?: string; metadata?: Partial<OAuthClientMetadataInput> } = {},
+  opts: { host?: string; path?: string; redirectPath?: string; scope?: string; metadata?: Partial<OAuthClientMetadataInput> } = {},
 ): Promise<TestClient> {
   const host = opts.host ?? HOSTS.client
   const path = opts.path ?? `/${name}-${s.tag}/client-metadata.json`
   const clientId = `https://${host}${path}`
-  const redirectUri = `https://${host}/${name}-${s.tag}/callback`
+  const redirectUri = `https://${host}${opts.redirectPath ?? `/${name}-${s.tag}/callback`}`
   const key = kind === 'confidential' ? await JoseKey.generate(['ES256'], `${name}-key-1`) : undefined
   const metadata: OAuthClientMetadataInput = {
     client_id: clientId,
@@ -78,6 +78,29 @@ export async function makeClient(
     plcDirectoryUrl: `https://${HOSTS.plc}`,
   })
   return { client, clientId, redirectUri, metadata, key, sessions: sessions.map }
+}
+
+/**
+ * The LinkJar web app, which PDS_OAUTH_TRUSTED_CLIENTS lists. The server
+ * caches client metadata by client_id, so every scenario publishes the same
+ * document for it.
+ */
+export function makeAppClient(s: Scenario): Promise<TestClient> {
+  return makeClient(s, 'app', 'public', { host: HOSTS.app, path: '/client-metadata.json', redirectPath: '/callback', metadata: { client_name: 'LinkJar' } })
+}
+
+/**
+ * The LinkJar browser extension, also on the trusted list. It asks for the
+ * permission to change the handle, which the web app does not.
+ */
+export function makeExtensionClient(s: Scenario): Promise<TestClient> {
+  return makeClient(s, 'ext', 'public', {
+    host: HOSTS.web,
+    path: '/ext-client-metadata.json',
+    redirectPath: '/ext/callback',
+    scope: 'atproto transition:generic identity:handle',
+    metadata: { client_name: 'LinkJar extension' },
+  })
 }
 
 /**

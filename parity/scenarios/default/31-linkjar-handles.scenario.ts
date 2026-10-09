@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict'
 import { launchBrowser, newDevice } from '../../src/lib/browser.ts'
-import { makeClient } from '../../src/lib/oauth.ts'
+import { makeExtensionClient } from '../../src/lib/oauth.ts'
 import { externalSignIn } from '../../src/oracles/linkjar.ts'
 import { viaSession } from '../../src/oracles/oauth.ts'
 import { refused, scenario } from '../../src/scenario.ts'
@@ -33,7 +33,7 @@ scenario('31-linkjar-handles', { linkjar: true, timeoutMs: 300_000 }, async (s) 
   // A freshly signed-up provider account may choose one new hosted handle within 30 days.
   const browser = await launchBrowser(s.target)
   s.onCleanup(() => browser.close())
-  const app = await makeClient(s, 'app', 'public', { host: HOSTS.app, path: '/client-metadata.json', scope: 'atproto transition:generic identity:handle', metadata: { client_name: 'LinkJar' } })
+  const app = await makeExtensionClient(s)
   const fresh = await externalSignIn(s, await newDevice(browser, { ip: s.ip }), app, { provider: 'google', subject: `google-${s.tag}-h1`, email: s.email('fresh'), emailVerified: true, name: `Fresh ${s.tag}` })
   assert.ok(fresh.session)
   const rename = (step: string, handle: string) => viaSession(s, step, fresh.session!, '/xrpc/com.atproto.identity.updateHandle', { json: { handle } })
