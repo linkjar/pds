@@ -6,13 +6,17 @@ name: Parity harness
 #
 # Actions are pinned by commit SHA. The runner is amd64 because the relay
 # image is published for amd64 only.
+#
+# Each target has its own stack, so the four run side by side and a last job
+# compares their transcripts. A change that touches only Markdown under
+# parity/ does not start the stacks.
 
 on:
   pull_request:
-    paths: ['parity/**', 'legacy/**', 'upstream.json', '.github/workflows/parity.yml']
+    paths: ['parity/**', '!parity/**/*.md', 'legacy/**', 'upstream.json', '.github/workflows/parity.yml']
   push:
     branches: [main]
-    paths: ['parity/**', 'legacy/**', 'upstream.json', '.github/workflows/parity.yml']
+    paths: ['parity/**', '!parity/**/*.md', 'legacy/**', 'upstream.json', '.github/workflows/parity.yml']
   schedule:
     # Mondays, after the upstream updater.
     - cron: '47 9 * * 1'
@@ -54,10 +58,15 @@ jobs:
       - run: pnpm test
 
   parity:
-    name: scenarios against the reference image
+    name: scenarios (${{ matrix.target }})
     needs: check
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # `repeat` is a second boot of the Reference.
+        target: [reference, repeat, stock, official]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -74,9 +83,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: The pinned Reference is the image upstream.json describes
+        if: matrix.target == 'reference'
         run: pnpm parity images verify
       - uses: docker/setup-buildx-action@5ac4a31b15f1c45ec652b8af78c2096c3a08368c
+        if: matrix.target == 'stock'
       - name: Build the Stock Reference
+        if: matrix.target == 'stock'
         uses: docker/build-push-action@91670ba5a4df99a24efff8637a78c83fd1b0f6b1
         with:
           context: legacy
@@ -85,13 +97,51 @@ jobs:
           build-args: PATCH_PROFILE=none
           # The same cache the image workflow fills.
           cache-from: type=gha,scope=pds-none-amd64
-      - name: Scenarios, every profile, four targets
+      - name: Scenarios, every profile
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          for profile in default invites firehose captcha; do
+            pnpm parity run "$TARGET" --profile "$profile"
+          done
+      - name: Keep transcripts and service logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: parity-${{ matrix.target }}
+          # Both paths are named so that the artifact is rooted at the
+          # target's run directory whether or not there are logs.
+          path: |
+            parity/.run/${{ matrix.target }}/transcripts
+            parity/.run/${{ matrix.target }}/logs
+          if-no-files-found: ignore
+          retention-days: 14
+
+  compare:
+    name: comparisons
+    needs: parity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@94196ee1d15439c1b6651cd87ef14e88ec435966
+        with:
+          node-version-file: parity/.node-version
+      - run: npm install --global pnpm@12.4.1
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: parity-*
+          path: parity/.run
+      - name: Put each target's transcripts where the harness reads them
         run: |
           set -euo pipefail
           for target in reference repeat stock official; do
-            for profile in default invites firehose captcha; do
-              pnpm parity run "$target" --profile "$profile"
-            done
+            mv ".run/parity-$target" ".run/$target"
+            test -d ".run/$target/transcripts/default"
           done
       - name: Two boots of the Reference show no difference
         run: pnpm parity compare reference repeat
@@ -99,16 +149,6 @@ jobs:
         run: pnpm parity compare reference stock
       - name: Stock Reference against the official distribution shows no difference
         run: pnpm parity compare stock official
-      - name: Keep transcripts and service logs
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: parity-transcripts
-          path: |
-            parity/.run/*/transcripts
-            parity/.run/*/logs
-          if-no-files-found: ignore
-          retention-days: 14
 
   perf:
     name: performance baseline (SPEC 16.1)
