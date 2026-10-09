@@ -1243,7 +1243,10 @@ Initial targets, to be revised after unit 2 publishes measurements:
 
 Results are published in the README with hardware, versions and image
 digests. The Reference's baseline for S1 to S5, S8 and S9 is in
-[parity/results/](../parity/results/).
+[parity/results/](../parity/results/perf-reference.md). In it the Reference
+falls behind in S4 at 1,000 subscribers, with a median delivery lag above
+ten seconds, so T6 is an absolute target at that size and T1 does not bound
+it.
 
 ## 17. Parity and Conformance
 

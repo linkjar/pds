@@ -16,10 +16,10 @@ One run on the host below. It places the Reference for the comparison with the C
 
 | Records in the repository | p50 / p99 ms | Bytes of new blocks per write | Net block rows per write | Net block bytes per write |
 |---|---|---|---|---|
-| 10 | 18.9 / 167.3 | 1,548 | 1.3 | 157 |
-| 1,000 | 32.3 / 91.2 | 2,801 | 1.3 | 155 |
-| 10,000 | 34 / 85.6 | 4,287 | 1.1 | 146 |
-| 100,000 | 12.3 / 28.6 | 3,511 | 1.2 | 157 |
+| 10 | 11.9 / 29.4 | 1,548 | 1.3 | 157 |
+| 1,000 | 10.8 / 23.4 | 2,801 | 1.3 | 155 |
+| 10,000 | 12.5 / 30 | 4,287 | 1.1 | 146 |
+| 100,000 | 12.6 / 43.8 | 3,511 | 1.2 | 157 |
 
 The bytes of new blocks are the CAR slice of the commit on the firehose: the commit, the tree nodes on the path to the record, and the record. Net growth is what the block table keeps after the Reference deletes the nodes and the commit that the write replaced.
 
@@ -27,25 +27,25 @@ The bytes of new blocks are the CAR slice of the commit on the firehose: the com
 
 | Records in the repository | p50 / max ms |
 |---|---|
-| 10 | 402.4 / 762.1 |
-| 1,000 | 493.8 / 752.9 |
-| 10,000 | 208.4 / 244.9 |
-| 100,000 | 304.5 / 316 |
+| 10 | 167 / 235 |
+| 1,000 | 160.9 / 184.2 |
+| 10,000 | 242 / 400 |
+| 100,000 | 255.5 / 453.7 |
 
 ## S3: `getRepo` export
 
 | Records | Wall ms | CAR MiB | Blocks | Memory growth MiB |
 |---|---|---|---|---|
-| 101,100 | 2,752 | 19.8 | 128,312 | 42.8 |
+| 101,100 | 1,642 | 19.8 | 128,312 | 49.1 |
 
 ## S4: one writer at 50 commits a second
 
 | Subscribers | Writes answered 200 | Frames delivered | Lag p50 / p99 ms | Commit p50 / p99 ms | Memory MiB |
 |---|---|---|---|---|---|
-| 1 | 500 of 500 | 500 of 500 | 10.9 / 610.8 | 9.5 / 26.1 | 690 |
-| 10 | 500 of 500 | 5,000 of 5,000 | 11.8 / 396.9 | 10.7 / 36.2 | 692 |
-| 100 | 500 of 500 | 50,000 of 50,000 | 12.8 / 503.3 | 10.6 / 245.1 | 697 |
-| 1,000 | 500 of 500 | 475,500 of 500,000 | 11280 / 18287.6 | 11265.7 / 18281.1 | 214 |
+| 1 | 500 of 500 | 500 of 500 | 11.3 / 604.9 | 10.5 / 117.7 | 711 |
+| 10 | 500 of 500 | 5,000 of 5,000 | 10.9 / 438.9 | 10 / 22.6 | 711 |
+| 100 | 500 of 500 | 50,000 of 50,000 | 40.8 / 998.9 | 14.9 / 938.5 | 721 |
+| 1,000 | 500 of 500 | 500,000 of 500,000 | 13905.9 / 21816.8 | 13901.6 / 21811.9 | 229 |
 
 Lag runs from the moment the write was sent to the moment a subscriber received its commit, so it includes the commit itself. At most twenty subscribers record arrivals; the others hold a connection and count frames.
 
@@ -55,26 +55,26 @@ Write throughput of 50 writers, each writing as fast as it is answered, around t
 
 | When | Commits per second | Failed writes | Slowest write ms |
 |---|---|---|---|
-| Before any subscriber | 154 | 0 | 1,886 |
-| Right after they left | 134 | 0 | 2,246 |
-| Fifteen seconds later | 146 | 0 | 2,085 |
+| Before any subscriber | 128 | 0 | 1,684 |
+| Right after they left | 125 | 0 | 1,857 |
+| Fifteen seconds later | 131 | 0 | 1,519 |
 
 ## S5: backfill from a cursor
 
 | Events | Wall ms | Events per second | Memory growth MiB |
 |---|---|---|---|
-| 100,000 | 8,478 | 11,795 | 49.2 |
+| 100,000 | 9,791 | 10,213 | 90.3 |
 
 ## S9: writers across actors, two commits a second each
 
 | Writers | Writes answered 200 | Lag p50 / p99 ms | Commit p50 / p99 ms | Sequencer fsyncs |
 |---|---|---|---|---|
-| 50 | 3,000 of 3,000 | 164.8 / 1058.1 | 160.6 / 353.6 | not observable from outside the Reference |
+| 50 | 3,000 of 3,000 | 205.6 / 1122.7 | 167.2 / 374.1 | not observable from outside the Reference |
 
 ## S8: concurrent uploads of 5 MiB
 
 | Uploads | Wall ms | Upload p50 / max ms | Memory growth MiB |
 |---|---|---|---|
-| 20 | 1,113 | 1065.1 / 1101.6 | 48 |
+| 20 | 1,178 | 1114 / 1160.2 | 65.5 |
 
 S6 (idle accounts) and S7 (the token endpoint) are measured from unit 5 on. See the [harness README](../README.md#performance-scenarios).
