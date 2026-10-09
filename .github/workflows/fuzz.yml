@@ -18,7 +18,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [syntax_handle, syntax_nsid, syntax_did, syntax_aturi, syntax_datetime, syntax_tid]
+        target:
+          - syntax_handle
+          - syntax_nsid
+          - syntax_did
+          - syntax_aturi
+          - syntax_datetime
+          - syntax_tid
+          - data_json
+          - data_cbor
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
