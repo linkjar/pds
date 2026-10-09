@@ -9,6 +9,11 @@ on:
   push:
     branches: [main]
     paths-ignore: ['legacy/**', 'docs/legacy/**']
+  schedule:
+    # Mondays. The toolchain follows stable and advisories arrive without
+    # a push, so a quiet week is checked here and not on the next pull
+    # request. This is also what runs the advisories job.
+    - cron: '17 9 * * 1'
   workflow_dispatch:
 
 permissions:
