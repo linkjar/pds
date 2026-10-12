@@ -220,7 +220,8 @@ fn split<S: BlockStore>(
     let i = node.position(key);
     if node.has_key_at(i, key) {
         // The key sits below the layer of its hash: the tree is not valid.
-        return Err(RepoError::KeyExists(key.to_owned()));
+        // This is not `KeyExists`, which promises an unchanged tree.
+        return Err(RepoError::Shape(TreeDefect::KeyLayer));
     }
     let straddling = node.gap_mut(i).take();
     if straddling.is_none() {

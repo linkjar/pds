@@ -174,6 +174,16 @@ fn writes_on_a_stored_tree_that_is_not_valid_stop_with_an_error() {
     assert!(tree.delete(C0).is_err());
     assert!(tree.update(C0, value()).is_err());
 
+    // A key below the layer of its hash: adding it again finds the tree
+    // invalid and does not report an ordinary duplicate.
+    let mut blocks = BlockMap::new();
+    let root = put(&mut blocks, None, vec![entry(A0, None), entry(B1, None)]);
+    let mut tree = Tree::load(&blocks, root).unwrap();
+    assert!(matches!(
+        tree.add(B1, value()),
+        Err(RepoError::Shape(TreeDefect::KeyLayer))
+    ));
+
     // A chain of nodes without keys, longer than any tree is deep.
     let mut blocks = BlockMap::new();
     let mut top = put(&mut blocks, None, vec![entry(A0, None)]);
