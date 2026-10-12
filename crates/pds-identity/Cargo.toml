@@ -17,6 +17,9 @@ k256.workspace = true
 p256.workspace = true
 multibase.workspace = true
 zeroize.workspace = true
+reqwest.workspace = true
+tokio.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 data-encoding.workspace = true

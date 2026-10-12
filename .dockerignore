@@ -1,0 +1,8 @@
+# The image build of ./Dockerfile needs the Cargo workspace and nothing else.
+# legacy/ has its own Dockerfile and its own build context.
+*
+!Cargo.toml
+!Cargo.lock
+!crates
+!xtask
+**/target

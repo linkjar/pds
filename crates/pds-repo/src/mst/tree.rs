@@ -392,6 +392,30 @@ fn add_block(node: &Node, out: &mut BlockMap) -> Result<(), RepoError> {
     Ok(())
 }
 
+/// Collects the CIDs of the nodes from `node` down to where `key` is or
+/// would be, and returns the value at the key.
+fn path_to_key<S: BlockStore>(
+    store: &S,
+    node: &mut Node,
+    layer: u32,
+    key: &str,
+    out: &mut Vec<Cid>,
+) -> Result<Option<Cid>, RepoError> {
+    seal(node)?;
+    if let Some(sealed) = &node.sealed {
+        out.push(sealed.cid);
+    }
+    let i = node.position(key);
+    if let Some(entry) = node.entries.get(i).filter(|e| e.key == key) {
+        return Ok(Some(entry.value));
+    }
+    let next = below(layer, node);
+    match node.gap_mut(i) {
+        Some(child) => path_to_key(store, load(store, child)?, next?, key, out),
+        None => Ok(None),
+    }
+}
+
 /// The nodes from the root to the node that holds `key`. When the key is
 /// absent, the node where the path ends is left out, as in the Reference;
 /// the sibling proofs cover it.
@@ -648,6 +672,20 @@ impl<S: BlockStore> Tree<S> {
             new_blocks,
             removed,
         })
+    }
+
+    /// The nodes on the path to `key`, from the root down, and the value at
+    /// the key when it is present.
+    ///
+    /// The path ends at the node that holds the key, or at the node where
+    /// the search for it stops. This is the proof `sync.getRecord` serves:
+    /// with these blocks a reader can check that the key has this value, or
+    /// none, under the root.
+    pub fn path_to(&mut self, key: &str) -> Result<(Vec<Cid>, Option<Cid>), RepoError> {
+        seal(&mut self.root)?;
+        let mut nodes = Vec::new();
+        let value = path_to_key(&self.store, &mut self.root, self.layer, key, &mut nodes)?;
+        Ok((nodes, value))
     }
 
     /// Adds to `out` the node blocks that prove the value of `key`, or its

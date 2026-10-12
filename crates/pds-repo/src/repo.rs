@@ -308,6 +308,31 @@ impl<S: BlockStore> Repo<S> {
         Ok(Some((cid, bytes)))
     }
 
+    /// The blocks that prove the record at `key`, or its absence: the
+    /// commit, the record when it is present, and the tree nodes on the path
+    /// to the key from the root down.
+    ///
+    /// The order is the one the Reference writes into the CAR of
+    /// `com.atproto.sync.getRecord`.
+    pub fn record_proof(&self, key: &str) -> Result<BlockMap, RepoError> {
+        let mut blocks = BlockMap::new();
+        let commit = self
+            .store
+            .get(&self.cid)?
+            .ok_or_else(|| RepoError::missing(self.cid))?;
+        blocks.insert(self.cid, commit);
+        let mut tree = Tree::load(&self.store, self.commit.data)?;
+        let (nodes, value) = tree.path_to(key)?;
+        for cid in value.into_iter().chain(nodes) {
+            let bytes = self
+                .store
+                .get(&cid)?
+                .ok_or_else(|| RepoError::missing(cid))?;
+            blocks.insert(cid, bytes);
+        }
+        Ok(blocks)
+    }
+
     /// Builds the first commit of a repository from `writes`. `sign`
     /// receives the bytes to sign and returns the signature.
     pub fn format_init_commit(
