@@ -45,13 +45,24 @@ export async function runScenarios(target: TargetName, options: RunOptions): Pro
     // A full run replaces the profile's transcripts. A partial run replaces only those it writes.
     if (!options.only) rmSync(join(targetSpec(target).runDir, 'transcripts', options.profile), { recursive: true, force: true })
   }
+  const status = await runFiles(target, files)
+  if (!options.keep && !options.reuse) down(target)
+  return status
+}
+
+/**
+ * Runs scenario files against the stack that is up, one file at a time in
+ * the order given, and saves the service logs when one fails. `env` reaches
+ * the scenario processes.
+ */
+export async function runFiles(target: TargetName, files: string[], env: Record<string, string> = {}): Promise<number> {
   const fixtures = new FixtureServer(targetSpec(target).fixturePort)
   await fixtures.start()
   // One file at a time, in name order, so that both targets see the same
   // sequence of writes and the firehose scenarios see a quiet server.
   const child = spawn(process.execPath, ['--test', '--test-concurrency=1', '--test-reporter=spec', ...files], {
     cwd: PARITY_DIR,
-    env: { ...process.env, PARITY_TARGET: target },
+    env: { ...process.env, ...env, PARITY_TARGET: target },
     stdio: 'inherit',
   })
   const status = await new Promise<number>((resolve) => child.on('exit', (code) => resolve(code ?? 1)))
@@ -63,6 +74,5 @@ export async function runScenarios(target: TargetName, options: RunOptions): Pro
     for (const service of ['pds', 'relay', 'plc', 'edge']) writeFileSync(join(dir, `${service}.log`), logs(target, service, 2000))
     console.error(`Scenarios failed. Service logs are in ${dir}`)
   }
-  if (!options.keep && !options.reuse) down(target)
   return status
 }

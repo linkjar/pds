@@ -20,16 +20,22 @@ export type Difference = {
   right: unknown
 }
 
+/** The transcripts of one directory, keyed by `<label>/<scenario>`. */
+function transcriptsIn(dir: string, label: string, out = new Map<string, Transcript>()): Map<string, Transcript> {
+  if (!existsSync(dir)) return out
+  for (const file of readdirSync(dir).filter((name) => name.endsWith('.json')).sort()) {
+    const transcript: Transcript = JSON.parse(readFileSync(join(dir, file), 'utf8'))
+    out.set(`${label}/${transcript.scenario}`, transcript)
+  }
+  return out
+}
+
 function transcripts(target: TargetName): Map<string, Transcript> {
   const out = new Map<string, Transcript>()
   // The performance profile records measurements, which no two runs share.
-  for (const profile of PROFILES.filter((name) => name !== 'perf')) {
-    const dir = join(targetSpec(target).runDir, 'transcripts', profile)
-    if (!existsSync(dir)) continue
-    for (const file of readdirSync(dir).filter((name) => name.endsWith('.json')).sort()) {
-      const transcript: Transcript = JSON.parse(readFileSync(join(dir, file), 'utf8'))
-      out.set(`${profile}/${transcript.scenario}`, transcript)
-    }
+  // A restore run compares its own two groups (see compareGroups).
+  for (const profile of PROFILES.filter((name) => name !== 'perf' && name !== 'restore')) {
+    transcriptsIn(join(targetSpec(target).runDir, 'transcripts', profile), profile, out)
   }
   return out
 }
@@ -85,8 +91,19 @@ export type CompareOptions = {
 
 /** Returns the process exit status. */
 export function compare(left: TargetName, right: TargetName, options: CompareOptions = {}): number {
-  const a = transcripts(left)
-  const b = transcripts(right)
+  return check(left, right, transcripts(left), transcripts(right), options)
+}
+
+/**
+ * Compares two transcript groups of one target's run directory: the two
+ * servers of a restore run. Returns the process exit status.
+ */
+export function compareGroups(target: TargetName, left: string, right: string, options: CompareOptions = {}): number {
+  const dir = (group: string) => join(targetSpec(target).runDir, 'transcripts', group)
+  return check(left, right, transcriptsIn(dir(left), 'restore'), transcriptsIn(dir(right), 'restore'), options)
+}
+
+function check(left: string, right: string, a: Map<string, Transcript>, b: Map<string, Transcript>, options: CompareOptions): number {
   if (a.size === 0 || b.size === 0) {
     console.error(`No transcripts for ${a.size === 0 ? left : right}. Run: pnpm parity run <target>`)
     return 2

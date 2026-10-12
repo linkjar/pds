@@ -26,3 +26,10 @@ export function reissue(secret: string, token: string, changes: Record<string, u
   const { header, claims } = decodeJwt(token)
   return signHs256(secret, header, { ...claims, ...changes })
 }
+
+/** Mints a legacy access token as the Reference would, for a scope, account and audience of the caller's choice. */
+export function mintLegacyToken(secret: string, claims: { scope: string; sub: string; aud: string; expiresInSeconds?: number; typ?: string }): string {
+  const now = Math.floor(Date.now() / 1000)
+  const { expiresInSeconds = 3600, typ = 'at+jwt', ...rest } = claims
+  return signHs256(secret, { typ }, { ...rest, iat: now - 120, exp: now + expiresInSeconds })
+}

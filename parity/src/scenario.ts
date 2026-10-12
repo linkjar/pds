@@ -259,7 +259,9 @@ export function scenario(name: string, options: ScenarioOptions, run: (s: Scenar
   test(name, { timeout: options.timeoutMs ?? 120_000 }, async (t) => {
     const target = Target.fromEnv()
     const s = new Scenario(name, target)
-    const file = join(targetSpec(target.name).runDir, 'transcripts', target.state.profile, `${name}.json`)
+    // A restore run records the same scenarios twice on one stack, once for each server.
+    const group = process.env.PARITY_TRANSCRIPTS ?? target.state.profile
+    const file = join(targetSpec(target.name).runDir, 'transcripts', group, `${name}.json`)
     mkdirSync(dirname(file), { recursive: true })
     const write = (outcome: string) =>
       writeFileSync(

@@ -24,12 +24,33 @@ export type StackState = {
 
 type RunResult = { status: number; stdout: string; stderr: string }
 
-function composeEnv(spec: TargetSpec, secrets: Secrets): NodeJS.ProcessEnv {
+/**
+ * The image the stack's PDS runs. It is the target's own image, except in a
+ * restore run, where one stack runs the Reference first and the Candidate
+ * second on the same data directory; the stack's state file then names the
+ * image that is up.
+ */
+function pdsImage(spec: TargetSpec, override?: string): string {
+  if (override) return override
+  const file = join(spec.runDir, 'stack.json')
+  if (existsSync(file)) return (JSON.parse(readFileSync(file, 'utf8')) as StackState).image
+  return spec.image
+}
+
+/** How a container of `image` reports that it serves. The Reference image has Node; the Candidate has only its binary. */
+function healthCommand(image: string): string {
+  if (image === process.env.PARITY_CANDIDATE_IMAGE) return 'linkjar-pds health'
+  return `node -e "fetch('http://127.0.0.1:3000/xrpc/_health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"`
+}
+
+function composeEnv(spec: TargetSpec, secrets: Secrets, image?: string): NodeJS.ProcessEnv {
+  const pds = pdsImage(spec, image)
   return {
     ...process.env,
     ...composeImages(),
     PARITY_TARGET: spec.name,
-    PDS_IMAGE: spec.image,
+    PDS_IMAGE: pds,
+    PDS_HEALTH_CMD: healthCommand(pds),
     RUN_DIR: spec.runDir,
     EDGE_PORT: String(spec.edgePort),
     FIXTURE_PORT: String(spec.fixturePort),
@@ -42,12 +63,12 @@ function composeEnv(spec: TargetSpec, secrets: Secrets): NodeJS.ProcessEnv {
 export function compose(
   target: TargetName,
   args: string[],
-  opts: { allowFailure?: boolean; inherit?: boolean; input?: string } = {},
+  opts: { allowFailure?: boolean; inherit?: boolean; input?: string; image?: string } = {},
 ): RunResult {
   const spec = targetSpec(target)
   const secrets = ensureSecrets(spec.runDir)
   const result = spawnSync('docker', ['compose', '-f', COMPOSE_FILE, ...args], {
-    env: composeEnv(spec, secrets),
+    env: composeEnv(spec, secrets, opts.image),
     encoding: 'utf8',
     input: opts.input,
     stdio: opts.inherit ? 'inherit' : ['pipe', 'pipe', 'pipe'],
@@ -76,20 +97,21 @@ export function readState(target: TargetName): StackState {
  * Brings the stack up with a profile. `fresh` removes the data volumes first,
  * which every scenario run does so that state never leaks between runs.
  */
-export async function up(target: TargetName, profile: Profile, opts: { fresh?: boolean } = {}): Promise<StackState> {
+export async function up(target: TargetName, profile: Profile, opts: { fresh?: boolean; image?: string } = {}): Promise<StackState> {
   const spec = targetSpec(target)
+  const image = opts.image ?? spec.image
   mkdirSync(spec.runDir, { recursive: true })
   const secrets = ensureSecrets(spec.runDir)
   const newTls = await ensureTls(spec.runDir, EDGE_NAMES)
   writePdsEnv(spec, pdsEnv(spec, profile, secrets))
   // Containers read the CA and the certificate at start, so new material means new containers.
-  if (opts.fresh || newTls) compose(target, ['down', '--volumes', '--remove-orphans'], { allowFailure: true })
+  if (opts.fresh || newTls) compose(target, ['down', '--volumes', '--remove-orphans'], { allowFailure: true, image })
   ensurePlcImage(target)
-  compose(target, ['up', '--detach', '--wait', '--wait-timeout', '240'], { inherit: true })
+  compose(target, ['up', '--detach', '--wait', '--wait-timeout', '240'], { inherit: true, image })
   const state: StackState = {
     target,
     profile,
-    image: spec.image,
+    image,
     linkjar: spec.linkjar,
     edgePort: spec.edgePort,
     fixturePort: spec.fixturePort,
@@ -105,6 +127,19 @@ function ensurePlcImage(target: TargetName): void {
   const tag = `parity-plc:${composeImages().PLC_COMMIT}`
   const present = spawnSync('docker', ['image', 'inspect', tag], { stdio: 'ignore' }).status === 0
   if (!present) compose(target, ['build', 'plc'], { inherit: true })
+}
+
+/**
+ * Replaces the PDS of a running stack by another image on the same data
+ * directory, and waits until it serves. The other services stay up.
+ */
+export function swapPds(target: TargetName, image: string): StackState {
+  const state = readState(target)
+  compose(target, ['stop', 'pds'], { image: state.image })
+  compose(target, ['up', '--detach', '--wait', '--wait-timeout', '120', '--force-recreate', '--no-deps', 'pds-init', 'pds'], { inherit: true, image })
+  const next = { ...state, image }
+  writeFileSync(stateFile(target), JSON.stringify(next, null, 2) + '\n', { mode: 0o600 })
+  return next
 }
 
 export function down(target: TargetName): void {
