@@ -41,6 +41,10 @@ ipld-core = { version = "0.4", features = ["serde"] }
 cid = { version = "0.11", features = ["serde", "std"] }
 multihash = "0.19"
 sha2 = "0.11"
+k256 = { version = "0.14", default-features = false, features = ["ecdsa", "alloc"] }
+p256 = { version = "0.14", default-features = false, features = ["ecdsa", "alloc"] }
+multibase = "0.9"
+zeroize = "1"
 data-encoding = "2"
 base64 = "0.22"
 
