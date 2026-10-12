@@ -14,7 +14,7 @@ use std::io;
 
 use cid::Cid;
 use pds_types::cbor::{Limits, Reader, Writer};
-use pds_types::content::{SHA2_256, cid_matches};
+use pds_types::content::{SHA2_256, cid_matches, is_canonical_cid_bytes};
 
 use crate::block::BlockMap;
 use crate::error::RepoError;
@@ -104,6 +104,12 @@ pub fn read_car(bytes: &[u8]) -> Result<Car, RepoError> {
         let section = take(bytes, &mut pos, len)?;
         let mut rest = section;
         let cid = Cid::read_bytes(&mut rest).map_err(|_| RepoError::Car("malformed CID"))?;
+        // The CID crate reads varints that overflow or run long; a block
+        // is filed under the bytes its CID encodes to and no others.
+        let cid_len = section.len() - rest.len();
+        if !is_canonical_cid_bytes(&cid, section.get(..cid_len).unwrap_or_default()) {
+            return Err(RepoError::Car("malformed CID"));
+        }
         // Any codec may be archived; the address must be CIDv1 over SHA-256.
         let hash = cid.hash();
         if cid.version() != cid::Version::V1 || hash.code() != SHA2_256 || hash.size() != 32 {
@@ -263,6 +269,17 @@ mod tests {
         let mut other = BlockMap::new();
         other.insert(Cid::new_v1(0x71, hash), vec![0x01]);
         assert!(read_car(&write_car(None, &other)).is_err());
+        // A block filed under a CID in a longer form than its own: the
+        // version as a two-byte varint.
+        let block = [0x01u8];
+        let cid = cid_for_cbor(&block);
+        let mut section = vec![0x81, 0x00];
+        section.extend_from_slice(&cid.to_bytes()[1..]);
+        section.extend_from_slice(&block);
+        let mut odd = write_car(None, &BlockMap::new());
+        odd.push(u8::try_from(section.len()).unwrap());
+        odd.extend_from_slice(&section);
+        assert!(read_car(&odd).is_err());
         // Version 2, a header that is too long, and a length beyond the input.
         let mut v2 = Writer::new();
         v2.map(2);

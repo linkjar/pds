@@ -15,6 +15,7 @@ use std::collections::BTreeMap;
 
 use cid::Cid;
 
+use crate::content::is_canonical_cid_bytes;
 use crate::data::{Bytes, CidLink, Data};
 
 /// The largest integer magnitude in the data model: 2^53 - 1 (SPEC §6.1).
@@ -414,9 +415,10 @@ impl<'a> Reader<'a> {
             return Err(LimitError::CidTooLong.into());
         }
         let cid = Cid::try_from(body).map_err(|_| CborError::Cid)?;
-        // `Cid::try_from` stops at the end of the CID; bytes after it, or a
-        // varint in a longer form, would not encode back to the same bytes.
-        if cid.encoded_len() != body.len() {
+        // `Cid::try_from` stops at the end of the CID and reads varints
+        // that overflow or run long. Only the bytes the CID encodes to are
+        // a link; anything else would not encode back to the input.
+        if !is_canonical_cid_bytes(&cid, body) {
             return Err(CborError::Cid);
         }
         Ok(cid)
@@ -750,6 +752,24 @@ mod tests {
         bad.extend_from_slice(&cid.to_bytes());
         bad.push(0);
         assert_eq!(decode(&bad, Limits::RECORD), Err(CborError::Cid));
+    }
+
+    #[test]
+    fn a_link_with_an_overflowing_varint_is_refused() {
+        // Found by the `data_cbor` and `repo_node` fuzz targets: the CID
+        // crate reads a ten-byte varint whose last byte does not fit 64
+        // bits, so two byte strings gave one CID.
+        let node = data_encoding::BASE64
+            .decode(b"omFlgGFs2CpPAAH///////////8FAgH/")
+            .unwrap();
+        assert_eq!(decode(&node, Limits::RECORD), Err(CborError::Cid));
+        assert_eq!(check(&node, Limits::RECORD), Err(CborError::Cid));
+        let link: &[u8] = &[
+            216, 42, 88, 43, 0, 1, 226, 226, 226, 226, 226, 226, 255, 255, 255, 35, 7, 29, 226,
+            226, 8, 0, 0, 0, 0, 0, 0, 0, 226, 142, 244, 35, 244, 226, 226, 226, 226, 226, 226, 226,
+            244, 35, 244, 105, 245, 32, 3,
+        ];
+        assert_eq!(decode(link, Limits::RECORD), Err(CborError::Cid));
     }
 
     #[test]
