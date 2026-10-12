@@ -1,0 +1,38 @@
+# The evidence for decision D2 (docs/research/2026-10-12-repository-crate.md):
+# the repository engine in crates/pds-repo and the rsky-repo crate, run on
+# the same vectors and the same workload. Like fuzz/, this package is
+# outside the workspace: rsky-repo and its dependency tree stay out of the
+# server's lockfile, deny policy and vet set.
+[package]
+name = "pds-bench"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+pds-repo = { path = "../crates/pds-repo" }
+pds-types = { path = "../crates/pds-types" }
+pds-identity = { path = "../crates/pds-identity" }
+# The rsky option twice: the crate as published, and the repository's main
+# branch on 2026-10-10, which is 0.1.4 and not published.
+rsky-repo = "=0.0.6"
+rsky-crypto = "=0.2.0"
+rsky-common = "=0.1.3"
+rsky-repo-main = { package = "rsky-repo", git = "https://github.com/blacksky-algorithms/rsky", rev = "7964ffa3cc80c15b247e0ea6398e2f9880fc9c4d" }
+rsky-crypto-main = { package = "rsky-crypto", git = "https://github.com/blacksky-algorithms/rsky", rev = "7964ffa3cc80c15b247e0ea6398e2f9880fc9c4d" }
+rsky-common-main = { package = "rsky-common", git = "https://github.com/blacksky-algorithms/rsky", rev = "7964ffa3cc80c15b247e0ea6398e2f9880fc9c4d" }
+# The versions rsky-repo 0.0.6 names, so that its types are ours.
+lexicon_cid = { package = "cid", version = "0.11.1", features = ["serde-codec"] }
+secp256k1 = { version = "0.28.2", features = ["global-context", "rand-std"] }
+tokio = { version = "1", features = ["rt", "macros", "io-util"] }
+futures = "0.3"
+anyhow = "1"
+k256 = { version = "0.14", default-features = false, features = ["ecdsa", "alloc"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+data-encoding = "2"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+debug = 1

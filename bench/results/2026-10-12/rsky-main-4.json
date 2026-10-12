@@ -1,0 +1,83 @@
+{
+  "engine": "rsky-repo 0.1.4 (main at 7964ffa3)",
+  "scale": "full",
+  "S1": [
+    {
+      "size": 10,
+      "recordsAtStart": 10,
+      "p50Ms": 0.285,
+      "p99Ms": 0.509,
+      "eventCarBytesPerWrite": 1548.0,
+      "newBlocksPerWrite": 6.52,
+      "removedBlocksPerWrite": 5.21
+    },
+    {
+      "size": 1000,
+      "recordsAtStart": 1110,
+      "p50Ms": 0.691,
+      "p99Ms": 0.946,
+      "eventCarBytesPerWrite": 2801.0,
+      "newBlocksPerWrite": 9.69,
+      "removedBlocksPerWrite": 8.44
+    },
+    {
+      "size": 10000,
+      "recordsAtStart": 10000,
+      "p50Ms": 1.372,
+      "p99Ms": 20.094,
+      "eventCarBytesPerWrite": 4287.0,
+      "newBlocksPerWrite": 9.85,
+      "removedBlocksPerWrite": 8.74
+    },
+    {
+      "size": 100000,
+      "recordsAtStart": 100000,
+      "p50Ms": 0.755,
+      "p99Ms": 1.053,
+      "eventCarBytesPerWrite": 3511.0,
+      "newBlocksPerWrite": 10.79,
+      "removedBlocksPerWrite": 9.57
+    }
+  ],
+  "S2": [
+    {
+      "size": 10,
+      "recordsAtStart": 110,
+      "p50Ms": 45.214,
+      "maxMs": 52.819
+    },
+    {
+      "size": 1000,
+      "recordsAtStart": 1210,
+      "p50Ms": 44.324,
+      "maxMs": 52.03
+    },
+    {
+      "size": 10000,
+      "recordsAtStart": 10100,
+      "p50Ms": 82.81,
+      "maxMs": 94.717
+    },
+    {
+      "size": 100000,
+      "recordsAtStart": 100100,
+      "p50Ms": 77.209,
+      "maxMs": 85.69
+    }
+  ],
+  "S3": {
+    "records": 101100,
+    "wallMs": 514.311,
+    "wallMsAll": [
+      539.055,
+      535.416,
+      514.311
+    ],
+    "carBytes": 20771913,
+    "carMiB": 19.8,
+    "blocks": 128312,
+    "peakHeapMiB": 52.6
+  },
+  "treeRoot": "bafyreibhl26xxjw367r4sv3oyafituicjxxuntlzhl3k4wzkd2dlvkawqq",
+  "totalSeconds": 34.6
+}
