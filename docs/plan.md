@@ -126,6 +126,7 @@ upstream bumps, which nothing does today beyond the image smoke gate.
 
 | Date | Event |
 |---|---|
+| 2026-10-13 | The ninth patch is in production's image stream: `104-mst-shared-node` merged (pull request #25) and revision 12 of the reference image is published. The Harness pins it and has an `importRepo` scenario, `default/15-import`. It shows what the patch closes: the unpatched build answers 200 to a tree that references a node more than once and replaces the repository with it; revision 12 answers 400 and keeps the repository. DD-6 has moved into the table of observed differences (SPEC §2.3). The scenario also found that `importRepo` answers 500 to bytes that are not a CAR, on both builds. |
 | 2026-10-12 | Between units 2 and 3. The owner decided the pin, D17 and the rest of D16 ([below](#decisions-taken-by-the-owner-2026-10-12)); SPEC revision 5 carries them. The upstream 0.5.37 note is on `main` (pull request #20). `devenv shell` installs no git hook any more, and the weekly upstream check reports releases after the pin in a run summary and an issue (pull request #23). The Monday audit reads CVSS 4.0 advisories (pull request #22). Open before unit 3: the ninth patch of the legacy build. Next: unit 3, from `main`. |
 | 2026-10-12 | Unit 2 done on `feat/unit-2-repository` (pull request #21). **D2 is decided: the repository engine is written in this repository** ([decision record](research/2026-10-12-repository-crate.md)). `pds-repo` holds the tree, commits, CAR, export and the checks on a repository from elsewhere, synchronous and without I/O. It is held to fixtures that a tool in `parity/` writes with `@atproto/repo` at the pin: thirteen commits replay to the same tree roots, commit CIDs, block sets, firehose CARs and export, byte for byte, and its firehose CAR sizes and block counts equal what unit 1 measured on the reference image. `rsky-repo` ran on the same vectors and workload in `bench/`, as published (0.0.6) and from its main branch (0.1.4). S1 to S3 micro-benchmarks for all three and for the Reference's library are published with the method and the host. `pds-types` applies the decode limits of SPEC §6.1 in a strict DAG-CBOR reader; `pds-lexicon` validates records and passes the record-data and data-model vectors; `pds-identity` has keys, low-S signatures on both curves, `did:key`, the DID-document contract and the handle rules, and passes the crypto vectors. No vector is a known failure beyond the three CID strings of unit 0. Five fuzz targets are new. SPEC revision 4 records D2 and opens D17. Also in the unit: `devenv shell` starts on devenv 2.4 again, and `scripts/vendor-agent-sources.sh` mirrors the pinned upstream sources for reading. Next: unit 3, from `main`. |
 | 2026-10-09 | Units 0 and 1 merged to `main` (pull requests #14 and #15) with every gate green in CI. Their first CI runs showed four faults, all repaired: the Rust workflow gave its pinned toolchain action no `toolchain` input; a `main` push that touches `legacy/` tried to publish revision 11 again, so a `release` job now publishes only when `upstream.json` names an unused tag; and the nightly fuzz workflow could not build, first for the workspace manifest and then for the target of the prebuilt cargo-fuzz (#16, #17). The parity workflow runs its four targets side by side, the fuzz corpus is kept between nights, and the Rust gates run every Monday (#18). The owner decided D15 and the service-token part of D16 ([below](#decisions-taken-2026-10-09)); SPEC revision 3 carries them as §2.3. `linkjar.io` has the PDS URL setting on `main`. Next: unit 2, from `main`. |
@@ -149,7 +150,7 @@ Revision 1 of the SPEC applies them.
 | Cutover bar | Units 0 to 7 plus the audit log must ship before the Candidate replaces the reference. Sidecars, Postgres and entryway mode come after. |
 | Simulation | The `StorageIo` seam, a fault-injecting SQLite VFS, fail points and turmoil enter in unit 4; nightly seeds from then on. |
 | Audit scope | Account and operator actions, including console and MCP writes. Reads and ordinary repository writes are not audited. |
-| Patch stack | Frozen except security fixes while the Rust server is built. The `linkjar` profile targets the patches at the **patch pin**: `main` of this repository at `08b1235` (2026-10-08, "Let the app hand the invite code to the OAuth sign-up page"). A security fix moves the pin and adds the mirrored behaviour to SPEC §13. |
+| Patch stack | Frozen except security fixes while the Rust server is built. The `linkjar` profile targets the patches at the **patch pin**. A security fix moves the pin and adds the mirrored behaviour to SPEC §13. The pin was `main` of this repository at `08b1235` (2026-10-08, "Let the app hand the invite code to the OAuth sign-up page", revision 11) and has been at `0c34a1b` since 2026-10-12, when patch 104 joined the stack (revision 12). |
 | OAuth pages | Behaviour parity with new server-rendered pages to the LinkJar brand guidelines. No pixel parity. |
 | Shadow runs | Unit 3 verifies against staging restores only. Production is touched only at cutover. |
 | Reports | `createReport` keeps forwarding to a configured external moderation service as the reference does. The console links out; it holds no report queue. |
@@ -198,9 +199,11 @@ None blocks unit 3.
   and verifies nothing (the note, §7). List it as a deliberate difference,
   or follow the pin. Unit 4 needs the answer.
 
-- **Two smaller items of the note.** `createAccount` with the handle or
-  email of a deactivated or taken-down account answers 500 at the pin and
-  400 from 0.5.36: a candidate for the D15 list. And the pin builds a new S3
+- **Two smaller items of the note, and one more of the same kind.**
+  `createAccount` with the handle or email of a deactivated or taken-down
+  account answers 500 at the pin and 400 from 0.5.36: a candidate for the
+  D15 list. So is `importRepo` with bytes that are not a CAR, which answers
+  500 at the pin (`default/15-import`). And the pin builds a new S3
   client on every actor store access (#5575), which matters because
   production blobs are in R2; the note names the evidence to collect on
   staging (§4).

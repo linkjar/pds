@@ -203,6 +203,7 @@ appears.
 | DD-3 | `createAppPassword` with a name the account already uses (§5.2) | 500 `InternalServerError` | 400 `InvalidRequest` | 2026-10-09, D15 |
 | DD-4 | A proxied request whose `atproto-proxy` value does not start with a DID (§4.4) | 500 `InternalServerError` | 400 `InvalidRequest` | 2026-10-09, D15 |
 | DD-5 | A service token that an earlier successful request has spent (§5.4) | accepted again | 401 `BadJwt` | 2026-10-09, D16 |
+| DD-6 | `importRepo` with a CAR whose tree references a node more than once (§6.1) | Stock Reference: 200, and the imported tree replaces the repository. Production Reference, with patch 104: 400 `InvalidRequest` | 400 `InvalidRequest`; nothing is written | 2026-10-12, D17 |
 
 A difference that is not in this table is a defect of the Candidate.
 
@@ -213,7 +214,6 @@ the Reference's answer. Until then the Harness does not count the row.
 
 | Id | Request and state | Candidate | Scenario in unit |
 |---|---|---|---|
-| DD-6 | `importRepo` with a CAR whose tree references a node more than once (§6.1) | 400 `InvalidRequest`; nothing is written | 4 |
 | DD-7 | `importRepo` with a CAR whose tree has a key at the wrong layer, keys out of order across nodes, or an empty node below the root (§6.1) | 400 `InvalidRequest`; nothing is written | 4 |
 | DD-8 | `importRepo` with a record block that is not canonical DAG-CBOR: map keys out of order, a float with a whole value, or `undefined` (§6.1) | refused | 4 |
 | DD-9 | A record that references a blob with `size` zero or an empty `mimeType` (§6.3) | refused | 4 |
@@ -222,9 +222,10 @@ the Reference's answer. Until then the Harness does not count the row.
 | DD-12 | A DID document whose signing key has another `controller`, or whose PDS endpoint is more than scheme, host and port (§9.3) | refused | 3 |
 | DD-13 | A commit of version 2 in a repository from elsewhere (§6.1) | refused | 8 |
 
-DD-6 holds against the Stock Reference only. The production Reference
-carries upstream's fix as its ninth patch (§13) and agrees with the
-Candidate; the stock build applies no patch.
+DD-6 holds against the Stock Reference only
+([`default/15-import`](../parity/scenarios/default/15-import.scenario.ts)).
+The production Reference carries upstream's fix as its ninth patch (§13)
+and agrees with the Candidate; the stock build applies no patch.
 
 ## 3. Architecture
 
@@ -1161,18 +1162,19 @@ operator. The `linkjar` profile grants roles to named accounts.
 
 ## 13. The LinkJar Profile
 
-The `linkjar` profile implements the eight patches with their documented
-invariants at the **patch pin**: the patch stack of this repository at the
-commit recorded in `plan.md` on the day revision 1 was written. The patch
-stack is frozen except for security fixes while the Candidate is built
-(decision of 2026-10-08); a security fix updates the pin and adds the
-mirrored behaviour here.
+The `linkjar` profile implements the eight account patches with their
+documented invariants at the **patch pin**: the patch stack of this
+repository at the commit recorded in `plan.md`. The patch stack is frozen
+except for security fixes while the Candidate is built (decision of
+2026-10-08); a security fix updates the pin and adds the mirrored behaviour
+here.
 
 On 2026-10-12 the owner decided to keep the upstream pin at 0.5.34 and to
 carry upstream's shared-node fix
 ([#5584](https://github.com/bluesky-social/atproto/pull/5584)) as a ninth
-patch. It is engine behaviour for every profile, so its rule is in §6.1 and
-not in the table below. The patch pin moves when that patch merges.
+patch, `104-mst-shared-node`. It is engine behaviour for every profile, so
+its rule is in §6.1 and not in the table below. The patch pin moved with
+it: the stack has nine patches, and the reference image is revision 12.
 
 | Patch | Extension point | Invariants the Candidate MUST keep |
 |---|---|---|

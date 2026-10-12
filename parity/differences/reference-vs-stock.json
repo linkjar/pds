@@ -207,6 +207,105 @@
     "right": "LinkJar [https://linkjar.io/logo/linkjar-128.png]\n\n\nPLC UPDATE REQUESTED\n\nWe received a request to update your PLC identity. Your confirmation code is:\n\n<email-token:1>\n\nUpdating your PLC identity is a very sensitive operation. Please only proceed if\nyou are confident in what you are doing.\n\n--------------------------------------------------------------------------------\n\nLinkJar [https://linkjar.io]\n\nLinkJar [https://linkjar.io/logo/linkjar-128.png]"
   },
   {
+    "scenario": "default/15-import",
+    "step": "importRepo of a tree that shares nodes",
+    "path": "body",
+    "left": {
+      "error": "InvalidRequest",
+      "message": "invalid MST: node referenced more than once: <cid:2>"
+    },
+    "right": ""
+  },
+  {
+    "scenario": "default/15-import",
+    "step": "importRepo of a tree that shares nodes",
+    "path": "headers.content-type",
+    "left": "application/json; charset=utf-8"
+  },
+  {
+    "scenario": "default/15-import",
+    "step": "importRepo of a tree that shares nodes",
+    "path": "status",
+    "left": 400,
+    "right": 200
+  },
+  {
+    "scenario": "default/15-import",
+    "step": "shared-node import",
+    "path": "note.error",
+    "left": "InvalidRequest",
+    "right": null
+  },
+  {
+    "scenario": "default/15-import",
+    "step": "shared-node import",
+    "path": "note.status",
+    "left": 400,
+    "right": 200
+  },
+  {
+    "scenario": "default/15-import",
+    "step": "the post after the imports",
+    "path": "body.cid",
+    "left": "<cid:3>"
+  },
+  {
+    "scenario": "default/15-import",
+    "step": "the post after the imports",
+    "path": "body.error",
+    "right": "RecordNotFound"
+  },
+  {
+    "scenario": "default/15-import",
+    "step": "the post after the imports",
+    "path": "body.message",
+    "right": "Could not locate record: at://did:plc:<1>/app.bsky.feed.post/<tid:2>"
+  },
+  {
+    "scenario": "default/15-import",
+    "step": "the post after the imports",
+    "path": "body.uri",
+    "left": "at://did:plc:<1>/app.bsky.feed.post/<tid:2>"
+  },
+  {
+    "scenario": "default/15-import",
+    "step": "the post after the imports",
+    "path": "body.value",
+    "left": {
+      "$type": "app.bsky.feed.post",
+      "createdAt": "<time>",
+      "text": "before the import"
+    }
+  },
+  {
+    "scenario": "default/15-import",
+    "step": "the post after the imports",
+    "path": "status",
+    "left": 200,
+    "right": 400
+  },
+  {
+    "scenario": "default/15-import",
+    "step": "latest commit after",
+    "path": "body.cid",
+    "left": "<cid:1>",
+    "right": "<cid:2>"
+  },
+  {
+    "scenario": "default/15-import",
+    "step": "after the shared-node import",
+    "path": "note.headMoved",
+    "left": false,
+    "right": true
+  },
+  {
+    "scenario": "default/15-import",
+    "step": "after the shared-node import",
+    "path": "note.postIsStillThere",
+    "left": true,
+    "right": false
+  },
+  {
     "scenario": "default/21-oauth-negative",
     "step": "authorize without a pushed request",
     "path": "headers.content-security-policy",

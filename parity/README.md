@@ -160,7 +160,7 @@ these names:
 
 | Profile | Changes | Scenarios |
 |---|---|---|
-| `default` | Nothing: the production configuration. | `01` to `14` protocol surface, `20` to `22` OAuth, `30` to `33` LinkJar journeys. |
+| `default` | Nothing: the production configuration. | `01` to `15` protocol surface, `20` to `22` OAuth, `30` to `33` LinkJar journeys. |
 | `invites` | `PDS_INVITE_REQUIRED=true` | Invite administration; the invitation hand-off of patch 103. |
 | `firehose` | A five-second backfill window and a subscriber buffer of five events. | `OutdatedCursor` and `ConsumerTooSlow`. |
 | `captcha` | The three hCaptcha variables. | The signup policy of patch 099c. |
