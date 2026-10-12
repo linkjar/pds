@@ -44,13 +44,17 @@ criteria = "safe-to-run"
 version = "2.13.2"
 criteria = "safe-to-run"
 
+[[exemptions.block-buffer]]
+version = "0.12.1"
+criteria = "safe-to-deploy"
+
 [[exemptions.bumpalo]]
 version = "3.20.3"
 criteria = "safe-to-deploy"
 
 [[exemptions.cbor4ii]]
 version = "1.2.3"
-criteria = "safe-to-deploy"
+criteria = "safe-to-run"
 
 [[exemptions.cc]]
 version = "1.6.0"
@@ -68,12 +72,24 @@ criteria = "safe-to-deploy"
 version = "0.11.3"
 criteria = "safe-to-deploy"
 
+[[exemptions.const-oid]]
+version = "0.10.2"
+criteria = "safe-to-deploy"
+
 [[exemptions.const-str]]
 version = "0.4.3"
 criteria = "safe-to-deploy"
 
 [[exemptions.core-foundation-sys]]
 version = "0.8.7"
+criteria = "safe-to-deploy"
+
+[[exemptions.cpufeatures]]
+version = "0.3.1"
+criteria = "safe-to-deploy"
+
+[[exemptions.crypto-common]]
+version = "0.2.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.data-encoding]]
@@ -86,6 +102,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.data-encoding-macro-internal]]
 version = "0.1.19"
+criteria = "safe-to-deploy"
+
+[[exemptions.digest]]
+version = "0.11.3"
 criteria = "safe-to-deploy"
 
 [[exemptions.equivalent]]
@@ -134,6 +154,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.heck]]
 version = "0.5.0"
+criteria = "safe-to-deploy"
+
+[[exemptions.hybrid-array]]
+version = "0.4.15"
 criteria = "safe-to-deploy"
 
 [[exemptions.iana-time-zone]]
@@ -270,7 +294,7 @@ criteria = "safe-to-run"
 
 [[exemptions.scopeguard]]
 version = "1.2.0"
-criteria = "safe-to-deploy"
+criteria = "safe-to-run"
 
 [[exemptions.serde]]
 version = "1.0.229"
@@ -290,10 +314,14 @@ criteria = "safe-to-deploy"
 
 [[exemptions.serde_ipld_dagcbor]]
 version = "0.7.0"
-criteria = "safe-to-deploy"
+criteria = "safe-to-run"
 
 [[exemptions.serde_json]]
 version = "1.0.151"
+criteria = "safe-to-deploy"
+
+[[exemptions.sha2]]
+version = "0.11.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.shlex]]
@@ -324,12 +352,20 @@ criteria = "safe-to-deploy"
 version = "2.0.21"
 criteria = "safe-to-deploy"
 
+[[exemptions.typenum]]
+version = "1.20.1"
+criteria = "safe-to-deploy"
+
 [[exemptions.unarray]]
 version = "0.1.4"
 criteria = "safe-to-run"
 
 [[exemptions.unicode-ident]]
 version = "1.0.26"
+criteria = "safe-to-deploy"
+
+[[exemptions.unicode-segmentation]]
+version = "1.13.3"
 criteria = "safe-to-deploy"
 
 [[exemptions.unsigned-varint]]

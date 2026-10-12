@@ -2,10 +2,17 @@
 //! resolution (`docs/SPEC.md` §2.1, §5.5, §6.3).
 //!
 //! Unit 0 ships the model ([`model`]) and the corpus loader ([`Corpus`]) with
-//! reference resolution. Record validation in the three modes of SPEC §6.3
-//! and permission-set resolution follow in later units.
+//! reference resolution. Unit 2 adds [`validate`]: record validation against
+//! a lexicon, record-key types and the data-model rules. The three
+//! validation modes of SPEC §6.3 belong to the write path, and
+//! permission-set resolution follows in a later unit.
 
 pub mod model;
+pub mod validate;
+
+pub use validate::{
+    BlobRules, Measure, Rule, ValidationError, validate_data_model, validate_record_key,
+};
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

@@ -819,13 +819,17 @@ fn validate_cid_string(s: &str) -> Result<(), SyntaxError> {
     if c.version() != cid::Version::V1 {
         return Err(SyntaxError::new(K, "CID must be version 1"));
     }
+    if c.encoded_len() > crate::cbor::MAX_CID_LEN {
+        return Err(SyntaxError::new(K, "CID is longer than 100 bytes"));
+    }
     Ok(())
 }
 
 string_newtype!(
-    /// A CIDv1 in string form, any multibase the multiformats stack decodes.
-    /// This is the lexicon `cid` string format; the repository rules of SPEC
-    /// §6.1 (dag-cbor or raw, SHA-256) are enforced where blocks are stored.
+    /// A CIDv1 in string form, any multibase the multiformats stack decodes,
+    /// at most 100 bytes in binary (SPEC §6.1). This is the lexicon `cid`
+    /// string format; the repository rules (dag-cbor or raw, SHA-256) are in
+    /// [`crate::content`].
     CidString, "CidString", validate_cid_string
 );
 

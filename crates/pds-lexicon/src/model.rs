@@ -351,7 +351,7 @@ pub struct LexString {
     #[serde(default, rename = "enum", skip_serializing_if = "Option::is_none")]
     /// Allowed values.
     pub enum_: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, rename = "const", skip_serializing_if = "Option::is_none")]
     /// A fixed value.
     pub const_: Option<String>,
     #[serde(
@@ -381,7 +381,7 @@ pub struct LexInteger {
     #[serde(default, rename = "enum", skip_serializing_if = "Option::is_none")]
     /// Allowed values.
     pub enum_: Option<Vec<i64>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, rename = "const", skip_serializing_if = "Option::is_none")]
     /// A fixed value.
     pub const_: Option<i64>,
 }
@@ -395,7 +395,7 @@ pub struct LexBoolean {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     /// Default value.
     pub default: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(default, rename = "const", skip_serializing_if = "Option::is_none")]
     /// A fixed value.
     pub const_: Option<bool>,
 }

@@ -10,16 +10,23 @@
 //! `$bytes`) and the DAG-CBOR representation (tag 42, byte strings) chosen by
 //! the serializer's `is_human_readable` flag.
 //!
+//! [`cbor`] is a strict DAG-CBOR reader and writer that applies the decode
+//! limits of SPEC §6.1; every untrusted input goes through it. [`content`]
+//! holds the CID forms a repository accepts.
+//!
 //! `generated` holds the API types produced by `cargo xtask codegen` from the
 //! vendored lexicons. It is checked in and CI fails when it is stale.
 
+pub mod cbor;
+pub mod content;
 pub mod data;
 pub mod syntax;
 
 #[allow(missing_docs, clippy::all, clippy::pedantic, clippy::nursery)]
 pub mod generated;
 
-pub use data::{BlobRef, Bytes, CidLink, Data};
+pub use cbor::{CborError, LimitError, Limits};
+pub use data::{BlobRef, Bytes, CidLink, Data, JsonError};
 pub use syntax::{
     AtIdentifier, AtUri, CidString, Datetime, Did, Handle, Language, Nsid, RecordKey, SyntaxError,
     Tid, TidGenerator, Uri,
