@@ -87,6 +87,7 @@ RUN PUPPETEER_SKIP_DOWNLOAD=true pnpm install --frozen-lockfile
 # build all the dependencies of ./package.json
 RUN pnpm run --recursive --stream --workspace-concurrency 1 --filter 'pds-service...' build -- --force
 RUN if test -f packages/oauth/oauth-provider/src/external/external-provider.test.ts; then cd packages/oauth/oauth-provider && pnpm test src/external src/router/create-external-middleware.test.ts src/account/account-manager.external.test.ts; fi
+RUN --mount=type=bind,from=source,source=/source/jest.varint-shim.cjs,target=/app/jest.varint-shim.cjs if test -f packages/repo/tests/mst-dag.test.ts; then cd packages/repo && pnpm test tests/mst-dag.test.ts tests/cid-set.test.ts; fi
 # install only prod deps, hoisted to root node_modules dir
 RUN pnpm install --prod --shamefully-hoist --frozen-lockfile --prefer-offline --config.confirmModulesPurge=false
 

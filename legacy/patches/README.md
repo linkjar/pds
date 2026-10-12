@@ -59,3 +59,14 @@ external middleware tests in the image build and the production browser check
 in `scripts/browser-smoke.mjs`. Remove it when the app stops handing off codes or
 sign-up opens without invites.
 See [contract, behaviour, tests and removal](../docs/signup-journey.md#invitation-hand-off).
+
+`104-mst-shared-node.patch` is upstream's
+[#5584](https://github.com/bluesky-social/atproto/pull/5584) (commit `a6561d5`,
+released in 0.5.37) on the 0.5.34 pin: a tree that references one node more than
+once is refused, and `importRepo` answers 400 `InvalidRequest` for it. At the pin
+the work of an import is not bounded by the size of the upload. The patch takes
+the six source files and the three test files of the upstream commit unchanged
+and touches no file of another patch. Owner: the pin decision of 2026-10-12 in
+`docs/plan.md`. Tests: the image build runs upstream's `mst-dag` and `cid-set`
+tests of `@atproto/repo`. Remove it when the pin reaches 0.5.37.
+See [exposure, scope, tests and removal](../../docs/legacy/mst-shared-node.md).
