@@ -156,7 +156,10 @@ services:
       - path: ${RUN_DIR}/pds.env
         format: raw
     environment:
+      # The stack's CA, for the fixtures behind the edge. Node reads the
+      # first variable and the Candidate the second.
       NODE_EXTRA_CA_CERTS: /ca/ca.crt
+      SSL_CERT_FILE: /ca/ca.crt
     volumes:
       - pds-data:/app/data
       - ${RUN_DIR}/ca:/ca:ro
@@ -167,7 +170,9 @@ services:
       edge: { condition: service_healthy }
       mail: { condition: service_started }
     healthcheck:
-      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/xrpc/_health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      # Set by the harness for the image that runs: Node in the Reference,
+      # the binary's own `health` command in the Candidate.
+      test: [CMD-SHELL, "${PDS_HEALTH_CMD:?}"]
       interval: 1s
       timeout: 5s
       retries: 90

@@ -44,6 +44,9 @@ export type TargetSpec = {
   runDir: string
 }
 
+/** The tag `pnpm parity images build-candidate` gives the Candidate image. */
+export const CANDIDATE_TAG = 'linkjar-pds:candidate'
+
 const PORT_BASE = Number(process.env.PARITY_PORT_BASE ?? 18400)
 
 export function isTargetName(value: string): value is TargetName {
