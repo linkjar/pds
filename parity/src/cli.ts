@@ -48,7 +48,19 @@ function docker(args: string[]): { status: number; out: string } {
 function verifyImages(): void {
   const expectedTag = `atproto-pds-${upstream.tag.split('@').at(-1)}-${upstream.revision}`
   if (images.reference.tag !== expectedTag) {
-    fail(`images.json pins ${images.reference.tag}; upstream.json describes ${expectedTag}. Update the digest and the tag together.`)
+    // A revision is published by the push to main that names it, so the pull
+    // request that raises it cannot pin its digest. Until the tag exists the
+    // pinned Reference is still the newest one. Only an answer that says the
+    // tag is absent counts: any other failure could hide a published image.
+    const published = docker(['manifest', 'inspect', `${images.reference.image}:${expectedTag}`])
+    if (published.status === 0) {
+      fail(`images.json pins ${images.reference.tag}; upstream.json describes ${expectedTag}, which is published. Update the digest and the tag together.`)
+    }
+    if (!/manifest unknown|no such manifest/i.test(published.out)) {
+      fail(`images.json pins ${images.reference.tag}; upstream.json describes ${expectedTag}. Cannot tell whether it is published:\n${published.out}`)
+    }
+    const notice = `${expectedTag} is not published yet. The scenarios run against ${images.reference.tag}. Pin the new tag and digest in images.json once it exists.`
+    console.log(process.env.GITHUB_ACTIONS ? `::warning::${notice}` : `warning: ${notice}`)
   }
   const ref = `${images.reference.image}@${images.reference.digest}`
   const inspect = docker(['image', 'inspect', ref, '--format', '{{index .Config.Labels "org.opencontainers.image.revision"}}'])
