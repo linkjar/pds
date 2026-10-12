@@ -10,6 +10,9 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 pds-types = { path = "../crates/pds-types" }
+pds-lexicon = { path = "../crates/pds-lexicon" }
+pds-identity = { path = "../crates/pds-identity" }
+pds-repo = { path = "../crates/pds-repo" }
 serde_json = "1"
 
 [[bin]]
@@ -64,6 +67,41 @@ bench = false
 [[bin]]
 name = "data_cbor"
 path = "fuzz_targets/data_cbor.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "repo_car"
+path = "fuzz_targets/repo_car.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "repo_node"
+path = "fuzz_targets/repo_node.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "identity_did_doc"
+path = "fuzz_targets/identity_did_doc.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "identity_key"
+path = "fuzz_targets/identity_key.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "lexicon_record"
+path = "fuzz_targets/lexicon_record.rs"
 test = false
 doc = false
 bench = false

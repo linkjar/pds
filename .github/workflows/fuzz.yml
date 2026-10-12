@@ -27,6 +27,18 @@ jobs:
           - syntax_tid
           - data_json
           - data_cbor
+          - repo_car
+          - repo_node
+          - identity_did_doc
+          - identity_key
+          - lexicon_record
+        # Targets that start from files in the repository. The files are
+        # read; new inputs go to the cached corpus.
+        include:
+          - target: repo_car
+            seeds: crates/pds-repo/tests/fixtures
+          - target: repo_node
+            seeds: crates/pds-repo/tests/fixtures
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -46,7 +58,18 @@ jobs:
           restore-keys: fuzz-corpus-${{ matrix.target }}-
       # The prebuilt cargo-fuzz is a musl binary and builds for its own
       # triple unless told otherwise; the sanitizers need the gnu target.
-      - run: cargo +nightly fuzz run --target x86_64-unknown-linux-gnu ${{ matrix.target }} -- -max_total_time=600
+      - run: mkdir -p "fuzz/corpus/$TARGET"
+        env:
+          TARGET: ${{ matrix.target }}
+      # The first directory is the corpus that grows; the second, when the
+      # target has one, is read only.
+      - run: |
+          corpus=("fuzz/corpus/$TARGET")
+          if [ -n "$SEEDS" ]; then corpus+=("$SEEDS"); fi
+          cargo +nightly fuzz run --target x86_64-unknown-linux-gnu "$TARGET" "${corpus[@]}" -- -max_total_time=600
+        env:
+          TARGET: ${{ matrix.target }}
+          SEEDS: ${{ matrix.seeds }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
