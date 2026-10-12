@@ -52,6 +52,11 @@ compares SPEC revision 0 with every specification and guide page: 53
 missing requirements, 5 contradictions, 15 under-specified items, 12 things
 changing in 2026. Revision 1 applies sections A to C and tracks D.
 
+[The repository crate decision](research/2026-10-12-repository-crate.md)
+records D2: the in-house repository engine and `rsky-repo`, as published
+and from its main branch, on the same interop vectors, the same fixtures
+from `@atproto/repo` at the pin and the same S1 to S3 workload.
+
 [Sidecars](sidecars.md) designs the two companion containers: an operations
 and moderation console with OpenTelemetry built in, and an MCP server that
 lets a person reach their own data from any AI client after signing in
@@ -64,9 +69,11 @@ through the PDS.
   baseline the SPEC cites.
 - **rsky-pds** (Blacksky): the most complete Rust PDS and in production for
   Blacksky accounts, on Postgres, S3 and Mailgun rather than the reference's
-  SQLite-per-actor layout. Its repository crate is the first candidate for
-  SPEC D2. Whether it ships an authorization server was not confirmed from
-  public sources on 2026-10-08.
+  SQLite-per-actor layout. Its repository crate, `rsky-repo`, was the
+  candidate for SPEC D2; unit 2 ran it beside an in-house engine and chose
+  the in-house engine ([decision record](research/2026-10-12-repository-crate.md)).
+  Whether it ships an authorization server was not confirmed from public
+  sources on 2026-10-08.
 - **bluepds**: axum and SQLite on rsky's repository crate, self-described as
   not operable. Useful as a reading reference only.
 - **millipds** (Python): a clear from-scratch architecture document, useful
@@ -115,6 +122,7 @@ upstream bumps, which nothing does today beyond the image smoke gate.
 
 | Date | Event |
 |---|---|
+| 2026-10-12 | Unit 2 done on `feat/unit-2-repository`. **D2 is decided: the repository engine is written in this repository** ([decision record](research/2026-10-12-repository-crate.md)). `pds-repo` holds the tree, commits, CAR, export and the checks on a repository from elsewhere, synchronous and without I/O. It is held to fixtures that a tool in `parity/` writes with `@atproto/repo` at the pin: thirteen commits replay to the same tree roots, commit CIDs, block sets, firehose CARs and export, byte for byte, and its firehose CAR sizes and block counts equal what unit 1 measured on the reference image. `rsky-repo` ran on the same vectors and workload in `bench/`, as published (0.0.6) and from its main branch (0.1.4). S1 to S3 micro-benchmarks for all three and for the Reference's library are published with the method and the host. `pds-types` applies the decode limits of SPEC §6.1 in a strict DAG-CBOR reader; `pds-lexicon` validates records and passes the record-data and data-model vectors; `pds-identity` has keys, low-S signatures on both curves, `did:key`, the DID-document contract and the handle rules, and passes the crypto vectors. No vector is a known failure beyond the three CID strings of unit 0. Five fuzz targets are new. SPEC revision 4 records D2 and opens D17. Also in the unit: `devenv shell` starts on devenv 2.4 again, and `scripts/vendor-agent-sources.sh` mirrors the pinned upstream sources for reading. Next: unit 3, from `main`. |
 | 2026-10-09 | Units 0 and 1 merged to `main` (pull requests #14 and #15) with every gate green in CI. Their first CI runs showed four faults, all repaired: the Rust workflow gave its pinned toolchain action no `toolchain` input; a `main` push that touches `legacy/` tried to publish revision 11 again, so a `release` job now publishes only when `upstream.json` names an unused tag; and the nightly fuzz workflow could not build, first for the workspace manifest and then for the target of the prebuilt cargo-fuzz (#16, #17). The parity workflow runs its four targets side by side, the fuzz corpus is kept between nights, and the Rust gates run every Monday (#18). The owner decided D15 and the service-token part of D16 ([below](#decisions-taken-2026-10-09)); SPEC revision 3 carries them as §2.3. `linkjar.io` has the PDS URL setting on `main`. Next: unit 2, from `main`. |
 | 2026-10-09 | Unit 1 done on `feat/unit-1-parity`, stacked on unit 0. The parity harness (`parity/`) runs 28 scenarios in five profiles against the reference image `ghcr.io/linkjar/pds` revision 11 by digest, a second boot of it, and the stock build, each in its own compose stack: the production hostnames behind a TLS edge, a PLC directory, a strict Sync 1.1 relay, a mail catcher, and fixtures for everything else. Oracles O1 to O4 and O9 are in place: two Reference boots compare equal, the difference between the stock and the production build is recorded by patch ([differences](../parity/differences/README.md)), every commit is verified against the PLC key and its MST root rebuilt, the relay re-emits every commit, and the OAuth flows run through the official client and Chromium. VP-8 to VP-12 are answered from the pinned source and confirmed by scenario ([verify-at-pin.md](../parity/verify-at-pin.md)). The legacy suites are ported to HTTP scenarios, with the assertions HTTP cannot observe listed. SPEC revision 2 carries the results and seventeen corrections that the scenarios forced, among them: a method without a handler is proxied and never 501, a deleted blob has no grace period, and the patch stack has eight patches, not six. Reference baselines for S1 to S5, S8 and S9 are in [parity/results](../parity/results/perf-reference.md). The `linkjar.io` browser gate takes `E2E_PDS_URL`. |
 | 2026-10-08 | Unit 0 in progress on `feat/rust-pds`: Cargo workspace with fifteen crates and `xtask`; the legacy image build moved under `legacy/` with its workflows repointed; docs reorganised with a root README and an architecture page whose Mermaid sources render through beautiful-mermaid; `pds-types` passes every interop syntax and data-model vector (three contrived CID strings recorded as known failures); `pds-lexicon` parses and validates all 263 vendored lexicons with every reference resolved; `cargo xtask codegen` generates the API types (about 10,000 lines) and they compile and round-trip real records; CI gates (fmt, clippy with the deny-panic set, tests, codegen check, deny, vet, scheduled audit and fuzz) and devenv are in place. Seven of twelve "verify at pin" items answered from the pinned source ([parity/verify-at-pin.md](../parity/verify-at-pin.md)). |
@@ -152,12 +160,28 @@ Answered by the owner after unit 1. Revision 3 of the SPEC applies them.
 | D15, client errors that the Reference answers with 500 | The Candidate answers 400 `InvalidRequest`. Four cases: `createRecord` on a key that exists, `applyWrites` with such a create, `createAppPassword` with a name in use, an `atproto-proxy` value that does not start with a DID. They are deliberate differences DD-1 to DD-4 in SPEC §2.3, and the Harness records them. |
 | D16, replay of a service token | A service token is good for one successful request. The Candidate refuses a spent token until it expires: 401 `BadJwt` (SPEC §5.4, DD-5). A request that fails does not spend its token, so a caller can retry with the same one. |
 
+## Decision taken 2026-10-12
+
+Taken by unit 2, as the plan assigns it. Revision 4 of the SPEC records it.
+
+| Topic | Decision |
+|---|---|
+| D2, the repository crate | The engine is written in this repository, in `pds-repo`. It gives the same tree roots, commit CIDs, commit blocks and export bytes as `@atproto/repo` at the pin, refuses trees that reference a node more than once, and is synchronous with no I/O of its own. `rsky-repo` as published (0.0.6) fails four of six commit-proof vectors; its main branch (0.1.4, not published) passes them. Neither form checks an imported tree as SPEC §6.1 requires; both take the revision from the wall clock and are asynchronous over a locked store. Evidence and numbers: [decision record](research/2026-10-12-repository-crate.md). |
+
 ## Open questions for the owner
 
-One, the rest of SPEC Appendix D, D16. It does not block units 2 and 3;
-unit 4 builds the blob store and needs the answer.
+Two. Neither blocks unit 3.
 
-- **D16, blobs.** Two behaviours that the pin does not have. The Reference
+- **D17, repositories from elsewhere.** The engine refuses an imported tree
+  that is not valid: a node referenced more than once, a key at the wrong
+  layer, keys out of order. The Reference at the pin makes none of these
+  checks. If the pin stays at 0.5.34 without the upstream fix, each refusal
+  is a deliberate difference for SPEC §2.3 and needs your decision; the
+  upstream 0.5.35 to 0.5.37 note (pull request #20) has the pin options.
+  The decision record lists six smaller places of the same kind (§7).
+
+- **D16, blobs.** Unit 4 builds the blob store and needs the answer. Two
+  behaviours that the pin does not have. The Reference
   deletes a blob in the commit that removes its last reference, with no
   grace period, and it never collects an upload that no record came to
   reference. The Candidate can keep a dereferenced blob for a grace period,

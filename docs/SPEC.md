@@ -1,6 +1,6 @@
 # LinkJar PDS Specification
 
-Status: Draft, revision 3, 2026-10-09
+Status: Draft, revision 4, 2026-10-12
 Normative keywords: **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, **MAY** ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119))
 
 LinkJar PDS is an AT Protocol Personal Data Server written in Rust. It is
@@ -27,6 +27,11 @@ Revision 3 applies the owner's decisions of 2026-10-09 on Appendix D, D15 and
 D16. The Candidate answers 400 where the Reference answers 500 to four client
 errors, and it refuses a replayed service token. §2.3 lists these deliberate
 differences; the changes are listed in Appendix G.
+
+Revision 4 records decision D2 of unit 2: the repository engine is written
+in this repository. The evidence is in the
+[decision record](research/2026-10-12-repository-crate.md); the changes are
+listed in Appendix H.
 
 ## Table of Contents
 
@@ -60,6 +65,7 @@ differences; the changes are listed in Appendix G.
 - [Appendix E. Changes in Revision 1](#appendix-e-changes-in-revision-1)
 - [Appendix F. Changes in Revision 2](#appendix-f-changes-in-revision-2)
 - [Appendix G. Changes in Revision 3](#appendix-g-changes-in-revision-3)
+- [Appendix H. Changes in Revision 4](#appendix-h-changes-in-revision-4)
 
 ## 0. Conventions and Terminology
 
@@ -199,12 +205,12 @@ are provisional.
 
 | Crate | Owns |
 |---|---|
-| `pds-types` | DID, handle, NSID, TID, record key, CID, AT URI syntax and validation with the limits of §6.1 and §9; lexicon-generated request and response types. |
+| `pds-types` | DID, handle, NSID, TID, record key, CID, AT URI syntax and validation with the limits of §6.1 and §9; the data model with a strict DAG-CBOR reader and writer that apply the decode limits; lexicon-generated request and response types. |
 | `pds-lexicon` | Lexicon loading, record validation in the three modes of §6.3, data-model rules, permission-set resolution and cache (§5.5). |
-| `pds-repo` | MST, commits, signing, CAR read and write, diff construction with inversion support, block stores. Unit 2 decides between the `rsky-repo` crate and an in-house implementation. |
+| `pds-repo` | The repository engine, written in this repository (Appendix D, D2): MST, commit blocks, CAR read and write, commits from writes with the blocks a consumer needs to invert them, export, and the checks on a repository from elsewhere. It does no I/O and holds no key: blocks come from a block store, the signature from the caller's key, the revision from the caller's clock. |
 | `pds-storage` | The domain-level storage seams of §8.4 (`ActorStore`, `AccountStore`, `SequencerStore`, `BlobStore`, `DidCache`, `AuditStore`), the SQLite implementations over the Reference schema, migrations, the actor LRU, and the `StorageIo` seam of §19. |
 | `pds-blob` | Blob stores: disk and S3-compatible; upload staging, hashing, quarantine; the rules of §6.4. |
-| `pds-identity` | DID resolution with cache, PLC client, handle resolution and verification, signing-key custody, the DID-document contract of §9. |
+| `pds-identity` | Keys and signatures on both curves, `did:key`, the DID-document contract of §9; DID resolution with cache, PLC client, handle resolution and verification, signing-key custody. |
 | `pds-xrpc` | axum routing, XRPC request parsing, error mapping, rate limiting, proxying, read-after-write, CORS. |
 | `pds-sequencer` | The event log, firehose subscriptions, backfill, crawler notification, the lifecycle event sequences of §10.4. |
 | `pds-account` | Account lifecycle, sessions, app passwords, email tokens, invites, admin, mail. Designed to run embedded or as an entryway (§21.3). |
@@ -224,9 +230,10 @@ are provisional.
   dedicated blocking pool, opened through the `StorageIo` seam so tests can
   substitute a fault-injecting VFS (§19). Each actor database has one writer
   at a time.
-- Cryptography from RustCrypto: `k256`, `p256`, `sha2`; DAG-CBOR through an
-  IPLD codec crate that produces canonical encoding and enforces the decode
-  limits of §6.1; `cid` and `multihash`.
+- Cryptography from RustCrypto: `k256`, `p256`, `sha2`; DAG-CBOR through the
+  reader and writer of `pds-types`, which accept and produce canonical
+  encoding only and enforce the decode limits of §6.1; `cid` and
+  `multihash`.
 - No `unsafe` outside vetted dependencies: `#![forbid(unsafe_code)]` in every
   workspace crate except the VFS shim in `pds-sim`, which is reviewed.
 - Background work (sequencer crawl notifications, scheduled account deletion,
@@ -493,9 +500,21 @@ the DPoP proof, nonce, scope.
 - Commits are version 3: `did`, `version`, `data` (MST root), `rev` (TID),
   `prev` (present in the CBOR and null), `sig`.
 - The MST follows the AT Protocol repository specification and the upstream
-  interop vectors: keys are `<collection>/<rkey>`, layer by leading zero bits
-  of SHA-256, canonical DAG-CBOR nodes. Entries per node and tree depth are
-  bounded; a node or tree beyond the bound is rejected as invalid.
+  interop vectors: keys are `<collection>/<rkey>` of at most 1,024 bytes,
+  layer by leading zero bits of SHA-256, canonical DAG-CBOR nodes. Entries
+  per node and tree depth are bounded: a node block obeys the decode limits
+  below, so it holds at most 131,072 entries in at most 1 MiB, and a key's
+  layer is at most 128, so a tree is at most 129 nodes deep. A node or tree
+  beyond a bound is rejected as invalid.
+- A tree that the server did not build in the same call is read through
+  one guard: no node is entered twice, and no more nodes are entered than
+  the input has blocks. The engine refuses a tree that reaches one node by
+  more than one path, on import, comparison and export. When it imports a
+  tree it also checks the whole of it: every key at the layer of its hash,
+  keys ascending across node boundaries, no empty node below the root, and
+  every pointer a `dag-cbor` SHA-256 CID. The Reference at the pin makes
+  none of these checks; what the server answers where they differ is open
+  (Appendix D, D17).
 - CIDs are CIDv1, `dag-cbor` with SHA-256 for nodes and records, `raw` with
   SHA-256 for blobs. Any other codec or hash makes the object invalid.
 - Signatures are secp256k1 or P-256 depending on the actor's key. Low-S is
@@ -1286,6 +1305,12 @@ Initial targets, to be revised after unit 2 publishes measurements:
 - **T7** S9 sequencer fsyncs per second below the commit rate, through group
   commit on the sequencer file.
 
+Unit 2 measured the engine's share of S1 to S3, without HTTP and SQLite,
+for the Candidate's engine and for the Reference's library on one host
+([decision record](research/2026-10-12-repository-crate.md) §5). The targets
+stand until the Candidate serves the scenarios over HTTP (unit 3 for S3,
+unit 4 for S1 and S2).
+
 Results are published in the README with hardware, versions and image
 digests. The Reference's baseline for S1 to S5, S8 and S9 is in
 [parity/results/](../parity/results/perf-reference.md). In it the Reference
@@ -1316,6 +1341,12 @@ lexicon, MST, syntax) run as Rust unit tests in `pds-types`, `pds-repo`,
 `pds-lexicon` and `pds-identity`. Vectors that do not pass are listed in a
 `KNOWN_FAILURES` table with the finding that explains each. The planned
 upstream protocol test suite is adopted when published.
+
+`pds-repo` is also held to fixtures written by `@atproto/repo` at the pin
+([`crates/pds-repo/tests/fixtures`](../crates/pds-repo/tests/fixtures/README.md)):
+tree roots, commit CIDs, the blocks of each commit and the export are
+compared byte for byte, and the shared-node trees of upstream's
+`mst-dag.test.ts` must be refused.
 
 ### 17.3 Oracles
 
@@ -1691,7 +1722,7 @@ New in the Candidate:
 | Id | Decision | Owner unit |
 |---|---|---|
 | D1 | SQLite driver: `rusqlite` with bundled SQLite on a blocking pool, opened through `StorageIo`. Default: `rusqlite`. | 0 |
-| D2 | Repository crate: the Apache-2.0 `rsky-repo` crate or an in-house implementation. Decided by the interop vectors and S1 to S3. rsky-pds itself now uses the upstream SQLite layout, which removes one objection to depending on its crate. | 2 |
+| D2 | Resolved 2026-10-12: the repository engine is written in this repository, in `pds-repo`. `rsky-repo` was run on the same vectors and workload as published (0.0.6) and from its main branch (0.1.4); the [decision record](research/2026-10-12-repository-crate.md) has the evidence. | 2 |
 | D3 | HTML templating crate for §11.4. | 5 |
 | D4 | Workspace placement: the Cargo workspace at this repository's root with the image build moved under `image/` once the Candidate is the deployed server. | 0 |
 | D5 | Resolved 2026-10-08: dual MIT and Apache-2.0. | 0 |
@@ -1706,6 +1737,7 @@ New in the Candidate:
 | D14 | OAuth lifetimes where the Reference at the pin exceeds the specification's bounds: follow the pin through the rollback window, tighten afterwards. | 5 |
 | D15 | Resolved 2026-10-09: where the Reference answers 500 to a client error, the Candidate answers 400 `InvalidRequest`. Four cases: `createRecord` and `applyWrites` on a key that exists, `createAppPassword` with a name in use, an `atproto-proxy` value that does not start with a DID (§2.3, DD-1 to DD-4). | 4, 5 |
 | D16 | Hardenings that the pin does not have and a client could observe. Resolved 2026-10-09: the Candidate refuses a replayed service token (§5.4; §2.3, DD-5). Open: collection of uploads that no record ever referenced, and a grace period before a dereferenced blob is deleted (§6.4). Each one adopted becomes a deliberate difference. | 4 |
+| D17 | Repositories from elsewhere (`importRepo`). The engine checks an imported tree in full and refuses one that is not valid, a tree that references a node more than once among them (§6.1). The Reference at the pin does not; upstream added the shared-node refusal in 0.5.37. Each refusal that the pin does not make is a deliberate difference to list in §2.3, and depends on the pin decision. Open. | 4, 8 |
 
 ## Appendix E. Changes in Revision 1
 
@@ -1789,3 +1821,18 @@ Revision 3 applies two owner's decisions of 2026-10-09.
   and §5.4 says when a token is spent. The two blob hardenings stay open.
 - The comparison of the Reference with the Candidate may record the
   deliberate differences and no others (§17.3).
+
+## Appendix H. Changes in Revision 4
+
+Revision 4 follows unit 2, the repository crate decision.
+
+- D2 is resolved: the repository engine is written in this repository
+  (§3.1, Appendix D). §3.2 names the DAG-CBOR reader and writer of
+  `pds-types` in place of an IPLD codec crate.
+- §6.1 gives the bounds of a tree node and of tree depth as numbers, the
+  key length, and the rules for a tree the server did not build.
+- §16.2 points to the engine's micro-benchmarks for S1 to S3. The targets
+  are unchanged.
+- §17.2 adds the fixtures written by `@atproto/repo` at the pin.
+- Appendix D adds D17, open: what the server answers to an imported tree
+  that is not valid.

@@ -13,9 +13,10 @@ sequenceDiagram
   X->>L: validate record (mode true, false or unset)
   L-->>X: ok plus validation flag
   X->>S: begin write transaction (one writer per actor)
-  S->>R: load MST root, apply op incrementally
-  R-->>S: new blocks, new root, diff CAR slice
-  S->>S: insert blocks, record row, blob refs
+  S->>R: format the commit: the writes, the new rev, the actor's key
+  R->>S: read the tree nodes on the path
+  R-->>S: signed commit, new blocks, unused blocks, firehose blocks
+  S->>S: insert and delete blocks, record row, blob refs
   S->>Q: append #commit (seq, ops, blocks, since, rev, prevData)
   Q-->>S: durable in the same step
   S-->>X: commit (cid, rev)

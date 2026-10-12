@@ -30,6 +30,7 @@ diamonds are checks.
 - [Crates](#crates)
 - [Process and listeners](#process-and-listeners)
 - [Write path](#write-path)
+- [Repository engine](#repository-engine)
 - [Sequencer and firehose](#sequencer-and-firehose)
 - [Storage layout and seams](#storage-layout-and-seams)
 - [Identity](#identity)
@@ -77,11 +78,34 @@ tasks, injectable time and randomness. Source: [`04-process.mmd`](diagrams/04-pr
 ## Write path
 
 SPEC §6.3, §6.4, §7.4. What happens on `createRecord`, and why the sequencer
-row is durable with the commit. Source: [`05-write-path.mmd`](diagrams/05-write-path.mmd).
+row is durable with the commit. `pds-repo` formats the commit and stores
+nothing: it reads the tree nodes on one path through the actor store and
+returns the blocks to insert, the blocks to delete and the blocks of the
+firehose event. Source: [`05-write-path.mmd`](diagrams/05-write-path.mmd).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="svg/05-write-path.dark.svg">
   <img alt="Sequence of a record write from client to firehose" src="svg/05-write-path.svg">
+</picture>
+
+## Repository engine
+
+SPEC §6.1, §6.3, §6.5, [`crates/pds-repo`](../../crates/pds-repo). The engine
+does no I/O and holds no key. A commit from writes loads the nodes on one
+path of the tree, reports the node blocks that are new and the stored
+blocks no longer used, collects the proof for each key, and has the
+caller's key sign the commit block. A tree from elsewhere is untrusted:
+each block of the CAR is checked against its CID, the commit against the
+account and its key, and the whole tree against the rules for a valid
+tree. One guard bounds every traversal of a whole tree, on import and on
+export: no node twice, and no more nodes than the input has blocks. The
+[decision record](../research/2026-10-12-repository-crate.md) says why the
+engine is written here. Source:
+[`19-repository-engine.mmd`](diagrams/19-repository-engine.mmd).
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="svg/19-repository-engine.dark.svg">
+  <img alt="Repository engine: a commit from writes, a tree from elsewhere through its checks, and the export, over a block store" src="svg/19-repository-engine.svg">
 </picture>
 
 ## Sequencer and firehose
@@ -230,7 +254,10 @@ open until the first Candidate-only migration. Source:
 How the repository is organised and what the gates run. The parity gate
 runs the scenarios of [`parity/`](../../parity/README.md) on the published
 reference image, a second boot of it, the stock build and the upstream
-distribution, and then the three comparisons. Source: [`18-repository.mmd`](diagrams/18-repository.mmd).
+distribution, and then the three comparisons. A tool in `parity/` writes
+fixtures with `@atproto/repo` at the pin, which the tests of `pds-repo`
+replay. [`bench/`](../../bench/README.md) runs `pds-repo` beside `rsky-repo`
+for decision D2; like `fuzz/`, it is outside the workspace and its gates. Source: [`18-repository.mmd`](diagrams/18-repository.mmd).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="svg/18-repository.dark.svg">

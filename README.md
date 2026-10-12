@@ -4,13 +4,17 @@ An AT Protocol Personal Data Server in Rust, compatible with the reference
 implementation, with LinkJar's account behaviour as native extension points
 instead of source patches. Dual-licensed MIT or Apache-2.0.
 
-> Status: unit 1 of 13. The workspace builds, the syntax and data-model
-> crates pass the upstream interop vectors, the API types are generated from
-> the vendored lexicons, the specification is at revision 3, and the
-> [parity harness](parity/README.md) holds the reference image to it. The
-> server does not serve traffic yet. The reference image under
-> [`legacy/`](legacy/README.md) remains the deployed server until cutover.
-> Progress is logged in [docs/plan.md](docs/plan.md#status).
+> Status: unit 2 of 13. The workspace builds. The syntax, data-model,
+> lexicon and identity crates pass the upstream interop vectors. The
+> repository engine is written here and gives the same bytes as
+> `@atproto/repo` at the pin for tree roots, commits and exports
+> ([decision D2](docs/research/2026-10-12-repository-crate.md)). The API
+> types are generated from the vendored lexicons, the specification is at
+> revision 4, and the [parity harness](parity/README.md) holds the
+> reference image to it. The server does not serve traffic yet. The
+> reference image under [`legacy/`](legacy/README.md) remains the deployed
+> server until cutover. Progress is logged in
+> [docs/plan.md](docs/plan.md#status).
 
 ## Start here
 
