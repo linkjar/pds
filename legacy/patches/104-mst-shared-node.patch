@@ -1,0 +1,643 @@
+diff --git a/packages/pds/src/api/com/atproto/repo/importRepo.ts b/packages/pds/src/api/com/atproto/repo/importRepo.ts
+index 8d4cae5..43eb361 100644
+--- a/packages/pds/src/api/com/atproto/repo/importRepo.ts
++++ b/packages/pds/src/api/com/atproto/repo/importRepo.ts
+@@ -2,6 +2,7 @@ import { TID } from '@atproto/common'
+ import { type LexMap, enumBlobRefs } from '@atproto/lex-data'
+ import {
+   BlockMap,
++  VisitedCidError,
+   WriteOpAction,
+   getAndParseRecord,
+   readCarStream,
+@@ -58,7 +59,16 @@ export default function (server: Server, ctx: AppContext) {
+           undefined,
+           undefined,
+           { ensureLeaves: false },
+-        )
++        ).catch((cause) => {
++          if (cause instanceof VisitedCidError) {
++            throw new InvalidRequestError(
++              `invalid MST: node referenced more than once: ${cause.cid}`,
++              undefined,
++              { cause },
++            )
++          }
++          throw cause
++        })
+         diff.commit.rev = rev
+         await store.repo.storage.applyCommit(diff.commit, currRepo === null)
+ 
+diff --git a/packages/pds/tests/import-repo.test.ts b/packages/pds/tests/import-repo.test.ts
+new file mode 100644
+index 0000000..b1989f5
+--- /dev/null
++++ b/packages/pds/tests/import-repo.test.ts
+@@ -0,0 +1,88 @@
++import type { AtpAgent } from '@atproto/api'
++import { TID } from '@atproto/common'
++import { Secp256k1Keypair } from '@atproto/crypto'
++import { type SeedClient, TestNetworkNoAppView } from '@atproto/dev-env'
++import type { Cid } from '@atproto/lex-data'
++import { BlockMap, blocksToCarFile, signCommit } from '@atproto/repo'
++import type { DidString } from '@atproto/syntax'
++
++// Builds a CAR whose MST has two nodes per level, each referencing both nodes
++// of the level below. These repeated references do not form a valid tree.
++const buildDagCar = async (did: string, depth: number) => {
++  const blocks = new BlockMap()
++  const enc = new TextEncoder()
++  const value = await blocks.add({ $type: 'com.example.dummy' })
++  const entry = (key: string, t: Cid | null) => ({
++    p: 0,
++    k: enc.encode(key),
++    v: value,
++    t,
++  })
++  let level: Cid[] = []
++  for (let j = 0; j < 2; j++) {
++    level.push(
++      await blocks.add({ l: null, e: [entry(`com.example.lvl0/${j}`, null)] }),
++    )
++  }
++  for (let i = 1; i < depth; i++) {
++    const next: Cid[] = []
++    for (let j = 0; j < 2; j++) {
++      next.push(
++        await blocks.add({
++          l: level[j],
++          e: [entry(`com.example.lvl${i}/${j}`, level[(j + 1) % 2])],
++        }),
++      )
++    }
++    level = next
++  }
++  const keypair = await Secp256k1Keypair.create()
++  const commit = await signCommit(
++    { did, version: 3, rev: TID.nextStr(), prev: null, data: level[0] },
++    keypair,
++  )
++  const root = await blocks.add(commit)
++  return blocksToCarFile(root, blocks)
++}
++
++describe('importRepo', () => {
++  let network: TestNetworkNoAppView
++  let agent: AtpAgent
++  let sc: SeedClient
++  let did: DidString
++
++  beforeAll(async () => {
++    network = await TestNetworkNoAppView.create({
++      dbPostgresSchema: 'import_repo',
++    })
++    agent = network.pds.getAgent()
++    sc = network.getSeedClient()
++    const account = await sc.createAccount('alice', {
++      email: 'alice@test.com',
++      handle: 'alice.test',
++      password: 'alice-pass',
++    })
++    did = account.did
++  })
++
++  afterAll(async () => {
++    await network?.close()
++  })
++
++  it('rejects a repo whose MST shares subtrees between parents', async () => {
++    const car = await buildDagCar(did, 40)
++    await expect(
++      agent.com.atproto.repo.importRepo(car, {
++        encoding: 'application/vnd.ipld.car',
++        headers: sc.getHeaders(did),
++      }),
++    ).rejects.toMatchObject({
++      status: 400,
++      error: 'InvalidRequest',
++    })
++
++    // the server is still responsive and the existing repo is untouched
++    const res = await agent.com.atproto.sync.getLatestCommit({ did })
++    expect(res.success).toBe(true)
++  })
++})
+diff --git a/packages/repo/src/cid-set.ts b/packages/repo/src/cid-set.ts
+index 659cdac..9e34103 100644
+--- a/packages/repo/src/cid-set.ts
++++ b/packages/repo/src/cid-set.ts
+@@ -1,4 +1,5 @@
+ import { type Cid, parseCid } from '@atproto/lex-data'
++import { VisitedCidError } from './error.js'
+ 
+ export class CidSet implements Iterable<Cid> {
+   private set: Set<string>
+@@ -13,6 +14,14 @@ export class CidSet implements Iterable<Cid> {
+     return this
+   }
+ 
++  // Adds `cid` to the set, throwing `VisitedCidError` if it is already present.
++  // Prefer this over `has` + `add` so the CID is only stringified once.
++  markVisited(cid: Cid): void {
++    const str = cid.toString()
++    if (this.set.has(str)) throw new VisitedCidError(cid)
++    this.set.add(str)
++  }
++
+   addSet(toMerge: CidSet): CidSet {
+     for (const c of toMerge.set) this.set.add(c)
+     return this
+diff --git a/packages/repo/src/error.ts b/packages/repo/src/error.ts
+index 185e443..c5723ec 100644
+--- a/packages/repo/src/error.ts
++++ b/packages/repo/src/error.ts
+@@ -33,6 +33,15 @@ export class MissingCommitBlocksError extends Error {
+   }
+ }
+ 
++// Thrown by `CidSet.markVisited` when a CID is recorded a second time. For MST
++// traversals this means the tree references the same node more than once,
++// which a valid tree never does.
++export class VisitedCidError extends Error {
++  constructor(public cid: Cid) {
++    super(`cid visited more than once: ${cid.toString()}`)
++  }
++}
++
+ export class UnexpectedObjectError extends Error {
+   constructor(
+     public cid: Cid,
+diff --git a/packages/repo/src/index.ts b/packages/repo/src/index.ts
+index d5dcf90..2e61f95 100644
+--- a/packages/repo/src/index.ts
++++ b/packages/repo/src/index.ts
+@@ -9,3 +9,4 @@ export * from './types.js'
+ export * from './data-diff.js'
+ export * from './car.js'
+ export * from './util.js'
++export { VisitedCidError } from './error.js'
+diff --git a/packages/repo/src/mst/mst.ts b/packages/repo/src/mst/mst.ts
+index 95fb64b..36e12b1 100644
+--- a/packages/repo/src/mst/mst.ts
++++ b/packages/repo/src/mst/mst.ts
+@@ -207,8 +207,15 @@ export class MST {
+ 
+   // Return the necessary blocks to persist the MST to repo storage
+   async getUnstoredBlocks(): Promise<{ root: Cid; blocks: BlockMap }> {
++    return this.getUnstoredBlocksInner(new CidSet())
++  }
++
++  private async getUnstoredBlocksInner(
++    seen: CidSet,
++  ): Promise<{ root: Cid; blocks: BlockMap }> {
+     const blocks = new BlockMap()
+     const pointer = await this.getPointer()
++    this.markVisited(seen)
+     const alreadyHas = await this.storage.has(pointer)
+     if (alreadyHas) return { root: pointer, blocks }
+     const entries = await this.getEntries()
+@@ -216,7 +223,7 @@ export class MST {
+     await blocks.add(data)
+     for (const entry of entries) {
+       if (entry.isTree()) {
+-        const subtree = await entry.getUnstoredBlocks()
++        const subtree = await entry.getUnstoredBlocksInner(seen)
+         blocks.addMap(subtree.blocks)
+       }
+     }
+@@ -545,6 +552,31 @@ export class MST {
+     return maybeIndex >= 0 ? maybeIndex : entries.length
+   }
+ 
++  // Traversal safety
++  // -------------------
++
++  // Records this node in `seen`, throwing `VisitedCidError` if it was already
++  // recorded.
++  //
++  // !! REQUIRED for every traversal !!
++  // Any method (in this class or elsewhere) that can visit more than one child
++  // of a node (full-tree walks, diffs, block collection, ...) MUST create a
++  // fresh `CidSet` per traversal and call this on every MST node it enters,
++  // before reading that node's entries. Without it, a node referenced by more
++  // than one parent is walked once per reference. Never add such a walk that
++  // bypasses this.
++  //
++  // Lookups that follow a single path (one recursive call per level, e.g.
++  // `cidsForPath`, `proofForKey`) are bounded by tree depth and do not need it.
++  // Neither do walks over nodes built in memory by local mutations (outdated
++  // pointers, e.g. `serialize`): nodes loaded from storage never have one.
++  //
++  // Nodes with an outdated pointer have not yet been serialized and are skipped.
++  markVisited(seen: CidSet): void {
++    if (this.outdatedPointer) return
++    seen.markVisited(this.pointer)
++  }
++
+   // List operations (partial tree traversal)
+   // -------------------
+ 
+@@ -552,6 +584,14 @@ export class MST {
+ 
+   // Walk tree starting at key
+   async *walkFrom(key: string): AsyncIterable<NodeEntry> {
++    yield* this.walkFromInner(key, new CidSet())
++  }
++
++  private async *walkFromInner(
++    key: string,
++    seen: CidSet,
++  ): AsyncIterable<NodeEntry> {
++    this.markVisited(seen)
+     yield this
+     const index = await this.findGtOrEqualLeafIndex(key)
+     const entries = await this.getEntries()
+@@ -564,7 +604,7 @@ export class MST {
+         if (prev.isLeaf() && prev.key === key) {
+           yield prev
+         } else if (prev.isTree()) {
+-          yield* prev.walkFrom(key)
++          yield* prev.walkFromInner(key, seen)
+         }
+       }
+     }
+@@ -574,7 +614,7 @@ export class MST {
+       if (entry.isLeaf()) {
+         yield entry
+       } else {
+-        yield* entry.walkFrom(key)
++        yield* entry.walkFromInner(key, seen)
+       }
+     }
+   }
+@@ -619,13 +659,16 @@ export class MST {
+ 
+   // Walk full tree & emit nodes, consumer can bail at any point by returning false
+   async *walk(): AsyncIterable<NodeEntry> {
++    yield* this.walkInner(new CidSet())
++  }
++
++  private async *walkInner(seen: CidSet): AsyncIterable<NodeEntry> {
++    this.markVisited(seen)
+     yield this
+     const entries = await this.getEntries()
+     for (const entry of entries) {
+       if (entry.isTree()) {
+-        for await (const e of entry.walk()) {
+-          yield e
+-        }
++        yield* entry.walkInner(seen)
+       } else {
+         yield entry
+       }
+@@ -634,6 +677,11 @@ export class MST {
+ 
+   // Walk full tree & emit nodes, consumer can bail at any point by returning false
+   async paths(): Promise<NodeEntry[][]> {
++    return this.pathsInner(new CidSet())
++  }
++
++  private async pathsInner(seen: CidSet): Promise<NodeEntry[][]> {
++    this.markVisited(seen)
+     const entries = await this.getEntries()
+     let paths: NodeEntry[][] = []
+     for (const entry of entries) {
+@@ -641,7 +689,7 @@ export class MST {
+         paths.push([entry])
+       }
+       if (entry.isTree()) {
+-        const subPaths = await entry.paths()
++        const subPaths = await entry.pathsInner(seen)
+         paths = [...paths, ...subPaths.map((p) => [entry, ...p])]
+       }
+     }
+@@ -660,17 +708,21 @@ export class MST {
+   // Walks tree & returns all cids
+   async allCids(): Promise<CidSet> {
+     const cids = new CidSet()
++    await this.allCidsInner(cids)
++    return cids
++  }
++
++  private async allCidsInner(cids: CidSet, seen = new CidSet()): Promise<void> {
++    this.markVisited(seen)
+     const entries = await this.getEntries()
+     for (const entry of entries) {
+       if (entry.isLeaf()) {
+         cids.add(entry.value)
+       } else {
+-        const subtreeCids = await entry.allCids()
+-        cids.addSet(subtreeCids)
++        await entry.allCidsInner(cids, seen)
+       }
+     }
+     cids.add(await this.getPointer())
+-    return cids
+   }
+ 
+   // Walks tree & returns all leaves
+@@ -693,12 +745,17 @@ export class MST {
+ 
+   // Walk reachable branches of tree & emit nodes, consumer can bail at any point by returning false
+   async *walkReachable(): AsyncIterable<NodeEntry> {
++    yield* this.walkReachableInner(new CidSet())
++  }
++
++  private async *walkReachableInner(seen: CidSet): AsyncIterable<NodeEntry> {
++    this.markVisited(seen)
+     yield this
+     const entries = await this.getEntries()
+     for (const entry of entries) {
+       if (entry.isTree()) {
+         try {
+-          for await (const e of entry.walkReachable()) {
++          for await (const e of entry.walkReachableInner(seen)) {
+             yield e
+           }
+         } catch (err) {
+@@ -726,8 +783,10 @@ export class MST {
+ 
+   async *carBlockStream(): AsyncIterable<CarBlock> {
+     const leaves = new CidSet()
++    const seen = new CidSet()
+     let toFetch = new CidSet()
+     toFetch.add(await this.getPointer())
++    this.markVisited(seen)
+     while (toFetch.size() > 0) {
+       const nextLayer = new CidSet()
+       const fetched = await this.storage.getBlocks(toFetch.toList())
+@@ -747,6 +806,9 @@ export class MST {
+           if (entry.isLeaf()) {
+             leaves.add(entry.value)
+           } else {
++            // Mark at discovery: `nextLayer` would otherwise silently merge
++            // repeated references to the same node.
++            entry.markVisited(seen)
+             nextLayer.add(await entry.getPointer())
+           }
+         }
+diff --git a/packages/repo/src/mst/walker.ts b/packages/repo/src/mst/walker.ts
+index 2528f0a..e5f9a39 100644
+--- a/packages/repo/src/mst/walker.ts
++++ b/packages/repo/src/mst/walker.ts
+@@ -1,3 +1,4 @@
++import { CidSet } from '../cid-set.js'
+ import type { MST, NodeEntry } from './mst.js'
+ 
+ type WalkerStatusDone = {
+@@ -16,6 +17,8 @@ type WalkerStatus = WalkerStatusDone | WalkerStatusProgress
+ export class MstWalker {
+   stack: WalkerStatus[] = []
+   status: WalkerStatus
++  // Nodes entered during this walk; repeated references are not valid MSTs.
++  private seen = new CidSet()
+ 
+   constructor(public root: MST) {
+     this.status = {
+@@ -75,6 +78,7 @@ export class MstWalker {
+       if (!this.status.curr.isTree()) {
+         throw new Error('The root of the tree cannot be a leaf')
+       }
++      this.status.curr.markVisited(this.seen)
+       const next = await this.status.curr.atIndex(0)
+       if (!next) {
+         this.status = { done: true }
+@@ -91,6 +95,7 @@ export class MstWalker {
+     if (!this.status.curr.isTree()) {
+       throw new Error('No tree at pointer, cannot step into')
+     }
++    this.status.curr.markVisited(this.seen)
+ 
+     const next = await this.status.curr.atIndex(0)
+     if (!next) {
+diff --git a/packages/repo/tests/cid-set.test.ts b/packages/repo/tests/cid-set.test.ts
+new file mode 100644
+index 0000000..508cad4
+--- /dev/null
++++ b/packages/repo/tests/cid-set.test.ts
+@@ -0,0 +1,35 @@
++import { cidForLex } from '@atproto/lex-cbor'
++import { CidSet, VisitedCidError } from '../src/index.js'
++
++describe('CidSet.markVisited', () => {
++  it('adds a CID the first time it is marked', async () => {
++    const cid = await cidForLex({ a: 1 })
++    const set = new CidSet()
++    set.markVisited(cid)
++    expect(set.has(cid)).toBe(true)
++    expect(set.size()).toBe(1)
++  })
++
++  it('throws VisitedCidError when a CID is marked twice', async () => {
++    const cid = await cidForLex({ a: 1 })
++    const set = new CidSet()
++    set.markVisited(cid)
++    expect(() => set.markVisited(cid)).toThrow(VisitedCidError)
++    expect(set.size()).toBe(1)
++  })
++
++  it('throws for a CID that was added with add()', async () => {
++    const cid = await cidForLex({ a: 1 })
++    const set = new CidSet().add(cid)
++    expect(() => set.markVisited(cid)).toThrow(VisitedCidError)
++  })
++
++  it('tracks distinct CIDs independently', async () => {
++    const a = await cidForLex({ a: 1 })
++    const b = await cidForLex({ b: 2 })
++    const set = new CidSet()
++    set.markVisited(a)
++    set.markVisited(b)
++    expect(set.size()).toBe(2)
++  })
++})
+diff --git a/packages/repo/tests/mst-dag.test.ts b/packages/repo/tests/mst-dag.test.ts
+new file mode 100644
+index 0000000..f85f27b
+--- /dev/null
++++ b/packages/repo/tests/mst-dag.test.ts
+@@ -0,0 +1,184 @@
++import { TID } from '@atproto/common-web'
++import * as crypto from '@atproto/crypto'
++import type { Cid } from '@atproto/lex-data'
++import {
++  BlockMap,
++  MST,
++  type NodeData,
++  Repo,
++  VisitedCidError,
++  blocksToCarFile,
++} from '../src/index.js'
++import { MemoryBlockstore } from '../src/storage/index.js'
++import * as sync from '../src/sync/index.js'
++import * as util from '../src/util.js'
++
++// An MST cannot contain multiple references to the same subtree. These tests
++// cover shared subtrees in the traversal and repo verification paths.
++
++const enc = new TextEncoder()
++
++const leafEntry = (key: string, value: Cid, t: Cid | null = null) => ({
++  p: 0,
++  k: enc.encode(key),
++  v: value,
++  t,
++})
++
++// Two nodes per level, each pointing at both nodes of the level below. The
++// walk from the root describes 2^depth leaves from only 2 * depth blocks.
++const buildDiamond = async (blocks: BlockMap, depth: number) => {
++  const value = await blocks.add({ $type: 'com.example.dummy' })
++  let level: Cid[] = []
++  for (let j = 0; j < 2; j++) {
++    const node: NodeData = {
++      l: null,
++      e: [leafEntry(`com.example.lvl0/${j}`, value)],
++    }
++    level.push(await blocks.add(node))
++  }
++  for (let i = 1; i < depth; i++) {
++    const next: Cid[] = []
++    for (let j = 0; j < 2; j++) {
++      const node: NodeData = {
++        l: level[j],
++        e: [leafEntry(`com.example.lvl${i}/${j}`, value, level[(j + 1) % 2])],
++      }
++      next.push(await blocks.add(node))
++    }
++    level = next
++  }
++  return level[0]
++}
++
++// One wide node whose every entry points at the same long chain of leafless
++// nodes: n + m blocks describe n * m node visits.
++const buildSharedChain = async (blocks: BlockMap, n: number, m: number) => {
++  const value = await blocks.add({ $type: 'com.example.dummy' })
++  let chain = await blocks.add({
++    l: null,
++    e: [leafEntry('com.example.bottom/a', value)],
++  })
++  for (let i = 0; i < m; i++) {
++    chain = await blocks.add({ l: chain, e: [] })
++  }
++  const e: NodeData['e'] = []
++  for (let i = 0; i < n; i++) {
++    const key = `com.example.wide/${String(i).padStart(6, '0')}`
++    e.push(leafEntry(key, value, chain))
++  }
++  return blocks.add({ l: null, e })
++}
++
++// Serves blocks but reports none of them as stored, so that
++// `MST.getUnstoredBlocks` descends instead of returning at the root.
++class UnstoredBlockstore extends MemoryBlockstore {
++  async has(): Promise<boolean> {
++    return false
++  }
++}
++
++const drain = async <T>(iter: AsyncIterable<T>): Promise<T[]> => {
++  const out: T[] = []
++  for await (const item of iter) out.push(item)
++  return out
++}
++
++const commitFor = async (
++  blocks: BlockMap,
++  data: Cid,
++  keypair: crypto.Keypair,
++) => {
++  const commit = await util.signCommit(
++    {
++      did: 'did:example:repo',
++      version: 3,
++      rev: TID.nextStr(),
++      prev: null,
++      data,
++    },
++    keypair,
++  )
++  return blocks.add(commit)
++}
++
++describe('MST DAG rejection', () => {
++  let keypair: crypto.Keypair
++
++  beforeAll(async () => {
++    keypair = await crypto.Secp256k1Keypair.create()
++  })
++
++  it('rejects a diamond DAG on first import (nullDiff)', async () => {
++    const blocks = new BlockMap()
++    const root = await buildDiamond(blocks, 40)
++    const commit = await commitFor(blocks, root, keypair)
++    await expect(
++      sync.verifyDiff(null, blocks, commit, undefined, undefined, {
++        ensureLeaves: false,
++      }),
++    ).rejects.toThrow(VisitedCidError)
++  })
++
++  it('rejects a diamond DAG diffed against an existing repo (mstDiff)', async () => {
++    const storage = new MemoryBlockstore()
++    const repo = await Repo.create(storage, 'did:example:repo', keypair)
++    const blocks = new BlockMap()
++    const root = await buildDiamond(blocks, 40)
++    const commit = await commitFor(blocks, root, keypair)
++    await expect(
++      sync.verifyDiff(repo, blocks, commit, undefined, undefined, {
++        ensureLeaves: false,
++      }),
++    ).rejects.toThrow(VisitedCidError)
++  })
++
++  it('rejects leafless subtrees shared between entries', async () => {
++    const blocks = new BlockMap()
++    const root = await buildSharedChain(blocks, 50, 50)
++    const commit = await commitFor(blocks, root, keypair)
++    await expect(
++      sync.verifyDiff(null, blocks, commit, undefined, undefined, {
++        ensureLeaves: false,
++      }),
++    ).rejects.toThrow(VisitedCidError)
++  })
++
++  it('rejects shared subtrees in every full traversal', async () => {
++    const blocks = new BlockMap()
++    const root = await buildDiamond(blocks, 40)
++    const load = () => MST.load(new MemoryBlockstore(blocks), root)
++
++    await expect(load().leaves()).rejects.toThrow(VisitedCidError)
++    await expect(load().reachableLeaves()).rejects.toThrow(VisitedCidError)
++    await expect(load().allCids()).rejects.toThrow(VisitedCidError)
++    await expect(load().paths()).rejects.toThrow(VisitedCidError)
++    await expect(load().list()).rejects.toThrow(VisitedCidError)
++  })
++
++  it('rejects shared subtrees when streaming blocks', async () => {
++    const blocks = new BlockMap()
++    // Shallow so that a regression fails the assertion instead of hanging.
++    const root = await buildDiamond(blocks, 10)
++    const mst = MST.load(new MemoryBlockstore(blocks), root)
++    await expect(drain(mst.carBlockStream())).rejects.toThrow(VisitedCidError)
++  })
++
++  it('rejects shared subtrees when collecting unstored blocks', async () => {
++    const blocks = new BlockMap()
++    // Shallow so that a regression fails the assertion instead of hanging.
++    const root = await buildDiamond(blocks, 10)
++    const mst = MST.load(new UnstoredBlockstore(blocks), root)
++    await expect(mst.getUnstoredBlocks()).rejects.toThrow(VisitedCidError)
++  })
++
++  it('rejects a shared-subtree repo in verifyRecords', async () => {
++    const blocks = new BlockMap()
++    const root = await buildDiamond(blocks, 40)
++    const commit = await commitFor(blocks, root, keypair)
++    const car = await blocksToCarFile(commit, blocks)
++    await expect(
++      sync.verifyRecords(car, 'did:example:repo', keypair.did()),
++    ).rejects.toThrow(VisitedCidError)
++  })
++})

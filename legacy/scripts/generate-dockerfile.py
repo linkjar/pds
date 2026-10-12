@@ -31,7 +31,11 @@ RUN sh /apply-patches.sh "$PATCH_PROFILE"
                   lambda m: 'COPY --from=source /source/' + m[1][2:] + ' ' + m[2], upstream, flags=re.M)
     gate = "# install only prod deps, hoisted to root node_modules dir"
     assert gate in body
-    body = body.replace(gate, "RUN if test -f packages/oauth/oauth-provider/src/external/external-provider.test.ts; then cd packages/oauth/oauth-provider && pnpm test src/external src/router/create-external-middleware.test.ts src/account/account-manager.external.test.ts; fi\n" + gate)
+    # The tests that come with patch 104. The stock build has no such file and
+    # skips them. Jest needs a shim from the repository root, which the build
+    # stage does not copy; the mount keeps it out of the image.
+    repo_tests = "RUN --mount=type=bind,from=source,source=/source/jest.varint-shim.cjs,target=/app/jest.varint-shim.cjs if test -f packages/repo/tests/mst-dag.test.ts; then cd packages/repo && pnpm test tests/mst-dag.test.ts tests/cid-set.test.ts; fi\n"
+    body = body.replace(gate, "RUN if test -f packages/oauth/oauth-provider/src/external/external-provider.test.ts; then cd packages/oauth/oauth-provider && pnpm test src/external src/router/create-external-middleware.test.ts src/account/account-manager.external.test.ts; fi\n" + repo_tests + gate)
     return preamble + body
 
 if __name__ == '__main__':
