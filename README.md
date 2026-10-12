@@ -22,6 +22,7 @@ instead of source patches. Dual-licensed MIT or Apache-2.0.
 | [docs/plan.md](docs/plan.md) | Decision record, owner decisions, delivery units, status |
 | [docs/sidecars.md](docs/sidecars.md) | The operations console and the MCP server |
 | [docs/research/](docs/research/) | What other systems do, and the gap report against atproto.com |
+| [.agent_sources/README.md](.agent_sources/README.md) | Checkouts of the pinned upstream sources for reading: `scripts/vendor-agent-sources.sh` |
 
 ## What it is
 

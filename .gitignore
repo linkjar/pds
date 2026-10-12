@@ -15,3 +15,5 @@ __pycache__/
 # Rust workspace
 node_modules/
 staging/*.env
+# Source mirrors for reading; see .agent_sources/README.md.
+.agent_sources/github.com/

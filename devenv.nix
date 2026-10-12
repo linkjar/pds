@@ -64,6 +64,8 @@
     "parity:run".exec = ''cd parity && pnpm install --frozen-lockfile --silent && pnpm parity run "$@"'';
     "parity:compare".exec = ''cd parity && pnpm parity compare "$@"'';
     "docs:diagrams".exec = "cd docs/architecture && pnpm install --silent && pnpm render";
+    # Upstream sources for reading, at the commits this repository pins.
+    "sources:vendor".exec = ''scripts/vendor-agent-sources.sh "$@"'';
   };
 
   enterShell = ''
