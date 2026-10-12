@@ -1,6 +1,6 @@
 # LinkJar PDS Specification
 
-Status: Draft, revision 4, 2026-10-12
+Status: Draft, revision 5, 2026-10-12
 Normative keywords: **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, **MAY** ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119))
 
 LinkJar PDS is an AT Protocol Personal Data Server written in Rust. It is
@@ -32,6 +32,15 @@ Revision 4 records decision D2 of unit 2: the repository engine is written
 in this repository. The evidence is in the
 [decision record](research/2026-10-12-repository-crate.md); the changes are
 listed in Appendix H.
+
+Revision 5 applies the owner's decisions of 2026-10-12 on the pin, on D17
+and on the rest of D16. The pin stays at 0.5.34 and the legacy build carries
+upstream's shared-node fix as a ninth patch. The Candidate keeps its checks
+where it is stricter than the Reference, and it collects an upload that no
+record references. The evidence is in the
+[upstream 0.5.35 to 0.5.37 note](research/2026-10-10-upstream-0.5.35-to-0.5.37.md)
+and the [decision record](research/2026-10-12-repository-crate.md) §7; the
+changes are listed in Appendix I.
 
 ## Table of Contents
 
@@ -66,6 +75,7 @@ listed in Appendix H.
 - [Appendix F. Changes in Revision 2](#appendix-f-changes-in-revision-2)
 - [Appendix G. Changes in Revision 3](#appendix-g-changes-in-revision-3)
 - [Appendix H. Changes in Revision 4](#appendix-h-changes-in-revision-4)
+- [Appendix I. Changes in Revision 5](#appendix-i-changes-in-revision-5)
 
 ## 0. Conventions and Terminology
 
@@ -195,6 +205,26 @@ appears.
 | DD-5 | A service token that an earlier successful request has spent (§5.4) | accepted again | 401 `BadJwt` | 2026-10-09, D16 |
 
 A difference that is not in this table is a defect of the Candidate.
+
+The owner decided the differences below on 2026-10-12 (D16, D17). No
+scenario has yet recorded what the Reference answers in these states. The
+unit named writes that scenario and moves the row into the table above with
+the Reference's answer. Until then the Harness does not count the row.
+
+| Id | Request and state | Candidate | Scenario in unit |
+|---|---|---|---|
+| DD-6 | `importRepo` with a CAR whose tree references a node more than once (§6.1) | 400 `InvalidRequest`; nothing is written | 4 |
+| DD-7 | `importRepo` with a CAR whose tree has a key at the wrong layer, keys out of order across nodes, or an empty node below the root (§6.1) | 400 `InvalidRequest`; nothing is written | 4 |
+| DD-8 | `importRepo` with a record block that is not canonical DAG-CBOR: map keys out of order, a float with a whole value, or `undefined` (§6.1) | refused | 4 |
+| DD-9 | A record that references a blob with `size` zero or an empty `mimeType` (§6.3) | refused | 4 |
+| DD-10 | An upload that no record references one hour after it arrived (§6.4) | collected | 4 |
+| DD-11 | Handle verification: two TXT records that name the same DID, and an HTTPS body of more than one line (§9.2) | the two records are one answer; the whole trimmed body is read | 3 |
+| DD-12 | A DID document whose signing key has another `controller`, or whose PDS endpoint is more than scheme, host and port (§9.3) | refused | 3 |
+| DD-13 | A commit of version 2 in a repository from elsewhere (§6.1) | refused | 8 |
+
+DD-6 holds against the Stock Reference only. The production Reference
+carries upstream's fix as its ninth patch (§13) and agrees with the
+Candidate; the stock build applies no patch.
 
 ## 3. Architecture
 
@@ -513,8 +543,8 @@ the DPoP proof, nonce, scope.
   tree it also checks the whole of it: every key at the layer of its hash,
   keys ascending across node boundaries, no empty node below the root, and
   every pointer a `dag-cbor` SHA-256 CID. The Reference at the pin makes
-  none of these checks; what the server answers where they differ is open
-  (Appendix D, D17).
+  none of these checks. The Candidate keeps them (decision of 2026-10-12,
+  D17; §2.3, DD-6 and DD-7).
 - CIDs are CIDv1, `dag-cbor` with SHA-256 for nodes and records, `raw` with
   SHA-256 for blobs. Any other codec or hash makes the object invalid.
 - Signatures are secp256k1 or P-256 depending on the actor's key. Low-S is
@@ -587,10 +617,11 @@ the DPoP proof, nonce, scope.
   grace period: the commit that removes the last reference, by a delete or by
   an update, removes the blob with it, and `getBlob` stops serving it within
   seconds ([VP-10](../parity/verify-at-pin.md)). A blob that another record
-  still references stays. An upload that no record ever references is never
-  collected at the pin; the Candidate MAY collect it after at least one hour
-  (Appendix D, D16). Account deletion deletes all blobs within the scheduled
-  purge. `listMissingBlobs` reports referenced blobs the store lacks.
+  still references stays. The Candidate follows the pin here and keeps no
+  grace period. An upload that no record ever references is never collected
+  at the pin; the Candidate MUST collect it one hour after it arrived
+  (decision of 2026-10-12, D16; §2.3, DD-10). Account deletion deletes all
+  blobs within the scheduled purge. `listMissingBlobs` reports referenced blobs the store lacks.
 - `getBlob` serves by CID with `Content-Type`, `Content-Length`,
   `Content-Security-Policy: default-src 'none'; sandbox` and
   `X-Content-Type-Options: nosniff`. A blob the account does not hold is 400
@@ -1136,6 +1167,12 @@ commit recorded in `plan.md` on the day revision 1 was written. The patch
 stack is frozen except for security fixes while the Candidate is built
 (decision of 2026-10-08); a security fix updates the pin and adds the
 mirrored behaviour here.
+
+On 2026-10-12 the owner decided to keep the upstream pin at 0.5.34 and to
+carry upstream's shared-node fix
+([#5584](https://github.com/bluesky-social/atproto/pull/5584)) as a ninth
+patch. It is engine behaviour for every profile, so its rule is in §6.1 and
+not in the table below. The patch pin moves when that patch merges.
 
 | Patch | Extension point | Invariants the Candidate MUST keep |
 |---|---|---|
@@ -1736,8 +1773,8 @@ New in the Candidate:
 | D13 | Atproto Spaces: out of scope for version 1; the `ActorStore` seam reserves room for per-space tables so the upstream per-actor design can be adopted when schemas stabilise. | post-cutover |
 | D14 | OAuth lifetimes where the Reference at the pin exceeds the specification's bounds: follow the pin through the rollback window, tighten afterwards. | 5 |
 | D15 | Resolved 2026-10-09: where the Reference answers 500 to a client error, the Candidate answers 400 `InvalidRequest`. Four cases: `createRecord` and `applyWrites` on a key that exists, `createAppPassword` with a name in use, an `atproto-proxy` value that does not start with a DID (§2.3, DD-1 to DD-4). | 4, 5 |
-| D16 | Hardenings that the pin does not have and a client could observe. Resolved 2026-10-09: the Candidate refuses a replayed service token (§5.4; §2.3, DD-5). Open: collection of uploads that no record ever referenced, and a grace period before a dereferenced blob is deleted (§6.4). Each one adopted becomes a deliberate difference. | 4 |
-| D17 | Repositories from elsewhere (`importRepo`). The engine checks an imported tree in full and refuses one that is not valid, a tree that references a node more than once among them (§6.1). The Reference at the pin does not; upstream added the shared-node refusal in 0.5.37. Each refusal that the pin does not make is a deliberate difference to list in §2.3, and depends on the pin decision. Open. | 4, 8 |
+| D16 | Resolved. Hardenings that the pin does not have and a client could observe. 2026-10-09: the Candidate refuses a replayed service token (§5.4; §2.3, DD-5). 2026-10-12: the Candidate collects an upload that no record references after one hour (§6.4; §2.3, DD-10), and it keeps no grace period before a dereferenced blob is deleted, as the pin. | 4 |
+| D17 | Resolved 2026-10-12: where the Candidate is stricter than the Reference at the pin on data from elsewhere, it keeps its check, and each case is a deliberate difference with a scenario that records what the pin does (§2.3, DD-6 to DD-9 and DD-11 to DD-13). The pin stays at 0.5.34 and the legacy build carries upstream's shared-node refusal of 0.5.37 as a ninth patch (§13). | 3, 4, 8 |
 
 ## Appendix E. Changes in Revision 1
 
@@ -1836,3 +1873,17 @@ Revision 4 follows unit 2, the repository crate decision.
 - §17.2 adds the fixtures written by `@atproto/repo` at the pin.
 - Appendix D adds D17, open: what the server answers to an imported tree
   that is not valid.
+
+## Appendix I. Changes in Revision 5
+
+Revision 5 applies three owner's decisions of 2026-10-12.
+
+- The pin stays at 0.5.34. The legacy build carries upstream's shared-node
+  fix (#5584) as a ninth patch (§13).
+- D17 is resolved: the Candidate keeps its checks on data from elsewhere.
+  §2.3 gains DD-6 to DD-9 and DD-11 to DD-13 in a second table, for
+  differences that are decided and that no scenario has yet recorded on the
+  Reference. §6.1 names the decision.
+- D16 is resolved: the Candidate collects an upload that no record
+  references after one hour (§6.4, DD-10) and keeps no grace period for a
+  dereferenced blob.
