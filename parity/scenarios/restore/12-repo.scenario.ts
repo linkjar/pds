@@ -98,6 +98,7 @@ scenario('12-repo', { timeoutMs: 300_000 }, async (s) => {
   // Any other handle is the AppView's to resolve. The server passes on what
   // the AppView says: a DID, a refusal, or an answer without a DID.
   const foreign = { handle: 'someone.example.com' }
+  const resolveMark = await s.fixtures.cursor()
   await s.fixtures.xrpc({ host: HOSTS.appview, nsid: resolve, body: { did: UNKNOWN } })
   assert.equal((await get(s, 'resolveHandle of a handle hosted elsewhere', resolve, foreign)).json.did, UNKNOWN)
   await s.fixtures.xrpc({ host: HOSTS.appview, nsid: resolve, status: 400, body: { error: 'InvalidRequest', message: 'Unable to resolve handle' } })
@@ -108,4 +109,6 @@ scenario('12-repo', { timeoutMs: 300_000 }, async (s) => {
   await get(s, 'resolveHandle when the AppView answers without a DID', resolve, foreign)
   await s.fixtures.xrpc({ host: HOSTS.appview, nsid: resolve, body: { did: 'not a did' } })
   await get(s, 'resolveHandle when the AppView answers with a value that is not a DID', resolve, foreign)
+  const resolved = await s.fixtures.calls(HOSTS.appview, resolveMark)
+  s.note('resolveHandle requests forwarded to the AppView', resolved.map((request) => ({ path: request.path, query: request.query, authorization: request.headers.authorization ?? null })))
 })

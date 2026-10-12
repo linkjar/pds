@@ -1,6 +1,7 @@
 //! One actor's `store.sqlite`: the repository blocks, the record index and
 //! the blob index.
 
+use std::collections::HashSet;
 use std::path::Path;
 
 use cid::Cid;
@@ -11,7 +12,7 @@ use crate::error::StorageError;
 use crate::layout::open_read_only;
 
 /// The most blocks one query asks for, as in the Reference.
-const BLOCK_BATCH: usize = 500;
+pub const BLOCK_BATCH: usize = 500;
 
 /// The latest commit of a repository.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -128,6 +129,7 @@ impl ActorDb {
     /// the CIDs it does not hold, in the order they were asked for.
     pub fn blocks(&self, cids: &[Cid]) -> Result<FoundBlocks, StorageError> {
         let mut found: Vec<(Cid, Vec<u8>)> = Vec::with_capacity(cids.len());
+        let mut have: HashSet<Cid> = HashSet::with_capacity(cids.len());
         for batch in cids.chunks(BLOCK_BATCH) {
             let marks = vec!["?"; batch.len()].join(", ");
             let sql =
@@ -139,15 +141,40 @@ impl ActorDb {
                 })?;
             for row in rows {
                 let (cid, content) = row?;
-                found.push((parse_cid("repo_block", &cid)?, content));
+                let cid = parse_cid("repo_block", &cid)?;
+                have.insert(cid);
+                found.push((cid, content));
             }
         }
         let missing = cids
             .iter()
-            .filter(|cid| !found.iter().any(|(have, _)| have == *cid))
+            .filter(|cid| !have.contains(cid))
             .copied()
             .collect();
         Ok(FoundBlocks { found, missing })
+    }
+
+    /// The CIDs among these that the store does not hold, in the order they
+    /// were asked for. The contents of the blocks are not read.
+    pub fn missing_blocks(&self, cids: &[Cid]) -> Result<Vec<Cid>, StorageError> {
+        let mut have: HashSet<Cid> = HashSet::with_capacity(cids.len());
+        for batch in cids.chunks(BLOCK_BATCH) {
+            let marks = vec!["?"; batch.len()].join(", ");
+            let sql = format!(r#"select "cid" from "repo_block" where "cid" in ({marks})"#);
+            let mut statement = self.conn.prepare(&sql)?;
+            let rows = statement
+                .query_map(params_from_iter(batch.iter().map(Cid::to_string)), |row| {
+                    row.get::<_, String>(0)
+                })?;
+            for row in rows {
+                have.insert(parse_cid("repo_block", &row?)?);
+            }
+        }
+        Ok(cids
+            .iter()
+            .filter(|cid| !have.contains(cid))
+            .copied()
+            .collect())
     }
 
     /// A page of blocks from the newest revision down, then by CID down:

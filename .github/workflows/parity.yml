@@ -1,23 +1,22 @@
 name: Parity harness
 
 # The parity harness (parity/, docs/SPEC.md section 17) against the reference
-# image. It guards the patch stack across upstream bumps, and from unit 3 it
-# holds the Candidate to the Reference.
+# image. It guards the patch stack across upstream bumps. No job here runs
+# the Candidate: restore.yml holds the Candidate to the Reference.
 #
 # Actions are pinned by commit SHA. The runner is amd64 because the relay
 # image is published for amd64 only.
 #
 # Each target has its own stack, so the four run side by side and a last job
-# compares their transcripts. The restore job holds the Candidate to the
-# Reference on a data directory that the Reference wrote (parity/src/restore.ts). A change that touches only Markdown under
+# compares their transcripts. A change that touches only Markdown under
 # parity/ does not start the stacks.
 
 on:
   pull_request:
-    paths: ['parity/**', '!parity/**/*.md', 'legacy/**', 'upstream.json', 'crates/**', 'Cargo.toml', 'Cargo.lock', 'Dockerfile', '.dockerignore', '.github/workflows/parity.yml']
+    paths: ['parity/**', '!parity/**/*.md', 'legacy/**', 'upstream.json', '.github/workflows/parity.yml']
   push:
     branches: [main]
-    paths: ['parity/**', '!parity/**/*.md', 'legacy/**', 'upstream.json', 'crates/**', 'Cargo.toml', 'Cargo.lock', 'Dockerfile', '.dockerignore', '.github/workflows/parity.yml']
+    paths: ['parity/**', '!parity/**/*.md', 'legacy/**', 'upstream.json', '.github/workflows/parity.yml']
   schedule:
     # Mondays, after the upstream updater.
     - cron: '47 9 * * 1'
@@ -110,54 +109,12 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: parity-${{ matrix.target }}
+          name: scenarios-${{ matrix.target }}
           # Both paths are named so that the artifact is rooted at the
           # target's run directory whether or not there are logs.
           path: |
             parity/.run/${{ matrix.target }}/transcripts
             parity/.run/${{ matrix.target }}/logs
-          if-no-files-found: ignore
-          retention-days: 14
-
-  restore:
-    name: restore (Candidate on the Reference's data)
-    needs: check
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@94196ee1d15439c1b6651cd87ef14e88ec435966
-        with:
-          node-version-file: parity/.node-version
-      - run: npm install --global pnpm@12.4.1
-      - run: pnpm install --frozen-lockfile
-      - uses: docker/login-action@0a596b2e7a325f0cedf8e9bd21ab002cbd3c9241
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/setup-buildx-action@5ac4a31b15f1c45ec652b8af78c2096c3a08368c
-      - name: Build the Candidate
-        uses: docker/build-push-action@91670ba5a4df99a24efff8637a78c83fd1b0f6b1
-        with:
-          context: .
-          load: true
-          tags: linkjar-pds:candidate
-          cache-from: type=gha,scope=candidate-amd64
-          cache-to: type=gha,scope=candidate-amd64,mode=max
-      - name: Seed and read on the Reference, read on the Candidate, verify, compare
-        run: pnpm parity restore
-      - name: Keep transcripts, the verify report and service logs
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: parity-restore
-          path: |
-            parity/.run/candidate/transcripts
-            parity/.run/candidate/verify.json
-            parity/.run/candidate/logs
           if-no-files-found: ignore
           retention-days: 14
 
@@ -177,13 +134,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: parity-*
+          pattern: scenarios-*
           path: parity/.run
       - name: Put each target's transcripts where the harness reads them
         run: |
           set -euo pipefail
           for target in reference repeat stock official; do
-            mv ".run/parity-$target" ".run/$target"
+            mv ".run/scenarios-$target" ".run/$target"
             test -d ".run/$target/transcripts/default"
           done
       - name: Two boots of the Reference show no difference
@@ -216,9 +173,11 @@ jobs:
       - run: pnpm parity run reference --profile perf
       - run: pnpm parity perf report reference >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
         with:
           name: parity-perf
           path: |
             parity/.run/reference/perf
             parity/results
+          if-no-files-found: ignore
           retention-days: 90

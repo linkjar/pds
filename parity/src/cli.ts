@@ -7,7 +7,7 @@
 //   pnpm parity run <target> [--profile <name>] [--only <text>] [--keep] [--reuse]
 //   pnpm parity compare <left> <right> [--update]
 //   pnpm parity images build-candidate
-//   pnpm parity restore [--keep] [--update] [--perf]
+//   pnpm parity restore [--keep] [--perf]
 //   pnpm parity perf report <target>
 
 import { spawnSync } from 'node:child_process'
@@ -124,7 +124,9 @@ async function main(): Promise<void> {
   if (group === 'images' && command === 'build-candidate') return buildCandidate()
   if (group === 'restore') {
     const args = [command ?? '', ...rest]
-    process.exit(await restore({ keep: args.includes('--keep'), update: args.includes('--update'), perf: args.includes('--perf') }))
+    // A recorded difference of a restore run could not match the next run: it holds body hashes of a fresh stack.
+    if (args.includes('--update')) fail('restore does not take --update: no difference is allowed between the Reference and the Candidate on one data directory (differences/README.md).')
+    process.exit(await restore({ keep: args.includes('--keep'), perf: args.includes('--perf') }))
   }
   if (group === 'compare') {
     process.exit(compare(target(command), target(rest[0]), { update: rest.includes('--update') }))

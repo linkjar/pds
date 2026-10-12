@@ -130,13 +130,13 @@ provider/token transport and account effects; they are not staging provider acce
 
 Run source-package tests using pinned pnpm from `packages/oauth/oauth-provider`:
 `pnpm test src/external src/router/create-external-middleware.test.ts src/account/account-manager.external.test.ts`.
-Run `tests/external-accounts.mjs` in the compiled image. Local compiled UI checks
-use `UPSTREAM_DIR=/path/to/built/atproto node tests/external-ui.mjs`.
+Run `legacy/tests/external-accounts.mjs` in the compiled image. Local compiled UI checks
+use `UPSTREAM_DIR=/path/to/built/atproto node legacy/tests/external-ui.mjs`.
 
 Remote CI, public provider registration, deployed callbacks, web/iOS tap counts,
 account-page password setup against staging, and live encrypted seed behavior
 remain acceptance work after #90. The prepared upstream proposal remains in
-`docs/upstream-proposal.md`; there is no published upstream issue URL yet.
+`docs/legacy/upstream-proposal.md`; there is no published upstream issue URL yet.
 
 Primary protocol sources: [Apple verification](https://developer.apple.com/documentation/signinwithapple/verifying-a-user),
 [Google discovery](https://accounts.google.com/.well-known/openid-configuration),

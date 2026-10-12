@@ -11,16 +11,22 @@ defaults:
 jobs:
   update:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: write
       pull-requests: write
       actions: write
       issues: write
     steps:
-      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+      # The checkout keeps its credentials: create-pull-request pushes the
+      # bump branch from it. Whether that step works without them is not
+      # verified.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: python3 scripts/check-upstream.py --write --report "$RUNNER_TEMP/upstream.md"
       # The report comes before the pull request, which the organization's
       # policy can refuse. One issue is kept current, not one opened per run.
+      # check-upstream.py writes no report when the pin is current, and the
+      # step then closes the issue.
       - name: Report releases newer than the pin
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -28,9 +34,14 @@ jobs:
         run: |
           set -euo pipefail
           report="$RUNNER_TEMP/upstream.md"
-          [ -s "$report" ] || exit 0
-          cat "$report" >> "$GITHUB_STEP_SUMMARY"
           number="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "in:title \"$TITLE\"" --json number,title --jq "map(select(.title == env.TITLE))[0].number // empty")"
+          if [ ! -s "$report" ]; then
+            if [ -n "$number" ]; then
+              gh issue close "$number" --repo "$GITHUB_REPOSITORY" --comment 'The pin is current.'
+            fi
+            exit 0
+          fi
+          cat "$report" >> "$GITHUB_STEP_SUMMARY"
           if [ -n "$number" ]; then
             gh issue edit "$number" --repo "$GITHUB_REPOSITORY" --body-file "$report"
           else
@@ -61,4 +72,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # Explicit dispatch runs with GITHUB_TOKEN. This fixed non-main ref can
         # run verify, but the build workflow's main-only publish guard rejects it.
-        run: gh workflow run build.yml --ref codex/upstream-pds --repo "$GITHUB_REPOSITORY"
+        # The parity harness, the restore run and the Rust gates also read
+        # upstream.json.
+        run: |
+          set -euo pipefail
+          for workflow in build.yml parity.yml restore.yml rust.yml; do
+            gh workflow run "$workflow" --ref codex/upstream-pds --repo "$GITHUB_REPOSITORY"
+          done

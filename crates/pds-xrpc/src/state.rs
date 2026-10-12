@@ -15,8 +15,6 @@ use crate::error::XrpcError;
 pub struct ServerConfig {
     /// `PDS_VERSION`, reported by the health route.
     pub version: Option<String>,
-    /// The service DID.
-    pub service_did: String,
     /// `PDS_SERVICE_HANDLE_DOMAINS`: hosted handle suffixes, each with its
     /// leading dot.
     pub handle_domains: Vec<String>,

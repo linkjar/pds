@@ -1250,7 +1250,6 @@ dependencies = [
 name = "pds-lexicon"
 version = "0.0.1"
 dependencies = [
- "anyhow",
  "pds-types",
  "serde",
  "serde_json",
@@ -1291,7 +1290,6 @@ dependencies = [
  "cid",
  "data-encoding",
  "pds-repo",
- "pds-types",
  "rusqlite",
  "sha2",
  "thiserror",
@@ -1301,7 +1299,6 @@ dependencies = [
 name = "pds-types"
 version = "0.0.1"
 dependencies = [
- "anyhow",
  "chrono",
  "cid",
  "data-encoding",

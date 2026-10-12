@@ -39,7 +39,7 @@ function pdsImage(spec: TargetSpec, override?: string): string {
 
 /** How a container of `image` reports that it serves. The Reference image has Node; the Candidate has only its binary. */
 function healthCommand(image: string): string {
-  if (image === process.env.PARITY_CANDIDATE_IMAGE) return 'linkjar-pds health'
+  if (image === targetSpec('candidate').image) return 'linkjar-pds health'
   return `node -e "fetch('http://127.0.0.1:3000/xrpc/_health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"`
 }
 
@@ -184,7 +184,7 @@ export function bootPds(target: TargetName, env: Record<string, string>, waitMs 
       outcome = 'exited'
       break
     }
-    const health = spawnSync('docker', ['exec', name, 'node', '-e', "fetch('http://127.0.0.1:3000/xrpc/_health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"], { encoding: 'utf8' })
+    const health = spawnSync('docker', ['exec', name, 'sh', '-c', healthCommand(pdsImage(spec))], { encoding: 'utf8' })
     if (health.status === 0) outcome = 'healthy'
     else spawnSync('sleep', ['0.5'])
   }

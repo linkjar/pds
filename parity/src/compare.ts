@@ -91,7 +91,7 @@ export type CompareOptions = {
 
 /** Returns the process exit status. */
 export function compare(left: TargetName, right: TargetName, options: CompareOptions = {}): number {
-  return check(left, right, transcripts(left), transcripts(right), options)
+  return check(left, right, transcripts(left), transcripts(right), options, 'pnpm parity run <target>')
 }
 
 /**
@@ -100,12 +100,13 @@ export function compare(left: TargetName, right: TargetName, options: CompareOpt
  */
 export function compareGroups(target: TargetName, left: string, right: string, options: CompareOptions = {}): number {
   const dir = (group: string) => join(targetSpec(target).runDir, 'transcripts', group)
-  return check(left, right, transcriptsIn(dir(left), 'restore'), transcriptsIn(dir(right), 'restore'), options)
+  return check(left, right, transcriptsIn(dir(left), 'restore'), transcriptsIn(dir(right), 'restore'), options, 'pnpm parity restore')
 }
 
-function check(left: string, right: string, a: Map<string, Transcript>, b: Map<string, Transcript>, options: CompareOptions): number {
+/** `hint` is the command that writes the transcripts. */
+function check(left: string, right: string, a: Map<string, Transcript>, b: Map<string, Transcript>, options: CompareOptions, hint: string): number {
   if (a.size === 0 || b.size === 0) {
-    console.error(`No transcripts for ${a.size === 0 ? left : right}. Run: pnpm parity run <target>`)
+    console.error(`No transcripts for ${a.size === 0 ? left : right}. Run: ${hint}`)
     return 2
   }
   const failed = [...a, ...b].filter(([, transcript]) => transcript.outcome.startsWith('failed'))

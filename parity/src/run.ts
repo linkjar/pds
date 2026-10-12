@@ -69,10 +69,15 @@ export async function runFiles(target: TargetName, files: string[], env: Record<
   await fixtures.stop()
   if (status !== 0) {
     // The stack is about to go; keep what its services said.
-    const dir = join(targetSpec(target).runDir, 'logs')
-    mkdirSync(dir, { recursive: true })
-    for (const service of ['pds', 'relay', 'plc', 'edge']) writeFileSync(join(dir, `${service}.log`), logs(target, service, 2000))
-    console.error(`Scenarios failed. Service logs are in ${dir}`)
+    console.error(`Scenarios failed. Service logs are in ${saveLogs(target)}`)
   }
   return status
+}
+
+/** Writes the last lines of each service's log to the target's run directory and returns the directory. */
+export function saveLogs(target: TargetName): string {
+  const dir = join(targetSpec(target).runDir, 'logs')
+  mkdirSync(dir, { recursive: true })
+  for (const service of ['pds', 'relay', 'plc', 'edge']) writeFileSync(join(dir, `${service}.log`), logs(target, service, 2000))
+  return dir
 }

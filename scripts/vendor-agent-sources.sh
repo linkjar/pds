@@ -23,7 +23,7 @@ for arg in "$@"; do
     --refresh) MODE=refresh ;;
     --list) MODE=list ;;
     -h | --help)
-      sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)

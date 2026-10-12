@@ -2,7 +2,7 @@
   "name": "linkjar-pds-parity",
   "private": true,
   "type": "module",
-  "description": "Parity harness for LinkJar PDS (SPEC section 17): the official atproto SDK at the pin drives the reference image and, later, the Candidate.",
+  "description": "Parity harness for LinkJar PDS (SPEC section 17): the official atproto SDK at the pin drives the reference image and the Candidate.",
   "packageManager": "pnpm@12.4.1",
   "engines": {
     "node": ">=24.21.0 <25"

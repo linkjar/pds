@@ -3,7 +3,7 @@
 Implements the local tooling portion of [linkjar.io #91](https://github.com/linkjar/linkjar.io/issues/91).
 Nothing here provisions a VM, changes DNS, starts the public PDS or proves an R2
 restore. The target from #89 is **RPO ≤60 seconds and RTO ≤30 minutes**, measured
-at the actual launch dataset. The [provisioning runbook](../docs/runbooks/pds.md)
+at the actual launch dataset. The [provisioning runbook](../../docs/legacy/runbooks/pds.md)
 and its pending external inputs still apply.
 
 ## Data and encryption

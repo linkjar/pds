@@ -1,6 +1,6 @@
 //! The LinkJar PDS binary (`docs/SPEC.md` §14.2).
 //!
-//! This unit has `serve` (the read-only server), `verify`, `export-car`,
+//! As of unit 3 it has `serve` (the read-only server), `verify`, `export-car`,
 //! `check-config`, `health` and `version`. The other commands of §14.2
 //! arrive with their units (`docs/plan.md`).
 
@@ -19,7 +19,8 @@ Usage: linkjar-pds <command>
   verify [--json]    check the data directory; exit 1 when it finds a difference
   export-car <did>   write one repository to standard output as a CAR
   check-config       validate the configuration and exit
-  health             ask the local server's health route; exit 0 when it answers 200
+  health             ask the local server's health route; exit 0 when it answers 200,
+                     and 1 otherwise
   version            print the version
 
 Configuration comes from the environment (PDS_*).";
@@ -27,6 +28,7 @@ Configuration comes from the environment (PDS_*).";
 /// The failure of a command, as the message for standard error.
 type Failure = Box<dyn std::error::Error>;
 
+/// The runtime of `serve`.
 fn runtime() -> std::io::Result<tokio::runtime::Runtime> {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -46,6 +48,9 @@ fn init_logging() {
 
 /// Writes one repository as the tree-ordered CAR of `Repo::export`.
 fn export_car(config: &Config, did: &str) -> Result<(), Failure> {
+    // The argument becomes a part of a path, so it is a DID first.
+    let did = did.parse::<pds_types::Did>()?;
+    let did = did.as_str();
     let store = ActorDb::open(&config.layout.actor_db(did))?;
     let root = store.root()?.ok_or("the store has no repository root")?;
     let budget = usize::try_from(store.block_count()?).unwrap_or(usize::MAX);
@@ -56,17 +61,43 @@ fn export_car(config: &Config, did: &str) -> Result<(), Failure> {
     Ok(())
 }
 
-/// Asks the server on this host for its health route.
-fn health(config: &Config) -> Result<bool, Failure> {
+/// Asks the server on this host for its health route. Only the status 200
+/// is healthy (SPEC §14.2).
+fn health() -> Result<(), Failure> {
+    let config = Config::from_env()?;
     let url = format!("http://127.0.0.1:{}/xrpc/_health", config.port);
-    runtime()?.block_on(async {
-        let response = reqwest::Client::new()
-            .get(url)
-            .timeout(std::time::Duration::from_secs(3))
-            .send()
-            .await?;
-        Ok(response.status().is_success())
-    })
+    // The request goes to this host, never to a proxy from the environment.
+    let client = reqwest::Client::builder().no_proxy().build()?;
+    let status = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?
+        .block_on(async {
+            client
+                .get(url)
+                .timeout(std::time::Duration::from_secs(3))
+                .send()
+                .await
+        })?
+        .status();
+    if status == reqwest::StatusCode::OK {
+        Ok(())
+    } else {
+        Err(format!("the health route answered {status}").into())
+    }
+}
+
+/// The exit code of `health`: 0 when the server is healthy and 1 for every
+/// other outcome, no answer and an invalid configuration among them. A
+/// container health check has no other exit code.
+#[allow(clippy::print_stderr)] // the reason is for the health check's log
+fn health_exit() -> ExitCode {
+    match health() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("linkjar-pds: health: {error}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 #[allow(clippy::print_stdout)] // a command reports on standard output
@@ -84,16 +115,22 @@ fn run(args: &[String]) -> Result<ExitCode, Failure> {
             ExitCode::SUCCESS
         });
     }
+    let words: Vec<&str> = args.iter().map(String::as_str).collect();
+    if words == ["health"] {
+        return Ok(health_exit());
+    }
     let config = Config::from_env()?;
-    match (command, args.get(1).map(String::as_str)) {
-        (Some("serve"), None) => {
+    // A command takes its own arguments and no others.
+    match words.as_slice() {
+        ["serve"] => {
             init_logging();
             runtime()?.block_on(serve::serve(&config))?;
             Ok(ExitCode::SUCCESS)
         }
-        (Some("verify"), flag @ (None | Some("--json"))) => {
+        ["verify"] | ["verify", "--json"] => {
+            warn_unknown(&config);
             let report = verify::verify(&config)?;
-            if flag.is_some() {
+            if words.len() == 2 {
                 println!("{}", report.to_json());
             } else {
                 print!("{report}");
@@ -104,21 +141,26 @@ fn run(args: &[String]) -> Result<ExitCode, Failure> {
                 ExitCode::FAILURE
             })
         }
-        (Some("export-car"), Some(did)) => {
+        ["export-car", did] => {
             export_car(&config, did)?;
             Ok(ExitCode::SUCCESS)
         }
-        (Some("check-config"), None) => {
+        ["check-config"] => {
+            warn_unknown(&config);
             config.serve_secrets()?;
             println!("the configuration is valid");
             Ok(ExitCode::SUCCESS)
         }
-        (Some("health"), None) => Ok(if health(&config)? {
-            ExitCode::SUCCESS
-        } else {
-            ExitCode::FAILURE
-        }),
         _ => Err(USAGE.into()),
+    }
+}
+
+/// Warns on standard error about each `PDS_*` variable that SPEC Appendix C
+/// does not name (SPEC §14.1). `serve` writes the same warning to its log.
+#[allow(clippy::print_stderr)] // standard output belongs to the command's result
+fn warn_unknown(config: &Config) {
+    for name in &config.unknown_variables {
+        eprintln!("linkjar-pds: warning: unknown variable {name}");
     }
 }
 

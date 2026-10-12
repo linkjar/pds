@@ -66,7 +66,7 @@ Record which path was chosen and its renewal owner before publishing DNS.
 Do not weaken Full (strict) to make a failing origin certificate work.
 
 Add proxied A records for `pds` and `*`; add AAAA only for working public IPv6.
-Import the reviewed [handle routing snippet](../../staging/Caddyfile.handles) into
+Import the reviewed [handle routing snippet](../../../legacy/staging/Caddyfile.handles) into
 the TLS site. For the host-installed Caddy topology above, set
 `PDS_UPSTREAM=127.0.0.1:3000` in Caddy's service environment; its `pds:3000`
 default is for Caddy on the Compose network. The canonical PDS host
@@ -81,7 +81,7 @@ credentials to a separate `${PDS_SETUP_FILE}.backup` file (by default,
 `/etc/linkjar-pds-backup/backup.env`, root-owned, mode 0600. It contains only names
 accepted by `recovery/run-with-env.py`; never concatenate it with the runtime file.
 Install the restic password and 32-byte SSE-C key separately at the paths it names.
-Keep recoverable copies outside the host. See [recovery tooling](../../recovery/README.md).
+Keep recoverable copies outside the host. See [recovery tooling](../../../legacy/recovery/README.md).
 
 The current infra module does not install recovery services or the mail-events
 receiver. Integrate those tools through reviewed NixOS configuration, rather than
@@ -200,7 +200,7 @@ run end to end, and no real credential or external setup action was exercised.
 
 ## Recovery tooling (#91)
 
-[Backup configuration, pinned tools, restore gates and alert rules](../../recovery/README.md)
+[Backup configuration, pinned tools, restore gates and alert rules](../../../legacy/recovery/README.md)
 cover the local preparation for losing the PDS host. The disposable local crash
 drill includes dynamically discovered SQLite files and encrypted actor/config
 material. Fresh-VM R2 restoration, key/DID and sequencer reconciliation, signed

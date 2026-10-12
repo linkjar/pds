@@ -62,12 +62,10 @@ export function targetSpec(name: TargetName): TargetSpec {
     reference: process.env.PARITY_REFERENCE_IMAGE ?? byDigest(images.reference),
     stock: process.env.PARITY_STOCK_IMAGE ?? images.stock.tag,
     official: upstream.officialImage,
-    candidate: process.env.PARITY_CANDIDATE_IMAGE ?? '',
+    // An empty variable counts as unset.
+    candidate: process.env.PARITY_CANDIDATE_IMAGE || CANDIDATE_TAG,
     repeat: process.env.PARITY_REFERENCE_IMAGE ?? byDigest(images.reference),
   }[name]
-  if (!image) {
-    throw new Error(`Target ${name} has no image. Set PARITY_CANDIDATE_IMAGE (the Candidate serves traffic from unit 3).`)
-  }
   return {
     name,
     image,

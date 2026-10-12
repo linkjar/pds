@@ -9,7 +9,7 @@ import { scenario } from '../../src/scenario.ts'
 import { targetSpec } from '../../src/stack/targets.ts'
 
 const NOTE = 'com.example.parity.note'
-export const RECORDS = Number(process.env.PARITY_RESTORE_RECORDS ?? 100_000)
+const RECORDS = Number(process.env.PARITY_RESTORE_RECORDS ?? 100_000)
 
 scenario('00-seed', { timeoutMs: 3_600_000 }, async (s) => {
   const big = await s.createAccount('big')

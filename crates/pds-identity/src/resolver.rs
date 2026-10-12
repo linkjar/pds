@@ -5,9 +5,25 @@
 //! served until it is older than the maximum lifetime; once it is older
 //! than the stale lifetime it is still served, and refreshed in the
 //! background. These are the Reference's rules
-//! (`packages/identity/src/did/base-resolver.ts` at the pin).
+//! (`packages/identity/src/did/base-resolver.ts` at the pin). At most one
+//! background refresh runs for a DID at a time.
+//!
+//! The cache is synchronous, so the resolver calls it on the blocking pool
+//! (SPEC §3.2).
+//!
+//! # Not done: safe fetch
+//!
+//! SPEC §15.1 requires every outbound request to resolve the host and to
+//! reject loopback, private, link-local and multicast addresses. The
+//! resolver does not do this. It checks the syntax of a `did:web` host name
+//! ([`crate::method`]) and not the address the name resolves to, so it
+//! fetches the document of a `did:web` whose name resolves to such an
+//! address. The resolver bounds the time and the size of a fetch. It does
+//! not forbid redirects: that is a property of the client the caller passes
+//! to [`DidResolver::new`].
 
-use std::sync::Arc;
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use pds_types::Did;
@@ -23,6 +39,8 @@ pub const MAX_DID_DOC_LEN: usize = 512 * 1024;
 ///
 /// A cache that fails answers as if it held nothing: resolution then goes
 /// to the network, as in the Reference.
+///
+/// The calls may block: the resolver runs them on the blocking pool.
 pub trait DidCache: Send + Sync {
     /// The cached document as JSON text, and when it was stored in
     /// milliseconds since the Unix epoch.
@@ -89,6 +107,40 @@ struct Inner {
     http: reqwest::Client,
     cache: Option<Arc<dyn DidCache>>,
     now_ms: Box<dyn Fn() -> i64 + Send + Sync>,
+    /// The DIDs with a background refresh in flight.
+    refreshing: Mutex<HashSet<String>>,
+}
+
+/// Marks a DID as being refreshed. Dropping the value removes the mark, so
+/// the mark goes on every exit of the refresh task, a panic included.
+struct Refreshing {
+    inner: Arc<Inner>,
+    did: String,
+}
+
+impl Refreshing {
+    /// Marks `did`, or returns `None` when a refresh of it is in flight.
+    fn begin(inner: &Arc<Inner>, did: &Did) -> Option<Self> {
+        let did = did.to_string();
+        let mut marked = inner
+            .refreshing
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        marked.insert(did.clone()).then(|| Self {
+            inner: Arc::clone(inner),
+            did,
+        })
+    }
+}
+
+impl Drop for Refreshing {
+    fn drop(&mut self) {
+        self.inner
+            .refreshing
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(&self.did);
+    }
 }
 
 impl std::fmt::Debug for DidResolver {
@@ -107,6 +159,11 @@ fn millis(duration: Duration) -> i64 {
 impl DidResolver {
     /// A resolver that fetches with `http`. `now_ms` is the clock: time
     /// enters the server through it (SPEC §3.2).
+    ///
+    /// `http` must not follow redirects: build it with
+    /// `reqwest::redirect::Policy::none()`. The resolver does not check
+    /// this, and it does not check the address a host resolves to (see the
+    /// module documentation).
     pub fn new(
         config: ResolverConfig,
         http: reqwest::Client,
@@ -119,6 +176,7 @@ impl DidResolver {
                 http,
                 cache,
                 now_ms: Box::new(now_ms),
+                refreshing: Mutex::new(HashSet::new()),
             }),
         }
     }
@@ -130,14 +188,22 @@ impl DidResolver {
         did: &Did,
         force_refresh: bool,
     ) -> Result<Option<Value>, ResolveError> {
-        if !force_refresh && let Some(doc) = self.cached(did) {
+        if !force_refresh && let Some(doc) = self.cached(did).await {
             return Ok(Some(doc));
         }
         let fetched = self.fetch(did).await?;
         if let Some(cache) = &self.inner.cache {
-            match &fetched {
-                Some(doc) => cache.put(did.as_str(), &doc.to_string(), (self.inner.now_ms)()),
-                None => cache.clear(did.as_str()),
+            let cache = Arc::clone(cache);
+            let key = did.to_string();
+            let text = fetched.as_ref().map(Value::to_string);
+            let now = (self.inner.now_ms)();
+            let stored = tokio::task::spawn_blocking(move || match text {
+                Some(text) => cache.put(&key, &text, now),
+                None => cache.clear(&key),
+            })
+            .await;
+            if let Err(error) = stored {
+                tracing::warn!(%did, %error, "storing in the DID cache failed");
             }
         }
         Ok(fetched)
@@ -155,25 +221,38 @@ impl DidResolver {
     }
 
     /// A cached document that is still served. A stale one starts a
-    /// refresh that does not hold up the caller.
-    fn cached(&self, did: &Did) -> Option<Value> {
-        let cache = self.inner.cache.as_ref()?;
-        let (text, updated_at) = cache.get(did.as_str())?;
+    /// refresh that does not hold up the caller. A cache read that fails is
+    /// a miss.
+    async fn cached(&self, did: &Did) -> Option<Value> {
+        let cache = Arc::clone(self.inner.cache.as_ref()?);
+        let key = did.to_string();
+        let (text, updated_at) = tokio::task::spawn_blocking(move || cache.get(&key))
+            .await
+            .ok()??;
         let age = (self.inner.now_ms)().saturating_sub(updated_at);
         if age > millis(self.inner.config.max_ttl) {
             return None;
         }
         let doc: Value = serde_json::from_str(&text).ok()?;
         if age > millis(self.inner.config.stale_ttl) {
-            let resolver = self.clone();
-            let did = did.clone();
-            tokio::spawn(async move {
-                if let Err(error) = resolver.resolve(&did, true).await {
-                    tracing::warn!(%did, %error, "refreshing the DID cache failed");
-                }
-            });
+            self.refresh_in_background(did);
         }
         Some(doc)
+    }
+
+    /// Starts a refresh of `did`, unless one is in flight.
+    fn refresh_in_background(&self, did: &Did) {
+        let Some(mark) = Refreshing::begin(&self.inner, did) else {
+            return;
+        };
+        let resolver = self.clone();
+        let did = did.clone();
+        tokio::spawn(async move {
+            let _mark = mark;
+            if let Err(error) = resolver.resolve(&did, true).await {
+                tracing::warn!(%did, %error, "refreshing the DID cache failed");
+            }
+        });
     }
 
     async fn fetch(&self, did: &Did) -> Result<Option<Value>, ResolveError> {

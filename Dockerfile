@@ -5,10 +5,10 @@
 # as uid 1000, the uid of the reference image, so a data directory moves
 # between the two without a change of owner (section 8.2).
 
-FROM rust:1.99-slim-trixie AS build
+# The image tag is the toolchain pin: rust-toolchain.toml follows "stable"
+# and .dockerignore keeps it out of the build context.
+FROM rust:1.99.0-slim-trixie AS build
 WORKDIR /src
-# rust-toolchain.toml follows "stable"; the image tag is the pin here.
-ENV RUSTUP_TOOLCHAIN=1.99.0
 COPY Cargo.toml Cargo.lock ./
 COPY crates crates
 COPY xtask xtask

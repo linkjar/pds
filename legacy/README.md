@@ -5,16 +5,17 @@ Tracks [linkjar.io #98](https://github.com/linkjar/linkjar.io/issues/98).
 External sign-in and account linking belong to #99/#100; this repository provides
 the build, patch and staging-image boundary for that work.
 
-[Local verification record](docs/local-verification.json): all three ARM64 image
+[Local verification record](../docs/legacy/local-verification.json): all three ARM64 image
 profiles built; official-image parity, production startup, and real-PAR Chromium
-checks passed. [Original UI](docs/unpatched.png) and [rebuilt branding UI](docs/branding-smoke.png)
+checks passed. [Original UI](../docs/legacy/unpatched.png) and [rebuilt branding UI](../docs/legacy/branding-smoke.png)
 are captured from the containers. Remote CI, GHCR publication, staging acceptance,
 and filing the upstream proposal are separate outstanding steps.
 
 ## Build and verify
 
 Requirements: Docker/BuildKit, Python 3, Node 24 and npm. The atproto build itself
-runs with upstream's pinned Node/pnpm inside Docker.
+runs with upstream's pinned Node/pnpm inside Docker. Run the commands below from
+`legacy/`.
 
 ```sh
 python3 scripts/check.py
@@ -27,15 +28,15 @@ docker build -t linkjar-pds:production .
 python3 scripts/smoke.py --browser
 ```
 
-`upstream.json` pins a stable PDS tag, its **peeled commit**, local patch revision
+`../upstream.json` pins a stable PDS tag, its **peeled commit**, local patch revision
 and official distribution comparator digest. Fetch verifies both tag and commit;
 a moved tag fails. `Dockerfile` is generated from the verbatim upstream service
-Dockerfile in `docs/upstream.Dockerfile`, adding only source fetch and patch steps
+Dockerfile in `../docs/legacy/upstream.Dockerfile`, adding only source fetch and patch steps
 and redirecting source copies to that stage. It retains upstream's build order,
 runtime user, entrypoint, telemetry and environment defaults.
 The verbatim upstream Dockerfile and branding patch context retain the pinned
-[Bluesky copyright and license notice](docs/upstream-LICENSE.txt), with its
-[MIT](docs/upstream-LICENSE-MIT.txt) and [Apache-2.0](docs/upstream-LICENSE-APACHE.txt)
+[Bluesky copyright and license notice](../docs/legacy/upstream-LICENSE.txt), with its
+[MIT](../docs/legacy/upstream-LICENSE-MIT.txt) and [Apache-2.0](../docs/legacy/upstream-LICENSE-APACHE.txt)
 texts alongside it. These notices describe vendored upstream material; they do not
 assign a new license to LinkJar's own code.
 
@@ -56,7 +57,7 @@ port. Containers use random local ports and are removed with their volumes.
 
 See [patches/README.md](patches/README.md). `production` is the default profile;
 `none` and `branding-smoke` exist only for verification. Production includes the
-[hosted handle policy](docs/handle-policy.md) from #93. The branding example changes
+[hosted handle policy](../docs/legacy/handle-policy.md) from #93. The branding example changes
 a sign-in title, is rebuilt through Lingui and Vite, and is never published. The
 provider (#99) and linking (#100) patches consume this policy and keep their own
 upstream/removal plans.
@@ -155,7 +156,7 @@ an image tag alone is not a database rollback.
 
 ## Upstream proposal
 
-[Prepared proposal](docs/upstream-proposal.md), target
+[Prepared proposal](../docs/legacy/upstream-proposal.md), target
 [bluesky-social/atproto](https://github.com/bluesky-social/atproto/issues/new).
 It is a draft until its actual issue URL is recorded here and in #98.
 
@@ -171,25 +172,25 @@ It is a draft until its actual issue URL is recorded here and in #98.
 For the repeatable human setup path requested by linkjar/linkjar.io#90, run
 [`scripts/provision-wizard.sh`](scripts/provision-wizard.sh) in an interactive
 terminal. It collects private local inputs without deploying a server. See
-[`docs/runbooks/pds.md`](docs/runbooks/pds.md) for topology, secret inventory and
+[`docs/legacy/runbooks/pds.md`](../docs/legacy/runbooks/pds.md) for topology, secret inventory and
 the live checks that remain required. Staging Compose requires 2.30+ so raw
 secret values are not interpolated.
 
 ## External sign-in
 
-[Provider setup and validation](docs/external-providers.md) covers the optional
+[Provider setup and validation](../docs/legacy/external-providers.md) covers the optional
 Apple, Google, and GitHub patch. Providers stay disabled until their complete
 credentials are configured. Account creation and identity linkage are atomic;
 email is never used to discover an existing account. Revision 4 includes the
 provider patch after the revision 3 handle-policy dependency. Live provider
 registration and deployed acceptance remain part of #90/#99.
 
-See [account creation receipts](docs/signup-receipt.md) for the authenticated
+See [account creation receipts](../docs/legacy/signup-receipt.md) for the authenticated
 web/iOS onboarding extension following provider signup.
 
 ## Provider policy
 
-[Provider configuration and support procedures](docs/provider-policy.md) supplies
+[Provider configuration and support procedures](../docs/legacy/provider-policy.md) supplies
 the LinkJar branding/trusted-client example and #94's hosting-policy content
 inventory. Revision 6 rejects fresh legacy signup when hCaptcha is configured,
 preserves authenticated DID imports, and rejects partial hCaptcha configuration.
@@ -198,7 +199,7 @@ required before opening signup.
 
 ## Sign-in methods
 
-[Account linking and notification behavior](docs/signin-methods.md) describes
+[Account linking and notification behavior](../docs/legacy/signin-methods.md) describes
 revision 7's explicit provider linking, last-method unlink protection and durable
 security mail. Automatic email linking and Apple account-deletion support remain
 separate work under #100.
@@ -213,15 +214,15 @@ R2 drill and live acceptance remain required before opening accounts.
 The current operator host is the provisioned ARM64 NixOS system in
 [linkjar/infra](https://github.com/linkjar/infra). Run
 `scripts/provision-wizard.sh` to collect its runtime inputs and separate backup
-credentials. The [runbook](docs/runbooks/pds.md) describes the handoff and remaining
+credentials. The [runbook](../docs/legacy/runbooks/pds.md) describes the handoff and remaining
 recovery integration. Compose and the Ubuntu bootstrap are fixture/legacy paths,
 not the deployment procedure for that host.
 
 ## Rust implementation
 
-[LinkJar PDS in Rust](docs/rust/README.md) records the decision to replace
+[LinkJar PDS in Rust](../docs/README.md) records the decision to replace
 this patched reference build with a Rust server whose account behaviour is
-native extension points. [Its specification](docs/rust/SPEC.md) defines
+native extension points. [Its specification](../docs/SPEC.md) defines
 compatibility with the pinned reference, the extension model, the parity
 harness and the in-place cutover. The reference image stays the deployed
 server until that cutover unit runs.

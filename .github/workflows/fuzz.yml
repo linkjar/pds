@@ -32,6 +32,7 @@ jobs:
           - identity_did_doc
           - identity_key
           - lexicon_record
+          - xrpc_request
         # Targets that start from files in the repository. The files are
         # read; new inputs go to the cached corpus.
         include:
@@ -56,13 +57,13 @@ jobs:
           path: fuzz/corpus/${{ matrix.target }}
           key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
           restore-keys: fuzz-corpus-${{ matrix.target }}-
-      # The prebuilt cargo-fuzz is a musl binary and builds for its own
-      # triple unless told otherwise; the sanitizers need the gnu target.
       - run: mkdir -p "fuzz/corpus/$TARGET"
         env:
           TARGET: ${{ matrix.target }}
       # The first directory is the corpus that grows; the second, when the
       # target has one, is read only.
+      # The prebuilt cargo-fuzz is a musl binary and builds for its own
+      # triple unless told otherwise; the sanitizers need the gnu target.
       - run: |
           corpus=("fuzz/corpus/$TARGET")
           if [ -n "$SEEDS" ]; then corpus+=("$SEEDS"); fi

@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import { loadSeed } from '../../src/lib/seed.ts'
 import { get, raw, read } from '../../src/lib/reads.ts'
 import { scenario } from '../../src/scenario.ts'
-import { HOSTS } from '../../src/stack/targets.ts'
+import { HOSTS, upstream } from '../../src/stack/targets.ts'
 
 scenario('10-plain-routes', {}, async (s) => {
   const seed = loadSeed(s.target.name)
@@ -14,7 +14,7 @@ scenario('10-plain-routes', {}, async (s) => {
 
   assert.equal((await raw(s, 'banner', '/')).status, 200)
   assert.equal((await raw(s, 'robots.txt', '/robots.txt')).status, 200)
-  assert.equal((await raw(s, 'health', '/xrpc/_health')).json.version, '0.5.34')
+  assert.equal((await raw(s, 'health', '/xrpc/_health')).json.version, upstream.tag.split('@').at(-1))
   await raw(s, 'a path that is not served', '/nope')
   await raw(s, 'a path with markup', '/<b>&"x')
   await raw(s, '/xrpc without a slash', '/xrpc')

@@ -43,9 +43,10 @@ and the [decision record](research/2026-10-12-repository-crate.md) §7; the
 changes are listed in Appendix I.
 
 Revision 6 follows unit 3, the read-only server. It states what the
-comparison of the Candidate with the Reference on one data directory
-showed: the order of the export, the phases of parameter validation, the
-shape of an `/xrpc/` path, and what `verify` checks. The evidence is in the
+restore run showed: the block order of the export, the two phases of
+parameter validation and the shape of an `/xrpc/` path. It also lists what
+`verify` checks and names the restore run as the oracle of §18.2. The
+evidence is in the
 [unit record](research/2026-10-13-read-only-server.md); the changes are
 listed in Appendix J.
 
@@ -89,7 +90,8 @@ listed in Appendix J.
 
 - **Reference**: the pinned upstream PDS, `@atproto/pds@0.5.34` at commit
   `7ca16cc6989f8247637615aca17c5abb911b8fb1` ([upstream.json](../upstream.json)),
-  built by this repository's `Dockerfile` with the `production` patch profile
+  built by [`legacy/Dockerfile`](../legacy/Dockerfile) with the `production`
+  patch profile
   at the patch revision named in §13 (the **patch pin**).
 - **Stock Reference**: the same build with `PATCH_PROFILE=none`.
 - **Candidate**: a build of LinkJar PDS under test.
@@ -242,7 +244,7 @@ and agrees with the Candidate; the stock build applies no patch.
 
 ### 3.1 Crates
 
-The repository root becomes a Cargo workspace (Appendix D, D4). Crate names
+The repository root is a Cargo workspace (Appendix D, D4). Crate names
 are provisional.
 
 | Crate | Owns |
@@ -1208,7 +1210,7 @@ here.
 On 2026-10-12 the owner decided to keep the upstream pin at 0.5.34 and to
 carry upstream's shared-node fix
 ([#5584](https://github.com/bluesky-social/atproto/pull/5584)) as a ninth
-patch, `104-mst-shared-node`. It is engine behaviour for every profile, so
+patch, [`104-mst-shared-node`](legacy/mst-shared-node.md). It is engine behaviour for every profile, so
 its rule is in §6.1 and not in the table below. The patch pin moved with
 it: the stack has nine patches, and the reference image is revision 12.
 
@@ -1293,8 +1295,9 @@ time.
 
 - Toolchain pinned by `rust-toolchain.toml` (latest stable at each pin) and
   `Cargo.lock`; devenv defines the development environment with
-  `languages.rust` from the toolchain file, git hooks for rustfmt and clippy,
-  `services.postgres` for the shared-tier tests, and `processes` for the
+  `languages.rust` from the toolchain file, rustfmt and clippy hooks that
+  devenv defines and does not install (run by hand with `pds:hooks`; CI
+  holds the same gates), `services.postgres` for the shared-tier tests, and `processes` for the
   Harness.
 - CI gates on every pull request: `cargo fmt --check`, `cargo clippy
   --all-targets -D warnings`, the unit and property tests, the interop
@@ -1454,8 +1457,8 @@ compared byte for byte, and the shared-node trees of upstream's
 - **O6 Stock equivalence.** The whole suite with `PDS_PROFILE=stock` against
   Stock Reference (C6).
 - **O7 LinkJar journeys.** The browser gate and the kit self-test from
-  `linkjar.io` pointed at the Candidate, and this repository's `tests/*.mjs`
-  suites ported to run against an HTTP endpoint.
+  `linkjar.io` pointed at the Candidate, and this repository's
+  `legacy/tests/*.mjs` suites ported to run against an HTTP endpoint.
 - **O8 Official app.** A recorded manual acceptance: the Bluesky app signs in
   through the Candidate and posts.
 - **O9 Verify at pin.** Every item that revision 1 marked "verify at pin"
@@ -1465,8 +1468,8 @@ compared byte for byte, and the shared-node trees of upstream's
 
 ### 17.4 Gates
 
-Each delivery unit in the README names the oracles and scenarios that must
-pass before it merges. A unit does not merge on a partial oracle.
+Each delivery unit in [plan.md](plan.md#delivery-units) names the oracles
+and scenarios that must pass before it merges. A unit does not merge on a partial oracle.
 
 ## 18. Cutover and Rollback
 
@@ -1485,8 +1488,10 @@ pass before it merges. A unit does not merge on a partial oracle.
 
 ### 18.2 Verification
 
-`verify` opens the data directory read-only and writes nothing. For every
-actor it:
+`verify` opens the data directory read-only and changes no row and no
+database file. SQLite creates the `-shm` and `-wal` files beside a database
+in WAL mode when they are absent, so `verify` needs write access to the
+directories. For every actor it:
 
 - loads the commit that `repo_root` names, and compares that row with the
   one in the account database;
@@ -1500,9 +1505,10 @@ actor it:
 - checks that every blob a record references has a row in the blob index
   and, unless it is taken down, a file in the blob store.
 
-It then checks `repo_seq` for breaks in its sequence numbers, and prints a
-report, as text or with `--json`. It exits 0 with no difference and 1 with
-one or more. The revision in `repo_root` is not compared with the commit's:
+It then reads `repo_seq` and reports the breaks in its sequence numbers. A
+break is not a difference: the Reference deletes an account's earlier
+events when the account is deleted. `verify` prints a report, as text or
+with `--json`. It exits 0 with no difference and 1 with one or more. The revision in `repo_root` is not compared with the commit's:
 the Reference gives the root a new revision when it imports a repository
 whose commit it already holds.
 
@@ -1825,7 +1831,7 @@ New in the Candidate:
 | D1 | SQLite driver: `rusqlite` with bundled SQLite on a blocking pool, opened through `StorageIo`. Default: `rusqlite`. | 0 |
 | D2 | Resolved 2026-10-12: the repository engine is written in this repository, in `pds-repo`. `rsky-repo` was run on the same vectors and workload as published (0.0.6) and from its main branch (0.1.4); the [decision record](research/2026-10-12-repository-crate.md) has the evidence. | 2 |
 | D3 | HTML templating crate for §11.4. | 5 |
-| D4 | Workspace placement: the Cargo workspace at this repository's root with the image build moved under `image/` once the Candidate is the deployed server. | 0 |
+| D4 | Resolved 2026-10-08: the Cargo workspace is at the repository root. The reference image build is under `legacy/`; it stays buildable for security fixes until cutover and is removed afterwards. | 0 |
 | D5 | Resolved 2026-10-08: dual MIT and Apache-2.0. | 0 |
 | D6 | Resolved 2026-10-08: the Reference's OAuth key set is one HS256 key from `PDS_JWT_SECRET`. Moving to an asymmetric key set with `jwks` publication is a post-cutover change. | 5 |
 | D7 | Whether handle-host serving (§13.2) replaces the Caddy snippet on the host or sits behind it. | 8 |
@@ -1838,7 +1844,7 @@ New in the Candidate:
 | D14 | OAuth lifetimes where the Reference at the pin exceeds the specification's bounds: follow the pin through the rollback window, tighten afterwards. | 5 |
 | D15 | Resolved 2026-10-09: where the Reference answers 500 to a client error, the Candidate answers 400 `InvalidRequest`. Four cases: `createRecord` and `applyWrites` on a key that exists, `createAppPassword` with a name in use, an `atproto-proxy` value that does not start with a DID (§2.3, DD-1 to DD-4). | 4, 5 |
 | D16 | Resolved. Hardenings that the pin does not have and a client could observe. 2026-10-09: the Candidate refuses a replayed service token (§5.4; §2.3, DD-5). 2026-10-12: the Candidate collects an upload that no record references after one hour (§6.4; §2.3, DD-10), and it keeps no grace period before a dereferenced blob is deleted, as the pin. | 4 |
-| D17 | Resolved 2026-10-12: where the Candidate is stricter than the Reference at the pin on data from elsewhere, it keeps its check, and each case is a deliberate difference with a scenario that records what the pin does (§2.3, DD-6 to DD-9 and DD-11 to DD-13). The pin stays at 0.5.34 and the legacy build carries upstream's shared-node refusal of 0.5.37 as a ninth patch (§13). | 3, 4, 8 |
+| D17 | Resolved 2026-10-12: where the Candidate is stricter than the Reference at the pin on data from elsewhere, it keeps its check, and each case is a deliberate difference with a scenario that records what the pin does (§2.3, DD-6 to DD-9 and DD-11 to DD-13). The pin stays at 0.5.34 and the legacy build carries upstream's shared-node refusal of 0.5.37 as a ninth patch (§13). | 4, 5, 8 |
 
 ## Appendix E. Changes in Revision 1
 
@@ -1940,7 +1946,7 @@ Revision 4 follows unit 2, the repository crate decision.
 
 ## Appendix I. Changes in Revision 5
 
-Revision 5 applies three owner's decisions of 2026-10-12.
+Revision 5 applies three decisions that the owner took on 2026-10-12.
 
 - The pin stays at 0.5.34. The legacy build carries upstream's shared-node
   fix (#5584) as a ninth patch (§13).
@@ -1956,9 +1962,10 @@ Revision 5 applies three owner's decisions of 2026-10-12.
 
 Revision 6 follows unit 3, the read-only server.
 
-- §4.2 states how the method name is read from a path, which methods a
-  path answers, the two phases of parameter validation and that they come
-  before the credential, and the answer to a path or method that is not
+- §4.2 states how the method name is read from a path and which HTTP
+  methods an `/xrpc/` path answers. It states the two phases of parameter
+  validation, which run before the credential check. It states the answer
+  to a path that is not an XRPC path and to an HTTP method that is not
   served.
 - §6.6 states the block order of `sync.getRepo`, `sync.getRecord` and
   `sync.getBlocks`, and that the export is the Reference's bytes for the
@@ -1966,5 +1973,18 @@ Revision 6 follows unit 3, the read-only server.
 - §14.2 adds the `health` command.
 - §17.1 describes the restore run.
 - §18.2 lists what `verify` checks, drops the comparison of the root's
-  revision with the commit's, and names the restore run as the oracle.
-- §2.3: the scenarios of DD-11 and DD-12 move from unit 3 to unit 5.
+  revision with the commit's, and names the restore run as the oracle. It
+  states that a break in `repo_seq` is reported and is not a difference,
+  and that a read of a database in WAL mode creates the `-shm` and `-wal`
+  files beside it.
+- §2.3: the scenarios of DD-11 and DD-12 move from unit 3 to unit 5. DD-6
+  moves from the second table into the table of observed differences, with
+  the Reference's answers that `default/15-import` recorded.
+- Corrections of fact, which change no requirement. §0 names
+  `legacy/Dockerfile` as the build of the Reference; the root `Dockerfile`
+  builds the Candidate. §3.1 and D4 state the workspace placement as
+  resolved on 2026-10-08, with the reference image build under `legacy/`.
+  §13 links the document of patch 104. §14.5 says that devenv defines the
+  rustfmt and clippy hooks and does not install them. O7 in §17.3 names
+  `legacy/tests/*.mjs`. §17.4 names plan.md as the place of the delivery
+  units. D17 in Appendix D has the owner units 4, 5 and 8.

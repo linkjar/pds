@@ -1,4 +1,4 @@
-//! `sequencer.sqlite`: the event log. This unit reads it for `verify` only.
+//! `sequencer.sqlite`: the event log. Unit 3 reads it for `verify` only.
 
 use std::path::Path;
 
@@ -31,14 +31,12 @@ impl SequencerDb {
         })
     }
 
-    /// The number of events and the lowest and highest sequence numbers.
-    pub fn span(&self) -> Result<(u64, Option<i64>, Option<i64>), StorageError> {
-        let (count, min, max): (i64, Option<i64>, Option<i64>) = self.conn.query_row(
-            r#"select count(*), min("seq"), max("seq") from "repo_seq""#,
-            [],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-        )?;
-        Ok((u64::try_from(count).unwrap_or(0), min, max))
+    /// The number of events.
+    pub fn event_count(&self) -> Result<u64, StorageError> {
+        let count: i64 = self
+            .conn
+            .query_row(r#"select count(*) from "repo_seq""#, [], |row| row.get(0))?;
+        Ok(u64::try_from(count).unwrap_or(0))
     }
 
     /// Every break in the sequence numbers, in order.

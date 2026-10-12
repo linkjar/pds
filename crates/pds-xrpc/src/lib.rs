@@ -1,9 +1,11 @@
 //! The HTTP and XRPC surface (`docs/SPEC.md` §4).
 //!
-//! This unit serves the read half: the repository and sync reads,
+//! As of unit 3 the crate serves the read half: the repository and sync reads,
 //! `describeServer`, `resolveHandle` and the plain routes of §4.1. A method
-//! without a handler here answers 401 without a credential, as at the pin,
-//! and 501 with one until the proxy of §4.4 arrives (`docs/plan.md`).
+//! without a handler here answers as at the pin when the request has no
+//! session: 401 without a credential, 400 `InvalidToken` with the admin
+//! password. With a valid session it answers 501 until the proxy of §4.4
+//! arrives (`docs/plan.md`).
 
 pub mod api;
 pub mod auth;

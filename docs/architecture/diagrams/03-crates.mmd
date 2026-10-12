@@ -17,16 +17,19 @@ flowchart BT
   xtask[xtask<br/>codegen]
   lexicon --> types
   repo --> types
-  storage --> types & repo
-  blob --> storage
+  storage --> repo
+  storage -.-> types
+  blob -.-> storage
   identity --> types
-  sequencer --> repo & storage
-  account --> storage & identity & ext & audit
-  oauth --> account & lexicon & ext
-  audit --> storage & repo
-  xrpc --> types & lexicon & repo & storage & identity & sequencer & account & oauth & blob
-  ext --> types & storage
-  linkjar --> ext
-  sim --> storage & sequencer
-  bin --> xrpc & storage & identity & blob & repo & linkjar & sim
+  sequencer -.-> repo & storage
+  account -.-> storage & identity & ext & audit
+  oauth -.-> account & lexicon & ext
+  audit -.-> storage & repo
+  xrpc --> types & repo & storage & identity & blob
+  xrpc -.-> lexicon & sequencer & account & oauth
+  ext -.-> types & storage
+  linkjar -.-> ext
+  sim -.-> storage & sequencer
+  bin --> types & xrpc & storage & identity & blob & repo
+  bin -.-> linkjar & sim
   xtask --> lexicon

@@ -94,7 +94,7 @@ cargo build --workspace
 cargo test --workspace
 cargo xtask codegen --check     # generated types are current
 cargo deny check                 # advisories, licences, bans, sources
-devenv shell -- pds:check        # everything CI runs
+devenv shell -- pds:check        # the Rust gates of CI
 devenv shell -- pds:hooks        # the rustfmt and clippy hooks, by hand
 ```
 
@@ -125,6 +125,27 @@ pnpm parity compare reference repeat
 pnpm parity images build-candidate
 pnpm parity restore              # the Rust server on the reference's data
 ```
+
+## Measurements
+
+Three files hold the numbers measured so far:
+
+- [parity/results/perf-reads.md](parity/results/perf-reads.md): the reads
+  of both servers on one data directory with a repository of 100,000
+  records. The median `sync.getRepo` export of five runs took 1,385 ms on
+  the reference server and 167 ms on the Rust server, for the same bytes.
+  Memory before the first request was 280.4 MiB and 5.4 MiB.
+- [parity/results/perf-reference.md](parity/results/perf-reference.md): the
+  reference server's baseline for scenarios S1 to S5, S8 and S9 of SPEC
+  §16.1.
+- [bench/README.md](bench/README.md): the repository engine beside
+  `rsky-repo` on the same vectors and workload, the evidence for decision
+  D2.
+
+Each of the two result files is one run on one host, an Apple M1 Pro under
+Docker, and says of itself that it is not a benchmark. The requests in the
+read measurements are sequential, so they say nothing about throughput
+under load.
 
 ## Contributing
 

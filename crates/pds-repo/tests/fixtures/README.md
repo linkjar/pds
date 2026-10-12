@@ -16,5 +16,7 @@ node src/tools/repo-fixtures.ts ../crates/pds-repo/tests/fixtures
 | `export.car` | `getFullRepo` of that repository after the last commit. |
 | `dag-diamond-<depth>.car`, `dag-shared-chain-50x50.car` | Trees that reference one node more than once: the shapes of upstream's `packages/repo/tests/mst-dag.test.ts` at `a7c8604d` (0.5.37). |
 
-The file changes on every run: the library takes each `rev` from its clock,
-and the commit CIDs follow. The tests read the `rev` values from the file.
+`reference.json` and `export.car` change on every run: the library takes
+each `rev` from its clock, and the commit CIDs follow. The tests read the
+`rev` values from `reference.json`. The `dag-*.car` files use a fixed `rev`
+and do not change.

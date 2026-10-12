@@ -323,12 +323,21 @@ impl Params {
             .unwrap_or_default()
     }
 
-    /// The value of an integer parameter, or its default.
+    /// The value of an integer parameter, or its default when the request
+    /// gave none. `0` only when the handler asks for a name its own list
+    /// does not declare as an integer.
     pub fn integer(&self, name: &str) -> i64 {
         match self.values.get(name).and_then(|values| values.first()) {
             Some(Value::Integer(number)) => *number,
             _ => 0,
         }
+    }
+
+    /// The value of an integer parameter that bounds a page. `parse` has
+    /// checked its range, so the value fits. A value that does not fit gives
+    /// `0`, an empty page, and never an unbounded one.
+    pub fn limit(&self, name: &str) -> u32 {
+        u32::try_from(self.integer(name)).unwrap_or_default()
     }
 
     /// The value of a boolean parameter, or its default.

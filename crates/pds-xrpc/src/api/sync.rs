@@ -6,7 +6,7 @@ use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use cid::Cid;
 use pds_repo::{CarWriter, Repo, write_car};
-use pds_storage::{AccountDb, ActorDb};
+use pds_storage::{AccountDb, ActorDb, RepoRoot};
 use serde_json::{Map, Value, json};
 
 use super::{Query, repo_availability};
@@ -29,6 +29,15 @@ fn io_error(error: impl std::fmt::Display) -> std::io::Error {
     std::io::Error::other(error.to_string())
 }
 
+/// The store of a hosted account and its latest commit.
+fn open_with_root(state: &AppState, did: &str) -> Result<(ActorDb, RepoRoot), XrpcError> {
+    let store = ActorDb::open(&state.layout().actor_db(did))?;
+    let root = store
+        .root()?
+        .ok_or_else(|| XrpcError::internal("the store has no repository root"))?;
+    Ok((store, root))
+}
+
 /// `com.atproto.sync.getRepo`, and `getCheckout` when `with_since` is
 /// false.
 ///
@@ -48,10 +57,7 @@ pub async fn get_repo(
     let (store, root) = state
         .blocking(move |state| {
             repo_availability(state, &did, credentials.is_admin_or(&did))?;
-            let store = ActorDb::open(&state.layout().actor_db(&did))?;
-            let root = store
-                .root()?
-                .ok_or_else(|| XrpcError::internal("the store has no repository root"))?;
+            let (store, root) = open_with_root(state, &did)?;
             Ok((store, root.cid))
         })
         .await?;
@@ -92,10 +98,7 @@ pub async fn get_record(state: &AppState, query: &Query<'_>) -> Result<Response,
     let car = state
         .blocking(move |state| {
             repo_availability(state, &did, credentials.is_admin_or(&did))?;
-            let store = ActorDb::open(&state.layout().actor_db(&did))?;
-            let root = store
-                .root()?
-                .ok_or_else(|| XrpcError::internal("the store has no repository root"))?;
+            let (store, root) = open_with_root(state, &did)?;
             let repo = Repo::load(&store, root.cid)?;
             let proof = repo.record_proof(&key)?;
             Ok(write_car(Some(&root.cid), &proof))
@@ -105,6 +108,10 @@ pub async fn get_record(state: &AppState, query: &Query<'_>) -> Result<Response,
 }
 
 /// `com.atproto.sync.getBlocks`: the named blocks in a CAR without a root.
+///
+/// The handler checks that the store holds every block before the status
+/// line goes out. It then streams the blocks, so the server never holds the
+/// whole answer in memory.
 pub async fn get_blocks(state: &AppState, query: &Query<'_>) -> Result<Response, XrpcError> {
     let did = query.params.text("did").to_owned();
     let cids: Vec<Cid> = query
@@ -114,43 +121,45 @@ pub async fn get_blocks(state: &AppState, query: &Query<'_>) -> Result<Response,
         .filter_map(|cid| Cid::try_from(cid).ok())
         .collect();
     let credentials = query.credentials(state, &[])?;
-    let car = state
+    let (store, cids) = state
         .blocking(move |state| {
             repo_availability(state, &did, credentials.is_admin_or(&did))?;
             let store = ActorDb::open(&state.layout().actor_db(&did))?;
-            let blocks = store.blocks(&cids)?;
-            if !blocks.missing.is_empty() {
-                let list: Vec<String> = blocks.missing.iter().map(Cid::to_string).collect();
+            let missing = store.missing_blocks(&cids)?;
+            if !missing.is_empty() {
+                let list: Vec<String> = missing.iter().map(Cid::to_string).collect();
                 return Err(XrpcError::invalid_request(format!(
                     "Could not find cids: {}",
                     list.join(",")
                 )));
             }
-            let mut out = Vec::new();
-            let mut car = CarWriter::new(&mut out, None).map_err(XrpcError::internal)?;
-            for (cid, bytes) in &blocks.found {
-                car.block(cid, bytes).map_err(XrpcError::internal)?;
-            }
-            Ok(out)
+            Ok((store, cids))
         })
         .await?;
-    Ok(car_response(car))
+    let body = blocking_body(move |out| {
+        let mut car = CarWriter::new(out, None)?;
+        for batch in cids.chunks(pds_storage::BLOCK_BATCH) {
+            let blocks = store.blocks(batch).map_err(io_error)?;
+            if let Some(cid) = blocks.missing.first() {
+                return Err(io_error(format!("block {cid} left the store")));
+            }
+            for (cid, bytes) in &blocks.found {
+                car.block(cid, bytes)?;
+            }
+        }
+        Ok(())
+    });
+    Ok(car_response(body))
 }
 
 /// The latest commit of an account the caller may read.
-async fn readable_root(
-    state: &AppState,
-    query: &Query<'_>,
-) -> Result<pds_storage::RepoRoot, XrpcError> {
+async fn readable_root(state: &AppState, query: &Query<'_>) -> Result<RepoRoot, XrpcError> {
     let did = query.params.text("did").to_owned();
     let credentials = query.credentials(state, &[])?;
     state
         .blocking(move |state| {
             repo_availability(state, &did, credentials.is_admin_or(&did))?;
-            let store = ActorDb::open(&state.layout().actor_db(&did))?;
-            store
-                .root()?
-                .ok_or_else(|| XrpcError::internal("the store has no repository root"))
+            Ok(open_with_root(state, &did)?.1)
         })
         .await
 }
@@ -186,10 +195,7 @@ pub async fn get_repo_status(state: &AppState, query: &Query<'_>) -> Result<Resp
             if let Some(status) = actor.status() {
                 body.insert("status".to_owned(), status.into());
             } else {
-                let store = ActorDb::open(&state.layout().actor_db(&did))?;
-                let root = store
-                    .root()?
-                    .ok_or_else(|| XrpcError::internal("the store has no repository root"))?;
+                let (_, root) = open_with_root(state, &did)?;
                 body.insert("rev".to_owned(), root.rev.into());
             }
             Ok(Value::Object(body))
@@ -199,7 +205,7 @@ pub async fn get_repo_status(state: &AppState, query: &Query<'_>) -> Result<Resp
 }
 
 /// The cursor of `listRepos`: `<creation time in ms>::<did>`.
-fn parse_repo_cursor(cursor: &str) -> Result<(String, String), XrpcError> {
+pub fn parse_repo_cursor(cursor: &str) -> Result<(String, String), XrpcError> {
     let malformed = || XrpcError::invalid_request("Malformed cursor");
     let mut parts = cursor.split("::");
     let (Some(primary), Some(secondary), None) = (parts.next(), parts.next(), parts.next()) else {
@@ -226,7 +232,7 @@ fn parse_repo_cursor(cursor: &str) -> Result<(String, String), XrpcError> {
 
 /// `com.atproto.sync.listRepos`.
 pub async fn list_repos(state: &AppState, query: &Query<'_>) -> Result<Response, XrpcError> {
-    let limit = u32::try_from(query.params.integer("limit")).unwrap_or(500);
+    let limit = query.params.limit("limit");
     let cursor = query
         .params
         .get("cursor")
@@ -274,7 +280,7 @@ pub async fn list_repos(state: &AppState, query: &Query<'_>) -> Result<Response,
 pub async fn list_blobs(state: &AppState, query: &Query<'_>) -> Result<Response, XrpcError> {
     let did = query.params.text("did").to_owned();
     let since = query.params.get("since").map(str::to_owned);
-    let limit = u32::try_from(query.params.integer("limit")).unwrap_or(500);
+    let limit = query.params.limit("limit");
     let cursor = query.params.get("cursor").map(str::to_owned);
     let credentials = query.credentials(state, &[SCOPE_TAKENDOWN])?;
     let cids = state

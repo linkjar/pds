@@ -4,15 +4,12 @@ use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use pds_identity::resolver::claimed_handle;
 use pds_storage::{AccountDb, ActorDb, Availability, RecordRow};
-use pds_types::{Data, Did};
+use pds_types::{Data, Did, Handle};
 use serde_json::{Map, Value, json};
 
 use super::{Query, repo_availability};
 use crate::error::{XrpcError, json_response};
 use crate::state::AppState;
-
-/// The handle the Reference reports for an account that has none.
-const INVALID_HANDLE: &str = "handle.invalid";
 
 /// Record data as JSON, with the keys of each object in the order of the
 /// stored block: by length, then by bytes. The Reference decodes the block
@@ -125,7 +122,7 @@ async fn forward_to_appview(state: &AppState, query: &Query<'_>) -> Result<Respo
 pub async fn list_records(state: &AppState, query: &Query<'_>) -> Result<Response, XrpcError> {
     let repo = query.params.text("repo").to_owned();
     let collection = query.params.text("collection").to_owned();
-    let limit = u32::try_from(query.params.integer("limit")).unwrap_or(50);
+    let limit = query.params.limit("limit");
     let cursor = query.params.get("cursor").map(str::to_owned);
     let reverse = query.params.boolean("reverse");
     let rows = state
@@ -176,7 +173,7 @@ pub async fn describe_repo(state: &AppState, query: &Query<'_>) -> Result<Respon
         })
         .await?;
     let body = json!({
-        "handle": actor.handle.as_deref().unwrap_or(INVALID_HANDLE),
+        "handle": actor.handle.as_deref().unwrap_or(Handle::INVALID),
         "did": actor.did,
         "didDoc": did_doc,
         "collections": collections,

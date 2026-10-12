@@ -13,6 +13,8 @@ pds-types = { path = "../crates/pds-types" }
 pds-lexicon = { path = "../crates/pds-lexicon" }
 pds-identity = { path = "../crates/pds-identity" }
 pds-repo = { path = "../crates/pds-repo" }
+pds-xrpc = { path = "../crates/pds-xrpc" }
+http = "1"
 serde_json = "1"
 
 [[bin]]
@@ -102,6 +104,13 @@ bench = false
 [[bin]]
 name = "lexicon_record"
 path = "fuzz_targets/lexicon_record.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "xrpc_request"
+path = "fuzz_targets/xrpc_request.rs"
 test = false
 doc = false
 bench = false

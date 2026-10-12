@@ -20,9 +20,6 @@
     cargo-vet
     cargo-audit
     cargo-fuzz
-    cargo-nextest
-    bacon
-    cargo-shear
     sqlite
     jq
     python3
@@ -55,7 +52,8 @@
       cargo fmt --all -- --check
       cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
       cargo test --workspace --locked
-      cargo deny --locked check
+      cargo deny --all-features --locked check
+      cargo vet --locked
       cargo xtask codegen --check
     '';
     "pds:codegen".exec = "cargo xtask codegen";

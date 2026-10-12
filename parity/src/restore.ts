@@ -19,9 +19,9 @@ import { rmSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { compareGroups } from './compare.ts'
 import { readsReport } from './reads-report.ts'
-import { runFiles, scenarioFiles } from './run.ts'
+import { runFiles, saveLogs, scenarioFiles } from './run.ts'
 import { down, execPds, restartPds, swapPds, up } from './stack/compose.ts'
-import { CANDIDATE_TAG, targetSpec } from './stack/targets.ts'
+import { targetSpec } from './stack/targets.ts'
 
 export type RestoreOptions = {
   /**
@@ -31,17 +31,12 @@ export type RestoreOptions = {
   perf?: boolean
   /** Leave the stack running afterwards, with the Candidate serving. */
   keep?: boolean
-  /** Rewrite the recorded difference list instead of checking against it. */
-  update?: boolean
 }
 
 /** Returns the process exit status. */
 export async function restore(options: RestoreOptions = {}): Promise<number> {
   const target = 'candidate' as const
-  // The health check of the stack depends on which image runs, and tells the
-  // Candidate by this variable.
-  process.env.PARITY_CANDIDATE_IMAGE ??= CANDIDATE_TAG
-  const candidate = process.env.PARITY_CANDIDATE_IMAGE
+  const candidate = targetSpec(target).image
   const reference = targetSpec('reference').image
   const runDir = targetSpec(target).runDir
 
@@ -54,7 +49,6 @@ export async function restore(options: RestoreOptions = {}): Promise<number> {
   for (const group of ['restore-seed', 'restore-reference', 'restore-candidate']) {
     rmSync(join(runDir, 'transcripts', group), { recursive: true, force: true })
   }
-  await up(target, profile, { fresh: true, image: reference })
 
   const steps: [string, () => Promise<number> | number][] = [
     ['seed, on the Reference', () => runFiles(target, seeds, { PARITY_TRANSCRIPTS: 'restore-seed' })],
@@ -75,18 +69,28 @@ export async function restore(options: RestoreOptions = {}): Promise<number> {
       },
     ],
     ['verify', () => verify(runDir)],
-    ['compare', () => compareGroups(target, 'restore-reference', 'restore-candidate', { update: options.update })],
+    ['compare', () => compareGroups(target, 'restore-reference', 'restore-candidate')],
   ]
   let status = 0
-  for (const [name, step] of steps) {
-    console.log(`\n── restore: ${name}`)
-    status = await step()
-    if (status !== 0) {
-      console.error(`restore: "${name}" failed`)
-      break
+  try {
+    await up(target, profile, { fresh: true, image: reference })
+    for (const [name, step] of steps) {
+      console.log(`\n── restore: ${name}`)
+      status = await step()
+      if (status !== 0) {
+        console.error(`restore: "${name}" failed`)
+        break
+      }
     }
+  } catch (error) {
+    // A stack or a server that does not come up throws. Keep what the
+    // services said before the stack goes.
+    console.error(error instanceof Error ? error.message : error)
+    console.error(`restore: a step threw. Service logs are in ${saveLogs(target)}`)
+    status = 1
+  } finally {
+    if (!options.keep) down(target)
   }
-  if (!options.keep) down(target)
   if (status === 0 && options.perf) console.log(`\n${readsReport()}`)
   return status
 }
