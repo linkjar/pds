@@ -139,8 +139,11 @@ Each item was observed on the reference image, revision 11 or 12, on
 
 ## 4. What the unit leaves out
 
-Each item has a unit in [plan.md](../plan.md). None is reachable by the
-restore run, because its scenarios do not ask for it.
+Each item but the last has a unit in [plan.md](../plan.md). The restore run
+reaches these paths only where the Candidate already answers as the
+Reference: its scenarios send no valid session to a method without a
+handler, no `DPoP` credential, and the rate-limit bypass key on every
+request.
 
 | Not in this unit | The Candidate answers | Unit |
 |---|---|---|
@@ -152,6 +155,7 @@ restore run, because its scenarios do not ask for it.
 | The S3-compatible blob store | `getBlob` needs `PDS_BLOBSTORE_DISK_LOCATION`. | 4 |
 | The actor store LRU (SPEC §8.3) | A read opens its own read-only connection. | 4 |
 | The metrics and ops listeners, OTLP (SPEC §14.4) | Logs only: JSON lines on standard error. | 8, 9 |
+| Safe fetch in the DID resolver (SPEC §15.1) | The resolver checks the syntax of a `did:web` host name, not the address the name resolves to. It fetches the document of a `did:web` whose name resolves to a loopback, private, link-local or multicast address. It bounds the time and the size of a fetch. | 4, with the proxy, the first unit that fetches a URL a client can choose |
 
 DD-11 and DD-12 of SPEC §2.3 were planned for this unit. Neither can be
 observed yet: the server does not verify a handle itself, and
@@ -166,7 +170,11 @@ PDS_BLOBSTORE_DISK_LOCATION=/path/to/restore/blocks \
 linkjar-pds verify            # or: verify --json
 ```
 
-It opens every database read-only and writes nothing. It exits 0 with no
+It opens every database read-only and changes no row and no database file.
+SQLite still needs to write beside a database in WAL mode: a read creates
+the `-shm` and `-wal` files when they are absent and leaves them, so the
+user that runs `verify` needs write access to each database's directory
+([`wal.rs`](../../crates/pds-storage/tests/wal.rs)). It exits 0 with no
 difference, 1 with one or more, and 2 when it cannot run. Without
 `PDS_BLOBSTORE_DISK_LOCATION` it checks the blob index and says that the
 blob store was not checked.
@@ -174,7 +182,7 @@ blob store was not checked.
 | Finding | Meaning |
 |---|---|
 | `store-missing`, `store-unreadable`, `root-missing` | The actor has no store, the store does not open, or it has no repository root. |
-| `root-mismatch` | `account.sqlite` and the actor store name different commits or revisions. |
+| `root-mismatch` | `account.sqlite` and the actor store name different commits or revisions, or `account.sqlite` has no root row for the actor. |
 | `commit-invalid`, `commit-did` | The commit block does not decode, or names another account. |
 | `key-unreadable`, `signature-invalid` | The key file does not load as a secp256k1 key, or it did not sign the commit. |
 | `tree-shared-node` | The tree references a node more than once. An unpatched Reference accepts such an import (SPEC §2.3, DD-6). |
@@ -182,13 +190,24 @@ blob store was not checked.
 | `record-index-mismatch`, `record-uri` | The record index and the tree do not hold the same keys and records, or the index holds a record of another repository. |
 | `root-recompute-mismatch`, `root-recompute-failed` | The record index, written into an empty tree, does not give the commit's root. |
 | `record-block-missing` | A record of the index has no block. |
-| `blob-unindexed`, `blob-missing` | A record references a blob that has no row in the blob index, or that is not in the blob store and is not taken down. |
-| `sequence-gap` | The event log has a break in its sequence numbers. |
+| `blob-unindexed`, `blob-missing`, `blob-unreadable` | A record references a blob that has no row in the blob index; that is not in the blob store and is not taken down; or that the blob store could not be asked about. |
 
-SPEC §18.2 says that the same command run with the Reference serving the
-same copy is the oracle. The Reference has no such command. The restore run
-is the comparison: both servers serve the same copy, and their answers are
-compared.
+The subject of `store-unreadable` is `sequencer` when the event log does not
+open; the actors' findings are still reported.
+
+**Breaks in the event log are reported and are not differences.** The
+report gives their number and the first of them (`sequence breaks`;
+`sequenceBreaks` and `firstSequenceBreaks` with `--json`), and they do not
+change the exit code. The Reference deletes an account's earlier events
+when the account is deleted and keeps only the deletion event
+(`sequenceAccountDeletion`, `packages/pds/src/sequencer/sequencer.ts` lines
+226 to 236 at the pin), so a production copy with one deleted account has
+breaks.
+
+Up to revision 5, SPEC §18.2 named as the oracle the same command run with
+the Reference serving the same copy. The Reference has no such command.
+Revision 6 names the restore run instead: both servers serve the same copy,
+and the Harness compares their answers.
 
 ## 6. Dependencies
 
@@ -209,10 +228,36 @@ Two points for the owner, both in [plan.md](../plan.md):
 `cargo vet` passes with 276 exemptions, up from 135. No crate in the tree
 has an advisory on 2026-10-13.
 
-## 7. Not measured
+## 7. Read measurements
 
-The unit has no performance numbers. S3 of SPEC §16.1, the export of a
-large repository, is the scenario this unit can now answer for the
-Candidate; the Reference's baseline is in
-[perf-reference.md](../../parity/results/perf-reference.md). The run seeds
-100,000 records through the Reference and takes tens of minutes.
+`pnpm parity restore --perf` times the same reads on both servers over one
+data directory. The results are in
+[perf-reads.md](../../parity/results/perf-reads.md), measured on 2026-10-12
+on a repository of 100,000 records. Both servers returned the same export,
+byte for byte.
+
+| | Reference | Candidate |
+|---|---|---|
+| `sync.getRepo`, median of five runs, ms | 1,385 | 167 |
+| Memory growth over the five runs, MiB | 89.6 | 3.1 |
+| Memory before the first request, MiB | 280.4 | 5.4 |
+| `sync.getLatestCommit`, p50 / p99 ms over 200 requests | 2.7 / 9 | 1.4 / 2.8 |
+| `repo.getRecord` | 2.6 / 5 | 1.7 / 4.8 |
+| `sync.getRecord` | 5.5 / 14 | 1.5 / 3.5 |
+| `repo.listRecords`, 100 records | 118.6 / 215.7 | 108.4 / 210.4 |
+| `repo.describeRepo` | 8.5 / 14.9 | 6.3 / 8.6 |
+
+These numbers come from one run on one host: an Apple M1 Pro with Docker.
+They place the two servers beside each other on that host. They are not a
+benchmark of either server, and they are not a run against the targets of
+SPEC §16.2. Latencies are wall-clock times at the client, through the TLS
+edge. The requests are sequential, so the numbers say nothing about
+throughput under load. Memory is the anonymous memory of the PDS container,
+without the page cache. The Candidate opens a SQLite connection for each
+read in this unit; the actor store cache of SPEC §8.3 arrives with the
+write path.
+
+The export is the request of S3 in SPEC §16.1. The `perf` profile, which
+holds S1 to S5, S8 and S9, has not run against the Candidate: its scenarios
+write. The Reference's baseline for those scenarios is in
+[perf-reference.md](../../parity/results/perf-reference.md).

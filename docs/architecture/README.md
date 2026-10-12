@@ -57,7 +57,13 @@ SPEC §1, §21.1. Who talks to the PDS and over what. Source: [`02-system-contex
 ## Crates
 
 SPEC §3.1. Arrows point from a crate to the crates it depends on; the binary
-wires everything and extension crates depend only on the trait crate. Source:
+wires everything and extension crates depend only on the trait crate. The
+graph is the target of SPEC §3.1. A solid arrow is a dependency in a crate
+manifest today. A dashed arrow is planned: every arrow to or from a crate
+that is still a stub (`pds-account`, `pds-oauth`, `pds-audit`,
+`pds-sequencer`, `pds-ext`, `pds-ext-linkjar`, `pds-sim`), and the arrows
+from `pds-storage` to `pds-types`, from `pds-blob` to `pds-storage` and
+from `pds-xrpc` to `pds-lexicon`. Source:
 [`03-crates.mmd`](diagrams/03-crates.mmd).
 
 <picture>

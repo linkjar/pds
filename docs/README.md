@@ -8,7 +8,7 @@
 
 ## Plan and decisions
 
-- [plan.md](plan.md): why the project exists, the owner's decisions of 2026-10-08, the thirteen delivery units with gates and allowances, and the dated status log.
+- [plan.md](plan.md): why the project exists, the owner's decisions, the thirteen delivery units with gates and allowances, and the dated status log.
 - [sidecars.md](sidecars.md): the operations console and the MCP server, their contracts with the PDS, and what they may not hold.
 
 ## Architecture
@@ -44,5 +44,7 @@ The reference-image build that runs in production today lives under
 ([handle policy](legacy/handle-policy.md), [external providers](legacy/external-providers.md),
 [signup receipt](legacy/signup-receipt.md), [provider policy](legacy/provider-policy.md),
 [sign-in methods](legacy/signin-methods.md), [mail templates](legacy/mail-templates.md)),
-the [signup journey](legacy/signup-journey.md), the [runbooks](legacy/runbooks/pds.md),
+the [signup journey](legacy/signup-journey.md), the
+[shared-node fix](legacy/mst-shared-node.md) that the legacy build carries as
+its ninth patch, the [runbooks](legacy/runbooks/pds.md),
 the [upstream proposal](legacy/upstream-proposal.md) and the vendored upstream licences.

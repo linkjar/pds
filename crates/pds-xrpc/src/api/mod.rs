@@ -9,6 +9,7 @@ pub mod sync;
 use axum::extract::State;
 use axum::http::{HeaderMap, Method, Uri, header};
 use axum::response::{IntoResponse, Response};
+use pds_identity::handle::WELL_KNOWN_PATH;
 use pds_storage::{AccountDb, Actor, Availability};
 
 use crate::auth::{Credentials, optional_credentials};
@@ -44,35 +45,63 @@ impl Query<'_> {
     }
 }
 
-/// The parameters of each query this unit serves, in the order its lexicon
+/// A query the crate serves.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Served {
+    SyncGetRepo,
+    SyncGetCheckout,
+    SyncGetRecord,
+    SyncGetBlocks,
+    SyncGetLatestCommit,
+    SyncGetHead,
+    SyncGetRepoStatus,
+    SyncListRepos,
+    SyncListBlobs,
+    SyncGetBlob,
+    RepoGetRecord,
+    RepoListRecords,
+    RepoDescribeRepo,
+    ServerDescribeServer,
+    IdentityResolveHandle,
+}
+
+/// The query that `nsid` names and its parameters, in the order its lexicon
 /// declares them. `None` for a method without a handler.
-fn parameters(nsid: &str) -> Option<&'static [Spec]> {
+fn served(nsid: &str) -> Option<(Served, &'static [Spec])> {
     const DID: Spec = Spec::required("did", Format::Did);
+    const ONLY_DID: &[Spec] = &[DID];
+    const REPO_AND_SINCE: &[Spec] = &[DID, Spec::optional("since", Format::Tid)];
     Some(match nsid {
-        "com.atproto.sync.getRepo" => const { &[DID, Spec::optional("since", Format::Tid)] },
-        "com.atproto.sync.getCheckout"
-        | "com.atproto.sync.getLatestCommit"
-        | "com.atproto.sync.getHead"
-        | "com.atproto.sync.getRepoStatus" => const { &[DID] },
-        "com.atproto.sync.getRecord" => {
+        "com.atproto.sync.getRepo" => (Served::SyncGetRepo, REPO_AND_SINCE),
+        "com.atproto.sync.getCheckout" => (Served::SyncGetCheckout, ONLY_DID),
+        "com.atproto.sync.getLatestCommit" => (Served::SyncGetLatestCommit, ONLY_DID),
+        "com.atproto.sync.getHead" => (Served::SyncGetHead, ONLY_DID),
+        "com.atproto.sync.getRepoStatus" => (Served::SyncGetRepoStatus, ONLY_DID),
+        "com.atproto.sync.getRecord" => (
+            Served::SyncGetRecord,
             const {
                 &[
                     DID,
                     Spec::required("collection", Format::Nsid),
                     Spec::required("rkey", Format::RecordKey),
                 ]
-            }
-        }
-        "com.atproto.sync.getBlocks" => const { &[DID, Spec::list("cids", Format::Cid)] },
-        "com.atproto.sync.listRepos" => {
+            },
+        ),
+        "com.atproto.sync.getBlocks" => (
+            Served::SyncGetBlocks,
+            const { &[DID, Spec::list("cids", Format::Cid)] },
+        ),
+        "com.atproto.sync.listRepos" => (
+            Served::SyncListRepos,
             const {
                 &[
                     Spec::integer("limit", 1, 1000, 500),
                     Spec::optional("cursor", Format::Any),
                 ]
-            }
-        }
-        "com.atproto.sync.listBlobs" => {
+            },
+        ),
+        "com.atproto.sync.listBlobs" => (
+            Served::SyncListBlobs,
             const {
                 &[
                     DID,
@@ -80,10 +109,14 @@ fn parameters(nsid: &str) -> Option<&'static [Spec]> {
                     Spec::integer("limit", 1, 1000, 500),
                     Spec::optional("cursor", Format::Any),
                 ]
-            }
-        }
-        "com.atproto.sync.getBlob" => const { &[DID, Spec::required("cid", Format::Cid)] },
-        "com.atproto.repo.getRecord" => {
+            },
+        ),
+        "com.atproto.sync.getBlob" => (
+            Served::SyncGetBlob,
+            const { &[DID, Spec::required("cid", Format::Cid)] },
+        ),
+        "com.atproto.repo.getRecord" => (
+            Served::RepoGetRecord,
             const {
                 &[
                     Spec::required("repo", Format::AtIdentifier),
@@ -91,9 +124,10 @@ fn parameters(nsid: &str) -> Option<&'static [Spec]> {
                     Spec::required("rkey", Format::RecordKey),
                     Spec::optional("cid", Format::Cid),
                 ]
-            }
-        }
-        "com.atproto.repo.listRecords" => {
+            },
+        ),
+        "com.atproto.repo.listRecords" => (
+            Served::RepoListRecords,
             const {
                 &[
                     Spec::required("repo", Format::AtIdentifier),
@@ -102,15 +136,17 @@ fn parameters(nsid: &str) -> Option<&'static [Spec]> {
                     Spec::optional("cursor", Format::Any),
                     Spec::boolean("reverse", false),
                 ]
-            }
-        }
-        "com.atproto.repo.describeRepo" => {
-            const { &[Spec::required("repo", Format::AtIdentifier)] }
-        }
-        "com.atproto.server.describeServer" => const { &[] },
-        "com.atproto.identity.resolveHandle" => {
-            const { &[Spec::required("handle", Format::Handle)] }
-        }
+            },
+        ),
+        "com.atproto.repo.describeRepo" => (
+            Served::RepoDescribeRepo,
+            const { &[Spec::required("repo", Format::AtIdentifier)] },
+        ),
+        "com.atproto.server.describeServer" => (Served::ServerDescribeServer, &[]),
+        "com.atproto.identity.resolveHandle" => (
+            Served::IdentityResolveHandle,
+            const { &[Spec::required("handle", Format::Handle)] },
+        ),
         _ => return None,
     })
 }
@@ -147,7 +183,7 @@ pub async fn entry(
         "/" if reads => return root::banner(),
         "/robots.txt" if reads => return root::robots(),
         "/xrpc/_health" if reads => return root::health(&state).await,
-        "/.well-known/atproto-did" if reads => return root::atproto_did(&state, &headers).await,
+        WELL_KNOWN_PATH if reads => return root::atproto_did(&state, &headers).await,
         _ => {}
     }
     if !path.starts_with("/xrpc/") {
@@ -172,7 +208,7 @@ async fn xrpc(
     raw_query: Option<&str>,
     headers: &HeaderMap,
 ) -> Result<Response, XrpcError> {
-    let Some(specs) = parameters(nsid) else {
+    let Some((served, specs)) = served(nsid) else {
         return Err(unhandled(state, nsid, headers));
     };
     if method != Method::GET && method != Method::HEAD {
@@ -185,22 +221,22 @@ async fn xrpc(
         headers,
         raw_query,
     };
-    match nsid {
-        "com.atproto.sync.getRepo" => sync::get_repo(state, &query, true).await,
-        "com.atproto.sync.getCheckout" => sync::get_repo(state, &query, false).await,
-        "com.atproto.sync.getRecord" => sync::get_record(state, &query).await,
-        "com.atproto.sync.getBlocks" => sync::get_blocks(state, &query).await,
-        "com.atproto.sync.getLatestCommit" => sync::get_latest_commit(state, &query).await,
-        "com.atproto.sync.getHead" => sync::get_head(state, &query).await,
-        "com.atproto.sync.getRepoStatus" => sync::get_repo_status(state, &query).await,
-        "com.atproto.sync.listRepos" => sync::list_repos(state, &query).await,
-        "com.atproto.sync.listBlobs" => sync::list_blobs(state, &query).await,
-        "com.atproto.sync.getBlob" => sync::get_blob(state, &query).await,
-        "com.atproto.repo.getRecord" => repo::get_record(state, &query).await,
-        "com.atproto.repo.listRecords" => repo::list_records(state, &query).await,
-        "com.atproto.repo.describeRepo" => repo::describe_repo(state, &query).await,
-        "com.atproto.server.describeServer" => Ok(server::describe_server(state)),
-        _ => identity::resolve_handle(state, &query).await,
+    match served {
+        Served::SyncGetRepo => sync::get_repo(state, &query, true).await,
+        Served::SyncGetCheckout => sync::get_repo(state, &query, false).await,
+        Served::SyncGetRecord => sync::get_record(state, &query).await,
+        Served::SyncGetBlocks => sync::get_blocks(state, &query).await,
+        Served::SyncGetLatestCommit => sync::get_latest_commit(state, &query).await,
+        Served::SyncGetHead => sync::get_head(state, &query).await,
+        Served::SyncGetRepoStatus => sync::get_repo_status(state, &query).await,
+        Served::SyncListRepos => sync::list_repos(state, &query).await,
+        Served::SyncListBlobs => sync::list_blobs(state, &query).await,
+        Served::SyncGetBlob => sync::get_blob(state, &query).await,
+        Served::RepoGetRecord => repo::get_record(state, &query).await,
+        Served::RepoListRecords => repo::list_records(state, &query).await,
+        Served::RepoDescribeRepo => repo::describe_repo(state, &query).await,
+        Served::ServerDescribeServer => Ok(server::describe_server(state)),
+        Served::IdentityResolveHandle => identity::resolve_handle(state, &query).await,
     }
 }
 
@@ -293,8 +329,26 @@ mod tests {
     }
 
     #[test]
-    fn every_served_method_declares_its_parameters() {
-        assert!(parameters("com.atproto.sync.getRepo").is_some());
-        assert!(parameters("com.atproto.server.createSession").is_none());
+    fn a_method_name_selects_its_handler_and_its_parameters() {
+        let names = |nsid: &str| -> Option<(Served, Vec<&str>)> {
+            served(nsid).map(|(served, specs)| (served, specs.iter().map(|s| s.name).collect()))
+        };
+        assert_eq!(
+            names("com.atproto.sync.getRepo"),
+            Some((Served::SyncGetRepo, vec!["did", "since"]))
+        );
+        assert_eq!(
+            names("com.atproto.sync.getCheckout"),
+            Some((Served::SyncGetCheckout, vec!["did"]))
+        );
+        assert_eq!(
+            names("com.atproto.identity.resolveHandle"),
+            Some((Served::IdentityResolveHandle, vec!["handle"]))
+        );
+        assert_eq!(
+            names("com.atproto.server.describeServer"),
+            Some((Served::ServerDescribeServer, vec![]))
+        );
+        assert_eq!(names("com.atproto.server.createSession"), None);
     }
 }

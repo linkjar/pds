@@ -1,12 +1,12 @@
 //! Blob stores (`docs/SPEC.md` §6.4, §8.1).
 //!
-//! This unit reads the disk store a Reference server wrote. Uploads,
-//! staging, quarantine and the S3-compatible store arrive with the write
-//! path (`docs/plan.md`, unit 4).
+//! As of unit 3 the crate reads the disk store a Reference server wrote.
+//! Uploads, staging, quarantine and the S3-compatible store arrive with the
+//! write path (`docs/plan.md`, unit 4).
 
 use std::fs::File;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Reading a blob failed.
 #[derive(Debug, thiserror::Error)]
@@ -51,13 +51,8 @@ impl DiskBlobStore {
         Self { root: root.into() }
     }
 
-    /// The root directory.
-    pub fn root(&self) -> &Path {
-        &self.root
-    }
-
     /// Where the blob `cid` of `did` is stored.
-    pub fn path(&self, did: &str, cid: &str) -> Result<PathBuf, BlobError> {
+    fn path(&self, did: &str, cid: &str) -> Result<PathBuf, BlobError> {
         check_component(did)?;
         check_component(cid)?;
         Ok(self.root.join(did).join(cid))
@@ -85,6 +80,8 @@ impl DiskBlobStore {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::*;
 
     #[test]

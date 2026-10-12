@@ -16,9 +16,9 @@ of production data.
 
 Reasons, in the order they weigh:
 
-1. **The patch stack is the cost.** Eight source patches, about 10,400 lines
-   (six and about 7,500 when this was decided; the sign-up journey and the
-   invitation hand-off came after), reapplied on every upstream bump and
+1. **The patch stack is the cost.** Nine source patches, about 11,100 lines
+   (six and about 7,500 when this was decided; the sign-up journey, the
+   invitation hand-off and upstream's shared-node fix came after), reapplied on every upstream bump and
    verified by image builds. Each new
    upstream release risks a conflict in the OAuth provider, the part upstream
    changes most. Native extension points remove the conflict surface.
@@ -90,14 +90,15 @@ through the PDS.
 
 ## Where it lives
 
-- This repository, branch `feat/rust-pds`, until the first unit merges.
+- This repository. Each unit is a branch from `main` that merges back when
+  its gate is green.
 - The Cargo workspace is at the repository root. The reference image build
   moved under `legacy/` on 2026-10-08 (owner's request) with its workflows
   repointed; it stays buildable for security fixes until cutover and is
   removed afterwards.
 - The `linkjar.io` repository gets only a pointer from its research index and
   a PDS URL setting for its browser gate and kit self-test (unit 1).
-- The `linkjar/infra` repository changes in unit 7: service definition, alert
+- The `linkjar/infra` repository changes in unit 8: service definition, alert
   rules, recovery runbook.
 
 ## Delivery units
@@ -111,12 +112,12 @@ units 2 and 5 land. Units 0 to 8 ship before cutover (the cutover bar of
 | Unit | Delivers | Gate | Allowance |
 |---|---|---|---|
 | 0 | Cargo workspace, licence files, devenv, CI gates (fmt, clippy, deny, vet, audit, fuzz skeleton), vendored lexicons and code generation, interop vectors wired, the "verify at pin" scenarios enumerated, Appendix A reconciled against the handler tree | Workspace builds; generated types compile for every vendored lexicon; every "verify at pin" item has a scenario id | 3 to 4 days |
-| 1 | The parity harness (`parity/`) against the reference image only: compose with a local PLC and a Sync 1.1 relay, scenario runner, oracles O1 to O4 and O9, the port of `tests/*.mjs` to an HTTP endpoint, and the `linkjar.io` PDS URL setting | Harness green against Reference; O9 results recorded; stock-versus-production image differences documented | 1 to 2 weeks |
+| 1 | The parity harness (`parity/`) against the reference image only: compose with a local PLC and a Sync 1.1 relay, scenario runner, oracles O1 to O4 and O9, the port of `legacy/tests/*.mjs` to an HTTP endpoint, and the `linkjar.io` PDS URL setting | Harness green against Reference; O9 results recorded; stock-versus-production image differences documented | 1 to 2 weeks |
 | 2 | Repository crate decision: interop vectors, MST and CAR benchmarks for `rsky-repo` versus in-house; `pds-types`, `pds-lexicon` and `pds-identity` with their vectors and the limits of SPEC §6.1 and §9 | Vectors pass; S1 to S3 micro-benchmarks published; D2 decided | 1 week |
 | 3 | Read-only server: `sync.*`, `repo.get*`, `describeRepo`, `describeServer`, identity reads, `verify`, served from a staging restore of a reference data directory | O1 and O2 on read scenarios; `verify` zero differences on a staging restore | 2 weeks |
 | 4 | Writes, sequencer, firehose, blob store, crawler notification, lifecycle event sequences, and the simulation seam: `StorageIo`, fault-injecting VFS, fail points, turmoil, seed runner, determinism meta-test, nightly runs | O1 to O3 on write and firehose scenarios including the crash injection; a local Sync 1.1 relay in strict mode converges; first nightly seed run green | 4 weeks |
 | 5 | Accounts, legacy sessions, app passwords, admin, mail, permission sets, and the OAuth authorization server with the extension traits and the stock profile, designed for embedded and entryway modes | O4 and O6; the Bluesky app signs in (O8 recorded) | 6 weeks |
-| 6 | The `linkjar` extension crate replacing the eight patches at the patch pin; handle hosts; `io.linkjar.account.*`; operator roles | O7 green; the patch docs' invariants have tests in the crate | 2 to 3 weeks |
+| 6 | The `linkjar` extension crate replacing the eight account patches at the patch pin (the ninth, 104, is engine behaviour in `pds-repo`, SPEC §6.1); handle hosts; `io.linkjar.account.*`; operator roles | O7 green; the patch docs' invariants have tests in the crate | 2 to 3 weeks |
 | 7 | Audit log: entries, chain, checkpoints, checkpoint record, verifier, export; the pre-cutover snapshot procedure | Every §20.1 action produces an entry; verifier accepts an export and rejects a tampered one; checkpoint record appears on the firehose | 2 weeks |
 | 8 | Migration endpoints, performance targets, metrics and OTLP export, alert rules, Nix package, restore drill on staging, cutover runbook, cutover | SPEC §16 targets met or revised with evidence; §18.1 preconditions met; cutover done and the 48-hour watch passed | 3 weeks |
 | 9 | Operations console sidecar: ops listener, live connections and topology, moderation and cleanup actions, embedded OTLP pane ([sidecars.md](sidecars.md) §1) | Every action lands in the audit log with operator and reason; console runs with no database access | 3 weeks |
@@ -131,7 +132,7 @@ upstream bumps, which nothing does today beyond the image smoke gate.
 
 | Date | Event |
 |---|---|
-| 2026-10-13 | Unit 3 done on `feat/unit-3-read-server`. **The Candidate serves the reads of a data directory that the Reference wrote** ([unit record](research/2026-10-13-read-only-server.md)): the sync and repository reads, `describeServer`, `resolveHandle` and the plain routes. The Harness has a restore run, `pnpm parity restore`: the Reference seeds six accounts and answers four read scenarios, the Candidate replaces it on the same volume and answers them again. 331 requests, no difference in status, compared headers or body, and 328 bodies equal byte for byte, repository exports among them. `verify` reports zero differences on that directory and names fourteen kinds of damage in tests. `pds-storage` reads the Reference's SQLite files, `pds-identity` resolves DIDs through the cache, `pds-xrpc` validates parameters in the Reference's order and with its messages. The image is built by `./Dockerfile`, and CI runs the restore on every change to the crates. SPEC revision 6 carries what the comparison showed. **Not met: `verify` on a staging restore**, which needs the owner's copy ([below](#open-questions-for-the-owner)). Left for later units: the proxy, the read-after-write methods, rate limits, OAuth tokens, handle resolution over DNS. Next: unit 4, from `main`. |
+| 2026-10-13 | Unit 3 done on `feat/unit-3-read-server`. **The Candidate serves the reads of a data directory that the Reference wrote** ([unit record](research/2026-10-13-read-only-server.md)): the sync and repository reads, `describeServer`, `resolveHandle` and the plain routes. The Harness has a restore run, `pnpm parity restore`: the Reference seeds six accounts and answers four read scenarios, the Candidate replaces it on the same volume and answers them again. 331 requests, no difference in status, compared headers or body, and 328 bodies equal byte for byte, repository exports among them. `verify` reports zero differences on that directory and names fourteen kinds of damage in tests. `pds-storage` reads the Reference's SQLite files, `pds-identity` resolves DIDs through the cache, `pds-xrpc` validates parameters in the Reference's order and with its messages. The image is built by `./Dockerfile`, and CI runs the restore run on every change to the crates. SPEC revision 6 carries what the comparison showed. **Not met: `verify` on a staging restore**, which needs the owner's copy ([below](#open-questions-for-the-owner)). Left for later units: the proxy, the read-after-write methods, rate limits, OAuth tokens, handle resolution over DNS. Next: unit 4, from `main`. |
 | 2026-10-13 | The ninth patch is in production's image stream: `104-mst-shared-node` merged (pull request #25) and revision 12 of the reference image is published. The Harness pins it and has an `importRepo` scenario, `default/15-import`. It shows what the patch closes: the unpatched build answers 200 to a tree that references a node more than once and replaces the repository with it; revision 12 answers 400 and keeps the repository. DD-6 has moved into the table of observed differences (SPEC §2.3). The scenario also found that `importRepo` answers 500 to bytes that are not a CAR, on both builds. |
 | 2026-10-12 | Between units 2 and 3. The owner decided the pin, D17 and the rest of D16 ([below](#decisions-taken-by-the-owner-2026-10-12)); SPEC revision 5 carries them. The upstream 0.5.37 note is on `main` (pull request #20). `devenv shell` installs no git hook any more, and the weekly upstream check reports releases after the pin in a run summary and an issue (pull request #23). The Monday audit reads CVSS 4.0 advisories (pull request #22). Open before unit 3: the ninth patch of the legacy build. Next: unit 3, from `main`. |
 | 2026-10-12 | Unit 2 done on `feat/unit-2-repository` (pull request #21). **D2 is decided: the repository engine is written in this repository** ([decision record](research/2026-10-12-repository-crate.md)). `pds-repo` holds the tree, commits, CAR, export and the checks on a repository from elsewhere, synchronous and without I/O. It is held to fixtures that a tool in `parity/` writes with `@atproto/repo` at the pin: thirteen commits replay to the same tree roots, commit CIDs, block sets, firehose CARs and export, byte for byte, and its firehose CAR sizes and block counts equal what unit 1 measured on the reference image. `rsky-repo` ran on the same vectors and workload in `bench/`, as published (0.0.6) and from its main branch (0.1.4). S1 to S3 micro-benchmarks for all three and for the Reference's library are published with the method and the host. `pds-types` applies the decode limits of SPEC §6.1 in a strict DAG-CBOR reader; `pds-lexicon` validates records and passes the record-data and data-model vectors; `pds-identity` has keys, low-S signatures on both curves, `did:key`, the DID-document contract and the handle rules, and passes the crypto vectors. No vector is a known failure beyond the three CID strings of unit 0. Five fuzz targets are new. SPEC revision 4 records D2 and opens D17. Also in the unit: `devenv shell` starts on devenv 2.4 again, and `scripts/vendor-agent-sources.sh` mirrors the pinned upstream sources for reading. Next: unit 3, from `main`. |
@@ -153,7 +154,7 @@ Revision 1 of the SPEC applies them.
 | Licence | Dual MIT or Apache-2.0 for the project's own code. |
 | NSID authority | Project lexicons (ops methods, audit checkpoint record, MCP scopes) live under `io.linkjar.pds.*`. |
 | Cluster shape | Entryway plus member hosts. The account and OAuth crate is designed from unit 5 to run embedded in one node or as a standalone entryway. The shared-Postgres cluster is documented as an alternative only. |
-| Cutover bar | Units 0 to 7 plus the audit log must ship before the Candidate replaces the reference. Sidecars, Postgres and entryway mode come after. |
+| Cutover bar | Units 0 to 8, the audit log (unit 7) among them, must ship before the Candidate replaces the reference. Sidecars, Postgres and entryway mode come after. |
 | Simulation | The `StorageIo` seam, a fault-injecting SQLite VFS, fail points and turmoil enter in unit 4; nightly seeds from then on. |
 | Audit scope | Account and operator actions, including console and MCP writes. Reads and ordinary repository writes are not audited. |
 | Patch stack | Frozen except security fixes while the Rust server is built. The `linkjar` profile targets the patches at the **patch pin**. A security fix moves the pin and adds the mirrored behaviour to SPEC §13. The pin was `main` of this repository at `08b1235` (2026-10-08, "Let the app hand the invite code to the OAuth sign-up page", revision 11) and has been at `0c34a1b` since 2026-10-12, when patch 104 joined the stack (revision 12). |
@@ -192,8 +193,8 @@ Answered after unit 2. Revision 5 of the SPEC applies them.
 
 ## Open questions for the owner
 
-Six. The first is the open part of unit 3's gate. None of the others blocks
-unit 4, but unit 4 needs the answer to the third.
+Six. The first is the open part of unit 3's gate. Unit 4 needs the answer
+to the third. The other four do not block unit 4.
 
 - **`verify` on a staging restore.** Unit 3's gate asks for zero
   differences on a staging restore of production data. The unit had no such
@@ -217,14 +218,19 @@ unit 4, but unit 4 needs the answer to the third.
   §7). List it as a deliberate difference, or follow the pin. Unit 4 needs
   the answer.
 
-- **Three candidates for the D15 list**, where the pin answers 500 to a
-  client error: `createAccount` with the handle or email of a deactivated
-  or taken-down account (400 from 0.5.36); `importRepo` with bytes that are
-  not a CAR (`default/15-import`).
+- **Three candidates for the D15 list.** The pin answers 500 to each of
+  these client errors: `createAccount` with the handle of a deactivated or
+  taken-down account; `createAccount` with the email of such an account
+  (both 400 from 0.5.36); and `importRepo` with bytes that are not a CAR
+  (`default/15-import`). Decide for each whether the Candidate answers 400
+  `InvalidRequest`, as the four cases already on the list do.
 
-- **The S3 client of the pin.** The pin builds a new S3 client on every
-  actor store access (#5575), which matters because production blobs are in
-  R2; the upstream note names the evidence to collect on staging (§4).
+- **The S3 client of the pin.** Production blobs are in R2, and the pin
+  builds a new S3 client on every actor store access (#5575). Decide
+  whether the legacy build carries the fix.
+  [The upstream note](research/2026-10-10-upstream-0.5.35-to-0.5.37.md) §4
+  names the evidence: the count of open connections from the PDS to R2 on
+  staging under repeated `getBlob`.
 
 - **Two dependency choices of unit 3**
   ([unit record](research/2026-10-13-read-only-server.md) §6). Outbound TLS

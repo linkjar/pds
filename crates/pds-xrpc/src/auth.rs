@@ -165,7 +165,7 @@ fn access(
             let exp = exp.as_f64().ok_or_else(unverified)?;
             #[allow(clippy::cast_precision_loss)] // seconds since 1970 fit a double exactly
             if exp <= now_s as f64 {
-                return Err(invalid_token_named("ExpiredToken", "Token has expired"));
+                return Err(XrpcError::bad_request("ExpiredToken", "Token has expired"));
             }
         }
     }
@@ -193,10 +193,6 @@ fn access(
     })
 }
 
-fn invalid_token_named(error: &str, message: &str) -> XrpcError {
-    XrpcError::bad_request(error, message)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -210,8 +206,21 @@ mod tests {
     }
 
     fn token(claims: &serde_json::Value, typ: &str, secret: &[u8]) -> String {
-        let head =
-            URL_SAFE_NO_PAD.encode(serde_json::json!({"alg": "HS256", "typ": typ}).to_string());
+        token_with_header(
+            &serde_json::json!({"alg": "HS256", "typ": typ}),
+            claims,
+            secret,
+        )
+    }
+
+    /// A token with any header, signed with HMAC-SHA-256 whatever `alg` the
+    /// header names.
+    fn token_with_header(
+        header: &serde_json::Value,
+        claims: &serde_json::Value,
+        secret: &[u8],
+    ) -> String {
+        let head = URL_SAFE_NO_PAD.encode(header.to_string());
         let body = URL_SAFE_NO_PAD.encode(claims.to_string());
         let mut mac = Hmac::<Sha256>::new_from_slice(secret).unwrap();
         mac.update(format!("{head}.{body}").as_bytes());
@@ -314,6 +323,81 @@ mod tests {
             150,
             "InvalidToken",
             "Bad token scope",
+        );
+    }
+
+    /// The messages are the ones this server gives. The Reference's wording
+    /// for these cases is not compared here.
+    #[test]
+    fn a_token_that_fails_a_check_is_refused() {
+        let check = |authorization: &str, message: &str| {
+            let got = optional_credentials(&with(authorization), &config(), &[], 150).unwrap_err();
+            assert_eq!(
+                (got.error.as_str(), got.message.as_str()),
+                ("InvalidToken", message),
+                "{authorization}"
+            );
+        };
+        let bearer = |header: &serde_json::Value, claims: &serde_json::Value| {
+            format!("Bearer {}", token_with_header(header, claims, b"secret"))
+        };
+        let good_header = serde_json::json!({"alg": "HS256", "typ": "at+jwt"});
+        let with_claim = |name: &str, value: serde_json::Value| {
+            let mut changed = claims();
+            changed[name] = value;
+            bearer(&good_header, &changed)
+        };
+
+        // An unsigned token: `alg` is `none` and the signature is empty.
+        let none = serde_json::json!({"alg": "none", "typ": "at+jwt"});
+        let head = URL_SAFE_NO_PAD.encode(none.to_string());
+        let body = URL_SAFE_NO_PAD.encode(claims().to_string());
+        check(
+            &format!("Bearer {head}.{body}."),
+            "Token could not be verified",
+        );
+        // The signature is good for the secret; only `alg` is wrong.
+        check(&bearer(&none, &claims()), "Token could not be verified");
+        check(
+            &bearer(
+                &serde_json::json!({"alg": "HS512", "typ": "at+jwt"}),
+                &claims(),
+            ),
+            "Token could not be verified",
+        );
+        check(
+            &with_claim("aud", "did:web:other.test".into()),
+            "Token could not be verified",
+        );
+        check(
+            &with_claim("exp", "soon".into()),
+            "Token could not be verified",
+        );
+        check(
+            &with_claim("lxm", "com.atproto.sync.getRepo".into()),
+            "Malformed token",
+        );
+        check(
+            &with_claim("cnf", serde_json::json!({"jkt": "abc"})),
+            "Malformed token",
+        );
+        check(&with_claim("sub", "alice".into()), "Malformed token");
+        check(&with_claim("jti", 1.into()), "Malformed token");
+        check("DPoP abc", "Token could not be verified");
+    }
+
+    /// A recorded decision: a token without `exp` does not expire.
+    #[test]
+    fn a_token_without_an_expiry_is_accepted() {
+        let mut eternal = claims();
+        eternal.as_object_mut().unwrap().remove("exp");
+        let headers = with(&format!("Bearer {}", token(&eternal, "at+jwt", b"secret")));
+        assert_eq!(
+            optional_credentials(&headers, &config(), &[], i64::MAX).unwrap(),
+            Credentials::Access {
+                did: "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
+                scope: "com.atproto.access".to_owned(),
+            }
         );
     }
 

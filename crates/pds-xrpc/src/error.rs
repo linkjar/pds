@@ -41,15 +41,6 @@ impl XrpcError {
         }
     }
 
-    /// 401 with a message.
-    pub fn unauthorized(error: &str, message: impl Into<String>) -> Self {
-        Self {
-            status: StatusCode::UNAUTHORIZED,
-            error: error.to_owned(),
-            message: message.into(),
-        }
-    }
-
     /// 500. The cause goes to the log and never to the client.
     pub fn internal(cause: impl std::fmt::Display) -> Self {
         tracing::error!(%cause, "request failed");

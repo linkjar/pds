@@ -8,8 +8,8 @@ records what the target answered, and compares two targets on the record.
 
 The Candidate reads but does not write yet. It is held by the
 [restore run](#the-restore-run): the Reference writes a data directory, and
-both servers answer the same read scenarios on it. It joins the other
-scenarios as one more target when it writes (unit 4).
+both servers answer the same read scenarios on it. When the Candidate writes
+(unit 4), the other scenarios run against it as one more target.
 
 ## Run it
 
@@ -56,7 +56,7 @@ Other commands: `pnpm typecheck`, `pnpm test` (unit tests of the normaliser),
 
 | Part | Where | What it does |
 |---|---|---|
-| Targets | [`src/stack/targets.ts`](src/stack/targets.ts), [`images.json`](images.json) | A target is an image. `reference` is `ghcr.io/linkjar/pds` by digest, `stock` the `PATCH_PROFILE=none` build, `official` the upstream distribution by digest, `repeat` a second boot of `reference`, `candidate` the image in `PARITY_CANDIDATE_IMAGE`. |
+| Targets | [`src/stack/targets.ts`](src/stack/targets.ts), [`images.json`](images.json) | A target is an image. `reference` is `ghcr.io/linkjar/pds` by digest, `stock` the `PATCH_PROFILE=none` build, `official` the upstream distribution by digest, `repeat` a second boot of `reference`, `candidate` the image in `PARITY_CANDIDATE_IMAGE`, by default `linkjar-pds:candidate`. |
 | Stack | [`compose/compose.yml`](compose/compose.yml), [`src/stack/`](src/stack/) | One compose project per target: the PDS, a PLC directory with its Postgres, a Sync 1.1 relay in strict mode, a mail catcher and a Caddy edge. |
 | Fixtures | [`src/fixtures/`](src/fixtures/) | The outside world, served from the harness process: the AppView and report service the PDS forwards to, OAuth client metadata, a custom-domain handle, and stand-ins for Apple, Google, GitHub and hCaptcha. |
 | Scenarios | [`scenarios/<profile>/`](scenarios/), [`src/scenario.ts`](src/scenario.ts) | One `node:test` test per file. Assertions state what the SPEC requires. Every exchange and observation goes into a transcript. |
@@ -102,7 +102,7 @@ Three things in the stack exist because a component has no test switch:
 
 `pnpm parity restore` holds the Candidate to the Reference on a data
 directory that the Reference wrote ([`src/restore.ts`](src/restore.ts),
-SPEC §8.2 and §18.2). It uses one stack, named `candidate`, and two servers:
+SPEC §8.2, §17.1 and §18.2). It uses one stack, named `candidate`, and two servers:
 
 1. The reference image starts on a fresh stack. The scenarios of
    `scenarios/restore/` whose names start with `0` write: six accounts in
@@ -127,8 +127,9 @@ therefore be the Reference's export byte for byte.
 
 The stack's health check depends on the image that runs: Node in the
 reference image, the binary's own `health` command in the Candidate.
-`--keep` leaves the stack up with the Candidate serving; `--update` writes
-a difference list instead of failing, for a difference that is meant.
+`--keep` leaves the stack up with the Candidate serving. `--perf` runs the
+[read measurements](#read-measurements) instead of the read scenarios. The
+command refuses `--update`: a restore run allows no difference.
 
 ### Scenarios and transcripts
 
@@ -205,6 +206,7 @@ these names:
 | `captcha` | The three hCaptcha variables. | The signup policy of patch 099c. |
 | `perf` | Rate limits off, no crawler. | SPEC §16.1, S1 to S5, S8 and S9. See below. |
 | `restore` | Nothing: the production configuration. | The seed and the read scenarios of the [restore run](#the-restore-run). Run through `pnpm parity restore`, not `run`. |
+| `restore-perf` | Nothing: the production configuration. | The read measurements: one repository of 100,000 records, and the same reads timed on both servers. Run through `pnpm parity restore --perf`. See below. |
 
 ## Performance scenarios
 
@@ -221,6 +223,19 @@ S6 (10,000 idle accounts) and S7 (the token endpoint under load) are account
 and OAuth paths. They are measured when the Candidate has those paths, in
 units 5 and 8. The sequencer fsync count of S9 cannot be read from outside
 the Reference; the Candidate reports its own counter.
+
+### Read measurements
+
+`pnpm parity restore --perf` runs the [restore run](#the-restore-run) with
+the profile `restore-perf` in place of `restore`. The Reference writes one
+repository of `PARITY_RESTORE_RECORDS` records, 100,000 unless the variable
+is set. Each server is started fresh before its requests. The read scenario
+times five exports with `sync.getRepo` and 200 requests to each of five
+point reads, one request at a time. `verify` and the comparison run as in
+every restore run, so both servers must return the same export, byte for
+byte. When the run passes, it prints the table and writes it to
+[results/perf-reads.md](results/perf-reads.md). The table is one run on one
+host, not a benchmark and not a run against the targets of SPEC §16.2.
 
 ## The port of `legacy/tests`
 

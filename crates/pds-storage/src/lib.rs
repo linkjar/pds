@@ -5,8 +5,13 @@
 //! `did_cache.sqlite` and one `store.sqlite` per actor. Every call is
 //! synchronous; the server runs them on its blocking pool (§3.2).
 //!
-//! This unit reads. The write half of each seam arrives with the write path
+//! Unit 3 reads. The write half of each seam arrives with the write path
 //! (`docs/plan.md`, unit 4).
+//!
+//! A read changes no row, but it can write files. The Reference's databases
+//! are in WAL journal mode (§8.3), and a read connection to such a database
+//! creates its `-shm` and `-wal` files when they are absent. The `layout`
+//! module states what a read connection needs.
 
 pub mod account;
 pub mod actor;
@@ -16,7 +21,7 @@ pub mod layout;
 pub mod sequencer;
 
 pub use account::{AccountDb, Actor, Availability, RepoListing};
-pub use actor::{ActorDb, BlobMeta, BlockRow, FoundBlocks, RecordRow, RepoRoot};
+pub use actor::{ActorDb, BLOCK_BATCH, BlobMeta, BlockRow, FoundBlocks, RecordRow, RepoRoot};
 pub use did_cache::{CachedDoc, DidCacheDb};
 pub use error::StorageError;
 pub use layout::DataLayout;

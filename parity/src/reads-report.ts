@@ -30,6 +30,7 @@ export function readsReport(): string {
   const candidate = load('restore-candidate')
   const r = reference.results
   const c = candidate.results
+  const runs = r.export.runs.length
   const ratio = (a: number, b: number) => (b > 0 ? `${Math.round((a / b) * 10) / 10}×` : '')
   const latency = (name: string, a: Latency, b: Latency) => [name, `${a.p50} / ${a.p99}`, `${b.p50} / ${b.p99}`, ratio(a.p50, b.p50)]
   const out = [
@@ -44,7 +45,7 @@ export function readsReport(): string {
       [
         ['Reference', `\`${reference.image}\``],
         ['Upstream', `\`${upstream.tag}\` at \`${upstream.commit.slice(0, 8)}\``],
-        ['Candidate', `\`${candidate.image}\`, release build`],
+        ['Candidate', `\`${candidate.image}\``],
         ['Records in the repository', r.records.toLocaleString('en-US')],
         ['Measured', candidate.measuredAt.slice(0, 10)],
         ['Host', `${cpus()[0]?.model ?? 'unknown CPU'}, ${cpus().length} cores, ${Math.round(totalmem() / 2 ** 30)} GiB, ${platform()} ${release()} ${arch()}, Docker`],
@@ -56,15 +57,15 @@ export function readsReport(): string {
     table(
       ['', 'Reference', 'Candidate', 'Reference ÷ Candidate'],
       [
-        ['Median of five runs, ms', r.export.medianMs.toLocaleString('en-US'), c.export.medianMs.toLocaleString('en-US'), ratio(r.export.medianMs, c.export.medianMs)],
-        ['The five runs, ms', r.export.runs.join(', '), c.export.runs.join(', '), ''],
+        [`Median of ${runs} runs, ms`, r.export.medianMs.toLocaleString('en-US'), c.export.medianMs.toLocaleString('en-US'), ratio(r.export.medianMs, c.export.medianMs)],
+        [`The ${runs} runs, ms`, r.export.runs.join(', '), c.export.runs.join(', '), ''],
         ['CAR MiB', r.export.MiB, c.export.MiB, ''],
-        ['Memory growth over the five runs, MiB', r.export.memoryGrowthMiB, c.export.memoryGrowthMiB, ''],
+        [`Memory growth over the ${runs} runs, MiB`, r.export.memoryGrowthMiB, c.export.memoryGrowthMiB, ''],
         ['Memory before the first request, MiB', r.idleMiB, c.idleMiB, ratio(r.idleMiB, c.idleMiB)],
       ],
     ),
     '',
-    '## Point reads: p50 / p99 ms over 200 requests',
+    `## Point reads: p50 / p99 ms over ${r.getLatestCommit.n} requests`,
     '',
     table(
       ['Method', 'Reference', 'Candidate', 'Reference ÷ Candidate at p50'],

@@ -1,0 +1,76 @@
+name: Restore
+
+# The Candidate on a data directory that the Reference wrote
+# (parity/src/restore.ts, docs/SPEC.md section 17). The job builds the
+# Candidate from ./Dockerfile, so it runs for a change to the build context
+# of that image, to the harness, or to the Reference pin. parity.yml runs
+# the scenarios against the Reference and typechecks the harness.
+#
+# Actions are pinned by commit SHA. The runner is amd64 because the relay
+# image is published for amd64 only.
+
+on:
+  pull_request:
+    paths: ['parity/**', '!parity/**/*.md', 'crates/**', 'xtask/**', 'Cargo.toml', 'Cargo.lock', 'Dockerfile', '.dockerignore', 'upstream.json', '.github/workflows/restore.yml']
+  push:
+    branches: [main]
+    paths: ['parity/**', '!parity/**/*.md', 'crates/**', 'xtask/**', 'Cargo.toml', 'Cargo.lock', 'Dockerfile', '.dockerignore', 'upstream.json', '.github/workflows/restore.yml']
+  schedule:
+    # Mondays, after the upstream updater.
+    - cron: '47 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # The reference image is a private package of this repository.
+  packages: read
+
+concurrency:
+  group: restore-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+defaults:
+  run:
+    working-directory: parity
+
+jobs:
+  restore:
+    name: restore (Candidate on the Reference's data)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@94196ee1d15439c1b6651cd87ef14e88ec435966
+        with:
+          node-version-file: parity/.node-version
+      - run: npm install --global pnpm@12.4.1
+      - run: pnpm install --frozen-lockfile
+      - uses: docker/login-action@0a596b2e7a325f0cedf8e9bd21ab002cbd3c9241
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@5ac4a31b15f1c45ec652b8af78c2096c3a08368c
+      - name: Build the Candidate
+        uses: docker/build-push-action@91670ba5a4df99a24efff8637a78c83fd1b0f6b1
+        with:
+          context: .
+          load: true
+          tags: linkjar-pds:candidate
+          cache-from: type=gha,scope=candidate-amd64
+          cache-to: type=gha,scope=candidate-amd64,mode=max
+      - name: Seed and read on the Reference, read on the Candidate, verify, compare
+        run: pnpm parity restore
+      - name: Keep transcripts, the verify report and service logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: parity-restore
+          path: |
+            parity/.run/candidate/transcripts
+            parity/.run/candidate/verify.json
+            parity/.run/candidate/logs
+          if-no-files-found: ignore
+          retention-days: 14

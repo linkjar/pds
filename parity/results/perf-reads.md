@@ -8,7 +8,7 @@ One run on the host below. It places the two servers beside each other on that h
 |---|---|
 | Reference | `ghcr.io/linkjar/pds@sha256:78c56cd9e8b13d53cd03bd715352fe84e8deeca0595163dca2d6f1d1b215a801` |
 | Upstream | `@atproto/pds@0.5.34` at `7ca16cc6` |
-| Candidate | `linkjar-pds:candidate`, release build |
+| Candidate | `linkjar-pds:candidate` |
 | Records in the repository | 100,000 |
 | Measured | 2026-10-12 |
 | Host | Apple M1 Pro, 10 cores, 16 GiB, darwin 27.0.0 arm64, Docker |
@@ -17,20 +17,20 @@ One run on the host below. It places the two servers beside each other on that h
 
 |  | Reference | Candidate | Reference ÷ Candidate |
 |---|---|---|---|
-| Median of five runs, ms | 1,392 | 176 | 7.9× |
-| The five runs, ms | 1791, 1426, 1388, 1357, 1392 | 259, 263, 176, 172, 154 |  |
+| Median of 5 runs, ms | 1,385 | 167 | 8.3× |
+| The 5 runs, ms | 1660, 1435, 1364, 1362, 1385 | 270, 235, 167, 158, 162 |  |
 | CAR MiB | 22.3 | 22.3 |  |
-| Memory growth over the five runs, MiB | 111.2 | 2.6 |  |
-| Memory before the first request, MiB | 287 | 5.2 | 55.2× |
+| Memory growth over the 5 runs, MiB | 89.6 | 3.1 |  |
+| Memory before the first request, MiB | 280.4 | 5.4 | 51.9× |
 
 ## Point reads: p50 / p99 ms over 200 requests
 
 | Method | Reference | Candidate | Reference ÷ Candidate at p50 |
 |---|---|---|---|
-| `sync.getLatestCommit` | 2.8 / 11.6 | 1.7 / 6.7 | 1.6× |
-| `repo.getRecord` | 2.6 / 7 | 1.9 / 6.1 | 1.4× |
-| `sync.getRecord` (record with proof) | 6.2 / 14 | 1.9 / 10.9 | 3.3× |
-| `repo.listRecords`, 100 records | 126.3 / 225.1 | 109.4 / 210.6 | 1.2× |
-| `repo.describeRepo` | 8.2 / 14.8 | 6.2 / 12.3 | 1.3× |
+| `sync.getLatestCommit` | 2.7 / 9 | 1.4 / 2.8 | 1.9× |
+| `repo.getRecord` | 2.6 / 5 | 1.7 / 4.8 | 1.5× |
+| `sync.getRecord` (record with proof) | 5.5 / 14 | 1.5 / 3.5 | 3.7× |
+| `repo.listRecords`, 100 records | 118.6 / 215.7 | 108.4 / 210.4 | 1.1× |
+| `repo.describeRepo` | 8.5 / 14.9 | 6.3 / 8.6 | 1.3× |
 
 The requests are sequential, so the numbers say nothing about throughput under load. The Candidate opens a SQLite connection for each read in this unit; the actor store cache of SPEC §8.3 arrives with the write path.

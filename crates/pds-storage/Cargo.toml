@@ -9,7 +9,6 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
-pds-types.workspace = true
 pds-repo.workspace = true
 cid.workspace = true
 rusqlite.workspace = true

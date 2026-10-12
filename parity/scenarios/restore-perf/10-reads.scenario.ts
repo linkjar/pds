@@ -23,7 +23,7 @@ scenario('10-reads', { timeoutMs: 3_600_000 }, async (s) => {
   const keys = Array.from({ length: 200 }, (_, i) => `r${String((i * 7919) % seed.records).padStart(6, '0')}`)
   const idle = await memory(s)
 
-  // The export: five runs, the memory of the first.
+  // The export: five runs, and the memory growth over them.
   const exports: number[] = []
   let size = 0
   let hash = ''

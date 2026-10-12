@@ -44,8 +44,8 @@ touches none of their files.
 One effect reaches beyond the import: `sync.getRepo` streams a repository
 through the same traversal. If a stored repository already has a shared node,
 `getRepo` now fails for that account. Whether any account on production has
-one is not known; the `verify` command of the Rust server reports it
-(SPEC §18.2).
+one is not known. The Candidate's `verify` command reports it as
+`tree-shared-node` (SPEC §18.2).
 
 ## Tests
 
@@ -53,8 +53,8 @@ one is not known; the `verify` command of the Rust server reports it
   `packages/repo` before it prunes development dependencies. The stock build
   applies no patch and skips them.
 - `import-repo.test.ts` needs upstream's test network and does not run in the
-  image build. The parity harness gets an `importRepo` scenario for the same
-  case with revision 12 of the reference image.
+  image build. The Harness has an `importRepo` scenario for the same case,
+  `default/15-import`, which runs against revision 12 of the reference image.
 
 ## Removal
 

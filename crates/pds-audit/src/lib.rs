@@ -1,4 +1,4 @@
 //! Tamper-evident audit log: entries, hash chain, signed checkpoints, verifier.
 //!
-//! Specified in `docs/SPEC.md`. This crate is a skeleton until its delivery
-//! unit lands; see `docs/plan.md` for the unit that fills it.
+//! Specified in `docs/SPEC.md`. This crate is a skeleton until unit 7
+//! (`docs/plan.md`).

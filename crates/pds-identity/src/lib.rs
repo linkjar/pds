@@ -10,7 +10,9 @@
 //! - [`handle`]: the handle rules of §9.2 beyond syntax.
 //!
 //! [`resolver`] fetches DID documents from the PLC directory and from
-//! `did:web` hosts, through a cache with the Reference's two lifetimes.
+//! `did:web` hosts, through a cache with the Reference's two lifetimes. It
+//! does not apply the safe fetch of §15.1; its module documentation states
+//! the gap.
 //! DNS and HTTPS handle verification arrive with `updateHandle`; see
 //! `docs/plan.md`.
 

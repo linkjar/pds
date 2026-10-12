@@ -54,9 +54,10 @@ steps the page driver took.
 
 ## The Reference against the Candidate
 
-The Candidate does not exist as a target yet. When it does, its comparison
-with the Reference may show the deliberate differences of SPEC §2.3 and
-nothing else. Each one is one step of one scenario.
+The Candidate does not answer the write scenarios yet, so it has no
+transcript of its own stack (unit 4). When it does, its comparison with the
+Reference on separate stacks may show the deliberate differences of SPEC
+§2.3 and nothing else. Each one is one step of one scenario.
 
 | Id | Scenario | Step | Reference | Candidate |
 |---|---|---|---|---|
@@ -66,4 +67,10 @@ nothing else. Each one is one step of one scenario.
 | DD-4 | `default/08-proxy` | proxy target that is not a DID | 500 `InternalServerError` | 400 `InvalidRequest` |
 | DD-5 | `default/08-proxy` | uploadBlob with the same service token again | 200 | 401 `BadJwt` |
 
-The owner decided these on 2026-10-09 ([plan.md](../../docs/plan.md#decisions-taken-2026-10-09)).
+SPEC §2.3 also lists DD-6 and DD-7 to DD-13. DD-6 shows against the stock
+build only: the production Reference, with patch 104, answers as the
+Candidate. It is recorded in [reference-vs-stock.json](reference-vs-stock.json).
+The scenario steps of DD-7 to DD-13 are named here when units 4, 5 and 8 add
+them.
+
+The owner decided DD-1 to DD-5 on 2026-10-09 ([plan.md](../../docs/plan.md#decisions-taken-2026-10-09)).

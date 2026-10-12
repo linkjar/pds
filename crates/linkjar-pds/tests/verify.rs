@@ -7,7 +7,9 @@ mod common;
 
 use common::{ALICE, BLOB_CID, DANA, DataDir, POST};
 use linkjar_pds::verify::{Report, verify};
+use pds_storage::SeqGap;
 use rusqlite::params;
+use serde_json::json;
 
 fn kinds(report: &Report) -> Vec<(&str, &str)> {
     report
@@ -27,6 +29,7 @@ fn a_clean_data_directory_has_no_differences() {
         (3, 3, 42)
     );
     assert_eq!((report.blob_references, report.events), (1, 3));
+    assert_eq!(report.sequence_breaks, 0);
     assert!(report.blob_store_checked);
     assert_eq!(report.to_json()["differences"], 0);
 }
@@ -121,6 +124,20 @@ fn a_root_that_the_account_database_does_not_agree_on_is_found() {
 }
 
 #[test]
+fn a_root_that_the_account_database_does_not_hold_is_found() {
+    let dir = DataDir::new(3);
+    common::open(&dir.config.layout.account_db)
+        .execute(r#"delete from "repo_root" where "did" = ?1"#, params![DANA])
+        .unwrap();
+    let report = verify(&dir.config).unwrap();
+    assert_eq!(kinds(&report), [(DANA, "root-mismatch")]);
+    assert_eq!(
+        report.findings[0].detail,
+        "account.sqlite has no repo_root row"
+    );
+}
+
+#[test]
 fn a_missing_store_and_a_missing_root_are_found() {
     let dir = DataDir::new(3);
     dir.actor(ALICE)
@@ -155,15 +172,85 @@ fn a_blob_that_is_referenced_and_absent_is_found() {
     );
 }
 
+/// A blob store entry that cannot be read is not reported as absent.
 #[test]
-fn a_break_in_the_event_log_is_found() {
+fn a_blob_that_the_store_cannot_read_is_found() {
+    let dir = DataDir::new(3);
+    let blobs = dir.root.join("blocks");
+    // The actor's directory is a file, so the blob's path fails with an
+    // error other than "not found".
+    std::fs::remove_dir_all(blobs.join(ALICE)).unwrap();
+    std::fs::write(blobs.join(ALICE), b"").unwrap();
+    assert_eq!(
+        kinds(&verify(&dir.config).unwrap()),
+        [(ALICE, "blob-unreadable")]
+    );
+}
+
+/// A break is reported and is not a difference: an account deletion that
+/// removes the account's events leaves one.
+#[test]
+fn a_break_in_the_event_log_is_reported_and_is_not_a_difference() {
     let dir = DataDir::new(3);
     common::open(&dir.config.layout.sequencer_db)
         .execute(r#"delete from "repo_seq" where "seq" = 2"#, [])
         .unwrap();
     let report = verify(&dir.config).unwrap();
-    assert_eq!(kinds(&report), [("sequencer", "sequence-gap")]);
-    assert_eq!(report.findings[0].detail, "no event between 1 and 3");
+    assert_eq!(report.findings, []);
+    assert_eq!((report.events, report.sequence_breaks), (2, 1));
+    assert_eq!(
+        report.first_sequence_breaks,
+        [SeqGap {
+            after: 1,
+            before: 3
+        }]
+    );
+    let json = report.to_json();
+    assert_eq!(
+        (&json["differences"], &json["sequenceBreaks"]),
+        (&json!(0), &json!(1))
+    );
+    assert_eq!(
+        json["firstSequenceBreaks"],
+        json!([{"after": 1, "before": 3}])
+    );
+    assert!(
+        report
+            .to_string()
+            .contains("sequence breaks   1\n  no event between 1 and 3\n")
+    );
+}
+
+#[test]
+fn a_report_lists_the_first_five_breaks() {
+    let dir = DataDir::new(3);
+    let sequencer = common::open(&dir.config.layout.sequencer_db);
+    for seq in (5..=27).step_by(2) {
+        sequencer
+            .execute(
+                r#"insert into "repo_seq" ("seq", "did", "eventType", "event", "sequencedAt") values (?1, ?2, 'append', x'00', '2026-01-01T00:00:00.000Z')"#,
+                params![seq, ALICE],
+            )
+            .unwrap();
+    }
+    let report = verify(&dir.config).unwrap();
+    assert_eq!(report.findings, []);
+    assert_eq!(report.sequence_breaks, 12);
+    assert_eq!(report.first_sequence_breaks.len(), 5);
+}
+
+/// The actors' findings survive an event log that cannot be read.
+#[test]
+fn a_missing_event_log_is_a_finding_and_keeps_the_report() {
+    let dir = DataDir::new(3);
+    std::fs::remove_file(dir.config.layout.actor_db(DANA)).unwrap();
+    std::fs::remove_file(&dir.config.layout.sequencer_db).unwrap();
+    let report = verify(&dir.config).unwrap();
+    assert_eq!(
+        kinds(&report),
+        [(DANA, "store-missing"), ("sequencer", "store-unreadable")]
+    );
+    assert_eq!(report.actors, 3);
 }
 
 #[test]

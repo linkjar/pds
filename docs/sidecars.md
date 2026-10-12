@@ -234,8 +234,9 @@ named here so the hosted mode is not mistaken for the whole story.
 | §20 | Operator identity, reason and the acting sidecar recorded in every audit entry. |
 | New §22 | Sidecars: the ops API contract, the MCP bridge contract, the scope map, and the rule that sidecars hold no keys and no database access. |
 
-Units: the console lands after unit 7 as unit 8, because it needs the ops
-API and the audit log; the MCP server lands as unit 9, because it needs the
+Units: the console lands as unit 9, after the audit log of unit 7 and the
+cutover of unit 8, because it needs the ops API and the audit log; the MCP
+server lands as unit 10, because it needs the
 OAuth server and the `linkjar` profile's sign-in; the local MCP mode lives in `linkjar.io` as a
 separate later unit. Allowances: three weeks each for the console and the
 hosted MCP server, low confidence.

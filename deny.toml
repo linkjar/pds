@@ -1,4 +1,4 @@
-# cargo-deny policy for LinkJar PDS. See docs/rust/SPEC.md section 14.5.
+# cargo-deny policy for LinkJar PDS. See docs/SPEC.md section 14.5.
 # Every `ignore` entry needs a reason and an expiry date in its comment.
 
 [graph]

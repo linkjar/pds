@@ -15,8 +15,5 @@ serde_json.workspace = true
 thiserror.workspace = true
 unicode-segmentation.workspace = true
 
-[dev-dependencies]
-anyhow.workspace = true
-
 [lints]
 workspace = true

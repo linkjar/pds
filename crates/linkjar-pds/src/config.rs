@@ -1,9 +1,11 @@
 //! Configuration from the environment (`docs/SPEC.md` §14.1, Appendix C).
 //!
-//! This unit reads the variables the read-only server uses, with the
+//! As of unit 3 this module reads the variables the read-only server uses, with the
 //! Reference's defaults. An invalid value stops the start. The other
 //! variables of Appendix C are accepted and not yet read; each arrives with
-//! the unit that uses it.
+//! the unit that uses it. A variable that Appendix C refuses stops the start.
+//! A `PDS_*` variable that Appendix C does not name is kept in
+//! [`Config::unknown_variables`], and the commands warn about it.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -28,6 +30,142 @@ pub enum ConfigError {
         /// Why it is refused.
         reason: &'static str,
     },
+    /// A variable is set that this version refuses (Appendix C).
+    #[error("{name} is set: {reason}")]
+    Refused {
+        /// The variable.
+        name: String,
+        /// Why it is refused.
+        reason: &'static str,
+    },
+}
+
+/// The variables of Appendix C with a fixed name, and the four fixed names
+/// under "New in the Candidate".
+const KNOWN: &[&str] = &[
+    // Service
+    "PDS_HOSTNAME",
+    "PDS_PORT",
+    "PDS_SERVICE_DID",
+    "PDS_SERVICE_NAME",
+    "PDS_VERSION",
+    "PDS_HOME_URL",
+    "PDS_SERVICE_HANDLE_DOMAINS",
+    "PDS_DEV_MODE",
+    "PDS_CONTACT_EMAIL_ADDRESS",
+    "PDS_PRIVACY_POLICY_URL",
+    "PDS_TERMS_OF_SERVICE_URL",
+    "PDS_SUPPORT_URL",
+    // Storage
+    "PDS_DATA_DIRECTORY",
+    "PDS_ACCOUNT_DB_LOCATION",
+    "PDS_SEQUENCER_DB_LOCATION",
+    "PDS_DID_CACHE_DB_LOCATION",
+    "PDS_ACTOR_STORE_DIRECTORY",
+    "PDS_ACTOR_STORE_CACHE_SIZE",
+    "PDS_SQLITE_DISABLE_WAL_AUTO_CHECKPOINT",
+    "PDS_BLOBSTORE_DISK_LOCATION",
+    "PDS_BLOBSTORE_DISK_TMP_LOCATION",
+    "PDS_BLOB_UPLOAD_LIMIT",
+    "PDS_MAX_REPO_IMPORT_SIZE",
+    "PDS_ACCEPTING_REPO_IMPORTS",
+    // Identity
+    "PDS_DID_PLC_URL",
+    "PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX",
+    "PDS_PLC_ROTATION_KEY_KMS_KEY_ID",
+    "PDS_RECOVERY_DID_KEY",
+    "PDS_DID_CACHE_STALE_TTL",
+    "PDS_DID_CACHE_MAX_TTL",
+    "PDS_ID_RESOLVER_TIMEOUT",
+    "PDS_HANDLE_BACKUP_NAMESERVERS",
+    "PDS_ENABLE_DID_DOC_WITH_SESSION",
+    // Auth and OAuth
+    "PDS_JWT_SECRET",
+    "PDS_DPOP_SECRET",
+    "PDS_ADMIN_PASSWORD",
+    "PDS_OAUTH_TRUSTED_CLIENTS",
+    "PDS_LEXICON_AUTHORITY_DID",
+    // Invites and abuse
+    "PDS_INVITE_REQUIRED",
+    "PDS_INVITE_EPOCH",
+    "PDS_INVITE_INTERVAL",
+    "PDS_HCAPTCHA_SITE_KEY",
+    "PDS_HCAPTCHA_SECRET_KEY",
+    "PDS_HCAPTCHA_TOKEN_SALT",
+    "PDS_RATE_LIMITS_ENABLED",
+    "PDS_RATE_LIMIT_BYPASS_KEY",
+    "PDS_RATE_LIMIT_BYPASS_IPS",
+    // Firehose and proxy
+    "PDS_CRAWLERS",
+    "PDS_MAX_SUBSCRIPTION_BUFFER",
+    "PDS_REPO_BACKFILL_LIMIT_MS",
+    "PDS_BSKY_APP_VIEW_URL",
+    "PDS_BSKY_APP_VIEW_DID",
+    "PDS_BSKY_APP_VIEW_CDN_URL_PATTERN",
+    "PDS_FETCH_MAX_RESPONSE_SIZE",
+    "PDS_DISABLE_SSRF_PROTECTION",
+    // Moderation and mail
+    "PDS_MOD_SERVICE_URL",
+    "PDS_MOD_SERVICE_DID",
+    "PDS_REPORT_SERVICE_URL",
+    "PDS_REPORT_SERVICE_DID",
+    "PDS_EMAIL_SMTP_URL",
+    "PDS_EMAIL_FROM_ADDRESS",
+    "PDS_EMAIL_DISABLE_CONFIRMATION_LINK",
+    "PDS_MODERATION_EMAIL_ADDRESS",
+    "PDS_MODERATION_EMAIL_SMTP_URL",
+    // Branding
+    "PDS_LOGO_URL",
+    "PDS_PRIMARY_COLOR",
+    "PDS_ERROR_COLOR",
+    "PDS_WARNING_COLOR",
+    "PDS_SUCCESS_COLOR",
+    "PDS_INFO_COLOR",
+    "PDS_BACKGROUND_LIGHT_URL",
+    "PDS_BACKGROUND_DARK_URL",
+    // New in the Candidate
+    "PDS_PROFILE",
+    "PDS_METRICS_ADDRESS",
+    "PDS_OPS_ADDRESS",
+    "PDS_OTLP_ENDPOINT",
+];
+
+/// The families that Appendix C names with a `*`.
+const KNOWN_PREFIXES: &[&str] = &["PDS_BLOBSTORE_S3_", "PDS_PROXY_", "PDS_AUDIT_KEY_"];
+
+/// The entryway variables: "Refused until the entryway unit ships".
+const ENTRYWAY: &[&str] = &[
+    "PDS_ENTRYWAY_URL",
+    "PDS_ENTRYWAY_DID",
+    "PDS_ENTRYWAY_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX",
+    "PDS_ENTRYWAY_PLC_ROTATION_KEY",
+    "PDS_ENTRYWAY_ADMIN_TOKEN",
+];
+
+/// Whether Appendix C names the variable.
+fn is_known(name: &str) -> bool {
+    KNOWN.contains(&name)
+        || KNOWN_PREFIXES
+            .iter()
+            .any(|prefix| name.starts_with(prefix))
+        // `PDS_EXTERNAL_<PROVIDER>_CLIENT_ID` and `_CLIENT_SECRET`.
+        || name.strip_prefix("PDS_EXTERNAL_").is_some_and(|rest| {
+            ["APPLE", "GOOGLE", "GITHUB"].iter().any(|provider| {
+                rest.strip_prefix(provider)
+                    .is_some_and(|field| matches!(field, "_CLIENT_ID" | "_CLIENT_SECRET"))
+            })
+        })
+}
+
+/// Why Appendix C refuses the variable, when it does.
+fn refusal(name: &str) -> Option<&'static str> {
+    if ENTRYWAY.contains(&name) {
+        Some("this version has no entryway mode")
+    } else if name.starts_with("PDS_REDIS_SCRATCH_") {
+        Some("version 1 has no Redis scratch store")
+    } else {
+        None
+    }
 }
 
 /// The settings of the read-only server.
@@ -75,6 +213,9 @@ pub struct Config {
     pub appview_url: Option<String>,
     /// `PDS_PROXY_HEADERS_TIMEOUT` in milliseconds, default ten seconds.
     pub proxy_timeout: Duration,
+    /// The `PDS_*` variables that are set and that Appendix C does not
+    /// name, in order (SPEC §14.1).
+    pub unknown_variables: Vec<String>,
 }
 
 impl std::fmt::Debug for Config {
@@ -151,6 +292,20 @@ impl Config {
     /// Reads the configuration from `vars`.
     pub fn from_vars(vars: &BTreeMap<String, String>) -> Result<Self, ConfigError> {
         let env = Env(vars);
+        let mut unknown_variables = Vec::new();
+        for name in vars.keys().filter(|name| name.starts_with("PDS_")) {
+            if let Some(reason) = refusal(name) {
+                // An empty value is an unset variable, as everywhere else.
+                if env.0.get(name).is_some_and(|value| !value.is_empty()) {
+                    return Err(ConfigError::Refused {
+                        name: name.clone(),
+                        reason,
+                    });
+                }
+            } else if !is_known(name) {
+                unknown_variables.push(name.clone());
+            }
+        }
         let hostname = env
             .text("PDS_HOSTNAME")
             .unwrap_or_else(|| "localhost".to_owned());
@@ -224,6 +379,7 @@ impl Config {
             service_did,
             handle_domains,
             layout,
+            unknown_variables,
         })
     }
 
@@ -303,6 +459,37 @@ mod tests {
                 matches!(Config::from_vars(&vars(&[(name, value)])), Err(ConfigError::Invalid { name: n, .. }) if n == name),
                 "{name}={value}"
             );
+        }
+    }
+
+    #[test]
+    fn an_unknown_variable_is_kept_and_a_known_one_is_not() {
+        let config = Config::from_vars(&vars(&[
+            ("PDS_JWT_SECERT", "x"),
+            ("PDS_EXTERNAL_APPLE_CLIENT_TOKEN", "x"),
+            ("PDS_EXTERNAL_APPLE_CLIENT_ID", "x"),
+            ("PDS_BLOBSTORE_S3_BUCKET", "x"),
+            ("PDS_PROXY_MAX_RETRIES", "x"),
+            ("PDS_AUDIT_KEY_ID", "x"),
+            ("PDS_PROFILE", "stock"),
+            ("PDS_CRAWLERS", "https://relay.test"),
+            ("LOG_LEVEL", "debug"),
+        ]))
+        .unwrap();
+        assert_eq!(
+            config.unknown_variables,
+            ["PDS_EXTERNAL_APPLE_CLIENT_TOKEN", "PDS_JWT_SECERT"]
+        );
+    }
+
+    #[test]
+    fn a_refused_variable_stops_the_start() {
+        for name in ["PDS_ENTRYWAY_URL", "PDS_REDIS_SCRATCH_ADDRESS"] {
+            assert!(
+                matches!(Config::from_vars(&vars(&[(name, "x")])), Err(ConfigError::Refused { name: n, .. }) if n == name),
+                "{name}"
+            );
+            assert!(Config::from_vars(&vars(&[(name, "")])).is_ok(), "{name}");
         }
     }
 

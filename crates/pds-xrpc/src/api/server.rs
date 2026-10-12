@@ -22,7 +22,7 @@ pub fn describe_server(state: &AppState) -> Response {
         contact.insert("email".to_owned(), email.clone().into());
     }
     let body = json!({
-        "did": config.service_did,
+        "did": config.auth.service_did,
         "availableUserDomains": config.handle_domains,
         "inviteCodeRequired": config.invite_required,
         "blobUploadLimit": config.blob_upload_limit,

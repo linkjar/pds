@@ -1,7 +1,7 @@
 # Hosted handles
 
 Owns [linkjar.io #93](https://github.com/linkjar/linkjar.io/issues/93). The patch
-`patches/093-handle-policy.patch` applies to the exact `upstream.json` source pin,
+`legacy/patches/093-handle-policy.patch` applies to the exact `upstream.json` source pin,
 then provider patch #99 consumes its API. Keep the DID as account authority.
 No web app cookies, WebAuthn RP ID, seed, or recovery behavior changes here.
 
@@ -68,8 +68,8 @@ proposal URL for this downstream hosting policy.
 
 ## Caddy and DNS boundary
 
-Merge `staging/handles.env.example` into #90's environment. Import
-`staging/Caddyfile.handles` at the top of the configured Caddyfile, then import
+Merge `legacy/staging/handles.env.example` into #90's environment. Import
+`legacy/staging/Caddyfile.handles` at the top of the configured Caddyfile, then import
 `linkjar_handle_hosts` in the TLS site covering `pds.linkjar.social` and
 `*.linkjar.social`. Set `PDS_UPSTREAM` to the private PDS address (default
 `pds:3000`). The #90 runbook owns certificates, origin protection and explicit

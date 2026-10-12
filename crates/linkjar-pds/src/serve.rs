@@ -1,14 +1,16 @@
 //! The `serve` command: the read-only server over a data directory.
 
-use std::net::SocketAddr;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use pds_blob::DiskBlobStore;
 use pds_identity::{DidCache, DidResolver, ResolverConfig};
 use pds_storage::DidCacheDb;
 use pds_xrpc::auth::AuthConfig;
 use pds_xrpc::{AppState, ServerConfig};
+use tokio::net::TcpListener;
+use tokio::sync::Notify;
 
 use crate::config::Config;
 
@@ -94,7 +96,6 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
     );
     let server = ServerConfig {
         version: config.version.clone(),
-        service_did: config.service_did.clone(),
         handle_domains: config.handle_domains.clone(),
         invite_required: config.invite_required,
         blob_upload_limit: config.blob_upload_limit,
@@ -119,15 +120,66 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
     ))
 }
 
+/// How long the server waits for open connections after it is told to stop
+/// (SPEC §14.3): 8 seconds. `docker stop` kills a container after 10 seconds
+/// by default, so the server exits by itself before that.
+pub const SHUTDOWN_LIMIT: Duration = Duration::from_secs(8);
+
+/// Binds the listener of `serve` on every address of the host.
+///
+/// It binds the IPv6 wildcard first. That socket also accepts IPv4 where the
+/// system leaves `IPV6_V6ONLY` off, which is the default on Linux. When the
+/// bind fails, as on a host without IPv6, it binds the IPv4 wildcard.
+async fn bind(port: u16) -> std::io::Result<TcpListener> {
+    match TcpListener::bind(SocketAddr::from((Ipv6Addr::UNSPECIFIED, port))).await {
+        Ok(listener) => Ok(listener),
+        Err(error) => {
+            tracing::warn!(%error, "the IPv6 wildcard did not bind; listening on IPv4 only");
+            TcpListener::bind(SocketAddr::from((Ipv4Addr::UNSPECIFIED, port))).await
+        }
+    }
+}
+
 /// Serves until the process is told to stop.
 pub async fn serve(config: &Config) -> Result<(), ServeError> {
+    for name in &config.unknown_variables {
+        tracing::warn!(variable = %name, "unknown variable: SPEC Appendix C does not name it");
+    }
     let state = app_state(config)?;
-    let address = SocketAddr::from(([0, 0, 0, 0], config.port));
-    let listener = tokio::net::TcpListener::bind(address).await?;
+    let listener = bind(config.port).await?;
+    let address = listener.local_addr()?;
     tracing::info!(%address, did = %config.service_did, "serving");
-    axum::serve(listener, pds_xrpc::router(state))
-        .with_graceful_shutdown(shutdown())
-        .await?;
+    serve_until(listener, state, shutdown(), SHUTDOWN_LIMIT).await
+}
+
+/// Serves `state` on `listener` until `stop` resolves, then waits at most
+/// `limit` for the open connections to finish (SPEC §14.3).
+pub async fn serve_until(
+    listener: TcpListener,
+    state: AppState,
+    stop: impl Future<Output = ()> + Send + 'static,
+    limit: Duration,
+) -> Result<(), ServeError> {
+    let stopping = Arc::new(Notify::new());
+    let told = Arc::clone(&stopping);
+    let server = axum::serve(listener, pds_xrpc::router(state))
+        .with_graceful_shutdown(async move {
+            stop.await;
+            told.notify_one();
+        })
+        .into_future();
+    // The limit starts when the server is told to stop, not when it starts.
+    let expired = async {
+        stopping.notified().await;
+        tokio::time::sleep(limit).await;
+    };
+    tokio::select! {
+        result = server => result?,
+        () = expired => tracing::warn!(
+            limit_ms = u64::try_from(limit.as_millis()).unwrap_or(u64::MAX),
+            "connections were still open at the shutdown limit; they are closed"
+        ),
+    }
     tracing::info!("stopped");
     Ok(())
 }

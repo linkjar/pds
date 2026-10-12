@@ -1,11 +1,19 @@
 //! The `verify` command (`docs/SPEC.md` §18.2).
 //!
 //! `verify` reads a data directory and writes nothing. For every actor it
-//! loads the repository, reads the whole tree, rebuilds the tree from the
-//! record index and compares the roots; it loads the signing key and checks
-//! the commit signature with it; and it checks that every blob a record
-//! references is in the blob index and in the blob store. It then checks
-//! that the event log has no break in its sequence numbers.
+//! loads the repository and reads the whole tree, and it names a tree that
+//! references a node more than once. It rebuilds the tree from the record
+//! index and compares the roots. It loads the signing key and checks the
+//! commit signature with it. It checks that every blob a record references
+//! has a row in the blob index and, unless the blob is taken down, a file in
+//! the blob store. Without a blob store location it skips the file check and
+//! says so.
+//!
+//! It then reads the event log and reports each break in its sequence
+//! numbers. A break is not a difference, and it does not change the exit
+//! code: a server that deletes the events of a deleted account leaves a
+//! break in a sound log. An event log that cannot be read is a difference
+//! with the subject `sequencer`.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -16,9 +24,12 @@ use pds_identity::{Algorithm, Keypair};
 use pds_repo::mst::tree::Tree;
 use pds_repo::mst::walk::{Guard, read_tree};
 use pds_repo::{Commit, MemoryBlockStore, Repo, RepoError, TreeDefect};
-use pds_storage::{AccountDb, ActorDb, SequencerDb, StorageError};
+use pds_storage::{AccountDb, ActorDb, SeqGap, SequencerDb, StorageError};
 
 use crate::config::Config;
+
+/// The number of breaks in the event log that a report lists.
+const BREAKS_LISTED: usize = 5;
 
 /// One thing `verify` found wrong.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -44,6 +55,11 @@ pub struct Report {
     pub blob_references: u64,
     /// Events in the event log.
     pub events: u64,
+    /// Breaks in the sequence numbers of the event log. A break is not a
+    /// difference.
+    pub sequence_breaks: u64,
+    /// The first breaks, at most five.
+    pub first_sequence_breaks: Vec<SeqGap>,
     /// Whether the blob store was checked: false when none is configured.
     pub blob_store_checked: bool,
     /// The differences. An empty list is a clean data directory.
@@ -67,6 +83,10 @@ impl Report {
             "records": self.records,
             "blobReferences": self.blob_references,
             "events": self.events,
+            "sequenceBreaks": self.sequence_breaks,
+            "firstSequenceBreaks": self.first_sequence_breaks.iter().map(|gap| serde_json::json!({
+                "after": gap.after, "before": gap.before,
+            })).collect::<Vec<_>>(),
             "blobStoreChecked": self.blob_store_checked,
             "differences": self.findings.len(),
             "findings": self.findings.iter().map(|f| serde_json::json!({
@@ -83,6 +103,10 @@ impl fmt::Display for Report {
         writeln!(f, "records           {}", self.records)?;
         writeln!(f, "blob references   {}", self.blob_references)?;
         writeln!(f, "events            {}", self.events)?;
+        writeln!(f, "sequence breaks   {}", self.sequence_breaks)?;
+        for gap in &self.first_sequence_breaks {
+            writeln!(f, "  no event between {} and {}", gap.after, gap.before)?;
+        }
         if !self.blob_store_checked {
             writeln!(
                 f,
@@ -207,7 +231,7 @@ fn check_tree(
         .values()
         .filter_map(|cid| Cid::try_from(cid.as_str()).ok())
         .collect();
-    let missing = store.blocks(&record_cids)?.missing;
+    let missing = store.missing_blocks(&record_cids)?;
     if let Some(first) = missing.first() {
         report.find(
             did,
@@ -244,17 +268,19 @@ fn check_blobs(
             ),
             // A taken-down blob is in quarantine and not in the store.
             Some(true) => {}
-            Some(false) => {
-                if let Some(blobs) = blobs
-                    && !blobs.has(did, &blob).unwrap_or(false)
-                {
-                    report.find(
-                        did,
-                        "blob-missing",
-                        format!("{blob}, referenced by {uri}, is not in the blob store"),
-                    );
-                }
-            }
+            Some(false) => match blobs.map(|blobs| blobs.has(did, &blob)) {
+                None | Some(Ok(true)) => {}
+                Some(Ok(false)) => report.find(
+                    did,
+                    "blob-missing",
+                    format!("{blob}, referenced by {uri}, is not in the blob store"),
+                ),
+                Some(Err(error)) => report.find(
+                    did,
+                    "blob-unreadable",
+                    format!("{blob}, referenced by {uri}: {error}"),
+                ),
+            },
         }
     }
     Ok(())
@@ -283,17 +309,17 @@ fn verify_actor(
         report.find(did, "root-missing", "the store has no repository root");
         return Ok(());
     };
-    if let Some((cid, rev)) = accounts.repo_root(did)?
-        && (cid != root.cid.to_string() || rev != root.rev)
-    {
-        report.find(
+    match accounts.repo_root(did)? {
+        None => report.find(did, "root-mismatch", "account.sqlite has no repo_root row"),
+        Some((cid, rev)) if cid != root.cid.to_string() || rev != root.rev => report.find(
             did,
             "root-mismatch",
             format!(
                 "account.sqlite has {cid} at {rev}; the store has {} at {}",
                 root.cid, root.rev
             ),
-        );
+        ),
+        Some(_) => {}
     }
     let repo = match Repo::load(&store, root.cid) {
         Ok(repo) => repo,
@@ -335,7 +361,20 @@ fn verify_actor(
     check_blobs(&store, blobs, did, report)
 }
 
+/// Counts the events and the breaks in their sequence numbers.
+fn read_sequencer(config: &Config, report: &mut Report) -> Result<(), StorageError> {
+    let sequencer = SequencerDb::open(&config.layout.sequencer_db)?;
+    report.events = sequencer.event_count()?;
+    let gaps = sequencer.gaps()?;
+    report.sequence_breaks = gaps.len() as u64;
+    report.first_sequence_breaks = gaps.into_iter().take(BREAKS_LISTED).collect();
+    Ok(())
+}
+
 /// Verifies the data directory that `config` names.
+///
+/// An account database that cannot be read is the error. A failure of any
+/// other store is a finding, so the report of the other stores is kept.
 pub fn verify(config: &Config) -> Result<Report, StorageError> {
     let mut report = Report::default();
     let accounts = AccountDb::open(&config.layout.account_db)?;
@@ -348,15 +387,8 @@ pub fn verify(config: &Config) -> Result<Report, StorageError> {
             report.find(&actor.did, "store-unreadable", error.to_string());
         }
     }
-    let sequencer = SequencerDb::open(&config.layout.sequencer_db)?;
-    let (events, _, _) = sequencer.span()?;
-    report.events = events;
-    for gap in sequencer.gaps()? {
-        report.find(
-            "sequencer",
-            "sequence-gap",
-            format!("no event between {} and {}", gap.after, gap.before),
-        );
+    if let Err(error) = read_sequencer(config, &mut report) {
+        report.find("sequencer", "store-unreadable", error.to_string());
     }
     Ok(report)
 }

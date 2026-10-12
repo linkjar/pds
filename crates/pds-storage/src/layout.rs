@@ -57,7 +57,18 @@ impl DataLayout {
 }
 
 /// Opens a database for reading. A missing file is an error: reading never
-/// creates one.
+/// creates a database.
+///
+/// The connection changes no row. It can still write beside the database:
+/// when the database is in WAL journal mode, SQLite creates the `-shm` and
+/// `-wal` files that are absent and leaves them when the connection closes.
+/// The user that runs this process owns the new files, and needs write
+/// access to the directory of the database: without it the read fails.
+/// `tests/wal.rs` shows this, and shows that the connection reads what a
+/// `-wal` file holds.
+///
+/// The `immutable` URI parameter would avoid the files, but SQLite then
+/// ignores a `-wal` file, and a copy of a live database can carry one.
 pub(crate) fn open_read_only(path: &Path) -> Result<Connection, StorageError> {
     let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
     let conn = Connection::open_with_flags(path, flags)?;

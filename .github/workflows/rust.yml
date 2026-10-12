@@ -5,10 +5,10 @@ name: Rust
 
 on:
   pull_request:
-    paths-ignore: ['legacy/**', 'docs/legacy/**']
+    paths-ignore: ['legacy/**', 'docs/legacy/**', 'parity/**']
   push:
     branches: [main]
-    paths-ignore: ['legacy/**', 'docs/legacy/**']
+    paths-ignore: ['legacy/**', 'docs/legacy/**', 'parity/**']
   schedule:
     # Mondays. The toolchain follows stable and advisories arrive without
     # a push, so a quiet week is checked here and not on the next pull
@@ -49,6 +49,10 @@ jobs:
       - run: cargo test --workspace --locked
       - name: Generated types are current
         run: cargo xtask codegen --check
+      # The workspace excludes fuzz/, so no step above compiles the targets.
+      # A check needs neither nightly nor cargo-fuzz.
+      - name: Fuzz targets compile
+        run: cargo check --manifest-path fuzz/Cargo.toml --locked
 
   supply-chain:
     name: deny, vet, lockfile
