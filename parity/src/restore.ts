@@ -18,11 +18,17 @@
 import { rmSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { compareGroups } from './compare.ts'
+import { readsReport } from './reads-report.ts'
 import { runFiles, scenarioFiles } from './run.ts'
-import { down, execPds, swapPds, up } from './stack/compose.ts'
+import { down, execPds, restartPds, swapPds, up } from './stack/compose.ts'
 import { CANDIDATE_TAG, targetSpec } from './stack/targets.ts'
 
 export type RestoreOptions = {
+  /**
+   * Run the read measurements instead of the read scenarios: a large
+   * repository, timed on both servers (scenarios/restore-perf).
+   */
+  perf?: boolean
   /** Leave the stack running afterwards, with the Candidate serving. */
   keep?: boolean
   /** Rewrite the recorded difference list instead of checking against it. */
@@ -39,7 +45,8 @@ export async function restore(options: RestoreOptions = {}): Promise<number> {
   const reference = targetSpec('reference').image
   const runDir = targetSpec(target).runDir
 
-  const files = scenarioFiles('restore')
+  const profile = options.perf ? 'restore-perf' : 'restore'
+  const files = scenarioFiles(profile)
   // Files that start with 0 write; all others only read.
   const seeds = files.filter((file) => basename(file).startsWith('0'))
   const reads = files.filter((file) => !basename(file).startsWith('0'))
@@ -47,11 +54,19 @@ export async function restore(options: RestoreOptions = {}): Promise<number> {
   for (const group of ['restore-seed', 'restore-reference', 'restore-candidate']) {
     rmSync(join(runDir, 'transcripts', group), { recursive: true, force: true })
   }
-  await up(target, 'restore', { fresh: true, image: reference })
+  await up(target, profile, { fresh: true, image: reference })
 
   const steps: [string, () => Promise<number> | number][] = [
     ['seed, on the Reference', () => runFiles(target, seeds, { PARITY_TRANSCRIPTS: 'restore-seed' })],
-    ['reads, on the Reference', () => runFiles(target, reads, { PARITY_TRANSCRIPTS: 'restore-reference' })],
+    [
+      'reads, on the Reference',
+      () => {
+        // A measurement starts both servers fresh: the Reference would
+        // otherwise carry the memory of the seed it has just written.
+        if (options.perf) restartPds(target)
+        return runFiles(target, reads, { PARITY_TRANSCRIPTS: 'restore-reference' })
+      },
+    ],
     [
       'reads, on the Candidate',
       () => {
@@ -72,6 +87,7 @@ export async function restore(options: RestoreOptions = {}): Promise<number> {
     }
   }
   if (!options.keep) down(target)
+  if (status === 0 && options.perf) console.log(`\n${readsReport()}`)
   return status
 }
 
