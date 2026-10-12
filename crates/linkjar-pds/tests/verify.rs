@@ -198,7 +198,7 @@ fn a_tree_that_shares_a_node_is_named_as_such() {
     // A key of the lower layer for the shared node, and one of the layer
     // above for the root.
     let key_at = |layer: u32| {
-        (0..)
+        (0..10_000)
             .map(|i| format!("{POST}/k{i:04}"))
             .find(|key| layer_of(key.as_bytes()) == layer)
             .unwrap()
