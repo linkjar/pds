@@ -17,11 +17,12 @@ regex.workspace = true
 chrono.workspace = true
 rand.workspace = true
 thiserror.workspace = true
-serde_ipld_dagcbor.workspace = true
 ipld-core.workspace = true
+sha2.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
+serde_ipld_dagcbor.workspace = true
 proptest.workspace = true
 
 [lints]
