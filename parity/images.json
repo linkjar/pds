@@ -1,9 +1,9 @@
 {
   "reference": {
     "image": "ghcr.io/linkjar/pds",
-    "tag": "atproto-pds-0.5.34-11",
-    "digest": "sha256:12c1de787be2dc5ffdce36e477621a3943c0fe58bf768690c0ea81a4c4b90933",
-    "revision": "08b12354b5e8ec06f2a0aeba3ab3bec2c62d4f11"
+    "tag": "atproto-pds-0.5.34-12",
+    "digest": "sha256:78c56cd9e8b13d53cd03bd715352fe84e8deeca0595163dca2d6f1d1b215a801",
+    "revision": "0c34a1bb1b22ff6e19a552032aa41024ba9a83a8"
   },
   "stock": {
     "tag": "linkjar-pds:unpatched",
