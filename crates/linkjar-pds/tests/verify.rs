@@ -178,3 +178,84 @@ fn a_record_of_another_repository_in_the_index_is_found() {
     let report = verify(&dir.config).unwrap();
     assert_eq!(kinds(&report).first(), Some(&(ALICE, "record-uri")));
 }
+
+/// A tree whose root points at one node from both sides of its key: the
+/// shape an unpatched Reference accepts on import (SPEC §2.3, DD-6).
+#[test]
+fn a_tree_that_shares_a_node_is_named_as_such() {
+    use pds_repo::UnsignedCommit;
+    use pds_repo::mst::node::{WireEntry, WireNode, layer_of};
+    use pds_types::content::cid_for_cbor;
+
+    let dir = DataDir::new(1);
+    let store = dir.actor(ALICE);
+    let record: String = store
+        .query_row(r#"select "cid" from "record" limit 1"#, [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    let record = cid::Cid::try_from(record.as_str()).unwrap();
+    // A key of the lower layer for the shared node, and one of the layer
+    // above for the root.
+    let key_at = |layer: u32| {
+        (0..)
+            .map(|i| format!("{POST}/k{i:04}"))
+            .find(|key| layer_of(key.as_bytes()) == layer)
+            .unwrap()
+    };
+    let entry = |key: String, tree| WireEntry {
+        key,
+        value: record,
+        tree,
+    };
+    let shared = WireNode {
+        left: None,
+        entries: vec![entry(key_at(0), None)],
+    }
+    .encode();
+    let shared_cid = cid_for_cbor(&shared);
+    let root = WireNode {
+        left: Some(shared_cid),
+        entries: vec![entry(key_at(1), Some(shared_cid))],
+    }
+    .encode();
+    let root_cid = cid_for_cbor(&root);
+    let keypair = common::key(0);
+    let commit = UnsignedCommit::new(
+        ALICE.parse().unwrap(),
+        "3aaaaaaaaaaa7".parse().unwrap(),
+        root_cid,
+    )
+    .sign(|bytes| Ok::<_, std::convert::Infallible>(keypair.sign(bytes).to_vec()))
+    .unwrap();
+    for (cid, bytes) in [
+        (shared_cid, shared),
+        (root_cid, root),
+        (commit.cid(), commit.to_bytes()),
+    ] {
+        store
+            .execute(
+                r#"insert into "repo_block" values (?1, '3aaaaaaaaaaa7', ?2, ?3)"#,
+                params![cid.to_string(), i64::try_from(bytes.len()).unwrap(), bytes],
+            )
+            .unwrap();
+    }
+    let head = commit.cid().to_string();
+    store
+        .execute(
+            r#"update "repo_root" set "cid" = ?1, "rev" = '3aaaaaaaaaaa7'"#,
+            params![head],
+        )
+        .unwrap();
+    common::open(&dir.config.layout.account_db)
+        .execute(
+            r#"update "repo_root" set "cid" = ?1, "rev" = '3aaaaaaaaaaa7' where "did" = ?2"#,
+            params![head, ALICE],
+        )
+        .unwrap();
+
+    let report = verify(&dir.config).unwrap();
+    let found = kinds(&report);
+    assert!(found.contains(&(ALICE, "tree-shared-node")), "{found:?}");
+    assert!(!found.contains(&(ALICE, "signature-invalid")), "{found:?}");
+}

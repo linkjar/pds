@@ -208,8 +208,10 @@ directory, a strict Sync 1.1 relay and a mail catcher on a network that
 cannot reach the internet. The edge forwards every outside name to the
 fixture server in the harness process. Scenarios write one transcript per
 target, and the comparison checks two targets against a recorded difference
-list. Unit 1 runs reference builds only; the Candidate is one more target.
-Fault scenarios run against the Candidate alone. Source:
+list. The restore run puts the Reference and then the Candidate on one data
+volume and compares their answers to the read scenarios, body bytes
+included; the Candidate's `verify` checks the volume. Fault scenarios run
+against the Candidate alone. Source:
 [`14-parity.mmd`](diagrams/14-parity.mmd).
 
 <picture>
@@ -254,7 +256,8 @@ open until the first Candidate-only migration. Source:
 How the repository is organised and what the gates run. The parity gate
 runs the scenarios of [`parity/`](../../parity/README.md) on the published
 reference image, a second boot of it, the stock build and the upstream
-distribution, and then the three comparisons. A tool in `parity/` writes
+distribution, then the three comparisons, and the restore run on the
+Candidate image that `./Dockerfile` builds. A tool in `parity/` writes
 fixtures with `@atproto/repo` at the pin, which the tests of `pds-repo`
 replay. [`bench/`](../../bench/README.md) runs `pds-repo` beside `rsky-repo`
 for decision D2; like `fuzz/`, it is outside the workspace and its gates. Source: [`18-repository.mmd`](diagrams/18-repository.mmd).

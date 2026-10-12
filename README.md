@@ -4,17 +4,20 @@ An AT Protocol Personal Data Server in Rust, compatible with the reference
 implementation, with LinkJar's account behaviour as native extension points
 instead of source patches. Dual-licensed MIT or Apache-2.0.
 
-> Status: unit 2 of 13. The workspace builds. The syntax, data-model,
-> lexicon and identity crates pass the upstream interop vectors. The
-> repository engine is written here and gives the same bytes as
-> `@atproto/repo` at the pin for tree roots, commits and exports
-> ([decision D2](docs/research/2026-10-12-repository-crate.md)). The API
-> types are generated from the vendored lexicons, the specification is at
-> revision 4, and the [parity harness](parity/README.md) holds the
-> reference image to it. The server does not serve traffic yet. The
-> reference image under [`legacy/`](legacy/README.md) remains the deployed
-> server until cutover. Progress is logged in
-> [docs/plan.md](docs/plan.md#status).
+> Status: unit 3 of 13. The server reads: it serves the repository and
+> sync reads of a data directory that the reference server wrote, and
+> answers them as the reference does. The [parity harness](parity/README.md)
+> puts both servers on the same data directory and compares 331 requests,
+> body bytes included
+> ([unit record](docs/research/2026-10-13-read-only-server.md)). `verify`
+> checks a data directory without changing it. The server does not write
+> yet: accounts, sessions, record writes, the firehose and OAuth come with
+> units 4 and 5. The repository engine is written here and gives the same
+> bytes as `@atproto/repo` at the pin
+> ([decision D2](docs/research/2026-10-12-repository-crate.md)). The
+> specification is at revision 6. The reference image under
+> [`legacy/`](legacy/README.md) remains the deployed server until cutover.
+> Progress is logged in [docs/plan.md](docs/plan.md#status).
 
 ## Start here
 
@@ -69,7 +72,8 @@ engine to the firehose, is shared.
 | Path | Contents |
 |---|---|
 | `crates/` | The workspace crates, one per subsystem ([architecture](docs/architecture/README.md#crates)) |
-| `crates/linkjar-pds/` | The binary |
+| `crates/linkjar-pds/` | The binary: `serve`, `verify`, `export-car`, `check-config`, `health`, `version` |
+| `Dockerfile` | The server's image |
 | `xtask/` | Repository tasks: `cargo xtask codegen` generates API types from the lexicons |
 | `lexicons/` | Vendored upstream lexicons at the pin, LinkJar lexicons, project lexicons ([notice](lexicons/NOTICE.md)) |
 | `interop/` | CC0 interop test vectors from upstream ([notice](interop/README.md)) |
@@ -94,6 +98,19 @@ devenv shell -- pds:check        # everything CI runs
 devenv shell -- pds:hooks        # the rustfmt and clippy hooks, by hand
 ```
 
+Run the server on a copy of a reference data directory, and check the copy:
+
+```sh
+export PDS_HOSTNAME=pds.example.com PDS_DATA_DIRECTORY=/path/to/copy \
+       PDS_BLOBSTORE_DISK_LOCATION=/path/to/copy/blocks \
+       PDS_JWT_SECRET=... PDS_ADMIN_PASSWORD=...
+cargo run -p linkjar-pds -- verify   # reads only; exit 1 on a difference
+cargo run -p linkjar-pds -- serve    # reads only in this unit; port 2583
+```
+
+The variables are the reference server's (SPEC Appendix C). The server
+writes one file of the copy, the DID cache.
+
 `devenv shell` installs no git hook. Linked worktrees share one `.git/hooks`,
 so an installed hook would run for every worktree with the configuration of
 one.
@@ -105,6 +122,8 @@ The parity harness needs Docker and runs on its own
 cd parity && pnpm install
 pnpm parity run reference        # scenarios against the reference image
 pnpm parity compare reference repeat
+pnpm parity images build-candidate
+pnpm parity restore              # the Rust server on the reference's data
 ```
 
 ## Contributing

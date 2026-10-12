@@ -7,8 +7,10 @@ flowchart LR
   src --> sim[nightly seeds: pds-sim]
   legacy([legacy/, reference image build]) --> build[build.yml, paths legacy/**]
   build -- publishes by digest --> image[(ghcr.io/linkjar/pds)]
-  parity[parity/, scenarios and oracles] --> gate[parity.yml: scenarios on four targets, three comparisons]
+  parity[parity/, scenarios and oracles] --> gate[parity.yml: scenarios on four targets, three comparisons, the restore run of the Candidate]
   image --> gate
+  src -- Dockerfile --> candidate[(Candidate image)]
+  candidate --> gate
   legacy --> gate
   parity -- repo-fixtures.ts, @atproto/repo at the pin --> fixtures[(crates/pds-repo/tests/fixtures)]
   fixtures --> tests

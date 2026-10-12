@@ -4,7 +4,7 @@
 
 ## Normative
 
-- [SPEC.md](SPEC.md): the LinkJar PDS specification, revision 4. Compatibility baseline, protocol surface, storage, identity, accounts, OAuth, extension points, the LinkJar profile, operations, security, performance, parity, cutover, simulation, audit log, topologies, sidecars.
+- [SPEC.md](SPEC.md): the LinkJar PDS specification, revision 6. Compatibility baseline, protocol surface, storage, identity, accounts, OAuth, extension points, the LinkJar profile, operations, security, performance, parity, cutover, simulation, audit log, topologies, sidecars.
 
 ## Plan and decisions
 
@@ -17,7 +17,7 @@
 
 ## Parity harness
 
-- [../parity/README.md](../parity/README.md): how the harness is built and run, the oracles, the contract its page driver relies on, and the port of the legacy suites.
+- [../parity/README.md](../parity/README.md): how the harness is built and run, the oracles, the restore run of the Candidate, the contract its page driver relies on, and the port of the legacy suites.
 - [../parity/verify-at-pin.md](../parity/verify-at-pin.md): the twelve "verify at pin" answers with source and scenario, the rate-limiter table, and what the scenarios corrected in the specification.
 - [../parity/differences/README.md](../parity/differences/README.md): how the stock build and the production build differ, by patch.
 - [../parity/results/perf-reference.md](../parity/results/perf-reference.md): the Reference's baseline for the performance scenarios.
@@ -28,6 +28,9 @@
 - [research/2026-10-08-atproto-doc-sweep.md](research/2026-10-08-atproto-doc-sweep.md): the gap report of SPEC revision 0 against every atproto.com specification and guide page.
 - [research/2026-10-09-parity-harness.md](research/2026-10-09-parity-harness.md): the relay, the PLC directory and the OAuth client the harness runs beside the PDS, with the source of each fact.
 - [research/2026-10-12-repository-crate.md](research/2026-10-12-repository-crate.md): decision D2. The in-house repository engine and `rsky-repo` on the same interop vectors, the same fixtures from `@atproto/repo` at the pin, and the same S1 to S3 workload, with the method and the host.
+
+- [research/2026-10-10-upstream-0.5.35-to-0.5.37.md](research/2026-10-10-upstream-0.5.35-to-0.5.37.md): what upstream released after the pin, the shared-node fix (#5584) for LinkJar's deployment, and the cost of each pin option.
+- [research/2026-10-13-read-only-server.md](research/2026-10-13-read-only-server.md): unit 3. What the read-only server serves, the restore run that compares it with the Reference on one data directory, what the comparison found, what `verify` checks, and what the unit leaves out.
 
 ## Upstream sources
 
