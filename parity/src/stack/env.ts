@@ -11,7 +11,7 @@ import type { TargetSpec } from './targets.ts'
 
 // `restore` is the production configuration again: its scenarios run against a
 // data directory that the Reference wrote (src/restore.ts).
-export const PROFILES = ['default', 'invites', 'firehose', 'captcha', 'perf', 'restore'] as const
+export const PROFILES = ['default', 'invites', 'firehose', 'captcha', 'perf', 'restore', 'restore-perf'] as const
 export type Profile = (typeof PROFILES)[number]
 
 export function isProfile(value: string): value is Profile {

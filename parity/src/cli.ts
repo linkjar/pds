@@ -7,7 +7,7 @@
 //   pnpm parity run <target> [--profile <name>] [--only <text>] [--keep] [--reuse]
 //   pnpm parity compare <left> <right> [--update]
 //   pnpm parity images build-candidate
-//   pnpm parity restore [--keep] [--update]
+//   pnpm parity restore [--keep] [--update] [--perf]
 //   pnpm parity perf report <target>
 
 import { spawnSync } from 'node:child_process'
@@ -124,7 +124,7 @@ async function main(): Promise<void> {
   if (group === 'images' && command === 'build-candidate') return buildCandidate()
   if (group === 'restore') {
     const args = [command ?? '', ...rest]
-    process.exit(await restore({ keep: args.includes('--keep'), update: args.includes('--update') }))
+    process.exit(await restore({ keep: args.includes('--keep'), update: args.includes('--update'), perf: args.includes('--perf') }))
   }
   if (group === 'compare') {
     process.exit(compare(target(command), target(rest[0]), { update: rest.includes('--update') }))

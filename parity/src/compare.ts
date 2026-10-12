@@ -34,7 +34,7 @@ function transcripts(target: TargetName): Map<string, Transcript> {
   const out = new Map<string, Transcript>()
   // The performance profile records measurements, which no two runs share.
   // A restore run compares its own two groups (see compareGroups).
-  for (const profile of PROFILES.filter((name) => name !== 'perf' && name !== 'restore')) {
+  for (const profile of PROFILES.filter((name) => name !== 'perf' && !name.startsWith('restore'))) {
     transcriptsIn(join(targetSpec(target).runDir, 'transcripts', profile), profile, out)
   }
   return out
