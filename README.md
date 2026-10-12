@@ -91,7 +91,12 @@ cargo test --workspace
 cargo xtask codegen --check     # generated types are current
 cargo deny check                 # advisories, licences, bans, sources
 devenv shell -- pds:check        # everything CI runs
+devenv shell -- pds:hooks        # the rustfmt and clippy hooks, by hand
 ```
+
+`devenv shell` installs no git hook. Linked worktrees share one `.git/hooks`,
+so an installed hook would run for every worktree with the configuration of
+one.
 
 The parity harness needs Docker and runs on its own
 ([parity/README.md](parity/README.md#run-it)):

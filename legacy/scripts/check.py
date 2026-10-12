@@ -84,5 +84,14 @@ class PinTests(unittest.TestCase):
         self.assertEqual(max(tags, key=lambda t: tags[t][0]), '@atproto/pds@0.5.10')
         self.assertEqual(len(tags), 2)
 
+    def test_report_lists_every_release_after_the_pin(self):
+        module = load('check-upstream')
+        refs = '\n'.join(f'commit{n} refs/tags/@atproto/pds@0.5.{n}' for n in (8, 9, 10, 11))
+        text = module.report({'tag': '@atproto/pds@0.5.9', 'commit': 'commit9'}, module.releases(refs))
+        self.assertIn('2 newer stable release(s)', text)
+        self.assertNotIn('0.5.8', text)
+        self.assertLess(text.index('@atproto/pds@0.5.10'), text.index('@atproto/pds@0.5.11'))
+        self.assertIn('%40atproto%2Fpds%400.5.11) at `commit11`', text)
+
 if __name__ == '__main__':
     unittest.main()

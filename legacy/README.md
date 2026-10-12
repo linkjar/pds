@@ -105,8 +105,11 @@ Every Monday the updater checks stable upstream PDS tags, resolves annotated tag
 copies that release's service Dockerfile, and opens/updates one bump PR using the
 repository's `GITHUB_TOKEN`; no personal token secret is required. Enable the
 repository setting allowing GitHub Actions to create pull requests. Keep the
-default token read-only: only the updater job requests contents, pull-request and
-Actions write permissions. When the PR is created or updated, the updater explicitly
+default token read-only: only the updater job requests contents, pull-request,
+issue and Actions write permissions. Before it opens the PR, the updater writes
+every release after the pin to the run's summary and to one open issue,
+"Upstream PDS releases newer than the pin", which it creates or rewrites. The
+issue appears even when PR creation is refused. When the PR is created or updated, the updater explicitly
 dispatches `build.yml` on the fixed `codex/upstream-pds` branch. That run verifies
 the bump; its non-main ref cannot pass the publish job's main-only guard.
 

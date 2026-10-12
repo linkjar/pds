@@ -15,9 +15,27 @@ jobs:
       contents: write
       pull-requests: write
       actions: write
+      issues: write
     steps:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
-      - run: python3 scripts/check-upstream.py --write
+      - run: python3 scripts/check-upstream.py --write --report "$RUNNER_TEMP/upstream.md"
+      # The report comes before the pull request, which the organization's
+      # policy can refuse. One issue is kept current, not one opened per run.
+      - name: Report releases newer than the pin
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITLE: Upstream PDS releases newer than the pin
+        run: |
+          set -euo pipefail
+          report="$RUNNER_TEMP/upstream.md"
+          [ -s "$report" ] || exit 0
+          cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          number="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "in:title \"$TITLE\"" --json number,title --jq "map(select(.title == env.TITLE))[0].number // empty")"
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --repo "$GITHUB_REPOSITORY" --body-file "$report"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body-file "$report"
+          fi
       - uses: peter-evans/create-pull-request@c9f8b51aaac1dfba340a97878061732b0e738ec1
         id: bump
         with:
