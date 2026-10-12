@@ -1,0 +1,34 @@
+flowchart LR
+  writes[writes]
+  tree[mst::Tree<br/>one path loaded]
+  changes[new blocks<br/>unused blocks]
+  proof[proof blocks]
+  signer[the caller's key]
+  commit[signed commit]
+  data[CommitData]
+  upload([CAR upload])
+  rcar{CIDs}
+  ccheck{commit}
+  rtree{tree}
+  guard{Guard}
+  records[records by key]
+  exp[export_blocks]
+  out([CAR export])
+  store[(BlockStore)]
+  writes --> tree
+  tree --> changes
+  tree --> proof
+  changes --> commit
+  signer --> commit
+  proof --> data
+  commit --> data
+  upload --> rcar
+  rcar --> ccheck
+  ccheck --> rtree
+  rtree --> records
+  guard --- rtree
+  guard --- exp
+  exp --> out
+  tree -.-> store
+  rtree -.-> store
+  exp -.-> store

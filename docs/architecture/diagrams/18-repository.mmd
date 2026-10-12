@@ -3,11 +3,14 @@ flowchart LR
   interop[(interop/, CC0 vectors)] --> tests[crate tests]
   src[crates/] --> ci[rust.yml: fmt, clippy, test, codegen check, deny, vet]
   src --> fuzz[fuzz.yml nightly: parsers]
+  src --> bench[bench/: pds-repo beside rsky-repo, S1 to S3]
   src --> sim[nightly seeds: pds-sim]
   legacy([legacy/, reference image build]) --> build[build.yml, paths legacy/**]
   build -- publishes by digest --> image[(ghcr.io/linkjar/pds)]
   parity[parity/, scenarios and oracles] --> gate[parity.yml: scenarios on four targets, three comparisons]
   image --> gate
   legacy --> gate
+  parity -- repo-fixtures.ts, @atproto/repo at the pin --> fixtures[(crates/pds-repo/tests/fixtures)]
+  fixtures --> tests
   devenv[(devenv.nix: toolchain, tools, hooks)] --- src
   mmd[(docs/architecture/diagrams/*.mmd)] -- pnpm render, beautiful-mermaid --> svg[docs/architecture/svg/]

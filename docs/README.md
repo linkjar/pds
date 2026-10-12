@@ -4,7 +4,7 @@
 
 ## Normative
 
-- [SPEC.md](SPEC.md): the LinkJar PDS specification, revision 3. Compatibility baseline, protocol surface, storage, identity, accounts, OAuth, extension points, the LinkJar profile, operations, security, performance, parity, cutover, simulation, audit log, topologies, sidecars.
+- [SPEC.md](SPEC.md): the LinkJar PDS specification, revision 4. Compatibility baseline, protocol surface, storage, identity, accounts, OAuth, extension points, the LinkJar profile, operations, security, performance, parity, cutover, simulation, audit log, topologies, sidecars.
 
 ## Plan and decisions
 
@@ -13,7 +13,7 @@
 
 ## Architecture
 
-- [architecture/README.md](architecture/README.md): one diagram per part of the system (context, crates, request paths, firehose, storage, OAuth flows, extension model, simulation, audit, topologies, sidecars, cutover), Mermaid sources rendered with beautiful-mermaid in light and dark variants. Updated in the same change as the code.
+- [architecture/README.md](architecture/README.md): one diagram per part of the system (context, crates, request paths, repository engine, firehose, storage, OAuth flows, extension model, simulation, audit, topologies, sidecars, cutover), Mermaid sources rendered with beautiful-mermaid in light and dark variants. Updated in the same change as the code.
 
 ## Parity harness
 
@@ -27,6 +27,11 @@
 - [research/2026-10-08-state-of-the-art.md](research/2026-10-08-state-of-the-art.md): how other PDS implementations, replication tools, simulation testers, transparency logs and supply-chain tooling solve what this project needs, with sources.
 - [research/2026-10-08-atproto-doc-sweep.md](research/2026-10-08-atproto-doc-sweep.md): the gap report of SPEC revision 0 against every atproto.com specification and guide page.
 - [research/2026-10-09-parity-harness.md](research/2026-10-09-parity-harness.md): the relay, the PLC directory and the OAuth client the harness runs beside the PDS, with the source of each fact.
+- [research/2026-10-12-repository-crate.md](research/2026-10-12-repository-crate.md): decision D2. The in-house repository engine and `rsky-repo` on the same interop vectors, the same fixtures from `@atproto/repo` at the pin, and the same S1 to S3 workload, with the method and the host.
+
+## Upstream sources
+
+- [../.agent_sources/README.md](../.agent_sources/README.md): local checkouts of the Reference, the interop tests, the relay, the PLC directory and `rsky`, each at the commit this repository pins. `scripts/vendor-agent-sources.sh` fetches them; git ignores them.
 
 ## Legacy
 
