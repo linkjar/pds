@@ -57,6 +57,10 @@ records D2: the in-house repository engine and `rsky-repo`, as published
 and from its main branch, on the same interop vectors, the same fixtures
 from `@atproto/repo` at the pin and the same S1 to S3 workload.
 
+[Upstream 0.5.35 to 0.5.37 against the frozen pin](research/2026-10-10-upstream-0.5.35-to-0.5.37.md)
+classifies each upstream change after the pin, examines the shared-node fix
+(#5584) for LinkJar's deployment, and prices the three pin options.
+
 [Sidecars](sidecars.md) designs the two companion containers: an operations
 and moderation console with OpenTelemetry built in, and an MCP server that
 lets a person reach their own data from any AI client after signing in
@@ -122,6 +126,7 @@ upstream bumps, which nothing does today beyond the image smoke gate.
 
 | Date | Event |
 |---|---|
+| 2026-10-12 | Between units 2 and 3. The owner decided the pin, D17 and the rest of D16 ([below](#decisions-taken-by-the-owner-2026-10-12)); SPEC revision 5 carries them. The upstream 0.5.37 note is on `main` (pull request #20). `devenv shell` installs no git hook any more, and the weekly upstream check reports releases after the pin in a run summary and an issue (pull request #23). The Monday audit reads CVSS 4.0 advisories (pull request #22). Open before unit 3: the ninth patch of the legacy build. Next: unit 3, from `main`. |
 | 2026-10-12 | Unit 2 done on `feat/unit-2-repository` (pull request #21). **D2 is decided: the repository engine is written in this repository** ([decision record](research/2026-10-12-repository-crate.md)). `pds-repo` holds the tree, commits, CAR, export and the checks on a repository from elsewhere, synchronous and without I/O. It is held to fixtures that a tool in `parity/` writes with `@atproto/repo` at the pin: thirteen commits replay to the same tree roots, commit CIDs, block sets, firehose CARs and export, byte for byte, and its firehose CAR sizes and block counts equal what unit 1 measured on the reference image. `rsky-repo` ran on the same vectors and workload in `bench/`, as published (0.0.6) and from its main branch (0.1.4). S1 to S3 micro-benchmarks for all three and for the Reference's library are published with the method and the host. `pds-types` applies the decode limits of SPEC §6.1 in a strict DAG-CBOR reader; `pds-lexicon` validates records and passes the record-data and data-model vectors; `pds-identity` has keys, low-S signatures on both curves, `did:key`, the DID-document contract and the handle rules, and passes the crypto vectors. No vector is a known failure beyond the three CID strings of unit 0. Five fuzz targets are new. SPEC revision 4 records D2 and opens D17. Also in the unit: `devenv shell` starts on devenv 2.4 again, and `scripts/vendor-agent-sources.sh` mirrors the pinned upstream sources for reading. Next: unit 3, from `main`. |
 | 2026-10-09 | Units 0 and 1 merged to `main` (pull requests #14 and #15) with every gate green in CI. Their first CI runs showed four faults, all repaired: the Rust workflow gave its pinned toolchain action no `toolchain` input; a `main` push that touches `legacy/` tried to publish revision 11 again, so a `release` job now publishes only when `upstream.json` names an unused tag; and the nightly fuzz workflow could not build, first for the workspace manifest and then for the target of the prebuilt cargo-fuzz (#16, #17). The parity workflow runs its four targets side by side, the fuzz corpus is kept between nights, and the Rust gates run every Monday (#18). The owner decided D15 and the service-token part of D16 ([below](#decisions-taken-2026-10-09)); SPEC revision 3 carries them as §2.3. `linkjar.io` has the PDS URL setting on `main`. Next: unit 2, from `main`. |
 | 2026-10-09 | Unit 1 done on `feat/unit-1-parity`, stacked on unit 0. The parity harness (`parity/`) runs 28 scenarios in five profiles against the reference image `ghcr.io/linkjar/pds` revision 11 by digest, a second boot of it, and the stock build, each in its own compose stack: the production hostnames behind a TLS edge, a PLC directory, a strict Sync 1.1 relay, a mail catcher, and fixtures for everything else. Oracles O1 to O4 and O9 are in place: two Reference boots compare equal, the difference between the stock and the production build is recorded by patch ([differences](../parity/differences/README.md)), every commit is verified against the PLC key and its MST root rebuilt, the relay re-emits every commit, and the OAuth flows run through the official client and Chromium. VP-8 to VP-12 are answered from the pinned source and confirmed by scenario ([verify-at-pin.md](../parity/verify-at-pin.md)). The legacy suites are ported to HTTP scenarios, with the assertions HTTP cannot observe listed. SPEC revision 2 carries the results and seventeen corrections that the scenarios forced, among them: a method without a handler is proxied and never 501, a deleted blob has no grace period, and the patch stack has eight patches, not six. Reference baselines for S1 to S5, S8 and S9 are in [parity/results](../parity/results/perf-reference.md). The `linkjar.io` browser gate takes `E2E_PDS_URL`. |
@@ -168,22 +173,34 @@ Taken by unit 2, as the plan assigns it. Revision 4 of the SPEC records it.
 |---|---|
 | D2, the repository crate | The engine is written in this repository, in `pds-repo`. It gives the same tree roots, commit CIDs, commit blocks and export bytes as `@atproto/repo` at the pin, refuses trees that reference a node more than once, and is synchronous with no I/O of its own. `rsky-repo` as published (0.0.6) fails four of six commit-proof vectors; its main branch (0.1.4, not published) passes them. Neither form checks an imported tree as SPEC §6.1 requires; both take the revision from the wall clock and are asynchronous over a locked store. Evidence and numbers: [decision record](research/2026-10-12-repository-crate.md). |
 
+## Decisions taken by the owner 2026-10-12
+
+Answered after unit 2. Revision 5 of the SPEC applies them.
+
+| Topic | Decision |
+|---|---|
+| Upstream pin | Keep 0.5.34 and carry upstream's shared-node fix (#5584) as a ninth patch, revision 12. Evidence and cost: [the upstream note](research/2026-10-10-upstream-0.5.35-to-0.5.37.md) §5. |
+| D17, data from elsewhere | Where the Candidate is stricter than the Reference at the pin, it keeps its check. Each case gets a scenario that records what the pin does and a row in SPEC §2.3: DD-6 to DD-9 and DD-11 to DD-13. The cases are those of [the decision record](research/2026-10-12-repository-crate.md) §7, items 1 to 4, 6 and 7. Item 5 is no difference: the Candidate validates records as the pinned server does. |
+| D16, blobs | The Candidate collects an upload that no record references after one hour (DD-10). It keeps no grace period: a dereferenced blob is deleted at once, as at the pin. |
+
 ## Open questions for the owner
 
-Two. Neither blocks unit 3.
+Three, all from [the upstream note](research/2026-10-10-upstream-0.5.35-to-0.5.37.md).
+None blocks unit 3.
 
-- **D17, repositories from elsewhere.** The engine refuses an imported tree
-  that is not valid: a node referenced more than once, a key at the wrong
-  layer, keys out of order. The Reference at the pin makes none of these
-  checks. If the pin stays at 0.5.34 without the upstream fix, each refusal
-  is a deliberate difference for SPEC §2.3 and needs your decision; the
-  upstream 0.5.35 to 0.5.37 note (pull request #20) has the pin options.
-  The decision record lists six smaller places of the same kind (§7).
+- **Imports in production until revision 12 is deployed.** The note
+  recommends `PDS_ACCEPTING_REPO_IMPORTS=false` on the production host until
+  the image with the ninth patch runs there, unless move-in is already
+  offered to people. The setting is on the host and is yours to change.
 
-- **D16, blobs.** Unit 4 builds the blob store and needs the answer. Two
-  behaviours that the pin does not have. The Reference
-  deletes a blob in the commit that removes its last reference, with no
-  grace period, and it never collects an upload that no record came to
-  reference. The Candidate can keep a dereferenced blob for a grace period,
-  and it can collect orphaned uploads after an hour. Adopt either, or follow
-  the pin.
+- **The commit signature on import.** SPEC §6.5 says the import verifies the
+  commit signature against the account's key. The Reference passes no key
+  and verifies nothing (the note, §7). List it as a deliberate difference,
+  or follow the pin. Unit 4 needs the answer.
+
+- **Two smaller items of the note.** `createAccount` with the handle or
+  email of a deactivated or taken-down account answers 500 at the pin and
+  400 from 0.5.36: a candidate for the D15 list. And the pin builds a new S3
+  client on every actor store access (#5575), which matters because
+  production blobs are in R2; the note names the evidence to collect on
+  staging (§4).
