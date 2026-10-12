@@ -34,6 +34,12 @@
     initialDatabases = [{ name = "pds_test"; }];
   };
 
+  # The hooks are defined here and installed nowhere. Linked worktrees share
+  # one .git/hooks, so an installed hook points at the worktree that entered
+  # the shell last, runs for all of them, and breaks when that worktree is
+  # removed. With the stage "manual" devenv installs no hook; run them with
+  # `pds:hooks`. CI holds the same gates.
+  git-hooks.default_stages = [ "manual" ];
   git-hooks.hooks = {
     rustfmt.enable = true;
     clippy = {
@@ -53,6 +59,8 @@
       cargo xtask codegen --check
     '';
     "pds:codegen".exec = "cargo xtask codegen";
+    # The git hooks, run by hand over every file.
+    "pds:hooks".exec = ''prek run --all-files --hook-stage manual --config "$DEVENV_ROOT/.pre-commit-config.yaml" "$@"'';
     # The parity harness (SPEC section 17). `parity:run reference` needs Docker.
     "parity:check".exec = ''
       set -euo pipefail
