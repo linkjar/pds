@@ -1,2 +1,6 @@
 # Unified diffs contain a required context prefix on otherwise empty lines.
 *.patch whitespace=-blank-at-eol
+
+# Fixtures written by a tool; see the README beside them.
+crates/pds-repo/tests/fixtures/*.car binary
+crates/pds-repo/tests/fixtures/reference.json linguist-generated -diff

@@ -662,6 +662,16 @@ version = "0.0.1"
 [[package]]
 name = "pds-repo"
 version = "0.0.1"
+dependencies = [
+ "cid",
+ "data-encoding",
+ "k256",
+ "pds-types",
+ "proptest",
+ "serde_json",
+ "sha2",
+ "thiserror",
+]
 
 [[package]]
 name = "pds-sequencer"
