@@ -32,6 +32,14 @@ allow = [
 # MPL-2.0 is file-scoped copyleft and acceptable for dependencies; it is not
 # used for the project's own code.
 
+# The Mozilla root certificate list, as data. reqwest's rustls verifier
+# depends on it on every platform; on Linux the server verifies against the
+# system store and SSL_CERT_FILE. The licence is permissive and is allowed
+# for this crate only.
+[[licenses.exceptions]]
+crate = "webpki-root-certs"
+allow = ["CDLA-Permissive-2.0"]
+
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"

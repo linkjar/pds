@@ -49,6 +49,16 @@ zeroize = "1"
 data-encoding = "2"
 base64 = "0.22"
 
+# storage, HTTP and runtime
+rusqlite = { version = "0.40", features = ["bundled"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "sync", "time"] }
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "query"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
+hmac = "0.13"
+subtle = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "json", "env-filter"] }
+
 # syntax and time
 regex = "1"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }

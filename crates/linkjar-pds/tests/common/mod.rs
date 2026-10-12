@@ -1,0 +1,270 @@
+//! A small data directory in the Reference's layout and schema, written
+//! with the repository engine, for tests of `verify` and of the server.
+
+#![allow(dead_code)] // each test file uses a part of this module
+
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU32, Ordering};
+
+use linkjar_pds::config::Config;
+use pds_identity::{Algorithm, Keypair};
+use pds_repo::{MemoryBlockStore, Repo, Write};
+use pds_types::{Data, Did, Tid};
+use rusqlite::{Connection, params};
+
+pub const ALICE: &str = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa";
+pub const DANA: &str = "did:plc:dddddddddddddddddddddddd";
+pub const TARA: &str = "did:plc:tttttttttttttttttttttttt";
+pub const POST: &str = "app.bsky.feed.post";
+pub const JWT_SECRET: &str = "test-jwt-secret";
+pub const ADMIN_PASSWORD: &str = "test-admin-password";
+pub const BLOB_CID: &str = "bafkreigh2akiscaildcqabsyg3dfr6chu3fgpregiymsck7e7aqa4s52zy";
+pub const BLOB_BYTES: &[u8] = b"a text blob";
+
+static NEXT: AtomicU32 = AtomicU32::new(0);
+
+/// A data directory that is removed when the value is dropped.
+pub struct DataDir {
+    pub root: PathBuf,
+    pub config: Config,
+}
+
+impl Drop for DataDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.root);
+    }
+}
+
+fn connection(path: &Path, schema: &str) -> Connection {
+    let conn = Connection::open(path).unwrap();
+    conn.execute_batch(schema).unwrap();
+    conn
+}
+
+const ACCOUNT_SCHEMA: &str = r#"
+CREATE TABLE "actor" ("did" varchar primary key, "handle" varchar, "createdAt" varchar not null, "takedownRef" varchar, "deactivatedAt" varchar, "deleteAfter" varchar);
+CREATE TABLE "repo_root" ("did" varchar primary key, "cid" varchar not null, "rev" varchar not null, "indexedAt" varchar not null);
+"#;
+const ACTOR_SCHEMA: &str = r#"
+CREATE TABLE "repo_root" ("did" varchar primary key, "cid" varchar not null, "rev" varchar not null, "indexedAt" varchar not null);
+CREATE TABLE "repo_block" ("cid" varchar primary key, "repoRev" varchar not null, "size" integer not null, "content" blob not null);
+CREATE INDEX "repo_block_repo_rev_idx" on "repo_block" ("repoRev", "cid");
+CREATE TABLE "record" ("uri" varchar primary key, "cid" varchar not null, "collection" varchar not null, "rkey" varchar not null, "repoRev" varchar not null, "indexedAt" varchar not null, "takedownRef" varchar);
+CREATE TABLE "blob" ("cid" varchar primary key, "mimeType" varchar not null, "size" integer not null, "tempKey" varchar, "width" integer, "height" integer, "createdAt" varchar not null, "takedownRef" varchar);
+CREATE TABLE "record_blob" ("blobCid" varchar not null, "recordUri" varchar not null, constraint "record_blob_pkey" primary key ("blobCid", "recordUri"));
+"#;
+const SEQUENCER_SCHEMA: &str = r#"
+CREATE TABLE "repo_seq" ("seq" integer primary key autoincrement, "did" varchar not null, "eventType" varchar not null, "event" blob not null, "invalidated" int2 default 0 not null, "sequencedAt" varchar not null);
+"#;
+const DID_CACHE_SCHEMA: &str = r#"
+CREATE TABLE "did_doc" ("did" varchar primary key, "doc" text not null, "updatedAt" bigint not null);
+"#;
+
+const TIME: &str = "2026-01-01T00:00:00.000Z";
+
+fn post(text: &str) -> Vec<u8> {
+    let mut fields = BTreeMap::new();
+    fields.insert("$type".to_owned(), Data::String(POST.to_owned()));
+    fields.insert("text".to_owned(), Data::String(text.to_owned()));
+    fields.insert("createdAt".to_owned(), Data::String(TIME.to_owned()));
+    Data::Object(fields.into_iter().collect()).to_dag_cbor()
+}
+
+/// The signing key of the `n`th actor.
+pub fn key(n: u8) -> Keypair {
+    Keypair::generate(Algorithm::Secp256k1, |bytes| bytes.fill(n + 1))
+}
+
+impl DataDir {
+    /// Three accounts: alice with `posts` posts and one blob, dana
+    /// deactivated, tara taken down.
+    pub fn new(posts: usize) -> Self {
+        let root = std::env::temp_dir().join(format!(
+            "linkjar-pds-test-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::create_dir_all(root.join("blocks")).unwrap();
+        let vars: BTreeMap<String, String> = [
+            ("PDS_HOSTNAME", "pds.test"),
+            ("PDS_DATA_DIRECTORY", root.to_str().unwrap()),
+            (
+                "PDS_BLOBSTORE_DISK_LOCATION",
+                root.join("blocks").to_str().unwrap(),
+            ),
+            ("PDS_JWT_SECRET", JWT_SECRET),
+            ("PDS_ADMIN_PASSWORD", ADMIN_PASSWORD),
+            ("PDS_VERSION", "0.0.0-test"),
+            ("PDS_INVITE_REQUIRED", "false"),
+            // Nothing listens here: a test that reaches the network fails fast.
+            ("PDS_DID_PLC_URL", "http://127.0.0.1:9"),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_owned(), v.to_owned()))
+        .collect();
+        let config = Config::from_vars(&vars).unwrap();
+
+        let accounts = connection(&config.layout.account_db, ACCOUNT_SCHEMA);
+        let sequencer = connection(&config.layout.sequencer_db, SEQUENCER_SCHEMA);
+        let did_cache = connection(&config.layout.did_cache_db, DID_CACHE_SCHEMA);
+        let dir = Self { root, config };
+        for (n, (did, handle, takedown, deactivated)) in [
+            (ALICE, "alice.pds.test", None, None),
+            (DANA, "dana.pds.test", None, Some(TIME)),
+            (TARA, "tara.pds.test", Some("mod-1"), None),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let n = u8::try_from(n).unwrap();
+            let count = if did == ALICE { posts } else { 1 };
+            let (cid, rev) = dir.write_actor(did, n, count);
+            accounts
+                .execute(
+                    r#"insert into "actor" values (?1, ?2, ?3, ?4, ?5, null)"#,
+                    params![
+                        did,
+                        handle,
+                        format!("2026-01-0{}T00:00:00.000Z", n + 1),
+                        takedown,
+                        deactivated
+                    ],
+                )
+                .unwrap();
+            accounts
+                .execute(
+                    r#"insert into "repo_root" values (?1, ?2, ?3, ?4)"#,
+                    params![did, cid, rev, TIME],
+                )
+                .unwrap();
+            sequencer
+                .execute(
+                    r#"insert into "repo_seq" ("did", "eventType", "event", "sequencedAt") values (?1, 'append', x'00', ?2)"#,
+                    params![did, TIME],
+                )
+                .unwrap();
+            let doc = format!(
+                r#"{{"@context":["https://www.w3.org/ns/did/v1"],"id":"{did}","alsoKnownAs":["at://{handle}"]}}"#
+            );
+            did_cache
+                .execute(
+                    r#"insert into "did_doc" values (?1, ?2, ?3)"#,
+                    params![did, doc, i64::MAX / 2],
+                )
+                .unwrap();
+        }
+        dir
+    }
+
+    /// Writes one actor store with `count` posts, and for alice a blob.
+    /// Returns the commit CID and the revision.
+    fn write_actor(&self, did: &str, n: u8, count: usize) -> (String, String) {
+        let layout = &self.config.layout;
+        std::fs::create_dir_all(layout.actor_store_dir(did)).unwrap();
+        let keypair = key(n);
+        std::fs::write(layout.actor_key(did), keypair.secret_bytes().as_slice()).unwrap();
+        let store = connection(&layout.actor_db(did), ACTOR_SCHEMA);
+
+        // A commit takes at most 200 writes, so a large repository is
+        // written in several revisions.
+        let records: Vec<(String, Vec<u8>)> = (0..count)
+            .map(|i| (format!("{POST}/r{i:04}"), post(&format!("post {i}"))))
+            .collect();
+        let parsed: Did = did.parse().unwrap();
+        let mut blocks = MemoryBlockStore::new();
+        let mut head: Option<(pds_repo::CommitData, Tid)> = None;
+        for (n, chunk) in records.chunks(200).enumerate() {
+            let writes: Vec<Write<'_>> = chunk
+                .iter()
+                .map(|(key, record)| Write::Create { key, record })
+                .collect();
+            let rev: Tid = format!("3aaaaaaaaaaa{}", n + 2).parse().unwrap();
+            let sign = |bytes: &[u8]| Ok(keypair.sign(bytes).to_vec());
+            let commit = match &head {
+                None => {
+                    Repo::format_init_commit(&blocks, &parsed, rev.clone(), &writes, sign).unwrap()
+                }
+                Some((previous, _)) => Repo::load(&blocks, previous.cid)
+                    .unwrap()
+                    .format_commit(rev.clone(), &writes, sign)
+                    .unwrap(),
+            };
+            for cid in &commit.removed_cids {
+                blocks.remove(cid);
+                store
+                    .execute(
+                        r#"delete from "repo_block" where "cid" = ?1"#,
+                        params![cid.to_string()],
+                    )
+                    .unwrap();
+            }
+            blocks.put_all(&commit.new_blocks);
+            for (cid, bytes) in commit.new_blocks.iter() {
+                store
+                    .execute(
+                        r#"insert into "repo_block" values (?1, ?2, ?3, ?4)"#,
+                        params![
+                            cid.to_string(),
+                            rev.to_string(),
+                            i64::try_from(bytes.len()).unwrap(),
+                            bytes
+                        ],
+                    )
+                    .unwrap();
+            }
+            for change in &commit.changes {
+                let (collection, rkey) = change.key.split_once('/').unwrap();
+                store
+                    .execute(
+                        r#"insert into "record" values (?1, ?2, ?3, ?4, ?5, ?6, null)"#,
+                        params![
+                            format!("at://{did}/{}", change.key),
+                            change.cid.unwrap().to_string(),
+                            collection,
+                            rkey,
+                            rev.to_string(),
+                            TIME
+                        ],
+                    )
+                    .unwrap();
+            }
+            head = Some((commit, rev));
+        }
+        let (commit, rev) = head.unwrap();
+        store
+            .execute(
+                r#"insert into "repo_root" values (?1, ?2, ?3, ?4)"#,
+                params![did, commit.cid.to_string(), rev.to_string(), TIME],
+            )
+            .unwrap();
+        if did == ALICE && count > 0 {
+            store
+                .execute(
+                    r#"insert into "blob" values (?1, 'text/plain', ?2, null, null, null, ?3, null)"#,
+                    params![BLOB_CID, i64::try_from(BLOB_BYTES.len()).unwrap(), TIME],
+                )
+                .unwrap();
+            store
+                .execute(
+                    r#"insert into "record_blob" values (?1, ?2)"#,
+                    params![BLOB_CID, format!("at://{did}/{POST}/r0000")],
+                )
+                .unwrap();
+            let blobs = self.root.join("blocks").join(did);
+            std::fs::create_dir_all(&blobs).unwrap();
+            std::fs::write(blobs.join(BLOB_CID), BLOB_BYTES).unwrap();
+        }
+        (commit.cid.to_string(), rev.to_string())
+    }
+
+    /// A connection to one actor's store, for a test that damages it.
+    pub fn actor(&self, did: &str) -> Connection {
+        Connection::open(self.config.layout.actor_db(did)).unwrap()
+    }
+}
+
+/// A connection to one of the shared databases, for a test that damages it.
+pub fn open(path: &Path) -> Connection {
+    Connection::open(path).unwrap()
+}
