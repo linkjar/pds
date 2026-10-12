@@ -86,5 +86,7 @@ jobs:
           toolchain: stable
       - uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad # v2.87.26
         with:
-          tool: cargo-audit@0.21.2
+          # 0.21 cannot read an advisory that carries a CVSS 4.0 score and
+          # then fails before it looks at the lockfile.
+          tool: cargo-audit@0.22.2
       - run: cargo audit --deny warnings
