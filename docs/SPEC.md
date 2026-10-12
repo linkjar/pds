@@ -1,6 +1,6 @@
 # LinkJar PDS Specification
 
-Status: Draft, revision 5, 2026-10-12
+Status: Draft, revision 6, 2026-10-13
 Normative keywords: **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, **MAY** ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119))
 
 LinkJar PDS is an AT Protocol Personal Data Server written in Rust. It is
@@ -42,6 +42,13 @@ record references. The evidence is in the
 and the [decision record](research/2026-10-12-repository-crate.md) §7; the
 changes are listed in Appendix I.
 
+Revision 6 follows unit 3, the read-only server. It states what the
+comparison of the Candidate with the Reference on one data directory
+showed: the order of the export, the phases of parameter validation, the
+shape of an `/xrpc/` path, and what `verify` checks. The evidence is in the
+[unit record](research/2026-10-13-read-only-server.md); the changes are
+listed in Appendix J.
+
 ## Table of Contents
 
 - [0. Conventions and Terminology](#0-conventions-and-terminology)
@@ -76,6 +83,7 @@ changes are listed in Appendix I.
 - [Appendix G. Changes in Revision 3](#appendix-g-changes-in-revision-3)
 - [Appendix H. Changes in Revision 4](#appendix-h-changes-in-revision-4)
 - [Appendix I. Changes in Revision 5](#appendix-i-changes-in-revision-5)
+- [Appendix J. Changes in Revision 6](#appendix-j-changes-in-revision-6)
 
 ## 0. Conventions and Terminology
 
@@ -218,9 +226,12 @@ the Reference's answer. Until then the Harness does not count the row.
 | DD-8 | `importRepo` with a record block that is not canonical DAG-CBOR: map keys out of order, a float with a whole value, or `undefined` (§6.1) | refused | 4 |
 | DD-9 | A record that references a blob with `size` zero or an empty `mimeType` (§6.3) | refused | 4 |
 | DD-10 | An upload that no record references one hour after it arrived (§6.4) | collected | 4 |
-| DD-11 | Handle verification: two TXT records that name the same DID, and an HTTPS body of more than one line (§9.2) | the two records are one answer; the whole trimmed body is read | 3 |
-| DD-12 | A DID document whose signing key has another `controller`, or whose PDS endpoint is more than scheme, host and port (§9.3) | refused | 3 |
+| DD-11 | Handle verification: two TXT records that name the same DID, and an HTTPS body of more than one line (§9.2) | the two records are one answer; the whole trimmed body is read | 5 |
+| DD-12 | A DID document whose signing key has another `controller`, or whose PDS endpoint is more than scheme, host and port (§9.3) | refused | 5 |
 | DD-13 | A commit of version 2 in a repository from elsewhere (§6.1) | refused | 8 |
+
+DD-11 and DD-12 cannot be observed before the server verifies a handle and
+reads a signing key itself, which it first does in unit 5.
 
 DD-6 holds against the Stock Reference only
 ([`default/15-import`](../parity/scenarios/default/15-import.scenario.ts)).
@@ -306,10 +317,23 @@ authorization pages would otherwise share an origin with the app.
 ### 4.2 XRPC semantics
 
 - Queries are `GET`, procedures are `POST`, subscriptions are WebSocket
-  upgrades, all under `/xrpc/<nsid>`.
+  upgrades, all under `/xrpc/<nsid>`. A query also answers `HEAD`. Any
+  other method is 400 `InvalidRequest`, "XRPC requests only supports GET and
+  POST".
+- The method name of a path is read as the Reference reads it: letters and
+  digits in parts separated by single dots or hyphens, at least two
+  characters, with an optional trailing slash. A name that is not an NSID
+  still passes, and goes to the catch-all proxy. Any other path under
+  `/xrpc/` is 400 `InvalidRequest`, "invalid xrpc path".
 - Parameters and bodies are validated against the lexicon. Unknown query
   parameters are ignored. Invalid input returns 400 `InvalidRequest` with the
   Reference's message where the Harness compares messages.
+- Query parameters are validated in two phases, and before the credential.
+  First the query is read in the order it was written: an empty value is
+  ignored, and a value for an integer or boolean parameter is converted or
+  refused. Then the parameters are checked in the order the lexicon declares
+  them: a required one must be present, a scalar must have one value, and
+  each value must have its format and be in its range.
 - Errors are `{"error": "<Name>", "message": "<text>"}` on every `/xrpc/`
   path, including upgrade failures. The Candidate MUST use the Reference's
   error names, including `AuthenticationRequired`, `ExpiredToken`,
@@ -328,6 +352,9 @@ authorization pages would otherwise share an origin with the app.
   with one ([VP-6, VP-7](../parity/verify-at-pin.md)). `MethodNotImplemented`
   remains the answer of a build with no proxy target configured, which the
   Harness does not run.
+- A plain route answers its own method only. Another method on it, and any
+  path that is neither a plain route nor under `/xrpc/`, is 404 with the
+  Reference's HTML page.
 - Response bodies are `application/json` unless the lexicon declares another
   encoding (`getBlob`, `getRepo`, `getRecord` and `getBlocks` stream CAR or
   raw bytes).
@@ -651,6 +678,15 @@ Given the same starting repository and the same ordered writes with explicit
 record keys, the Candidate MUST produce the same MST root CID as the
 Reference. Given also the same `rev` (§3.3), it MUST produce the same commit
 CID. The Harness checks both after every write scenario.
+
+`sync.getRepo` and `getCheckout` write the stored blocks from the newest
+revision down, then by CID down, as the Reference does: for the same data
+directory the Candidate's export MUST be the same bytes. `sync.getRecord`
+writes the commit, the record when it exists, and the tree nodes on the
+path to the key from the root down. `sync.getBlocks` writes the blocks in
+the order the store returns them, in a CAR without a root. The `export-car`
+command writes the tree-ordered export that `@atproto/repo` gives a library
+caller.
 
 ### 6.7 Signing-key rotation
 
@@ -1226,7 +1262,10 @@ in `ops.sqlite`.
 
 `linkjar-pds serve`, `migrate` (with `--allow-candidate-only`, §18.3),
 `migrate-storage` (§8.4), `check-config`, `verify` (§18.2), `repair` (§19.5),
-`export-car <did>`, `audit verify` and `audit export` (§20), `version`.
+`export-car <did>`, `audit verify` and `audit export` (§20), `version`, and
+`health`, which asks the server on the same host for its health route and
+exits 0 when it answers 200. `health` is the container health check: the
+image holds no other program to make the request with.
 
 ### 14.3 Health and shutdown
 
@@ -1369,7 +1408,11 @@ production hostnames behind a TLS edge, a local PLC directory, a local Sync
 1.1 relay in strict mode, a mail catcher, and fixture services for
 everything else the server talks to. Each scenario runs against each target
 and writes a transcript; the oracles below compare the transcripts of two
-targets. Parity scenarios run without fault injection; fault scenarios (§19)
+targets. A **restore run** puts two servers on one stack, one after the
+other: the Reference writes a data directory and answers the read
+scenarios, the Candidate replaces it on the same volume and answers them
+again, and the two sets of answers must not differ, body bytes included.
+Parity scenarios run without fault injection; fault scenarios (§19)
 run against the Candidate alone. [parity/README.md](../parity/README.md)
 describes the harness and the contract its page driver relies on.
 
@@ -1442,11 +1485,30 @@ pass before it merges. A unit does not merge on a partial oracle.
 
 ### 18.2 Verification
 
-`verify` opens the data directory read-only and, for every actor, loads the
-repository, recomputes the MST root from the records, and compares it with
-`repo_root`; checks every `key` file loads; checks `repo_seq` continuity;
-checks every record's blob references resolve; and prints a report. The same
-command run with the Reference serving the same copy is the oracle.
+`verify` opens the data directory read-only and writes nothing. For every
+actor it:
+
+- loads the commit that `repo_root` names, and compares that row with the
+  one in the account database;
+- reads the whole tree with the checks of §6.1, and names a tree that
+  references a node more than once as its own finding;
+- compares the keys and records of the tree with the record index;
+- writes the record index into an empty tree and compares the root with the
+  commit's;
+- checks that every record of the index has its block;
+- loads the `key` file and checks the commit's signature with it;
+- checks that every blob a record references has a row in the blob index
+  and, unless it is taken down, a file in the blob store.
+
+It then checks `repo_seq` for breaks in its sequence numbers, and prints a
+report, as text or with `--json`. It exits 0 with no difference and 1 with
+one or more. The revision in `repo_root` is not compared with the commit's:
+the Reference gives the root a new revision when it imports a repository
+whose commit it already holds.
+
+The Reference has no such command. The oracle is the restore run of the
+Harness (§17.1): both servers serve the same copy and their answers are
+compared.
 
 ### 18.3 Procedure
 
@@ -1889,3 +1951,20 @@ Revision 5 applies three owner's decisions of 2026-10-12.
 - D16 is resolved: the Candidate collects an upload that no record
   references after one hour (§6.4, DD-10) and keeps no grace period for a
   dereferenced blob.
+
+## Appendix J. Changes in Revision 6
+
+Revision 6 follows unit 3, the read-only server.
+
+- §4.2 states how the method name is read from a path, which methods a
+  path answers, the two phases of parameter validation and that they come
+  before the credential, and the answer to a path or method that is not
+  served.
+- §6.6 states the block order of `sync.getRepo`, `sync.getRecord` and
+  `sync.getBlocks`, and that the export is the Reference's bytes for the
+  same data directory.
+- §14.2 adds the `health` command.
+- §17.1 describes the restore run.
+- §18.2 lists what `verify` checks, drops the comparison of the root's
+  revision with the commit's, and names the restore run as the oracle.
+- §2.3: the scenarios of DD-11 and DD-12 move from unit 3 to unit 5.

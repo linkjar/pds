@@ -19,14 +19,14 @@ flowchart BT
   repo --> types
   storage --> types & repo
   blob --> storage
-  identity --> types & storage
+  identity --> types
   sequencer --> repo & storage
   account --> storage & identity & ext & audit
   oauth --> account & lexicon & ext
   audit --> storage & repo
-  xrpc --> types & lexicon & repo & sequencer & account & oauth & blob
+  xrpc --> types & lexicon & repo & storage & identity & sequencer & account & oauth & blob
   ext --> types & storage
   linkjar --> ext
   sim --> storage & sequencer
-  bin --> xrpc & linkjar & sim
+  bin --> xrpc & storage & identity & blob & repo & linkjar & sim
   xtask --> lexicon

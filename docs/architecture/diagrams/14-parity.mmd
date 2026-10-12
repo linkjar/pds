@@ -10,6 +10,7 @@ flowchart LR
   sql[[SQL tool<br/>reads and ages rows]]
   transcripts[(transcripts<br/>one per scenario and target)]
   compare{compare two targets<br/>O1 responses, O2 CIDs, O3 firehose<br/>O4 OAuth, O9 verify at pin}
+  restore{restore run<br/>Reference, then Candidate, on one data volume<br/>bodies by hash, verify}
   later{later units<br/>O5 migration, O6 stock equivalence<br/>O7 on the Candidate, O8 Bluesky app}
   runner --> edge
   edge --> pds
@@ -23,4 +24,6 @@ flowchart LR
   runner --> sql
   runner --> transcripts
   transcripts --> compare
+  transcripts --> restore
+  data --> restore
   compare --> later

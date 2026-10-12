@@ -6,8 +6,10 @@ The harness holds a PDS to the behaviour of the reference image. It drives a
 target with the official atproto SDK at the pin and a headless browser,
 records what the target answered, and compares two targets on the record.
 
-In unit 1 every target is a reference build. The Candidate joins as one more
-target when it serves traffic (unit 3); nothing in the harness changes for it.
+The Candidate reads but does not write yet. It is held by the
+[restore run](#the-restore-run): the Reference writes a data directory, and
+both servers answer the same read scenarios on it. It joins the other
+scenarios as one more target when it writes (unit 4).
 
 ## Run it
 
@@ -34,6 +36,11 @@ pnpm parity compare reference stock     # must show exactly the recorded differe
 
 pnpm parity run official                # the upstream distribution, by digest
 pnpm parity compare stock official      # must show no difference
+```
+
+```sh
+pnpm parity images build-candidate      # ../Dockerfile, tagged linkjar-pds:candidate
+pnpm parity restore                     # must show no difference
 ```
 
 Each `run` builds a fresh stack, runs the scenarios of one profile in file
@@ -90,6 +97,38 @@ Three things in the stack exist because a component has no test switch:
 - **The relay image is published for amd64 only.** An arm64 host runs it under
   emulation.
 
+
+### The restore run
+
+`pnpm parity restore` holds the Candidate to the Reference on a data
+directory that the Reference wrote ([`src/restore.ts`](src/restore.ts),
+SPEC §8.2 and §18.2). It uses one stack, named `candidate`, and two servers:
+
+1. The reference image starts on a fresh stack. The scenarios of
+   `scenarios/restore/` whose names start with `0` write: six accounts in
+   every status a read can meet, a repository of 700 records, records that
+   were deleted and replaced, blobs, and a record and a blob taken down.
+   What they wrote goes to `.run/candidate/restore-seed.json`.
+2. The other scenarios of the profile only read. They run against the
+   Reference; the transcripts go to `transcripts/restore-reference/`.
+3. The PDS container is replaced by the Candidate image
+   (`PARITY_CANDIDATE_IMAGE`, default `linkjar-pds:candidate`) on the same
+   volume. Nothing else in the stack changes.
+4. The same scenarios run against the Candidate; the transcripts go to
+   `transcripts/restore-candidate/`.
+5. `linkjar-pds verify --json` runs in the Candidate's container. It must
+   report zero differences; the report is saved as `verify.json`.
+6. The two groups of transcripts are compared. No difference is allowed.
+
+Because both servers read the same bytes, a read scenario records each body
+twice: normalised, and as the SHA-256 of its bytes
+([`src/lib/reads.ts`](src/lib/reads.ts)). A repository export must
+therefore be the Reference's export byte for byte.
+
+The stack's health check depends on the image that runs: Node in the
+reference image, the binary's own `health` command in the Candidate.
+`--keep` leaves the stack up with the Candidate serving; `--update` writes
+a difference list instead of failing, for a difference that is meant.
 
 ### Scenarios and transcripts
 
@@ -165,6 +204,7 @@ these names:
 | `firehose` | A five-second backfill window and a subscriber buffer of five events. | `OutdatedCursor` and `ConsumerTooSlow`. |
 | `captcha` | The three hCaptcha variables. | The signup policy of patch 099c. |
 | `perf` | Rate limits off, no crawler. | SPEC §16.1, S1 to S5, S8 and S9. See below. |
+| `restore` | Nothing: the production configuration. | The seed and the read scenarios of the [restore run](#the-restore-run). Run through `pnpm parity restore`, not `run`. |
 
 ## Performance scenarios
 

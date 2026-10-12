@@ -61,6 +61,11 @@ from `@atproto/repo` at the pin and the same S1 to S3 workload.
 classifies each upstream change after the pin, examines the shared-node fix
 (#5584) for LinkJar's deployment, and prices the three pin options.
 
+[The read-only server](research/2026-10-13-read-only-server.md) records
+unit 3: what the server serves, the restore run that holds it to the
+Reference on one data directory, eleven things the comparison found, what
+`verify` checks, and what the unit leaves out.
+
 [Sidecars](sidecars.md) designs the two companion containers: an operations
 and moderation console with OpenTelemetry built in, and an MCP server that
 lets a person reach their own data from any AI client after signing in
@@ -126,6 +131,7 @@ upstream bumps, which nothing does today beyond the image smoke gate.
 
 | Date | Event |
 |---|---|
+| 2026-10-13 | Unit 3 done on `feat/unit-3-read-server`. **The Candidate serves the reads of a data directory that the Reference wrote** ([unit record](research/2026-10-13-read-only-server.md)): the sync and repository reads, `describeServer`, `resolveHandle` and the plain routes. The Harness has a restore run, `pnpm parity restore`: the Reference seeds six accounts and answers four read scenarios, the Candidate replaces it on the same volume and answers them again. 331 requests, no difference in status, compared headers or body, and 328 bodies equal byte for byte, repository exports among them. `verify` reports zero differences on that directory and names fourteen kinds of damage in tests. `pds-storage` reads the Reference's SQLite files, `pds-identity` resolves DIDs through the cache, `pds-xrpc` validates parameters in the Reference's order and with its messages. The image is built by `./Dockerfile`, and CI runs the restore on every change to the crates. SPEC revision 6 carries what the comparison showed. **Not met: `verify` on a staging restore**, which needs the owner's copy ([below](#open-questions-for-the-owner)). Left for later units: the proxy, the read-after-write methods, rate limits, OAuth tokens, handle resolution over DNS. Next: unit 4, from `main`. |
 | 2026-10-13 | The ninth patch is in production's image stream: `104-mst-shared-node` merged (pull request #25) and revision 12 of the reference image is published. The Harness pins it and has an `importRepo` scenario, `default/15-import`. It shows what the patch closes: the unpatched build answers 200 to a tree that references a node more than once and replaces the repository with it; revision 12 answers 400 and keeps the repository. DD-6 has moved into the table of observed differences (SPEC §2.3). The scenario also found that `importRepo` answers 500 to bytes that are not a CAR, on both builds. |
 | 2026-10-12 | Between units 2 and 3. The owner decided the pin, D17 and the rest of D16 ([below](#decisions-taken-by-the-owner-2026-10-12)); SPEC revision 5 carries them. The upstream 0.5.37 note is on `main` (pull request #20). `devenv shell` installs no git hook any more, and the weekly upstream check reports releases after the pin in a run summary and an issue (pull request #23). The Monday audit reads CVSS 4.0 advisories (pull request #22). Open before unit 3: the ninth patch of the legacy build. Next: unit 3, from `main`. |
 | 2026-10-12 | Unit 2 done on `feat/unit-2-repository` (pull request #21). **D2 is decided: the repository engine is written in this repository** ([decision record](research/2026-10-12-repository-crate.md)). `pds-repo` holds the tree, commits, CAR, export and the checks on a repository from elsewhere, synchronous and without I/O. It is held to fixtures that a tool in `parity/` writes with `@atproto/repo` at the pin: thirteen commits replay to the same tree roots, commit CIDs, block sets, firehose CARs and export, byte for byte, and its firehose CAR sizes and block counts equal what unit 1 measured on the reference image. `rsky-repo` ran on the same vectors and workload in `bench/`, as published (0.0.6) and from its main branch (0.1.4). S1 to S3 micro-benchmarks for all three and for the Reference's library are published with the method and the host. `pds-types` applies the decode limits of SPEC §6.1 in a strict DAG-CBOR reader; `pds-lexicon` validates records and passes the record-data and data-model vectors; `pds-identity` has keys, low-S signatures on both curves, `did:key`, the DID-document contract and the handle rules, and passes the crypto vectors. No vector is a known failure beyond the three CID strings of unit 0. Five fuzz targets are new. SPEC revision 4 records D2 and opens D17. Also in the unit: `devenv shell` starts on devenv 2.4 again, and `scripts/vendor-agent-sources.sh` mirrors the pinned upstream sources for reading. Next: unit 3, from `main`. |
@@ -186,24 +192,43 @@ Answered after unit 2. Revision 5 of the SPEC applies them.
 
 ## Open questions for the owner
 
-Three, all from [the upstream note](research/2026-10-10-upstream-0.5.35-to-0.5.37.md).
-None blocks unit 3.
+Six. The first is the open part of unit 3's gate. None of the others blocks
+unit 4, but unit 4 needs the answer to the third.
 
-- **Imports in production until revision 12 is deployed.** The note
-  recommends `PDS_ACCEPTING_REPO_IMPORTS=false` on the production host until
-  the image with the ninth patch runs there, unless move-in is already
-  offered to people. The setting is on the host and is yours to change.
+- **`verify` on a staging restore.** Unit 3's gate asks for zero
+  differences on a staging restore of production data. The unit had no such
+  copy. Run `linkjar-pds verify` on it
+  ([unit record](research/2026-10-13-read-only-server.md) §5) and send the
+  report; a finding there is a fact about production data that the cutover
+  runbook has to handle.
+
+- **Imports in production until revision 12 is deployed.** Revision 12 of
+  the reference image is published. Until it runs in production, the
+  upstream note recommends `PDS_ACCEPTING_REPO_IMPORTS=false` on the host,
+  unless move-in is already offered to people. The Harness showed what the
+  unpatched build does with a tree that shares nodes: it answers 200 and
+  replaces the repository (`default/15-import`). The setting is on the host
+  and is yours to change.
 
 - **The commit signature on import.** SPEC §6.5 says the import verifies the
   commit signature against the account's key. The Reference passes no key
-  and verifies nothing (the note, §7). List it as a deliberate difference,
-  or follow the pin. Unit 4 needs the answer.
+  and verifies nothing
+  ([the upstream note](research/2026-10-10-upstream-0.5.35-to-0.5.37.md),
+  §7). List it as a deliberate difference, or follow the pin. Unit 4 needs
+  the answer.
 
-- **Two smaller items of the note, and one more of the same kind.**
-  `createAccount` with the handle or email of a deactivated or taken-down
-  account answers 500 at the pin and 400 from 0.5.36: a candidate for the
-  D15 list. So is `importRepo` with bytes that are not a CAR, which answers
-  500 at the pin (`default/15-import`). And the pin builds a new S3
-  client on every actor store access (#5575), which matters because
-  production blobs are in R2; the note names the evidence to collect on
-  staging (§4).
+- **Three candidates for the D15 list**, where the pin answers 500 to a
+  client error: `createAccount` with the handle or email of a deactivated
+  or taken-down account (400 from 0.5.36); `importRepo` with bytes that are
+  not a CAR (`default/15-import`).
+
+- **The S3 client of the pin.** The pin builds a new S3 client on every
+  actor store access (#5575), which matters because production blobs are in
+  R2; the upstream note names the evidence to collect on staging (§4).
+
+- **Two dependency choices of unit 3**
+  ([unit record](research/2026-10-13-read-only-server.md) §6). Outbound TLS
+  uses `aws-lc-rs`, a C library, where SPEC §3.2 names RustCrypto for
+  cryptography: accept it for TLS, or ask for another provider. And
+  `deny.toml` now allows CDLA-Permissive-2.0 for one crate, the Mozilla root
+  list that the certificate verifier depends on.

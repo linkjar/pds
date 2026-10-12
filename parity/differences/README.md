@@ -12,7 +12,8 @@ recorded difference that no longer appears.
 | `reference` against `repeat` (two boots of the reference image) | none | None is allowed. This is the check on the normaliser. |
 | `reference` against `stock` (the production build against the `PATCH_PROFILE=none` build) | [reference-vs-stock.json](reference-vs-stock.json) | 47, in the five groups below. |
 | `stock` against `official` (the `PATCH_PROFILE=none` build against the upstream distribution `ghcr.io/bluesky-social/pds`) | none | None is allowed: the two are different packagings of the same package version. |
-| `reference` against `candidate` (the reference image against the Rust server) | `reference-vs-candidate.json`, written when the Candidate first answers these scenarios | The five deliberate differences [below](#the-reference-against-the-candidate), and no others. |
+| The Reference against the Candidate on one data directory (`pnpm parity restore`) | none | None is allowed: both servers read the same bytes, and bodies are also compared by hash. |
+| `reference` against `candidate`, each on its own stack | `reference-vs-candidate.json`, written when the Candidate first answers the write scenarios (unit 4) | The deliberate differences [below](#the-reference-against-the-candidate), and no others. |
 
 Regenerate a file with `--update` after a change that is meant to move it,
 and review the result like code.
