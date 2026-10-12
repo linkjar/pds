@@ -93,6 +93,25 @@ pub fn cid_matches(cid: &Cid, bytes: &[u8]) -> bool {
     hash.code() == SHA2_256 && hash.digest() == sha256(bytes)
 }
 
+/// Whether `bytes` are the one canonical binary form of `cid`.
+///
+/// The `cid` crate reads more than it writes: a varint that overflows 64
+/// bits or runs longer than it needs to decodes to a CID whose own encoding
+/// differs. A reader that must give back the bytes it took compares.
+pub fn is_canonical_cid_bytes(cid: &Cid, bytes: &[u8]) -> bool {
+    if cid.encoded_len() != bytes.len() {
+        return false;
+    }
+    let mut buf = [0u8; 128];
+    let mut out = &mut buf[..];
+    if cid.write_bytes(&mut out).is_err() {
+        // Longer than the buffer: compare on the heap.
+        return cid.to_bytes() == bytes;
+    }
+    let written = 128 - out.len();
+    buf.get(..written) == Some(bytes)
+}
+
 /// Rejects a CID whose binary form is longer than the limit of SPEC §6.1.
 pub fn check_cid_len(cid: &Cid) -> Result<(), CidError> {
     if cid.encoded_len() > MAX_CID_LEN {
@@ -120,6 +139,23 @@ mod tests {
         );
         assert!(cid_matches(&cid_for_raw(b"abc"), b"abc"));
         assert!(!cid_matches(&cid_for_raw(b"abc"), b"abd"));
+    }
+
+    #[test]
+    fn canonical_bytes() {
+        let cid = cid_for_cbor(b"x");
+        let bytes = cid.to_bytes();
+        assert!(is_canonical_cid_bytes(&cid, &bytes));
+        // The codec as a ten-byte varint whose last byte overflows 64 bits.
+        // The crate reads it and drops the bits that do not fit.
+        let mut odd = vec![0x01];
+        odd.extend_from_slice(&[0xff; 9]);
+        odd.push(0x05);
+        odd.extend_from_slice(&[0x02, 0x01, 0xff]);
+        let read = Cid::try_from(odd.as_slice()).unwrap();
+        assert_eq!(read.encoded_len(), odd.len());
+        assert_ne!(read.to_bytes(), odd);
+        assert!(!is_canonical_cid_bytes(&read, &odd));
     }
 
     #[test]
