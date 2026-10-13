@@ -32,6 +32,7 @@ pub fn authorization_server(state: &AppState) -> Response {
             "code_challenge_methods_supported": ["S256"],
             "ui_locales_supported": ["en-US"],
             "display_values_supported": ["page", "popup", "touch"],
+            "prompt_values_supported": ["none", "login", "consent", "select_account", "create"],
             "authorization_response_iss_parameter_supported": true,
             "request_object_encryption_alg_values_supported": [],
             "request_object_encryption_enc_values_supported": [],

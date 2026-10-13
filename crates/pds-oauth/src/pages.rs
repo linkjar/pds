@@ -45,6 +45,8 @@ const STYLE: &str = "\
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}\
 main{max-width:26rem;margin:0 auto;padding:2rem 1rem}\
 h1{font-size:1.4rem;margin:0 0 .25rem}\
+h2{font-size:1.1rem;margin:1.5rem 0 .25rem}\
+section{border-top:1px solid var(--line);padding:.75rem 0}\
 p{margin:.5rem 0;color:var(--muted)}\
 label{display:block;margin:1rem 0 .25rem;font-weight:600}\
 input[type=text],input[type=email],input[type=password]{width:100%;padding:.65rem .75rem;border:1px solid var(--line);border-radius:.5rem;background:var(--bg);color:var(--fg);font:inherit}\
@@ -294,6 +296,135 @@ pub fn sign_up_handle(
         escape(handle),
     );
     document(flow.nonce, "Choose your handle", &body)
+}
+
+/// An OAuth session on the account page.
+#[derive(Debug, Clone)]
+pub struct SessionLine {
+    /// The `jti` of the session's access token, which the "Revoke" button
+    /// sends.
+    pub token_id: String,
+    /// The client.
+    pub client_id: String,
+    /// When the session began.
+    pub created_at: String,
+    /// When it was last refreshed.
+    pub updated_at: String,
+}
+
+/// A device on the account page.
+#[derive(Debug, Clone)]
+pub struct DeviceLine {
+    /// The device, which the "Sign out" button sends.
+    pub device_id: String,
+    /// The browser it last showed.
+    pub user_agent: String,
+    /// The address it last came from.
+    pub ip_address: String,
+    /// When the server last saw it.
+    pub last_seen_at: String,
+    /// Whether it is the device that asks.
+    pub current: bool,
+}
+
+fn account_form(action: &str, csrf: &str, fields: &[(&str, &str)], label: &str) -> String {
+    let mut out = format!(
+        "<form method=\"post\" action=\"{}\"><input type=\"hidden\" name=\"csrf\" value=\"{}\">",
+        escape(action),
+        escape(csrf)
+    );
+    for (name, value) in fields {
+        let _ = write!(
+            out,
+            "<input type=\"hidden\" name=\"{}\" value=\"{}\">",
+            escape(name),
+            escape(value)
+        );
+    }
+    let _ = write!(
+        out,
+        "<button type=\"submit\">{}</button></form>",
+        escape(label)
+    );
+    out
+}
+
+/// The sign-in form of the account pages.
+pub fn account_sign_in(
+    nonce: &str,
+    service: &str,
+    csrf: &str,
+    username: &str,
+    error: Option<&str>,
+) -> String {
+    let body = format!(
+        "<h1>Your {} account</h1><p>Sign in to see your sessions and devices.</p>{}\
+<form method=\"post\" action=\"/account/sign-in\">\
+<input type=\"hidden\" name=\"csrf\" value=\"{}\">\
+<label for=\"username\">Handle or email address</label>\
+<input id=\"username\" type=\"text\" name=\"username\" value=\"{}\" autocomplete=\"username\" autocapitalize=\"none\" spellcheck=\"false\" required autofocus>\
+<label for=\"password\">Password</label>\
+<input id=\"password\" type=\"password\" name=\"password\" autocomplete=\"current-password\" required>\
+<div class=\"row\"><button type=\"submit\" class=\"primary\">Sign in</button></div></form>",
+        escape(service),
+        alert(error),
+        escape(csrf),
+        escape(username),
+    );
+    document(nonce, "Your account", &body)
+}
+
+/// The account page: the applications with a session, and the devices
+/// that remember the account.
+pub fn account_home(
+    nonce: &str,
+    csrf: &str,
+    did: &str,
+    handle: &str,
+    sessions: &[SessionLine],
+    devices: &[DeviceLine],
+) -> String {
+    let mut body = format!(
+        "<h1>{}</h1><p><code>{}</code></p><h2>Applications</h2>",
+        escape(handle),
+        escape(did)
+    );
+    if sessions.is_empty() {
+        body.push_str("<p>No application has a session.</p>");
+    }
+    for session in sessions {
+        let _ = write!(
+            body,
+            "<section><p><code>{}</code><br>Since {}. Last used {}.</p>{}</section>",
+            escape(&session.client_id),
+            escape(&session.created_at),
+            escape(&session.updated_at),
+            account_form(
+                "/account/revoke",
+                csrf,
+                &[("did", did), ("token_id", &session.token_id)],
+                "Revoke access"
+            ),
+        );
+    }
+    body.push_str("<h2>Devices</h2>");
+    for device in devices {
+        let this = if device.current { " (this device)" } else { "" };
+        let _ = write!(
+            body,
+            "<section><p>{}{this}<br>Address {}. Last seen {}.</p>{}</section>",
+            escape(&device.user_agent),
+            escape(&device.ip_address),
+            escape(&device.last_seen_at),
+            account_form(
+                "/account/sign-out",
+                csrf,
+                &[("did", did), ("device_id", &device.device_id)],
+                "Sign out"
+            ),
+        );
+    }
+    document(nonce, "Your account", &body)
 }
 
 /// A page that ends a flow the server cannot return to the client.

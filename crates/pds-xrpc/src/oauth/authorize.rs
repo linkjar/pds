@@ -48,9 +48,9 @@ pub struct PendingSignUp {
 }
 
 /// A browser, and the cookies to send it.
-struct Device {
-    id: String,
-    cookies: Vec<HeaderValue>,
+pub(super) struct Device {
+    pub(super) id: String,
+    pub(super) cookies: Vec<HeaderValue>,
 }
 
 fn cookie<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
@@ -78,7 +78,7 @@ fn set_cookie(state: &AppState, name: &str, value: &str) -> Option<HeaderValue> 
 
 /// Finds the device of a request by its cookies. With `create`, a browser
 /// the server does not know becomes a new device.
-async fn device(
+pub(super) async fn device(
     state: &AppState,
     headers: &HeaderMap,
     peer: Option<IpAddr>,
@@ -145,7 +145,12 @@ async fn device(
     }))
 }
 
-fn html(status: StatusCode, nonce: &str, cookies: &[HeaderValue], body: String) -> Response {
+pub(super) fn html(
+    status: StatusCode,
+    nonce: &str,
+    cookies: &[HeaderValue],
+    body: String,
+) -> Response {
     let mut response = (status, body).into_response();
     let headers = response.headers_mut();
     let csp = format!(
@@ -169,11 +174,11 @@ fn html(status: StatusCode, nonce: &str, cookies: &[HeaderValue], body: String) 
     response
 }
 
-fn new_nonce() -> String {
+pub(super) fn new_nonce() -> String {
     Id::Request.format(&super::random::<16>())[4..].to_owned()
 }
 
-fn error_page(status: StatusCode, cookies: &[HeaderValue], message: &str) -> Response {
+pub(super) fn error_page(status: StatusCode, cookies: &[HeaderValue], message: &str) -> Response {
     let nonce = new_nonce();
     html(
         status,
@@ -250,7 +255,7 @@ fn denied(
 
 /// The token that ties a form to the device and the request. Another site
 /// cannot read the device cookie, so it cannot compute the token.
-fn csrf(state: &AppState, device_id: &str, request_id: &str) -> String {
+pub(super) fn csrf(state: &AppState, device_id: &str, request_id: &str) -> String {
     let Ok(mut mac) = Hmac::<Sha256>::new_from_slice(&state.config().auth.jwt_secret) else {
         return String::new();
     };

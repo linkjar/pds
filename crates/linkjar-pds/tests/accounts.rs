@@ -566,7 +566,7 @@ async fn a_handle_is_changed_in_the_directory_the_account_and_the_log() {
 
     for (handle, error, message) in [
         (
-            "alice.pds.test",
+            "carol.pds.example",
             "InvalidHandle",
             "Handle TLD is invalid or disallowed",
         ),

@@ -369,7 +369,7 @@ pub(crate) async fn change_handle(
 ) -> Result<(), XrpcError> {
     let identity = super::account::identity(state)?.clone();
     let (handle, hosted) = {
-        let (did, identity) = (did.clone(), identity.clone());
+        let did = did.clone();
         state
             .blocking(move |state| {
                 let accounts = AccountDb::open(&state.layout().account_db)?;
@@ -381,7 +381,7 @@ pub(crate) async fn change_handle(
                     return Err(XrpcError::invalid_request("Account not found"));
                 }
                 let (handle, hosted) =
-                    super::account::checked_handle(state, &given, &identity, true, allow_reserved)?;
+                    super::account::checked_handle(state, &given, true, allow_reserved)?;
                 if accounts
                     .actor(&handle, Availability::ANY)?
                     .is_some_and(|other| other.did != did)
