@@ -417,19 +417,19 @@ pub async fn entry(State(state): State<AppState>, request: axum::extract::Reques
             Err(refusal) => Err(Box::new(refusal.into_response())),
         };
         let response = match granted {
-            Ok(grant) => crate::oauth::resource::with_grant(
-                grant,
-                xrpc(
+            Ok(grant) => {
+                let query = uri.query();
+                Box::pin(call(
                     &state,
                     nsid,
                     &method,
-                    uri.query(),
+                    query,
                     &parts.headers,
                     &mut body,
-                ),
-            )
-            .await
-            .unwrap_or_else(IntoResponse::into_response),
+                    grant,
+                ))
+                .await
+            }
             Err(refusal) => *refusal,
         };
         let response = if dpop {
@@ -450,6 +450,72 @@ pub async fn entry(State(state): State<AppState>, request: axum::extract::Reques
         answer,
     ))
     .await
+}
+
+/// Runs a method with the grant of its OAuth token in reach, and writes
+/// its audit entry when the method is audited.
+async fn call(
+    state: &AppState,
+    nsid: &str,
+    method: &Method,
+    query: Option<&str>,
+    headers: &HeaderMap,
+    body: &mut Option<Body>,
+    grant: Option<crate::oauth::resource::Grant>,
+) -> Response {
+    let oauth = grant
+        .as_ref()
+        .map(|grant| (grant.did.clone(), grant.client_id.clone()));
+    let run = xrpc(state, nsid, method, query, headers, body);
+    let (result, subject) = Box::pin(crate::audit::with_subject(
+        crate::oauth::resource::with_grant(grant, run),
+    ))
+    .await;
+    if crate::audit::is_audited(nsid) {
+        // The answer has a body, which does not cross an await by reference.
+        let outcome = match &result {
+            Ok(response) if response.status().is_success() => "ok".to_owned(),
+            Ok(response) => response.status().as_u16().to_string(),
+            Err(refusal) => refusal.error.clone(),
+        };
+        audit_request(state, nsid, headers, oauth, subject, outcome).await;
+    }
+    result.unwrap_or_else(IntoResponse::into_response)
+}
+
+/// Writes the audit entry of a method that answered (SPEC §20.1): who
+/// called it, with which kind of credential, on what, and how it ended.
+async fn audit_request(
+    state: &AppState,
+    nsid: &str,
+    headers: &HeaderMap,
+    oauth: Option<(String, String)>,
+    subject: Option<String>,
+    outcome: String,
+) {
+    use crate::auth::{SCOPE_TAKENDOWN, optional_credentials};
+    let (actor, credential, client_id) = if let Some((did, client_id)) = oauth {
+        (did, Some("oauth"), Some(client_id))
+    } else {
+        let auth = &state.config().auth;
+        match optional_credentials(headers, auth, &[SCOPE_TAKENDOWN], state.now_s()) {
+            Ok(Credentials::Access { did, .. }) => (did, Some("session"), None),
+            Ok(Credentials::Admin) => ("admin".to_owned(), Some("admin"), None),
+            _ => ("anonymous".to_owned(), None, None),
+        }
+    };
+    // A method that names no subject acts on its caller.
+    let subject = subject.or_else(|| actor.starts_with("did:").then(|| actor.clone()));
+    let what = pds_audit::Draft {
+        actor,
+        action: nsid.to_owned(),
+        subject,
+        credential: credential.map(str::to_owned),
+        client_id,
+        outcome,
+        ..pds_audit::Draft::default()
+    };
+    crate::audit::record(state, what).await;
 }
 
 /// The grant of a request with an OAuth access token, when the token is

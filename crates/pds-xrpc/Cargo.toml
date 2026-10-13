@@ -18,6 +18,7 @@ pds-lexicon.workspace = true
 pds-sequencer.workspace = true
 pds-oauth.workspace = true
 pds-ext.workspace = true
+pds-audit.workspace = true
 url.workspace = true
 rand.workspace = true
 axum.workspace = true

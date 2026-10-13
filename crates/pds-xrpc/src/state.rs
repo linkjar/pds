@@ -52,6 +52,9 @@ pub struct ServerConfig {
     pub mail: crate::mail::MailConfig,
     /// The settings of the rate limits.
     pub rate_limits: crate::ratelimit::RateLimitConfig,
+    /// The repository that publishes the audit checkpoints (SPEC §20.3):
+    /// the DID of an account of the operator on this server.
+    pub audit_repo: Option<String>,
     /// The operator's behaviour on top of the protocol (SPEC §12).
     pub profile: Arc<dyn pds_ext::Profile>,
     /// The OAuth settings.
@@ -271,6 +274,7 @@ struct Inner {
     writes: Option<WriteState>,
     limiter: crate::ratelimit::Limiter,
     oauth: crate::oauth::OAuthState,
+    audit: std::sync::OnceLock<crate::audit::AuditLog>,
     now_ms: Box<dyn Fn() -> i64 + Send + Sync>,
 }
 
@@ -300,6 +304,7 @@ impl AppState {
         Self {
             inner: Arc::new(Inner {
                 oauth,
+                audit: std::sync::OnceLock::new(),
                 config,
                 layout,
                 blobs,
@@ -320,6 +325,16 @@ impl AppState {
     /// What the authorization server keeps in memory.
     pub fn oauth(&self) -> &crate::oauth::OAuthState {
         &self.inner.oauth
+    }
+
+    /// Gives the server its audit log. The first call counts.
+    pub fn set_audit(&self, log: crate::audit::AuditLog) {
+        let _ = self.inner.audit.set(log);
+    }
+
+    /// The audit log, when the server has one.
+    pub fn audit(&self) -> Option<&crate::audit::AuditLog> {
+        self.inner.audit.get()
     }
 
     /// The configuration.

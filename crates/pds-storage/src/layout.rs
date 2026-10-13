@@ -18,6 +18,8 @@ pub struct DataLayout {
     pub did_cache_db: PathBuf,
     /// `ops.sqlite`, which only the Candidate keeps.
     pub ops_db: PathBuf,
+    /// `audit.sqlite`, which only the Candidate keeps (SPEC §20).
+    pub audit_db: PathBuf,
     /// The directory of the actor stores.
     pub actor_dir: PathBuf,
 }
@@ -30,6 +32,7 @@ impl DataLayout {
             sequencer_db: data_dir.join("sequencer.sqlite"),
             did_cache_db: data_dir.join("did_cache.sqlite"),
             ops_db: data_dir.join("ops.sqlite"),
+            audit_db: data_dir.join("audit.sqlite"),
             actor_dir: data_dir.join("actors"),
         }
     }

@@ -155,6 +155,7 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
         mail: config.mail.clone(),
         rate_limits: config.rate_limits.clone(),
         oauth: config.oauth.clone(),
+        audit_repo: config.audit_repo.clone(),
         profile: if config.profile == crate::config::ProfileName::Linkjar {
             Arc::new(pds_ext_linkjar::Linkjar {
                 providers: config.external_providers.clone(),
@@ -198,7 +199,7 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
     let blobs = config
         .blob_store(&tokio::runtime::Handle::current())
         .map_err(|error| ServeError::Storage(format!("blob store: {error}")))?;
-    Ok(AppState::new(
+    let state = AppState::new(
         server,
         config.layout.clone(),
         blobs,
@@ -206,7 +207,24 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
         http,
         Some(writes),
         now_ms,
-    ))
+    );
+    open_audit_log(config, &state)?;
+    Ok(state)
+}
+
+/// Opens the audit log of the data directory (SPEC §20). Without a key the
+/// log chains its entries and signs no checkpoint.
+fn open_audit_log(config: &Config, state: &AppState) -> Result<(), ServeError> {
+    let signer = match &config.audit_key {
+        Some(seed) => Some(pds_audit::Signer::from_seed(seed).ok_or_else(|| {
+            ServeError::Storage("the audit checkpoint key is not an Ed25519 seed".to_owned())
+        })?),
+        None => None,
+    };
+    let audit = pds_xrpc::audit::AuditLog::open(&config.layout.audit_db, signer)
+        .map_err(|error| ServeError::Storage(format!("audit log: {error}")))?;
+    state.set_audit(audit);
+    Ok(())
 }
 
 /// How long the server waits for open connections after it is told to stop
@@ -275,6 +293,18 @@ pub async fn serve(config: &Config) -> Result<(), ServeError> {
         );
     }
     tokio::spawn(collect_uploads(state.clone()));
+    {
+        // A checkpoint every five minutes (SPEC §20.3). The first tick of
+        // an interval is immediate: it covers what a stop left open.
+        let state = state.clone();
+        tokio::spawn(async move {
+            let mut ticks = tokio::time::interval(pds_xrpc::audit::CHECKPOINT_INTERVAL);
+            loop {
+                ticks.tick().await;
+                pds_xrpc::audit::checkpoint(&state).await;
+            }
+        });
+    }
     if state.config().profile.produces_notices() {
         let state = state.clone();
         tokio::spawn(async move {
@@ -289,7 +319,11 @@ pub async fn serve(config: &Config) -> Result<(), ServeError> {
     let listener = bind(config.port)?;
     let address = listener.local_addr()?;
     tracing::info!(%address, did = %config.service_did, "serving");
-    serve_until(listener, state, shutdown(), SHUTDOWN_LIMIT).await
+    let served = serve_until(listener, state.clone(), shutdown(), SHUTDOWN_LIMIT).await;
+    // The entries since the last checkpoint are signed before the process
+    // ends.
+    pds_xrpc::audit::checkpoint(&state).await;
+    served
 }
 
 /// How often the server looks for uploads that no record references.
