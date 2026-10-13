@@ -44,6 +44,10 @@ jobs:
           toolchain: stable
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # `sqlite-plugin`, which the simulation uses, generates its bindings
+      # with bindgen. The runner image has no libclang.
+      - name: Install libclang
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends libclang-dev
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
       - run: cargo test --workspace --locked
