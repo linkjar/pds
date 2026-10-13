@@ -26,6 +26,8 @@ pub struct Grant {
     pub did: String,
     /// The client the token was issued to.
     pub client_id: String,
+    /// The session: the `jti` of the token.
+    pub token_id: String,
     /// What the scope allows.
     pub permissions: Permissions,
 }
@@ -201,6 +203,7 @@ pub async fn authenticate(
     Ok(Grant {
         did: row.did,
         client_id: row.client_id,
+        token_id: row.token_id,
         permissions: Permissions::new(&scope),
     })
 }
@@ -318,6 +321,7 @@ mod tests {
         Grant {
             did: "did:plc:abc".to_owned(),
             client_id: "https://app.example.org/client-metadata.json".to_owned(),
+            token_id: "tok-0".to_owned(),
             permissions: Permissions::new(scope),
         }
     }

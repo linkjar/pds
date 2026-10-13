@@ -7,6 +7,7 @@ pub mod identity;
 pub mod import;
 pub mod invites;
 pub mod lifecycle;
+mod linkjar;
 pub mod plc;
 pub mod prefs;
 pub mod proxy;
@@ -554,6 +555,12 @@ async fn xrpc(
     headers: &HeaderMap,
     body: &mut Option<Body>,
 ) -> Result<Response, XrpcError> {
+    // The methods of the profile exist in that profile only (EX-7).
+    if state.writes().is_some()
+        && let Some(response) = linkjar::serve(state, nsid, method, headers).await
+    {
+        return response;
+    }
     // A read-only server has no handler for a write.
     if state.writes().is_some()
         && let Some(procedure) = procedure(nsid)

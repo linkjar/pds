@@ -1133,6 +1133,11 @@ async fn sign_up_handle(
         crate::ratelimit::Key::Ip,
         1,
     )];
+    let signup = (
+        posted.pending.row.id.clone(),
+        posted.pending.row.client_id.clone(),
+        posted.device.id.clone(),
+    );
     let created = match crate::ratelimit::consume(state, &limit) {
         Err(refusal) => Err(refusal),
         Ok(()) => match state
@@ -1142,6 +1147,7 @@ async fn sign_up_handle(
             Err(refusal) => Err(refusal),
             Ok((mut request, _)) => {
                 request.legacy_session = false;
+                request.signup = Some(signup);
                 crate::api::account::create(state, request).await
             }
         },

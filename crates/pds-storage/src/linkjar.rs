@@ -101,7 +101,77 @@ pub(crate) fn insert_identity(
     Ok(inserted == 1)
 }
 
+/// Marks the pushed request with the account that is created in it. The
+/// request must be open, of this client and this device, and without an
+/// account of its own yet. `false` means it is not, and the account must
+/// not be created.
+pub(crate) fn register_signup(
+    conn: &rusqlite::Connection,
+    did: &str,
+    request: &str,
+    client: &str,
+    device: &str,
+    now: &str,
+) -> Result<bool, StorageError> {
+    let marked = conn.execute(
+        r#"update "authorization_request" set "signupDid" = ?1 where "id" = ?2 and "clientId" = ?3 and "deviceId" = ?4 and "expiresAt" > ?5 and "did" is null and "code" is null and "signupDid" is null"#,
+        params![did, request, client, device, now],
+    )?;
+    Ok(marked == 1)
+}
+
 impl AccountDb {
+    /// The account that was created in the authorization of a code.
+    pub fn signup_of_code(&self, code: &str) -> Result<Option<String>, StorageError> {
+        Ok(self
+            .conn
+            .query_row(
+                r#"select "signupDid" from "authorization_request" where "code" = ?1"#,
+                [code],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .optional()?
+            .flatten())
+    }
+
+    /// Gives a session the creation receipt of its account.
+    pub fn set_token_signup(&self, token_id: &str, did: &str) -> Result<(), StorageError> {
+        self.conn.execute(
+            r#"update "token" set "signupDid" = ?2 where "tokenId" = ?1 and "did" = ?2"#,
+            params![token_id, did],
+        )?;
+        Ok(())
+    }
+
+    /// Whether the session holds the creation receipt of its account.
+    pub fn token_has_signup(
+        &self,
+        token_id: &str,
+        client_id: &str,
+        did: &str,
+        now: &str,
+    ) -> Result<bool, StorageError> {
+        Ok(self.conn.query_row(
+            r#"select count(*) > 0 from "token" where "tokenId" = ?1 and "clientId" = ?2 and "did" = ?3 and "signupDid" = ?3 and "expiresAt" > ?4"#,
+            params![token_id, client_id, did, now],
+            |row| row.get(0),
+        )?)
+    }
+
+    /// Clears the creation receipt of a session.
+    pub fn clear_token_signup(
+        &self,
+        token_id: &str,
+        client_id: &str,
+        did: &str,
+    ) -> Result<(), StorageError> {
+        self.conn.execute(
+            r#"update "token" set "signupDid" = null where "tokenId" = ?1 and "clientId" = ?2 and "did" = ?3"#,
+            params![token_id, client_id, did],
+        )?;
+        Ok(())
+    }
+
     /// The account of an identity. A sign-in with it is recorded at `now`.
     pub fn external_identity(
         &self,
