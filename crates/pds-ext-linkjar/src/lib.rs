@@ -4,6 +4,7 @@
 //! of patch 093.
 
 pub mod handle;
+pub mod providers;
 pub mod reserved;
 
 use std::fmt::Write;
