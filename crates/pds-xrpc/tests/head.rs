@@ -35,6 +35,7 @@ fn state() -> AppState {
             admin_password: "password".to_owned(),
             service_did: "did:web:pds.test".to_owned(),
         },
+        identity: None,
     };
     let resolver = DidResolver::new(
         ResolverConfig {

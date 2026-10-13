@@ -1,5 +1,6 @@
 //! The handlers, by namespace, and the way from a request to one.
 
+pub mod account;
 pub mod identity;
 pub mod import;
 pub mod repo;
@@ -87,6 +88,7 @@ enum Procedure {
     DeleteSession,
     CreateAppPassword,
     RevokeAppPassword,
+    CreateAccount,
 }
 
 /// The procedure that `nsid` names. `None` for a method without a handler.
@@ -101,6 +103,7 @@ fn procedure(nsid: &str) -> Option<Procedure> {
         "com.atproto.server.createSession" => Procedure::CreateSession,
         "com.atproto.server.refreshSession" => Procedure::RefreshSession,
         "com.atproto.server.deleteSession" => Procedure::DeleteSession,
+        "com.atproto.server.createAccount" => Procedure::CreateAccount,
         "com.atproto.server.createAppPassword" => Procedure::CreateAppPassword,
         "com.atproto.server.revokeAppPassword" => Procedure::RevokeAppPassword,
         _ => return None,
@@ -300,6 +303,7 @@ async fn xrpc(
             Procedure::CreateSession => session::create_session(state, headers, body).await,
             Procedure::RefreshSession => session::refresh_session(state, headers).await,
             Procedure::DeleteSession => session::delete_session(state, headers).await,
+            Procedure::CreateAccount => account::create_account(state, headers, body).await,
             Procedure::CreateAppPassword => {
                 session::create_app_password(state, headers, body).await
             }

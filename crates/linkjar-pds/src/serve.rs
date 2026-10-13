@@ -117,6 +117,15 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
             admin_password: admin_password.to_owned(),
             service_did: config.service_did.clone(),
         },
+        identity: config.plc_rotation_key.clone().map(|rotation_key| {
+            pds_xrpc::state::IdentityConfig {
+                plc_url: config.plc_url.trim_end_matches('/').to_owned(),
+                public_url: config.public_url(),
+                rotation_key,
+                recovery_did_key: config.recovery_did_key.clone(),
+                dev_mode: config.dev_mode,
+            }
+        }),
     };
     let storage = |error: pds_storage::StorageError| ServeError::Storage(error.to_string());
     let crawlers = Crawlers::new(

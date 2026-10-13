@@ -196,6 +196,7 @@ async fn start(
             admin_password: ADMIN_PASSWORD.to_owned(),
             service_did: SERVICE_DID.to_owned(),
         },
+        identity: None,
     };
     let crawlers = Crawlers::new("pds.test".to_owned(), Vec::new(), http.clone());
     let sequencer =
