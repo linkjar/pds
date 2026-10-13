@@ -9,7 +9,7 @@
 
 use axum::body::Body;
 use axum::http::{HeaderMap, StatusCode};
-use axum::response::Response;
+use axum::response::{IntoResponse as _, Response};
 use pds_storage::{AccountDb, Availability, InviteCode, Invites};
 use serde_json::{Map, Value, json};
 
@@ -249,4 +249,71 @@ pub async fn get_invite_codes(state: &AppState, query: &Query<'_>) -> Result<Res
         page.iter().map(view).collect::<Vec<_>>().into(),
     );
     Ok(json_response(StatusCode::OK, &out.into()))
+}
+
+fn strings(input: &Map<String, Value>, key: &str) -> Result<Vec<String>, XrpcError> {
+    match input.get(key) {
+        None => Ok(Vec::new()),
+        Some(Value::Array(items)) => items
+            .iter()
+            .map(|item| {
+                item.as_str().map(str::to_owned).ok_or_else(|| {
+                    XrpcError::invalid_request(format!("Input/{key} must be an array of strings"))
+                })
+            })
+            .collect(),
+        Some(_) => Err(XrpcError::invalid_request(format!(
+            "Input/{key} must be an array"
+        ))),
+    }
+}
+
+/// `com.atproto.admin.disableInviteCodes`: the codes named, and every
+/// code of the accounts named. The admin's own codes stay.
+pub async fn disable_invite_codes(
+    state: &AppState,
+    headers: &HeaderMap,
+    body: &mut Option<Body>,
+) -> Result<Response, XrpcError> {
+    require_admin(state, headers)?;
+    let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
+    let (codes, accounts) = (strings(&input, "codes")?, strings(&input, "accounts")?);
+    if accounts.iter().any(|account| account == "admin") {
+        return Err(XrpcError::invalid_request(
+            "cannot disable admin invite codes",
+        ));
+    }
+    state
+        .blocking(move |state| {
+            let writes = state
+                .writes()
+                .ok_or_else(|| XrpcError::internal("a read-only server changes no invite"))?;
+            Ok(writes.with_accounts(|db| db.disable_invite_codes(&codes, &accounts))?)
+        })
+        .await?;
+    Ok(StatusCode::OK.into_response())
+}
+
+/// `com.atproto.admin.disableAccountInvites` and `enableAccountInvites`.
+pub async fn set_account_invites(
+    state: &AppState,
+    headers: &HeaderMap,
+    body: &mut Option<Body>,
+    disabled: bool,
+) -> Result<Response, XrpcError> {
+    require_admin(state, headers)?;
+    let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
+    let account = body::string(&input, "account", true, Format::Did, None, "$")?
+        .unwrap_or_default()
+        .to_owned();
+    body::string(&input, "note", false, Format::Any, None, "$")?;
+    state
+        .blocking(move |state| {
+            let writes = state
+                .writes()
+                .ok_or_else(|| XrpcError::internal("a read-only server changes no invite"))?;
+            Ok(writes.with_accounts(|db| db.set_invites_disabled(&account, disabled))?)
+        })
+        .await?;
+    Ok(StatusCode::OK.into_response())
 }

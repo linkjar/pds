@@ -114,6 +114,9 @@ enum Procedure {
     PutPreferences,
     CreateInviteCode,
     CreateInviteCodes,
+    DisableInviteCodes,
+    DisableAccountInvites,
+    EnableAccountInvites,
     RequestEmailConfirmation,
     ConfirmEmail,
     RequestEmailUpdate,
@@ -153,6 +156,9 @@ fn procedure(nsid: &str) -> Option<Procedure> {
         "app.bsky.actor.putPreferences" => Procedure::PutPreferences,
         "com.atproto.server.createInviteCode" => Procedure::CreateInviteCode,
         "com.atproto.server.createInviteCodes" => Procedure::CreateInviteCodes,
+        "com.atproto.admin.disableInviteCodes" => Procedure::DisableInviteCodes,
+        "com.atproto.admin.disableAccountInvites" => Procedure::DisableAccountInvites,
+        "com.atproto.admin.enableAccountInvites" => Procedure::EnableAccountInvites,
         "com.atproto.server.requestEmailConfirmation" => Procedure::RequestEmailConfirmation,
         "com.atproto.server.confirmEmail" => Procedure::ConfirmEmail,
         "com.atproto.server.requestEmailUpdate" => Procedure::RequestEmailUpdate,
@@ -539,6 +545,13 @@ async fn run(
         Procedure::ResetPassword => email::reset_password(state, headers, body).await,
         Procedure::CreateInviteCode => invites::create_invite_code(state, headers, body).await,
         Procedure::CreateInviteCodes => invites::create_invite_codes(state, headers, body).await,
+        Procedure::DisableInviteCodes => invites::disable_invite_codes(state, headers, body).await,
+        Procedure::DisableAccountInvites => {
+            invites::set_account_invites(state, headers, body, true).await
+        }
+        Procedure::EnableAccountInvites => {
+            invites::set_account_invites(state, headers, body, false).await
+        }
         Procedure::AdminUpdateSubjectStatus => {
             admin::update_subject_status(state, headers, body).await
         }
