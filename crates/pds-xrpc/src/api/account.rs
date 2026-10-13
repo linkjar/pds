@@ -32,7 +32,7 @@ fn refuse(error: &str, message: impl Into<String>) -> XrpcError {
 
 /// Whether the server takes this email address. The Reference asks
 /// `@hapi/address`; this is the common part of what that accepts.
-fn email_is_valid(email: &str) -> bool {
+pub(crate) fn email_is_valid(email: &str) -> bool {
     let Some((local, domain)) = email.rsplit_once('@') else {
         return false;
     };

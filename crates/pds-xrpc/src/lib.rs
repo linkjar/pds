@@ -11,6 +11,7 @@ pub mod api;
 pub mod auth;
 pub mod body;
 pub mod error;
+pub mod mail;
 pub mod params;
 pub mod password;
 pub mod state;

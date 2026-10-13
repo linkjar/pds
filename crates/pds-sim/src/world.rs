@@ -201,6 +201,7 @@ async fn start(
             service_did: SERVICE_DID.to_owned(),
         },
         identity: None,
+        mail: pds_xrpc::mail::MailConfig::default(),
     };
     let crawlers = Crawlers::new("pds.test".to_owned(), Vec::new(), http.clone());
     let sequencer =

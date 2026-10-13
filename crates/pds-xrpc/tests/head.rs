@@ -40,6 +40,7 @@ fn state() -> AppState {
             service_did: "did:web:pds.test".to_owned(),
         },
         identity: None,
+        mail: pds_xrpc::mail::MailConfig::default(),
     };
     let resolver = DidResolver::new(
         ResolverConfig {

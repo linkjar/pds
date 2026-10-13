@@ -2,6 +2,7 @@
 
 pub mod account;
 pub mod admin;
+pub mod email;
 pub mod identity;
 pub mod import;
 pub mod invites;
@@ -109,6 +110,12 @@ enum Procedure {
     PutPreferences,
     CreateInviteCode,
     CreateInviteCodes,
+    RequestEmailConfirmation,
+    ConfirmEmail,
+    RequestEmailUpdate,
+    UpdateEmail,
+    RequestPasswordReset,
+    ResetPassword,
 }
 
 /// The procedure that `nsid` names. `None` for a method without a handler.
@@ -131,6 +138,12 @@ fn procedure(nsid: &str) -> Option<Procedure> {
         "app.bsky.actor.putPreferences" => Procedure::PutPreferences,
         "com.atproto.server.createInviteCode" => Procedure::CreateInviteCode,
         "com.atproto.server.createInviteCodes" => Procedure::CreateInviteCodes,
+        "com.atproto.server.requestEmailConfirmation" => Procedure::RequestEmailConfirmation,
+        "com.atproto.server.confirmEmail" => Procedure::ConfirmEmail,
+        "com.atproto.server.requestEmailUpdate" => Procedure::RequestEmailUpdate,
+        "com.atproto.server.updateEmail" => Procedure::UpdateEmail,
+        "com.atproto.server.requestPasswordReset" => Procedure::RequestPasswordReset,
+        "com.atproto.server.resetPassword" => Procedure::ResetPassword,
         "com.atproto.server.createAppPassword" => Procedure::CreateAppPassword,
         "com.atproto.server.revokeAppPassword" => Procedure::RevokeAppPassword,
         _ => return None,
@@ -351,6 +364,50 @@ pub async fn entry(State(state): State<AppState>, request: axum::extract::Reques
     response
 }
 
+/// Runs a procedure.
+// A table: one arm for each procedure the crate serves.
+#[allow(clippy::too_many_lines)]
+async fn run(
+    state: &AppState,
+    procedure: Procedure,
+    headers: &HeaderMap,
+    body: &mut Option<Body>,
+) -> Result<Response, XrpcError> {
+    match procedure {
+        Procedure::CreateRecord => repo_write::create_record(state, headers, body).await,
+        Procedure::PutRecord => repo_write::put_record(state, headers, body).await,
+        Procedure::DeleteRecord => repo_write::delete_record(state, headers, body).await,
+        Procedure::ApplyWrites => repo_write::apply_writes(state, headers, body).await,
+        Procedure::UploadBlob => repo_write::upload_blob(state, headers, body).await,
+        Procedure::ImportRepo => import::import_repo(state, headers, body).await,
+        Procedure::CreateSession => session::create_session(state, headers, body).await,
+        Procedure::RefreshSession => session::refresh_session(state, headers).await,
+        Procedure::DeleteSession => session::delete_session(state, headers).await,
+        Procedure::CreateAccount => account::create_account(state, headers, body).await,
+        Procedure::DeactivateAccount => lifecycle::deactivate_account(state, headers, body).await,
+        Procedure::ActivateAccount => lifecycle::activate_account(state, headers).await,
+        Procedure::UpdateHandle => lifecycle::update_handle(state, headers, body).await,
+        Procedure::PutPreferences => prefs::put_preferences(state, headers, body).await,
+        Procedure::RequestEmailConfirmation => {
+            email::request_email_confirmation(state, headers).await
+        }
+        Procedure::ConfirmEmail => email::confirm_email(state, headers, body).await,
+        Procedure::RequestEmailUpdate => email::request_email_update(state, headers).await,
+        Procedure::UpdateEmail => email::update_email(state, headers, body).await,
+        Procedure::RequestPasswordReset => {
+            email::request_password_reset(state, headers, body).await
+        }
+        Procedure::ResetPassword => email::reset_password(state, headers, body).await,
+        Procedure::CreateInviteCode => invites::create_invite_code(state, headers, body).await,
+        Procedure::CreateInviteCodes => invites::create_invite_codes(state, headers, body).await,
+        Procedure::AdminUpdateSubjectStatus => {
+            admin::update_subject_status(state, headers, body).await
+        }
+        Procedure::CreateAppPassword => session::create_app_password(state, headers, body).await,
+        Procedure::RevokeAppPassword => session::revoke_app_password(state, headers, body).await,
+    }
+}
+
 async fn xrpc(
     state: &AppState,
     nsid: &str,
@@ -368,37 +425,7 @@ async fn xrpc(
                 "Incorrect HTTP method ({method}) expected POST"
             )));
         }
-        return match procedure {
-            Procedure::CreateRecord => repo_write::create_record(state, headers, body).await,
-            Procedure::PutRecord => repo_write::put_record(state, headers, body).await,
-            Procedure::DeleteRecord => repo_write::delete_record(state, headers, body).await,
-            Procedure::ApplyWrites => repo_write::apply_writes(state, headers, body).await,
-            Procedure::UploadBlob => repo_write::upload_blob(state, headers, body).await,
-            Procedure::ImportRepo => import::import_repo(state, headers, body).await,
-            Procedure::CreateSession => session::create_session(state, headers, body).await,
-            Procedure::RefreshSession => session::refresh_session(state, headers).await,
-            Procedure::DeleteSession => session::delete_session(state, headers).await,
-            Procedure::CreateAccount => account::create_account(state, headers, body).await,
-            Procedure::DeactivateAccount => {
-                lifecycle::deactivate_account(state, headers, body).await
-            }
-            Procedure::ActivateAccount => lifecycle::activate_account(state, headers).await,
-            Procedure::UpdateHandle => lifecycle::update_handle(state, headers, body).await,
-            Procedure::PutPreferences => prefs::put_preferences(state, headers, body).await,
-            Procedure::CreateInviteCode => invites::create_invite_code(state, headers, body).await,
-            Procedure::CreateInviteCodes => {
-                invites::create_invite_codes(state, headers, body).await
-            }
-            Procedure::AdminUpdateSubjectStatus => {
-                admin::update_subject_status(state, headers, body).await
-            }
-            Procedure::CreateAppPassword => {
-                session::create_app_password(state, headers, body).await
-            }
-            Procedure::RevokeAppPassword => {
-                session::revoke_app_password(state, headers, body).await
-            }
-        };
+        return run(state, procedure, headers, body).await;
     }
     let Some((served, specs)) = served(nsid) else {
         // No handler here: another service has the method.

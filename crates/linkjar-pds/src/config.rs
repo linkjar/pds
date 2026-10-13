@@ -224,6 +224,8 @@ pub struct Config {
     pub plc_rotation_key: Option<Vec<u8>>,
     /// `PDS_RECOVERY_DID_KEY`.
     pub recovery_did_key: Option<String>,
+    /// The mail settings: `PDS_EMAIL_*` and the branding variables.
+    pub mail: pds_xrpc::mail::MailConfig,
     /// `PDS_JWT_SECRET`.
     pub jwt_secret: Option<String>,
     /// `PDS_ADMIN_PASSWORD`.
@@ -366,6 +368,30 @@ impl Env<'_> {
                 .unwrap_or(Duration::from_secs(20)),
             request_timeout: positive("PDS_BLOBSTORE_S3_REQUEST_TIMEOUT_MS")?,
         }))
+    }
+
+    /// A service the server sends requests to: its URL and its DID.
+    fn service(
+        &self,
+        url: &'static str,
+        did: &'static str,
+    ) -> Result<Option<(String, String)>, ConfigError> {
+        Ok(self.url(url)?.zip(self.text(did)))
+    }
+
+    /// The mail settings: `PDS_EMAIL_*` and the branding variables.
+    fn mail(&self) -> Result<pds_xrpc::mail::MailConfig, ConfigError> {
+        Ok(pds_xrpc::mail::MailConfig {
+            smtp_url: self.text("PDS_EMAIL_SMTP_URL"),
+            from_address: self.text("PDS_EMAIL_FROM_ADDRESS"),
+            service_name: self.text("PDS_SERVICE_NAME"),
+            home_url: self.text("PDS_HOME_URL"),
+            logo_url: self.text("PDS_LOGO_URL"),
+            primary_color: self.text("PDS_PRIMARY_COLOR"),
+            disable_confirmation_link: self
+                .boolean("PDS_EMAIL_DISABLE_CONFIRMATION_LINK")?
+                .unwrap_or(false),
+        })
     }
 
     /// `PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX` as its 32 bytes.
@@ -528,6 +554,7 @@ impl Config {
             blob_dir: env.text("PDS_BLOBSTORE_DISK_LOCATION").map(PathBuf::from),
             plc_rotation_key: env.rotation_key()?,
             recovery_did_key: env.text("PDS_RECOVERY_DID_KEY"),
+            mail: env.mail()?,
             jwt_secret: env.text("PDS_JWT_SECRET"),
             admin_password: env.text("PDS_ADMIN_PASSWORD"),
             plc_url: env
@@ -538,12 +565,8 @@ impl Config {
             resolver_timeout: env.millis("PDS_ID_RESOLVER_TIMEOUT", Duration::from_secs(3))?,
             appview_url: env.url("PDS_BSKY_APP_VIEW_URL")?,
             appview_did: env.text("PDS_BSKY_APP_VIEW_DID"),
-            mod_service: env
-                .url("PDS_MOD_SERVICE_URL")?
-                .zip(env.text("PDS_MOD_SERVICE_DID")),
-            report_service: env
-                .url("PDS_REPORT_SERVICE_URL")?
-                .zip(env.text("PDS_REPORT_SERVICE_DID")),
+            mod_service: env.service("PDS_MOD_SERVICE_URL", "PDS_MOD_SERVICE_DID")?,
+            report_service: env.service("PDS_REPORT_SERVICE_URL", "PDS_REPORT_SERVICE_DID")?,
             proxy_timeout: env.millis("PDS_PROXY_HEADERS_TIMEOUT", Duration::from_secs(10))?,
             hostname,
             service_did,
