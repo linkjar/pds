@@ -1193,3 +1193,102 @@ async fn an_account_is_deleted_by_its_owner_and_by_the_admin() {
     assert_eq!(events(&other), ["account"]);
     assert!(!server.dir.config.layout.actor_store_dir(&other).exists());
 }
+
+#[tokio::test]
+async fn the_admin_changes_the_email_the_handle_and_the_password_of_an_account() {
+    use base64::Engine as _;
+    let server = Server::start(&[]).await;
+    let (_, made) = server
+        .create(&json!({"handle": "oscar.pds-users.org", "email": "oscar@example.com", "password": PASSWORD}))
+        .await;
+    let did = text(&made, "did").to_owned();
+    let basic = format!(
+        "Basic {}",
+        base64::engine::general_purpose::STANDARD
+            .encode(format!("admin:{}", common::ADMIN_PASSWORD))
+    );
+    let admin = |nsid: &'static str, body: Value| {
+        let request = server
+            .http
+            .post(format!("{}/xrpc/{nsid}", server.origin))
+            .header("authorization", &basic)
+            .header("content-type", "application/json")
+            .body(body.to_string());
+        async move {
+            let response = request.send().await.unwrap();
+            let status = response.status().as_u16();
+            let bytes = response.bytes().await.unwrap();
+            (
+                status,
+                serde_json::from_slice::<Value>(&bytes).unwrap_or(Value::Null),
+            )
+        }
+    };
+    let login = |identifier: &'static str, password: &'static str| {
+        let body = json!({"identifier": identifier, "password": password});
+        let server = &server;
+        async move {
+            server
+                .post("com.atproto.server.createSession", None, &body)
+                .await
+                .0
+        }
+    };
+
+    let email = "com.atproto.admin.updateAccountEmail";
+    assert_eq!(
+        admin(
+            email,
+            json!({"account": "oscar.pds-users.org", "email": "Oscar2@example.com"})
+        )
+        .await
+        .0,
+        200
+    );
+    let (status, body) = admin(
+        email,
+        json!({"account": "nobody.pds-users.org", "email": "x@example.com"}),
+    )
+    .await;
+    assert_eq!(
+        (status, text(&body, "message")),
+        (400, "Account does not exist: nobody.pds-users.org")
+    );
+    assert_eq!(login("oscar2@example.com", PASSWORD).await, 200);
+
+    // The admin may give a reserved name; the account may not.
+    let (status, body) = admin(
+        "com.atproto.admin.updateAccountHandle",
+        json!({"did": did, "handle": "admin.pds-users.org"}),
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(login("admin.pds-users.org", PASSWORD).await, 200);
+
+    let password = "com.atproto.admin.updateAccountPassword";
+    assert_eq!(
+        admin(password, json!({"did": did, "password": "x".repeat(257)}))
+            .await
+            .0,
+        400
+    );
+    assert_eq!(
+        admin(
+            password,
+            json!({"did": did, "password": "changed-by-admin"})
+        )
+        .await
+        .0,
+        200
+    );
+    assert_eq!(login("oscar2@example.com", PASSWORD).await, 401);
+    assert_eq!(login("oscar2@example.com", "changed-by-admin").await, 200);
+    let (status, _) = server
+        .post(
+            "com.atproto.server.refreshSession",
+            Some(text(&made, "refreshJwt")),
+            &Value::Null,
+        )
+        .await;
+    assert_eq!(status, 400);
+}

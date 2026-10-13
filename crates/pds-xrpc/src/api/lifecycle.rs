@@ -334,6 +334,18 @@ pub async fn update_handle(
     let given = body::string(&input, "handle", true, Format::Handle, None, "$")?
         .unwrap_or_default()
         .to_owned();
+    change_handle(state, did, given, false).await?;
+    Ok(StatusCode::OK.into_response())
+}
+
+/// Gives the account `did` the handle `given`, as `updateHandle` of the
+/// account manager. The admin may give a reserved name.
+pub(crate) async fn change_handle(
+    state: &AppState,
+    did: String,
+    given: String,
+    allow_reserved: bool,
+) -> Result<(), XrpcError> {
     let identity = super::account::identity(state)?.clone();
     let (handle, hosted) = {
         let (did, identity) = (did.clone(), identity.clone());
@@ -348,7 +360,7 @@ pub async fn update_handle(
                     return Err(XrpcError::invalid_request("Account not found"));
                 }
                 let (handle, hosted) =
-                    super::account::checked_handle(state, &given, &identity, true)?;
+                    super::account::checked_handle(state, &given, &identity, true, allow_reserved)?;
                 if accounts
                     .actor(&handle, Availability::ANY)?
                     .is_some_and(|other| other.did != did)
@@ -408,7 +420,7 @@ pub async fn update_handle(
             Ok(())
         })
         .await?;
-    Ok(StatusCode::OK.into_response())
+    Ok(())
 }
 
 /// Removes an account for good: its rows, every event of it but the one
