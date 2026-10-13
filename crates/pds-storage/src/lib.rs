@@ -21,6 +21,7 @@ pub mod error;
 pub mod fail;
 pub mod io;
 pub mod layout;
+pub mod oauth;
 pub mod ops;
 pub mod schema;
 pub mod schema_shared;

@@ -6,3 +6,5 @@
 pub mod client;
 pub mod dpop;
 pub mod pkce;
+pub mod scope;
+pub mod token;
