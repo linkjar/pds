@@ -111,6 +111,30 @@ impl ActorDb {
         })
     }
 
+    /// Takes a record down with the reference `takedown`, or lifts the
+    /// takedown with `None`.
+    pub fn set_record_takedown(
+        &self,
+        uri: &str,
+        takedown: Option<&str>,
+    ) -> Result<(), StorageError> {
+        self.conn().execute(
+            r#"update "record" set "takedownRef" = ?2 where "uri" = ?1"#,
+            rusqlite::params![uri, takedown],
+        )?;
+        Ok(())
+    }
+
+    /// Takes a blob down with the reference `takedown`, or lifts the
+    /// takedown with `None`.
+    pub fn set_blob_takedown(&self, cid: &str, takedown: Option<&str>) -> Result<(), StorageError> {
+        self.conn().execute(
+            r#"update "blob" set "takedownRef" = ?2 where "cid" = ?1"#,
+            rusqlite::params![cid, takedown],
+        )?;
+        Ok(())
+    }
+
     /// The CID of the record at `uri`, taken down or not.
     pub fn record_cid(&self, uri: &str) -> Result<Option<String>, StorageError> {
         Ok(self

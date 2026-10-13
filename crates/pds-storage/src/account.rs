@@ -303,6 +303,32 @@ impl AccountDb {
             .optional()?)
     }
 
+    /// Takes an account down with the reference `takedown`, or lifts the
+    /// takedown with `None`. A takedown ends the sessions of the account.
+    pub fn set_takedown(&mut self, did: &str, takedown: Option<&str>) -> Result<(), StorageError> {
+        let txn = self.conn.transaction()?;
+        txn.execute(
+            r#"update "actor" set "takedownRef" = ?2 where "did" = ?1"#,
+            rusqlite::params![did, takedown],
+        )?;
+        txn.execute(r#"delete from "refresh_token" where "did" = ?1"#, [did])?;
+        txn.commit()?;
+        Ok(())
+    }
+
+    /// Whether the account may give out invite codes: `None` for an actor
+    /// without an account row.
+    pub fn invites_disabled(&self, did: &str) -> Result<Option<bool>, StorageError> {
+        Ok(self
+            .conn
+            .query_row(
+                r#"select "invitesDisabled" from "account" where "did" = ?1"#,
+                [did],
+                |row| row.get::<_, i64>(0).map(|value| value == 1),
+            )
+            .optional()?)
+    }
+
     /// Gives an account a handle. Returns `false`, and changes nothing,
     /// when another account has the handle or the account is not there.
     pub fn update_handle(&self, did: &str, handle: &str) -> Result<bool, StorageError> {
