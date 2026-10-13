@@ -382,6 +382,16 @@ impl ActorDb {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
+    /// The stored preferences in the order they were written: row id,
+    /// name and JSON value.
+    pub fn preferences(&self) -> Result<Vec<(i64, String, String)>, StorageError> {
+        let mut statement = self
+            .conn
+            .prepare(r#"select "id", "name", "valueJson" from "account_pref" order by "id""#)?;
+        let rows = statement.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
     /// The takedown reference of a blob: `None` when the store has no row
     /// for it, `Some(None)` when it is not taken down.
     pub fn blob_takedown_ref(&self, cid: &str) -> Result<Option<Option<String>>, StorageError> {

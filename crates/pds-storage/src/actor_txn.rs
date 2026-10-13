@@ -111,6 +111,26 @@ impl ActorDb {
         })
     }
 
+    /// Removes the preferences with the row ids `remove` and stores
+    /// `put`: names and JSON values.
+    pub fn replace_preferences(
+        &self,
+        remove: &[i64],
+        put: &[(String, String)],
+    ) -> Result<(), StorageError> {
+        for id in remove {
+            self.conn()
+                .execute(r#"delete from "account_pref" where "id" = ?1"#, [id])?;
+        }
+        for (name, value) in put {
+            self.conn().execute(
+                r#"insert into "account_pref" ("name", "valueJson") values (?1, ?2)"#,
+                [name, value],
+            )?;
+        }
+        Ok(())
+    }
+
     /// Takes a record down with the reference `takedown`, or lifts the
     /// takedown with `None`.
     pub fn set_record_takedown(

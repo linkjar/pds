@@ -69,6 +69,7 @@ CREATE TABLE "blob" ("cid" varchar primary key, "mimeType" varchar not null, "si
 CREATE TABLE "record_blob" ("blobCid" varchar not null, "recordUri" varchar not null, constraint "record_blob_pkey" primary key ("blobCid", "recordUri"));
 CREATE TABLE "backlink" ("uri" varchar not null, "path" varchar not null, "linkTo" varchar not null, constraint "backlinks_pkey" primary key ("uri", "path"));
 CREATE INDEX "backlink_link_to_idx" on "backlink" ("path", "linkTo");
+CREATE TABLE "account_pref" ("id" integer primary key autoincrement, "name" varchar not null, "valueJson" text not null);
 "#;
 const SEQUENCER_SCHEMA: &str = r#"
 CREATE TABLE "repo_seq" ("seq" integer primary key autoincrement, "did" varchar not null, "eventType" varchar not null, "event" blob not null, "invalidated" int2 default 0 not null, "sequencedAt" varchar not null);
