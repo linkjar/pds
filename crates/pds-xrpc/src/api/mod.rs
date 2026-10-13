@@ -6,6 +6,7 @@ pub mod repo;
 pub mod repo_write;
 pub mod root;
 pub mod server;
+pub mod session;
 pub mod subscribe;
 pub mod sync;
 
@@ -66,6 +67,8 @@ enum Served {
     RepoListRecords,
     RepoDescribeRepo,
     ServerDescribeServer,
+    ServerGetSession,
+    ServerListAppPasswords,
     IdentityResolveHandle,
     RepoListMissingBlobs,
 }
@@ -79,6 +82,11 @@ enum Procedure {
     ApplyWrites,
     UploadBlob,
     ImportRepo,
+    CreateSession,
+    RefreshSession,
+    DeleteSession,
+    CreateAppPassword,
+    RevokeAppPassword,
 }
 
 /// The procedure that `nsid` names. `None` for a method without a handler.
@@ -90,6 +98,11 @@ fn procedure(nsid: &str) -> Option<Procedure> {
         "com.atproto.repo.applyWrites" => Procedure::ApplyWrites,
         "com.atproto.repo.uploadBlob" => Procedure::UploadBlob,
         "com.atproto.repo.importRepo" => Procedure::ImportRepo,
+        "com.atproto.server.createSession" => Procedure::CreateSession,
+        "com.atproto.server.refreshSession" => Procedure::RefreshSession,
+        "com.atproto.server.deleteSession" => Procedure::DeleteSession,
+        "com.atproto.server.createAppPassword" => Procedure::CreateAppPassword,
+        "com.atproto.server.revokeAppPassword" => Procedure::RevokeAppPassword,
         _ => return None,
     })
 }
@@ -181,6 +194,8 @@ fn served(nsid: &str) -> Option<(Served, &'static [Spec])> {
             },
         ),
         "com.atproto.server.describeServer" => (Served::ServerDescribeServer, &[]),
+        "com.atproto.server.getSession" => (Served::ServerGetSession, &[]),
+        "com.atproto.server.listAppPasswords" => (Served::ServerListAppPasswords, &[]),
         "com.atproto.identity.resolveHandle" => (
             Served::IdentityResolveHandle,
             const { &[Spec::required("handle", Format::Handle)] },
@@ -282,6 +297,15 @@ async fn xrpc(
             Procedure::ApplyWrites => repo_write::apply_writes(state, headers, body).await,
             Procedure::UploadBlob => repo_write::upload_blob(state, headers, body).await,
             Procedure::ImportRepo => import::import_repo(state, headers, body).await,
+            Procedure::CreateSession => session::create_session(state, headers, body).await,
+            Procedure::RefreshSession => session::refresh_session(state, headers).await,
+            Procedure::DeleteSession => session::delete_session(state, headers).await,
+            Procedure::CreateAppPassword => {
+                session::create_app_password(state, headers, body).await
+            }
+            Procedure::RevokeAppPassword => {
+                session::revoke_app_password(state, headers, body).await
+            }
         };
     }
     let Some((served, specs)) = served(nsid) else {
@@ -312,6 +336,8 @@ async fn xrpc(
         Served::RepoListRecords => repo::list_records(state, &query).await,
         Served::RepoDescribeRepo => repo::describe_repo(state, &query).await,
         Served::ServerDescribeServer => Ok(server::describe_server(state)),
+        Served::ServerGetSession => session::get_session(state, headers).await,
+        Served::ServerListAppPasswords => session::list_app_passwords(state, headers).await,
         Served::IdentityResolveHandle => identity::resolve_handle(state, &query).await,
         Served::RepoListMissingBlobs if state.writes().is_some() => {
             repo_write::list_missing_blobs(state, &query).await

@@ -20,6 +20,8 @@ pub mod did_doc;
 pub mod handle;
 pub mod keys;
 pub mod method;
+pub mod plc;
+pub mod reserved;
 pub mod resolver;
 
 pub use did_doc::{DidDocError, DidDocument, ServiceEndpoint};

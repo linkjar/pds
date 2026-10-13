@@ -45,7 +45,18 @@ fn connection(path: &Path, schema: &str) -> Connection {
 const ACCOUNT_SCHEMA: &str = r#"
 CREATE TABLE "actor" ("did" varchar primary key, "handle" varchar, "createdAt" varchar not null, "takedownRef" varchar, "deactivatedAt" varchar, "deleteAfter" varchar);
 CREATE TABLE "repo_root" ("did" varchar primary key, "cid" varchar not null, "rev" varchar not null, "indexedAt" varchar not null);
+CREATE TABLE "account" ("did" varchar primary key, "email" varchar not null, "passwordScrypt" varchar not null, "emailConfirmedAt" varchar, "invitesDisabled" int2 default 0 not null);
+CREATE TABLE "app_password" ("did" varchar not null, "name" varchar not null, "passwordScrypt" varchar not null, "createdAt" varchar not null, "privileged" int2 default 0 not null, constraint "app_password_pkey" primary key ("did", "name"));
+CREATE TABLE "refresh_token" ("id" varchar primary key, "did" varchar not null, "expiresAt" varchar not null, "nextId" varchar, "appPasswordName" varchar);
 "#;
+
+/// The password of every account of the directory.
+pub const PASSWORD: &str = "alice-password";
+/// Its stored hash, as Node's `crypto.scrypt` gives it for this salt.
+const PASSWORD_HASH: &str = "00112233445566778899aabbccddeeff:21cec7557f6df22e962d06b05c9df10145e9373dd082daf06fd42aa777197af56a06d85c25dd645395d58fa7b3ac1019fbde9f94771b3caebe7be25c47fa2ba5";
+/// An app password of [`ALICE`], named `phone`.
+pub const APP_PASSWORD: &str = "abcd-efgh-ijkl-mnop";
+const APP_PASSWORD_HASH: &str = "693c5d2d2f93d8419c4274771bd9ec78:85e4cd03fdd2ee08d68a16d6808fee33682cf4bd9cb8d317da8f36fd36e214dee69ad32d417c59d658f2f47d69784739a46444038cf8feb551da2288f0f8d890";
 const ACTOR_SCHEMA: &str = r#"
 CREATE TABLE "repo_root" ("did" varchar primary key, "cid" varchar not null, "rev" varchar not null, "indexedAt" varchar not null);
 CREATE TABLE "repo_block" ("cid" varchar primary key, "repoRev" varchar not null, "size" integer not null, "content" blob not null);
@@ -134,6 +145,22 @@ impl DataDir {
                     ],
                 )
                 .unwrap();
+            let email = format!("{}@example.com", handle.split('.').next().unwrap());
+            let confirmed = (did == ALICE).then_some(TIME);
+            accounts
+                .execute(
+                    r#"insert into "account" values (?1, ?2, ?3, ?4, 0)"#,
+                    params![did, email, PASSWORD_HASH, confirmed],
+                )
+                .unwrap();
+            if did == ALICE {
+                accounts
+                    .execute(
+                        r#"insert into "app_password" values (?1, 'phone', ?2, ?3, 0)"#,
+                        params![did, APP_PASSWORD_HASH, TIME],
+                    )
+                    .unwrap();
+            }
             accounts
                 .execute(
                     r#"insert into "repo_root" values (?1, ?2, ?3, ?4)"#,

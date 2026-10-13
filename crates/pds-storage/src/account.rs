@@ -35,6 +35,73 @@ impl Actor {
     }
 }
 
+/// An actor with the rows of its account.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Account {
+    /// The actor.
+    pub actor: Actor,
+    /// The email address, absent for an actor without an account row.
+    pub email: Option<String>,
+    /// When the email address was confirmed.
+    pub email_confirmed_at: Option<String>,
+}
+
+/// An app password: its name and whether it is privileged.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AppPassword {
+    /// The name the account gave it.
+    pub name: String,
+    /// Whether it may do what the account password may, except account
+    /// management.
+    pub privileged: bool,
+}
+
+/// One row of `refresh_token`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RefreshToken {
+    /// The account.
+    pub did: String,
+    /// When the token ends (ISO 8601).
+    pub expires_at: String,
+    /// The token that replaced this one, once it was used.
+    pub next_id: Option<String>,
+    /// The app password of the session, when it has one.
+    pub app_password: Option<AppPassword>,
+}
+
+/// The rows of a new account.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewAccount<'a> {
+    /// The DID.
+    pub did: &'a str,
+    /// The handle.
+    pub handle: &'a str,
+    /// The email address and the stored hash of the password. An account
+    /// without them has an actor row only.
+    pub credentials: Option<(&'a str, &'a str)>,
+    /// The invite code the account used.
+    pub invite_code: Option<&'a str>,
+    /// The id of the first refresh token and when it ends.
+    pub refresh_token: Option<(&'a str, &'a str)>,
+    /// The CID and the revision of the first commit.
+    pub repo_root: (&'a str, &'a str),
+    /// The time of creation (ISO 8601).
+    pub now: &'a str,
+    /// When set, the account is created deactivated and is deleted at
+    /// this time unless it is activated.
+    pub delete_after: Option<&'a str>,
+}
+
+/// Why the rows of a new account were not written.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Refused {
+    /// The invite code is unknown, disabled, used up, or its owner is
+    /// taken down.
+    Invite,
+    /// An actor has the DID, or an account has it.
+    Exists,
+}
+
 /// Which accounts a lookup may return besides active ones.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Availability {
@@ -85,6 +152,28 @@ fn actor_from_row(row: &Row<'_>) -> rusqlite::Result<Actor> {
         takedown_ref: row.get(3)?,
         deactivated_at: row.get(4)?,
     })
+}
+
+fn invite_available(conn: &rusqlite::Connection, code: &str) -> Result<bool, StorageError> {
+    let invite: Option<(i64, Option<i64>)> = conn
+        .query_row(
+            r#"select invite_code."availableUses", invite_code."disabled" from "invite_code" left join "actor" on actor."did" = invite_code."forAccount" where actor."takedownRef" is null and invite_code."code" = ?1"#,
+            [code],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()?;
+    let Some((available, disabled)) = invite else {
+        return Ok(false);
+    };
+    if disabled.unwrap_or(0) != 0 {
+        return Ok(false);
+    }
+    let uses: i64 = conn.query_row(
+        r#"select count(*) from "invite_code_use" where "code" = ?1"#,
+        [code],
+        |row| row.get(0),
+    )?;
+    Ok(available > uses)
 }
 
 impl AccountDb {
@@ -147,6 +236,282 @@ impl AccountDb {
             .conn
             .query_row(&sql, named_params! { ":id": handle_or_did }, actor_from_row)
             .optional()?)
+    }
+
+    /// The account with this DID, this handle, or this email address when
+    /// `by_email` is set. An email address is compared in lower case.
+    pub fn account(
+        &self,
+        id: &str,
+        by_email: bool,
+        availability: Availability,
+    ) -> Result<Option<Account>, StorageError> {
+        let condition = if by_email {
+            r#"lower(account."email") = :id"#
+        } else if id.starts_with("did:") {
+            r#"actor."did" = :id"#
+        } else {
+            r#"actor."handle" = :id"#
+        };
+        let mut sql = format!(
+            r#"select {ACTOR_COLUMNS}, account."email", account."emailConfirmedAt" from "actor" left join "account" on account."did" = actor."did" where {condition}"#
+        );
+        if !availability.include_taken_down {
+            sql.push_str(r#" and actor."takedownRef" is null"#);
+        }
+        if !availability.include_deactivated {
+            sql.push_str(r#" and actor."deactivatedAt" is null"#);
+        }
+        Ok(self
+            .conn
+            .query_row(&sql, named_params! { ":id": id }, |row| {
+                Ok(Account {
+                    actor: actor_from_row(row)?,
+                    email: row.get(5)?,
+                    email_confirmed_at: row.get(6)?,
+                })
+            })
+            .optional()?)
+    }
+
+    /// The stored hash of the account password: `<salt>:<hash>`, both hex.
+    pub fn password_hash(&self, did: &str) -> Result<Option<String>, StorageError> {
+        Ok(self
+            .conn
+            .query_row(
+                r#"select "passwordScrypt" from "account" where "did" = ?1"#,
+                [did],
+                |row| row.get(0),
+            )
+            .optional()?)
+    }
+
+    /// The app password of `did` with this stored hash.
+    pub fn app_password(&self, did: &str, hash: &str) -> Result<Option<AppPassword>, StorageError> {
+        Ok(self
+            .conn
+            .query_row(
+                r#"select "name", "privileged" from "app_password" where "did" = ?1 and "passwordScrypt" = ?2"#,
+                [did, hash],
+                |row| {
+                    Ok(AppPassword {
+                        name: row.get(0)?,
+                        privileged: row.get::<_, i64>(1)? == 1,
+                    })
+                },
+            )
+            .optional()?)
+    }
+
+    /// Whether the invite code can still be used: it exists, it is not
+    /// disabled, its owner is not taken down, and it has uses left.
+    pub fn invite_available(&self, code: &str) -> Result<bool, StorageError> {
+        invite_available(&self.conn, code)
+    }
+
+    /// Writes the rows of a new account in one transaction: the actor, the
+    /// account, the use of the invite code, the first refresh token and
+    /// the repository root.
+    pub fn create_account(
+        &mut self,
+        new: &NewAccount<'_>,
+    ) -> Result<Result<(), Refused>, StorageError> {
+        let txn = self.conn.transaction()?;
+        if let Some(code) = new.invite_code
+            && !invite_available(&txn, code)?
+        {
+            return Ok(Err(Refused::Invite));
+        }
+        let deactivated_at = new.delete_after.map(|_| new.now);
+        let actor = txn.execute(
+            r#"insert into "actor" ("did", "handle", "createdAt", "deactivatedAt", "deleteAfter") values (?1, ?2, ?3, ?4, ?5) on conflict do nothing"#,
+            rusqlite::params![new.did, new.handle, new.now, deactivated_at, new.delete_after],
+        )?;
+        if actor == 0 {
+            return Ok(Err(Refused::Exists));
+        }
+        if let Some((email, hash)) = new.credentials {
+            let account = txn.execute(
+                r#"insert into "account" ("did", "email", "passwordScrypt") values (?1, ?2, ?3) on conflict do nothing"#,
+                [new.did, &email.to_lowercase(), hash],
+            )?;
+            if account == 0 {
+                return Ok(Err(Refused::Exists));
+            }
+        }
+        if let Some(code) = new.invite_code {
+            txn.execute(
+                r#"insert into "invite_code_use" ("code", "usedBy", "usedAt") values (?1, ?2, ?3)"#,
+                [code, new.did, new.now],
+            )?;
+        }
+        if let Some((id, expires_at)) = new.refresh_token {
+            txn.execute(
+                r#"insert into "refresh_token" ("id", "did", "expiresAt") values (?1, ?2, ?3) on conflict do nothing"#,
+                [id, new.did, expires_at],
+            )?;
+        }
+        txn.execute(
+            r#"insert into "repo_root" ("did", "cid", "rev", "indexedAt") values (?1, ?2, ?3, ?4) on conflict ("did") do update set "cid" = excluded."cid", "rev" = excluded."rev", "indexedAt" = excluded."indexedAt""#,
+            [new.did, new.repo_root.0, new.repo_root.1, new.now],
+        )?;
+        txn.commit()?;
+        Ok(Ok(()))
+    }
+
+    /// Removes every row of an account: for a creation that failed after
+    /// its rows were written.
+    pub fn delete_account(&mut self, did: &str) -> Result<(), StorageError> {
+        let txn = self.conn.transaction()?;
+        for table in [
+            "repo_root",
+            "email_token",
+            "refresh_token",
+            "account",
+            "actor",
+        ] {
+            // A test directory may lack a table that nothing in it uses.
+            let exists: bool = txn.query_row(
+                "select count(*) > 0 from sqlite_master where type = 'table' and name = ?1",
+                [table],
+                |row| row.get(0),
+            )?;
+            if exists {
+                txn.execute(&format!(r#"delete from "{table}" where "did" = ?1"#), [did])?;
+            }
+        }
+        txn.commit()?;
+        Ok(())
+    }
+
+    /// Stores an app password. Returns `false`, and stores nothing, when
+    /// the account has one of this name.
+    pub fn create_app_password(
+        &self,
+        did: &str,
+        name: &str,
+        hash: &str,
+        created_at: &str,
+        privileged: bool,
+    ) -> Result<bool, StorageError> {
+        let stored = self.conn.execute(
+            r#"insert into "app_password" ("did", "name", "passwordScrypt", "createdAt", "privileged") values (?1, ?2, ?3, ?4, ?5) on conflict do nothing"#,
+            rusqlite::params![did, name, hash, created_at, i64::from(privileged)],
+        )?;
+        Ok(stored > 0)
+    }
+
+    /// The app passwords of `did`, the newest first: name, creation time
+    /// and whether it is privileged.
+    pub fn list_app_passwords(
+        &self,
+        did: &str,
+    ) -> Result<Vec<(String, String, bool)>, StorageError> {
+        let mut statement = self.conn.prepare(
+            r#"select "name", "createdAt", "privileged" from "app_password" where "did" = ?1 order by "createdAt" desc"#,
+        )?;
+        let rows = statement.query_map([did], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get::<_, i64>(2)? == 1))
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// Removes an app password and the sessions it opened.
+    pub fn revoke_app_password(&mut self, did: &str, name: &str) -> Result<(), StorageError> {
+        let txn = self.conn.transaction()?;
+        txn.execute(
+            r#"delete from "app_password" where "did" = ?1 and "name" = ?2"#,
+            [did, name],
+        )?;
+        txn.execute(
+            r#"delete from "refresh_token" where "did" = ?1 and "appPasswordName" = ?2"#,
+            [did, name],
+        )?;
+        txn.commit()?;
+        Ok(())
+    }
+
+    /// Stores a refresh token. One that is stored already stays as it is:
+    /// a token is granted again during the grace period of a refresh.
+    pub fn store_refresh_token(
+        &self,
+        id: &str,
+        did: &str,
+        expires_at: &str,
+        app_password: Option<&str>,
+    ) -> Result<(), StorageError> {
+        self.conn.execute(
+            r#"insert into "refresh_token" ("id", "did", "appPasswordName", "expiresAt") values (?1, ?2, ?3, ?4) on conflict do nothing"#,
+            rusqlite::params![id, did, app_password, expires_at],
+        )?;
+        Ok(())
+    }
+
+    /// The refresh token with this id.
+    pub fn refresh_token(&self, id: &str) -> Result<Option<RefreshToken>, StorageError> {
+        Ok(self
+            .conn
+            .query_row(
+                r#"select refresh_token."did", refresh_token."expiresAt", refresh_token."nextId", refresh_token."appPasswordName", app_password."privileged" from "refresh_token" left join "app_password" on app_password."did" = refresh_token."did" and app_password."name" = refresh_token."appPasswordName" where "id" = ?1"#,
+                [id],
+                |row| {
+                    let name: Option<String> = row.get(3)?;
+                    let privileged: Option<i64> = row.get(4)?;
+                    Ok(RefreshToken {
+                        did: row.get(0)?,
+                        expires_at: row.get(1)?,
+                        next_id: row.get(2)?,
+                        app_password: name.map(|name| AppPassword {
+                            name,
+                            privileged: privileged == Some(1),
+                        }),
+                    })
+                },
+            )
+            .optional()?)
+    }
+
+    /// Removes the refresh tokens of `did` that ended at or before `now`.
+    pub fn delete_expired_refresh_tokens(&self, did: &str, now: &str) -> Result<(), StorageError> {
+        self.conn.execute(
+            r#"delete from "refresh_token" where "did" = ?1 and "expiresAt" <= ?2"#,
+            [did, now],
+        )?;
+        Ok(())
+    }
+
+    /// Replaces a refresh token: the old one ends at `expires_at` and
+    /// names `next`, and `next` is stored. Returns `false`, and changes
+    /// nothing, when the old token names another successor already.
+    pub fn rotate_refresh_token(
+        &mut self,
+        id: &str,
+        expires_at: &str,
+        next: &str,
+        next_expires_at: &str,
+    ) -> Result<bool, StorageError> {
+        let txn = self.conn.transaction()?;
+        let updated = txn.execute(
+            r#"update "refresh_token" set "expiresAt" = ?2, "nextId" = ?3 where "id" = ?1 and ("nextId" is null or "nextId" = ?3)"#,
+            [id, expires_at, next],
+        )?;
+        if updated == 0 {
+            return Ok(false);
+        }
+        txn.execute(
+            r#"insert into "refresh_token" ("id", "did", "appPasswordName", "expiresAt") select ?2, "did", "appPasswordName", ?3 from "refresh_token" where "id" = ?1 on conflict do nothing"#,
+            [id, next, next_expires_at],
+        )?;
+        txn.commit()?;
+        Ok(true)
+    }
+
+    /// Removes a refresh token. Returns whether it was there.
+    pub fn revoke_refresh_token(&self, id: &str) -> Result<bool, StorageError> {
+        Ok(self
+            .conn
+            .execute(r#"delete from "refresh_token" where "id" = ?1"#, [id])?
+            > 0)
     }
 
     /// A page of hosted repositories in order of creation, then DID. `after`

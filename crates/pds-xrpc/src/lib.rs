@@ -12,6 +12,7 @@ pub mod auth;
 pub mod body;
 pub mod error;
 pub mod params;
+pub mod password;
 pub mod state;
 pub mod stream;
 pub mod write;

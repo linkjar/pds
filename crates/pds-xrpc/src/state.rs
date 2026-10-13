@@ -144,8 +144,8 @@ impl WriteState {
     }
 
     /// Runs `call` with the writable connection to `account.sqlite`.
-    pub fn with_accounts<T>(&self, call: impl FnOnce(&AccountDb) -> T) -> T {
-        call(&self.accounts.lock().unwrap_or_else(PoisonError::into_inner))
+    pub fn with_accounts<T>(&self, call: impl FnOnce(&mut AccountDb) -> T) -> T {
+        call(&mut self.accounts.lock().unwrap_or_else(PoisonError::into_inner))
     }
 
     /// The write connection to the actor store of `did`: the one kept from
