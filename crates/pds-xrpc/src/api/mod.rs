@@ -477,16 +477,69 @@ pub(crate) async fn call(
         crate::oauth::resource::with_grant(grant, run),
     ))
     .await;
+    // The answer has a body, which does not cross an await by reference.
+    let outcome = match &result {
+        Ok(response) if response.status().is_success() => "ok".to_owned(),
+        Ok(response) => response.status().as_u16().to_string(),
+        Err(refusal) => refusal.error.clone(),
+    };
     if crate::audit::is_audited(nsid) {
-        // The answer has a body, which does not cross an await by reference.
-        let outcome = match &result {
-            Ok(response) if response.status().is_success() => "ok".to_owned(),
-            Ok(response) => response.status().as_u16().to_string(),
-            Err(refusal) => refusal.error.clone(),
-        };
         audit_request(state, nsid, headers, oauth, subject, outcome).await;
+    } else if let Some((did, client_id)) = oauth
+        && let Some(ai_client) = mcp_client(state, &client_id, nsid, headers)
+    {
+        // A write of an MCP sidecar names the sidecar and the AI client
+        // it acted for (SPEC §22.2).
+        let what = pds_audit::Draft {
+            subject: Some(subject.unwrap_or_else(|| did.clone())),
+            actor: did,
+            action: nsid.to_owned(),
+            credential: Some("oauth".to_owned()),
+            client_id: Some(client_id),
+            outcome,
+            sidecar: Some(format!("mcp:{ai_client}")),
+            ..pds_audit::Draft::default()
+        };
+        crate::audit::record(state, what).await;
     }
     result.unwrap_or_else(IntoResponse::into_response)
+}
+
+/// The header in which an MCP sidecar names the AI client of a request.
+pub const MCP_CLIENT_HEADER: &str = "x-mcp-client-id";
+
+/// The AI client of a repository write that an MCP sidecar of this server
+/// made. `None` for every other request.
+fn mcp_client(
+    state: &AppState,
+    client_id: &str,
+    nsid: &str,
+    headers: &HeaderMap,
+) -> Option<String> {
+    let writes = matches!(
+        nsid,
+        "com.atproto.repo.createRecord"
+            | "com.atproto.repo.putRecord"
+            | "com.atproto.repo.deleteRecord"
+            | "com.atproto.repo.applyWrites"
+            | "com.atproto.repo.uploadBlob"
+    );
+    if !writes
+        || !state
+            .config()
+            .mcp_client_ids
+            .iter()
+            .any(|id| id == client_id)
+    {
+        return None;
+    }
+    let named = headers
+        .get(MCP_CLIENT_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("unknown");
+    Some(named.chars().take(256).collect())
 }
 
 /// Writes the audit entry of a method that answered (SPEC §20.1): who

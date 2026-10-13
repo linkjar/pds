@@ -2,6 +2,7 @@
 //! client, whose metadata the server writes, or a client whose `client_id`
 //! is the URL of its metadata.
 
+use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::{Arc, PoisonError};
 use std::time::Duration;
@@ -219,6 +220,30 @@ async fn discover(
             .iter()
             .any(|trusted| trusted == client_id),
     })
+}
+
+/// The clients of `PDS_OAUTH_KNOWN_CLIENTS_FILE` as entries of the cache
+/// that do not end. A document that does not pass the checks of a
+/// fetched one is left out; the configuration refuses it at start.
+pub(super) fn known(config: &super::OAuthConfig) -> HashMap<String, (Arc<LoadedClient>, i64)> {
+    config
+        .known_clients
+        .iter()
+        .filter_map(|(client_id, document)| {
+            let client = validate(client_id, document).ok()?;
+            let jwks = client
+                .metadata
+                .get("jwks")
+                .filter(|jwks| !jwks.is_null())
+                .cloned();
+            let loaded = LoadedClient {
+                client,
+                jwks,
+                trusted: config.trusted_clients.contains(client_id),
+            };
+            Some((client_id.clone(), (Arc::new(loaded), i64::MAX)))
+        })
+        .collect()
 }
 
 /// The client `client_id`, from the cache or from the network.

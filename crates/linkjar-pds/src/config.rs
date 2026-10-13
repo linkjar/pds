@@ -133,6 +133,8 @@ const KNOWN: &[&str] = &[
     "PDS_METRICS_ADDRESS",
     "PDS_OPS_ADDRESS",
     "PDS_OPS_CLIENT_IDS",
+    "PDS_MCP_CLIENT_IDS",
+    "PDS_OAUTH_KNOWN_CLIENTS_FILE",
     "PDS_OTLP_ENDPOINT",
 ];
 
@@ -258,6 +260,9 @@ pub struct Config {
     /// `PDS_OPS_CLIENT_IDS`: the OAuth clients whose sessions the ops
     /// listener takes, separated by commas.
     pub ops_client_ids: Vec<String>,
+    /// `PDS_MCP_CLIENT_IDS`: the OAuth client ids of the MCP sidecars of
+    /// this server, separated by commas (SPEC §22.2).
+    pub mcp_client_ids: Vec<String>,
     /// `PDS_PROFILE` (SPEC §12.1).
     pub profile: ProfileName,
     /// `PDS_EXTERNAL_<PROVIDER>_CLIENT_ID` and `_CLIENT_SECRET`, for the
@@ -549,7 +554,51 @@ impl Env<'_> {
                 .boolean("PDS_DISABLE_SSRF_PROTECTION")?
                 .unwrap_or(false),
             hcaptcha: self.hcaptcha()?,
+            known_clients: self.known_clients()?,
         })
+    }
+
+    /// The values of a variable that holds a list with commas.
+    fn list(&self, name: &'static str) -> Vec<String> {
+        self.text(name)
+            .map(|list| {
+                list.split(',')
+                    .map(|item| item.trim().to_owned())
+                    .filter(|item| !item.is_empty())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// `PDS_OAUTH_KNOWN_CLIENTS_FILE`: a JSON object from each client id
+    /// to the metadata document of the client. A confidential client has
+    /// its keys in `jwks`: the server fetches nothing for a known client.
+    fn known_clients(&self) -> Result<Vec<(String, serde_json::Value)>, ConfigError> {
+        const NAME: &str = "PDS_OAUTH_KNOWN_CLIENTS_FILE";
+        let Some(path) = self.text(NAME) else {
+            return Ok(Vec::new());
+        };
+        let invalid = |reason| ConfigError::Invalid {
+            name: NAME,
+            value: path.clone(),
+            reason,
+        };
+        let bytes = std::fs::read(&path).map_err(|_| invalid("the file cannot be read"))?;
+        let serde_json::Value::Object(clients) =
+            serde_json::from_slice(&bytes).map_err(|_| invalid("the file is not JSON"))?
+        else {
+            return Err(invalid("expected a JSON object from client id to metadata"));
+        };
+        let mut known = Vec::new();
+        for (client_id, document) in clients {
+            let client = pds_xrpc::oauth::validate_client(&client_id, &document)
+                .map_err(|_| invalid("a client document does not pass the checks"))?;
+            if client.auth_method() == "private_key_jwt" && client.metadata.get("jwks").is_none() {
+                return Err(invalid("a confidential client needs its keys in \"jwks\""));
+            }
+            known.push((client_id, document));
+        }
+        Ok(known)
     }
 
     /// `PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX` as its 32 bytes.
@@ -743,15 +792,8 @@ impl Config {
                     })
                 })
                 .transpose()?,
-            ops_client_ids: env
-                .text("PDS_OPS_CLIENT_IDS")
-                .map(|list| {
-                    list.split(',')
-                        .map(|client| client.trim().to_owned())
-                        .filter(|client| !client.is_empty())
-                        .collect()
-                })
-                .unwrap_or_default(),
+            ops_client_ids: env.list("PDS_OPS_CLIENT_IDS"),
+            mcp_client_ids: env.list("PDS_MCP_CLIENT_IDS"),
             profile: env.profile()?,
             external_providers: env.external_providers()?,
             oauth: env.oauth()?,

@@ -44,6 +44,7 @@ fn state() -> AppState {
         rate_limits: pds_xrpc::ratelimit::RateLimitConfig::default(),
         oauth: pds_xrpc::oauth::OAuthConfig::default(),
         ops_client_ids: Vec::new(),
+        mcp_client_ids: Vec::new(),
         audit_repo: None,
         profile: std::sync::Arc::new(pds_xrpc::ext::Stock),
         appview_cdn_url_pattern: None,

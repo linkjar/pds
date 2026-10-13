@@ -62,6 +62,9 @@ pub struct ServerConfig {
     /// `PDS_OPS_CLIENT_IDS`: the OAuth clients whose sessions the ops
     /// listener takes (SPEC §22.1).
     pub ops_client_ids: Vec<String>,
+    /// `PDS_MCP_CLIENT_IDS`: the OAuth clients that are MCP sidecars of
+    /// this server (SPEC §22.2). A write of one is an audit entry.
+    pub mcp_client_ids: Vec<String>,
     /// `PDS_BSKY_APP_VIEW_CDN_URL_PATTERN`: the URL of an image, with `%s`
     /// for the preset, the DID and the CID.
     pub appview_cdn_url_pattern: Option<String>,

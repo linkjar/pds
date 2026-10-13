@@ -28,6 +28,8 @@ use sha2::Digest;
 
 use crate::state::AppState;
 
+pub use pds_oauth::client::validate as validate_client;
+
 /// The OAuth settings.
 #[derive(Clone, Default)]
 pub struct OAuthConfig {
@@ -43,6 +45,10 @@ pub struct OAuthConfig {
     /// `PDS_HCAPTCHA_SITE_KEY`, `_SECRET_KEY` and `_TOKEN_SALT`, when all
     /// three are set.
     pub hcaptcha: Option<captcha::Hcaptcha>,
+    /// `PDS_OAUTH_KNOWN_CLIENTS_FILE`: clients the operator knows, each
+    /// with its metadata document. The server fetches nothing for them,
+    /// so a sidecar on a private network can be one (SPEC §22).
+    pub known_clients: Vec<(String, Value)>,
 }
 
 impl std::fmt::Debug for OAuthConfig {
@@ -91,7 +97,7 @@ impl OAuthState {
                     }),
             ),
             seen: Mutex::default(),
-            clients: Mutex::default(),
+            clients: Mutex::new(clients::known(config)),
             pending: Mutex::default(),
             flows: external::Flows::default(),
         }
