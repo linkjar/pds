@@ -11,11 +11,10 @@ use axum::http::{HeaderMap, HeaderValue, Method, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use pds_oauth::dpop::DpopError;
 use pds_oauth::scope::Permissions;
-use pds_oauth::token::verify_access;
 use pds_storage::Availability;
 use serde_json::Value;
 
-use super::{accounts, dpop_proof, issuer, millis};
+use super::{accounts, dpop_proof, millis};
 use crate::error::XrpcError;
 use crate::state::AppState;
 
@@ -106,6 +105,38 @@ enum Found {
     Row(Box<pds_storage::oauth::TokenRow>),
 }
 
+/// The grant of a token on a member host (SPEC §21.3). The host has no
+/// row of the session: the entryway has it. The token says the scope, and
+/// the host knows the account. A session that the entryway ended is
+/// refused when its token ends.
+async fn member_grant(
+    state: &AppState,
+    claims: pds_oauth::token::AccessClaims,
+    scope: Option<String>,
+) -> Result<Grant, Box<Response>> {
+    let did = claims.sub.clone();
+    let actor = accounts(state, move |db| db.actor(&did, Availability::ANY))
+        .await
+        .map_err(|_| Box::new(XrpcError::internal("the account store failed").into_response()))?;
+    match actor {
+        None => Err(unauthorized("invalid_token", "Invalid token")),
+        Some(actor) if actor.takedown_ref.is_some() => Err(Box::new(
+            XrpcError {
+                status: StatusCode::UNAUTHORIZED,
+                error: "AccountTakedown".to_owned(),
+                message: "Account has been taken down".to_owned(),
+            }
+            .into_response(),
+        )),
+        Some(_) => Ok(Grant {
+            did: claims.sub,
+            client_id: claims.client_id,
+            token_id: claims.jti,
+            permissions: Permissions::new(&scope.unwrap_or_default()),
+        }),
+    }
+}
+
 /// Checks the token of a request with `Authorization: DPoP`.
 pub async fn authenticate(
     state: &AppState,
@@ -137,15 +168,17 @@ pub async fn authenticate(
             return Err(unauthorized("invalid_dpop_proof", &message));
         }
     };
-    let config = &state.config().auth;
-    let claims = verify_access(&config.jwt_secret, &issuer(state), token)
-        .ok_or_else(|| invalid("Invalid token"))?;
+    let (claims, carried) =
+        super::read_access_token(state, token).ok_or_else(|| invalid("Invalid token"))?;
     if claims.jkt.as_deref() != Some(proof.jkt.as_str()) {
         return Err(invalid("Invalid DPoP key binding"));
     }
     let now_ms = state.now_ms();
     if claims.exp * 1000 <= now_ms {
         return Err(invalid("Token expired"));
+    }
+    if state.config().entryway.is_some() {
+        return member_grant(state, claims, carried).await;
     }
 
     let jti = claims.jti.clone();

@@ -32,7 +32,7 @@ instead of source patches. Dual-licensed MIT or Apache-2.0.
 > 10 the [MCP server](docs/sidecars.md#28-state-after-unit-10). From unit
 > 11 the accounts and the event log can be in
 > [Postgres](docs/runbooks/postgres.md). Unit 12 adds a member host and
-> an entryway with one member host, without OAuth across the two
+> an entryway with one member host
 > ([record](docs/research/2026-10-14-entryway.md)). The repository engine
 > is written here and gives the same bytes as `@atproto/repo` at the pin
 > ([decision D2](docs/research/2026-10-12-repository-crate.md)). The

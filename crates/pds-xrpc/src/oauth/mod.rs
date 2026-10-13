@@ -30,6 +30,30 @@ use crate::state::AppState;
 
 pub use pds_oauth::client::validate as validate_client;
 
+/// Reads an OAuth access token: the claims, and the scope when the token
+/// carries it. A server with an entryway, and the entryway itself, read
+/// the ES256K tokens of the entryway (SPEC §21.3); any other server reads
+/// the tokens of its own secret.
+pub(crate) fn read_access_token(
+    state: &AppState,
+    token: &str,
+) -> Option<(pds_oauth::token::AccessClaims, Option<String>)> {
+    let auth = &state.config().auth;
+    match &auth.entryway {
+        Some(entryway) => {
+            let from = state
+                .config()
+                .entryway
+                .as_ref()
+                .map_or_else(|| issuer(state), |entryway| entryway.url.clone());
+            pds_oauth::token::verify_access_es256k(&entryway.key, &from, token)
+                .map(|(claims, scope)| (claims, Some(scope)))
+        }
+        None => pds_oauth::token::verify_access(&auth.jwt_secret, &issuer(state), token)
+            .map(|claims| (claims, None)),
+    }
+}
+
 /// The OAuth settings.
 #[derive(Clone, Default)]
 pub struct OAuthConfig {

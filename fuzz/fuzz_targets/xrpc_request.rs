@@ -44,6 +44,8 @@ fuzz_target!(|data: &[u8]| {
             jwt_secret: b"fuzz".to_vec(),
             admin_password: "fuzz".to_owned(),
             service_did: "did:web:pds.test".to_owned(),
+            entryway: None,
+            signer: None,
         };
         // The call must not panic, whatever the header holds.
         let _ = optional_credentials(&headers, &config, &[SCOPE_TAKENDOWN], 1_700_000_000);

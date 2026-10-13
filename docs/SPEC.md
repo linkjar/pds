@@ -2132,10 +2132,17 @@ As of unit 12:
   the entryway takes a refresh token from before once and answers with
   its own. The procedure is
   [`docs/runbooks/entryway.md`](runbooks/entryway.md).
+- **OAuth.** The entryway is the authorization server. It signs an OAuth
+  access token with its key and puts the scope in it. A member host
+  checks the signature, the issuer, the DPoP proof and the account, and
+  reads the scope from the token: it has no row of the session. A session
+  that the entryway ended is refused at the member host when its access
+  token ends, at most 60 minutes later.
 - **Not built:** more than one member host and the account-to-host map;
-  OAuth through an entryway; the operation log that resumes a workflow
-  after a crash; activation and deactivation at the entryway; requests
-  above 1 MiB and the firehose through the entryway.
+  the operation log that resumes a workflow after a crash; activation and
+  deactivation at the entryway; requests above 1 MiB and the firehose
+  through the entryway; a session method with an OAuth token at a member
+  host.
 
 ## 22. Sidecars
 
