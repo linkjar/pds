@@ -273,7 +273,7 @@ size, and the export has the same 128,312 blocks.
 
 A single write on the Candidate costs more at 100,000 records than at
 10,000: 11.5 ms against 5.1 ms at p50. The cause is not measured. The
-Candidate syncs five times for one write: the note, the commit, the event,
+Candidate syncs four times for one write: the note, the commit, the event,
 and the root in the account database, each in a file of its own; the
 removal of the note is not synced. It keeps the write connection of an
 actor store open between writes (`PDS_ACTOR_STORE_CACHE_SIZE`), and opens a
