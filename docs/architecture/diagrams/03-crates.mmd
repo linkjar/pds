@@ -15,6 +15,7 @@ flowchart BT
   sim[pds-sim<br/>seeded plans, oracles]
   bin[linkjar-pds<br/>binary, CLI, ops listener]
   xtask[xtask<br/>codegen]
+  console[pds-console<br/>operations console sidecar]
   lexicon --> types
   repo --> types
   storage --> repo
@@ -34,3 +35,4 @@ flowchart BT
   sim --> bin & xrpc & storage & sequencer & repo & identity & blob
   bin --> types & xrpc & storage & identity & blob & repo & sequencer & ext & linkjar & audit
   xtask --> lexicon
+  console --> identity
