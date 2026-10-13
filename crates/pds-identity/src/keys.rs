@@ -117,6 +117,15 @@ impl PublicKey {
         }
     }
 
+    /// The uncompressed SEC1 form, 65 bytes: `04`, `x`, `y`. A JWK holds
+    /// the two coordinates.
+    pub fn to_uncompressed(&self) -> Vec<u8> {
+        match self {
+            Self::Secp256k1(k) => k.to_sec1_point(false).as_bytes().to_vec(),
+            Self::P256(k) => k.to_sec1_point(false).as_bytes().to_vec(),
+        }
+    }
+
     /// The compressed SEC1 form, 33 bytes.
     pub fn to_compressed(&self) -> Vec<u8> {
         match self {
@@ -190,6 +199,29 @@ impl PublicKey {
                     return Err(SignatureError::HighS);
                 }
                 key.verify(message, &sig)
+                    .map_err(|_| SignatureError::Mismatch)
+            }
+        }
+    }
+}
+
+impl PublicKey {
+    /// Verifies a signature whose `s` may be high or low, as JOSE allows.
+    /// Web browsers sign that way; the protocol's own signatures go
+    /// through [`PublicKey::verify`].
+    pub fn verify_any_s(&self, message: &[u8], signature: &[u8]) -> Result<(), SignatureError> {
+        match self {
+            Self::Secp256k1(key) => {
+                let sig = k256::ecdsa::Signature::from_slice(signature)
+                    .map_err(|_| SignatureError::Malformed)?;
+                key.verify(message, &sig.normalize_s())
+                    .map_err(|_| SignatureError::Mismatch)
+            }
+            Self::P256(key) => {
+                let sig = p256::ecdsa::Signature::from_slice(signature)
+                    .map_err(|_| SignatureError::Malformed)?;
+                key.verify(message, &sig)
+                    .or_else(|_| key.verify(message, &sig.normalize_s()))
                     .map_err(|_| SignatureError::Mismatch)
             }
         }
