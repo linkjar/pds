@@ -355,7 +355,11 @@ fn migrate_storage_copies_the_files_to_postgres_once_and_a_server_takes_the_leas
     // Without the Postgres side there is nothing to copy to.
     let refused = run(&borrowed(&vars), &["migrate-storage", "--to", "postgres"]);
     assert_eq!(exit(&refused), 2);
-    assert!(stderr(&refused).contains("PDS_POSTGRES_URL"), "{}", stderr(&refused));
+    assert!(
+        stderr(&refused).contains("PDS_POSTGRES_URL"),
+        "{}",
+        stderr(&refused)
+    );
     let Ok(url) = std::env::var("PDS_TEST_POSTGRES_URL") else {
         return;
     };
@@ -367,22 +371,38 @@ fn migrate_storage_copies_the_files_to_postgres_once_and_a_server_takes_the_leas
     let port = free_port().to_string();
     vars.push(("PDS_PORT", port));
     let vars = borrowed(&vars);
-    assert_eq!(exit(&run(&vars, &["migrate-storage", "--to", "nowhere"])), 2);
+    assert_eq!(
+        exit(&run(&vars, &["migrate-storage", "--to", "nowhere"])),
+        2
+    );
 
     let copied = run(&vars, &["migrate-storage", "--to", "postgres"]);
     assert_eq!(exit(&copied), 0, "{}", stderr(&copied));
     let report = stdout(&copied);
     assert!(report.contains("account.actor: 3 rows"), "{report}");
-    assert!(report.contains("the row counts, the head of the event log"), "{report}");
+    assert!(
+        report.contains("the row counts, the head of the event log"),
+        "{report}"
+    );
     // The target exists now: a second copy is refused, in both directions.
     let again = run(&vars, &["migrate-storage", "--to", "postgres"]);
     assert_eq!(exit(&again), 2);
-    assert!(stderr(&again).contains("needs an empty target"), "{}", stderr(&again));
+    assert!(
+        stderr(&again).contains("needs an empty target"),
+        "{}",
+        stderr(&again)
+    );
     assert_eq!(exit(&run(&vars, &["migrate-storage", "--to", "sqlite"])), 2);
 
     // The data directory verifies on Postgres, and a server serves it.
     let verified = run(&vars, &["verify"]);
-    assert_eq!(exit(&verified), 0, "{}{}", stdout(&verified), stderr(&verified));
+    assert_eq!(
+        exit(&verified),
+        0,
+        "{}{}",
+        stdout(&verified),
+        stderr(&verified)
+    );
     let mut server = command(&vars, &["serve"])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -390,8 +410,14 @@ fn migrate_storage_copies_the_files_to_postgres_once_and_a_server_takes_the_leas
         .unwrap();
     let started = Instant::now();
     while exit(&run(&vars, &["health"])) != 0 {
-        assert!(server.try_wait().unwrap().is_none(), "the server exited before it was healthy");
-        assert!(started.elapsed() < Duration::from_secs(30), "the server did not become healthy");
+        assert!(
+            server.try_wait().unwrap().is_none(),
+            "the server exited before it was healthy"
+        );
+        assert!(
+            started.elapsed() < Duration::from_secs(30),
+            "the server did not become healthy"
+        );
         std::thread::sleep(Duration::from_millis(50));
     }
     // While it runs it holds the lease of the event log: no copy.
