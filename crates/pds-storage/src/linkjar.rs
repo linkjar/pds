@@ -273,4 +273,194 @@ impl AccountDb {
         )?;
         Ok(changed == 1)
     }
+
+    /// Whether the account has a password. An account that an identity
+    /// created has none until it sets one.
+    pub fn has_password(&self, did: &str) -> Result<bool, StorageError> {
+        let hash: Option<String> = self
+            .conn
+            .query_row(
+                r#"select "passwordScrypt" from "account" where "did" = ?1"#,
+                [did],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(hash.is_some_and(|hash| hash.contains(':')))
+    }
+
+    /// Links an identity to an account and enqueues the notice of it, in
+    /// one transaction. An identity that an account holds already is not
+    /// linked again: the answer names that account.
+    pub fn link_identity(
+        &mut self,
+        did: &str,
+        identity: &NewIdentity<'_>,
+        notice_id: &str,
+        now: &str,
+        now_ms: i64,
+    ) -> Result<Linked, StorageError> {
+        let txn = self.conn.transaction()?;
+        let owner: Option<String> = txn
+            .query_row(
+                r#"select "did" from "external_identity" where "provider" = ?1 and "subject" = ?2"#,
+                [identity.provider, identity.subject],
+                |row| row.get(0),
+            )
+            .optional()?;
+        match owner {
+            Some(owner) if owner == did => return Ok(Linked::Already),
+            Some(owner) => return Ok(Linked::Other(owner)),
+            None => {}
+        }
+        if !insert_identity(&txn, did, identity, now)? {
+            return Ok(Linked::Already);
+        }
+        enqueue_notice(
+            &txn,
+            notice_id,
+            did,
+            "linked",
+            Some(identity.provider),
+            now_ms,
+        )?;
+        txn.commit()?;
+        Ok(Linked::Done)
+    }
+
+    /// Removes an identity from an account and enqueues the notice of it,
+    /// in one transaction. `usable` names the providers that can sign a
+    /// person in now. `false` means the identity is the account's last
+    /// sign-in method and stays.
+    pub fn unlink_identity(
+        &mut self,
+        did: &str,
+        provider: &str,
+        subject: &str,
+        usable: &[&str],
+        notice_id: &str,
+        now_ms: i64,
+    ) -> Result<bool, StorageError> {
+        let has_password = self.has_password(did)?;
+        let txn = self.conn.transaction()?;
+        let others: i64 = {
+            let mut statement = txn.prepare(
+                r#"select "provider", "subject" from "external_identity" where "did" = ?1"#,
+            )?;
+            let rows = statement.query_map([did], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?;
+            let mut count = 0;
+            for row in rows {
+                let (other_provider, other_subject) = row?;
+                let same = other_provider == provider && other_subject == subject;
+                if !same && usable.contains(&other_provider.as_str()) {
+                    count += 1;
+                }
+            }
+            count
+        };
+        if !has_password && others == 0 {
+            return Ok(false);
+        }
+        let removed = txn.execute(
+            r#"delete from "external_identity" where "did" = ?1 and "provider" = ?2 and "subject" = ?3"#,
+            params![did, provider, subject],
+        )?;
+        if removed == 1 {
+            enqueue_notice(&txn, notice_id, did, "unlinked", Some(provider), now_ms)?;
+        }
+        txn.commit()?;
+        Ok(true)
+    }
+
+    /// Up to `limit` notices that are due at `now_ms`, the oldest first.
+    pub fn due_notices(&self, now_ms: i64, limit: u32) -> Result<Vec<Notice>, StorageError> {
+        let mut statement = self.conn.prepare(
+            r#"select "id", "did", "recipient", "action", "provider", "createdAt", "attempts" from "sign_in_notice" where "nextAttemptAt" <= ?1 order by "nextAttemptAt" asc limit ?2"#,
+        )?;
+        let rows = statement.query_map(params![now_ms, limit], |row| {
+            Ok(Notice {
+                id: row.get(0)?,
+                did: row.get(1)?,
+                recipient: row.get(2)?,
+                action: row.get(3)?,
+                provider: row.get(4)?,
+                created_ms: row.get(5)?,
+                attempts: row.get(6)?,
+            })
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// Removes a notice that was delivered.
+    pub fn delete_notice(&self, id: &str) -> Result<(), StorageError> {
+        self.conn
+            .execute(r#"delete from "sign_in_notice" where "id" = ?1"#, [id])?;
+        Ok(())
+    }
+
+    /// Records a failed delivery and when to try again.
+    pub fn retry_notice(&self, id: &str, next_ms: i64) -> Result<(), StorageError> {
+        self.conn.execute(
+            r#"update "sign_in_notice" set "attempts" = "attempts" + 1, "nextAttemptAt" = ?2 where "id" = ?1"#,
+            params![id, next_ms],
+        )?;
+        Ok(())
+    }
+}
+
+/// What a link did.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Linked {
+    /// The identity is now the account's.
+    Done,
+    /// The identity was the account's already. Nothing changed.
+    Already,
+    /// The identity is another account's: its DID.
+    Other(String),
+}
+
+/// A notice of a changed sign-in method that waits for delivery.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Notice {
+    /// The id, which the `Message-ID` of the mail carries.
+    pub id: String,
+    /// The account.
+    pub did: String,
+    /// The address of the account when the change happened.
+    pub recipient: String,
+    /// `linked`, `unlinked` or `password-set`.
+    pub action: String,
+    /// The provider of a link or an unlink.
+    pub provider: Option<String>,
+    /// When the change happened, in milliseconds.
+    pub created_ms: i64,
+    /// How many deliveries failed.
+    pub attempts: i64,
+}
+
+/// Enqueues a notice for the account's address of this moment. An account
+/// without an address gets none.
+fn enqueue_notice(
+    conn: &rusqlite::Connection,
+    id: &str,
+    did: &str,
+    action: &str,
+    provider: Option<&str>,
+    now_ms: i64,
+) -> Result<(), StorageError> {
+    let recipient: Option<String> = conn
+        .query_row(
+            r#"select "email" from "account" where "did" = ?1"#,
+            [did],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if let Some(recipient) = recipient {
+        conn.execute(
+            r#"insert into "sign_in_notice" ("id", "did", "recipient", "action", "provider", "createdAt", "nextAttemptAt", "attempts") values (?1, ?2, ?3, ?4, ?5, ?6, ?6, 0)"#,
+            params![id, did, recipient, action, provider, now_ms],
+        )?;
+    }
+    Ok(())
 }

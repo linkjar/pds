@@ -60,6 +60,9 @@ struct Flow {
     device_id: String,
     /// The pushed request, or none for a sign-in on the account page.
     request_uri: Option<String>,
+    /// The account that links the identity, from its account page. The
+    /// server sets it at the start; the provider's answer cannot.
+    link_did: Option<String>,
     verifier: String,
     nonce: String,
     expires_ms: i64,
@@ -273,6 +276,72 @@ fn referrer_page(state: &AppState, headers: &HeaderMap) -> Result<bool, Stop> {
     }
 }
 
+/// Checks that the account is signed in on the device, and gives its
+/// handle.
+async fn signed_in_as(state: &AppState, device_id: &str, did: &str) -> Result<String, Stop> {
+    super::account::signed_in(state, device_id)
+        .await
+        .map_err(|_| "The account database failed")?
+        .into_iter()
+        .find(|(own, _)| own == did)
+        .map(|(_, handle)| handle)
+        .ok_or("The account is not signed in on this device")
+}
+
+/// Links the identity to the account that started the flow from its
+/// account page. No account is created, and no application gets access.
+async fn link(
+    state: &AppState,
+    device: &super::authorize::Device,
+    did: &str,
+    identity: &VerifiedIdentity,
+) -> Result<Response, Stop> {
+    use pds_storage::linkjar::{Linked, NewIdentity};
+    // The session may have ended while the person was at the provider.
+    signed_in_as(state, &device.id, did).await?;
+    let now_ms = state.now_ms();
+    let notice = super::new_id(pds_oauth::token::Id::Request);
+    let (owned, identity) = (did.to_owned(), identity.clone());
+    let outcome = accounts(state, move |db| {
+        let linked = db.link_identity(
+            &owned,
+            &NewIdentity {
+                provider: identity.provider,
+                subject: &identity.subject,
+                email: identity.email.as_deref(),
+                email_verified: identity.email_verified,
+                display_name: identity.display_name.as_deref(),
+            },
+            &notice,
+            &iso(now_ms),
+            now_ms,
+        )?;
+        // The other account is named by its handle. Its email address
+        // and its DID stay out of the answer.
+        Ok(match linked {
+            Linked::Other(other) => Err(db
+                .actor(&other, Availability::ANY)?
+                .and_then(|actor| actor.handle)),
+            Linked::Done | Linked::Already => Ok(()),
+        })
+    })
+    .await
+    .map_err(|_| "The account database failed")?;
+    match outcome {
+        Ok(()) => Ok(super::account::to(
+            &format!("/account/{did}/manage"),
+            &device.cookies,
+        )),
+        Err(handle) => {
+            let message = handle.map_or_else(
+                || "This sign-in method belongs to another account.".to_owned(),
+                |handle| format!("This sign-in method belongs to the account {handle}."),
+            );
+            Ok(error_page(StatusCode::CONFLICT, &device.cookies, &message))
+        }
+    }
+}
+
 async fn start(
     state: &AppState,
     provider: ProviderInfo,
@@ -286,6 +355,7 @@ async fn start(
     if account_page == request_uri.is_some() {
         return Err("Authorization request mismatch");
     }
+    let link_did = query.get("link").cloned().filter(|_| account_page);
     let device = device(state, headers, peer, true)
         .await
         .map_err(|_| "The device could not be loaded")?
@@ -293,6 +363,10 @@ async fn start(
     let now_ms = state.now_ms();
     let flows = &state.oauth().flows;
     flows.allow(&crate::ratelimit::client_ip(headers, peer), true, now_ms)?;
+    // Only an account that is signed in on this device links an identity.
+    if let Some(did) = &link_did {
+        signed_in_as(state, &device.id, did).await?;
+    }
     if let Some(request_uri) = &request_uri {
         match load(state, request_uri, None, &device.id).await {
             Ok(Loaded::Ready(_)) => {}
@@ -307,6 +381,7 @@ async fn start(
             provider: provider.id,
             device_id: device.id.clone(),
             request_uri,
+            link_did,
             verifier,
             nonce: nonce.clone(),
             expires_ms: now_ms + FLOW_LIFETIME_MS,
@@ -494,6 +569,9 @@ async fn complete(
         )
         .await?;
 
+    if let Some(did) = &flow.link_did {
+        return link(state, &device, did, &identity).await;
+    }
     finish(state, &device, pending, &identity).await
 }
 
@@ -659,6 +737,7 @@ mod tests {
             provider: "google",
             device_id: device.to_owned(),
             request_uri: None,
+            link_did: None,
             verifier: "v".to_owned(),
             nonce: "n".to_owned(),
             expires_ms: 1000,

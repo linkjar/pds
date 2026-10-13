@@ -11,6 +11,7 @@ pub mod clients;
 pub mod endpoints;
 pub mod external;
 pub mod metadata;
+pub mod notices;
 pub mod resource;
 
 use std::collections::{BTreeMap, HashMap};
@@ -379,7 +380,8 @@ pub async fn serve(
             | "/account/sign-in"
             | "/account/revoke"
             | "/account/sign-out"
-    );
+            | "/account/unlink"
+    ) || (path.starts_with("/account/") && path.ends_with("/manage"));
     state.writes()?;
     if path.starts_with("/oauth/external/") {
         return external::serve(state, method, path, query, headers, peer, body).await;
@@ -393,7 +395,10 @@ pub async fn serve(
         "/.well-known/oauth-protected-resource" if reads => metadata::protected_resource(state),
         "/oauth/jwks" if reads => metadata::jwks(),
         "/oauth/authorize" if reads => authorize::page(state, query, headers, peer).await,
-        "/account" if reads => account::page(state, headers, peer).await,
+        "/account" if reads => account::page(state, path, query, headers, peer).await,
+        _ if reads && path.starts_with("/account/") && path.ends_with("/manage") => {
+            account::page(state, path, query, headers, peer).await
+        }
         _ if method != Method::POST => method_not_allowed(),
         "/oauth/par" => {
             let answer = endpoints::par(state, headers, take(body)).await;
@@ -411,7 +416,7 @@ pub async fn serve(
         "/oauth/authorize/sign-up" => authorize::sign_up(state, headers, peer, take(body)).await,
         "/oauth/authorize/accept" => authorize::accept(state, headers, peer, take(body)).await,
         "/oauth/authorize/reject" => authorize::reject(state, headers, peer, take(body)).await,
-        "/account/sign-in" | "/account/revoke" | "/account/sign-out" => {
+        "/account/sign-in" | "/account/revoke" | "/account/sign-out" | "/account/unlink" => {
             account::post(state, path, headers, peer, take(body)).await
         }
         _ => method_not_allowed(),

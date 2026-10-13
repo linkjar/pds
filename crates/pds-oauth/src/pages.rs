@@ -389,45 +389,183 @@ fn account_form(action: &str, csrf: &str, fields: &[(&str, &str)], label: &str) 
     out
 }
 
-/// The sign-in form of the account pages.
+/// The first page of the account pages for a device that no account is
+/// signed in on.
+pub fn account_welcome(nonce: &str, service: &str) -> String {
+    let body = format!(
+        "<h1>Your {} account</h1><p>Sign in to manage your sign-in methods, your sessions and your devices.</p>\
+<form method=\"get\" action=\"/account\"><div class=\"row\">\
+<button type=\"submit\" name=\"view\" value=\"sign-in\" class=\"primary\">Sign in</button></div></form>",
+        escape(service)
+    );
+    document(nonce, "Your account", &body)
+}
+
+/// The sign-in form of the account pages. `providers` are the identity
+/// providers a person can continue with: the name in the path and the
+/// name on the button.
 pub fn account_sign_in(
     nonce: &str,
     service: &str,
     csrf: &str,
     username: &str,
     error: Option<&str>,
+    providers: &[(&str, &str)],
 ) -> String {
-    let body = format!(
-        "<h1>Your {} account</h1><p>Sign in to see your sessions and devices.</p>{}\
-<form method=\"post\" action=\"/account/sign-in\">\
+    let form = format!(
+        "<form method=\"post\" action=\"/account/sign-in\">\
 <input type=\"hidden\" name=\"csrf\" value=\"{}\">\
 <label for=\"username\">Handle or email address</label>\
-<input id=\"username\" type=\"text\" name=\"username\" value=\"{}\" autocomplete=\"username\" autocapitalize=\"none\" spellcheck=\"false\" required autofocus>\
+<input id=\"username\" type=\"text\" name=\"username\" value=\"{}\" autocomplete=\"username\" autocapitalize=\"none\" spellcheck=\"false\" required>\
 <label for=\"password\">Password</label>\
 <input id=\"password\" type=\"password\" name=\"password\" autocomplete=\"current-password\" required>\
+<label class=\"check\"><input type=\"checkbox\" name=\"remember\" value=\"true\" checked> Remember this account on this device</label>\
 <div class=\"row\"><button type=\"submit\" class=\"primary\">Sign in</button></div></form>",
-        escape(service),
-        alert(error),
         escape(csrf),
         escape(username),
     );
-    document(nonce, "Your account", &body)
+    let mut buttons = String::new();
+    for (id, label) in providers {
+        let _ = write!(
+            buttons,
+            "<a class=\"button\" href=\"/oauth/external/{}/start\">Continue with {}</a>",
+            escape(id),
+            escape(label)
+        );
+    }
+    let form = if buttons.is_empty() {
+        form
+    } else {
+        let open = if error.is_some() { " open" } else { "" };
+        format!(
+            "<div class=\"row\">{buttons}</div><details{open}><summary>Or use email</summary>{form}</details>"
+        )
+    };
+    let body = format!(
+        "<h1>Sign in</h1><p>Sign in to your {} account.</p>{}{form}",
+        escape(service),
+        alert(error),
+    );
+    document(nonce, "Sign in", &body)
 }
 
-/// The account page: the applications with a session, and the devices
-/// that remember the account.
+/// The accounts that are signed in on the device, each with a link to its
+/// page.
+pub fn account_list(nonce: &str, accounts: &[(String, String)]) -> String {
+    let mut body = String::from("<h1>Your accounts</h1>");
+    for (did, handle) in accounts {
+        let _ = write!(
+            body,
+            "<section><p><strong>{}</strong></p><a class=\"button\" href=\"/account/{}/manage\">Manage this account</a></section>",
+            escape(handle),
+            escape(did)
+        );
+    }
+    body.push_str(
+        "<form method=\"get\" action=\"/account\"><div class=\"row\">\
+<button type=\"submit\" name=\"view\" value=\"sign-in\">Sign in to another account</button></div></form>",
+    );
+    document(nonce, "Your accounts", &body)
+}
+
+/// A sign-in method of the account page.
+#[derive(Debug, Clone)]
+pub struct MethodLine {
+    /// The provider's name in a path.
+    pub provider: String,
+    /// The provider's name on a button.
+    pub label: String,
+    /// The provider's identifier of the person, which "Unlink" sends.
+    pub subject: String,
+    /// The address the provider asserted.
+    pub email: Option<String>,
+}
+
+/// The sign-in methods of an account.
+#[derive(Debug, Clone, Default)]
+pub struct Methods {
+    /// Whether the account has a password.
+    pub has_password: bool,
+    /// The identities that are linked.
+    pub linked: Vec<MethodLine>,
+    /// The providers the account can link: the name in the path and the
+    /// name on the button.
+    pub offered: Vec<(String, String)>,
+    /// Whether the account may remove a method: it keeps at least one.
+    pub can_unlink: bool,
+}
+
+fn methods_section(csrf: &str, did: &str, methods: &Methods) -> String {
+    let mut out = String::from("<h2>Sign-in methods</h2>");
+    let _ = write!(
+        out,
+        "<p>{}</p>",
+        if methods.has_password {
+            "A password is set."
+        } else {
+            "No password is set."
+        }
+    );
+    for method in &methods.linked {
+        let disabled = if methods.can_unlink { "" } else { " disabled" };
+        let _ = write!(
+            out,
+            "<section><p>{}{}</p><form method=\"post\" action=\"/account/unlink\">\
+<input type=\"hidden\" name=\"csrf\" value=\"{}\"><input type=\"hidden\" name=\"did\" value=\"{}\">\
+<input type=\"hidden\" name=\"provider\" value=\"{}\"><input type=\"hidden\" name=\"subject\" value=\"{}\">\
+<button type=\"submit\"{disabled}>Unlink {}</button></form></section>",
+            escape(&method.label),
+            method
+                .email
+                .as_deref()
+                .map_or_else(String::new, |email| format!("<br>{}", escape(email))),
+            escape(csrf),
+            escape(did),
+            escape(&method.provider),
+            escape(&method.subject),
+            escape(&method.label),
+        );
+    }
+    if !methods.linked.is_empty() && !methods.can_unlink {
+        out.push_str(
+            "<p>This is your only sign-in method. Add another one before you remove it.</p>",
+        );
+    }
+    if !methods.offered.is_empty() {
+        out.push_str("<div class=\"row\">");
+        for (id, label) in &methods.offered {
+            let _ = write!(
+                out,
+                "<a class=\"button\" href=\"/oauth/external/{}/start?link={}\">Link {}</a>",
+                escape(id),
+                escape(&did.replace(':', "%3A")),
+                escape(label)
+            );
+        }
+        out.push_str("</div>");
+    }
+    out
+}
+
+/// The page of one account: its sign-in methods, the applications with a
+/// session, and the devices that remember the account.
+#[allow(clippy::too_many_arguments)] // one argument for each part of the page
 pub fn account_home(
     nonce: &str,
     csrf: &str,
     did: &str,
     handle: &str,
+    methods: &Methods,
     sessions: &[SessionLine],
     devices: &[DeviceLine],
+    error: Option<&str>,
 ) -> String {
     let mut body = format!(
-        "<h1>{}</h1><p><code>{}</code></p><h2>Applications</h2>",
+        "<h1>{}</h1><p><code>{}</code></p>{}{}<h2>Applications</h2>",
         escape(handle),
-        escape(did)
+        escape(did),
+        alert(error),
+        methods_section(csrf, did, methods),
     );
     if sessions.is_empty() {
         body.push_str("<p>No application has a session.</p>");
@@ -464,6 +602,7 @@ pub fn account_home(
             ),
         );
     }
+    body.push_str("<p><a href=\"/account\">All accounts</a></p>");
     document(nonce, "Your account", &body)
 }
 
@@ -586,5 +725,54 @@ mod tests {
         let page = sign_up_credentials(&flow, false, "", "", None);
         assert!(page.find("name=\"email\"").unwrap() < page.find("Continue with Google").unwrap());
         assert!(!sign_in(&FLOW, "", false, None).contains("<details"));
+    }
+
+    #[test]
+    fn the_account_page_offers_links_and_keeps_the_last_method() {
+        let mut methods = Methods {
+            has_password: false,
+            linked: vec![MethodLine {
+                provider: "google".to_owned(),
+                label: "Google".to_owned(),
+                subject: "g-1".to_owned(),
+                email: Some("a@example.com".to_owned()),
+            }],
+            offered: vec![("github".to_owned(), "GitHub".to_owned())],
+            can_unlink: false,
+        };
+        let page = account_home(
+            "n",
+            "csrf",
+            "did:plc:abc",
+            "a.test",
+            &methods,
+            &[],
+            &[],
+            None,
+        );
+        assert!(page.contains("<h2>Sign-in methods</h2>"));
+        assert!(page.contains("<button type=\"submit\" disabled>Unlink Google</button>"));
+        assert!(page.contains(
+            "href=\"/oauth/external/github/start?link=did%3Aplc%3Aabc\">Link GitHub</a>"
+        ));
+        methods.can_unlink = true;
+        let page = account_home(
+            "n",
+            "csrf",
+            "did:plc:abc",
+            "a.test",
+            &methods,
+            &[],
+            &[],
+            Some("x"),
+        );
+        assert!(page.contains("<button type=\"submit\">Unlink Google</button>"));
+        assert!(page.contains("<div role=\"alert\">x</div>"));
+        let list = account_list("n", &[("did:plc:abc".to_owned(), "a.test".to_owned())]);
+        assert!(list.contains("href=\"/account/did:plc:abc/manage\""));
+        assert!(account_welcome("n", "pds.test").contains(">Sign in</button>"));
+        let form = account_sign_in("n", "pds.test", "c", "", None, &[("apple", "Apple")]);
+        assert!(form.contains("name=\"remember\""));
+        assert!(form.contains("href=\"/oauth/external/apple/start\">Continue with Apple</a>"));
     }
 }

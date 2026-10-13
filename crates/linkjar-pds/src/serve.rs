@@ -275,6 +275,17 @@ pub async fn serve(config: &Config) -> Result<(), ServeError> {
         );
     }
     tokio::spawn(collect_uploads(state.clone()));
+    if state.config().profile.produces_notices() {
+        let state = state.clone();
+        tokio::spawn(async move {
+            // One dispatcher for each process (SPEC §12.6).
+            let mut ticks = tokio::time::interval(pds_xrpc::oauth::notices::INTERVAL);
+            loop {
+                ticks.tick().await;
+                pds_xrpc::oauth::notices::dispatch_once(&state).await;
+            }
+        });
+    }
     let listener = bind(config.port)?;
     let address = listener.local_addr()?;
     tracing::info!(%address, did = %config.service_did, "serving");
