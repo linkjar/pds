@@ -1193,10 +1193,18 @@ dependencies = [
 name = "pds-blob"
 version = "0.0.1"
 dependencies = [
+ "bytes",
+ "chrono",
  "cid",
+ "data-encoding",
+ "hmac",
  "pds-types",
+ "reqwest",
  "sha2",
  "thiserror",
+ "tokio",
+ "tracing",
+ "url",
 ]
 
 [[package]]
