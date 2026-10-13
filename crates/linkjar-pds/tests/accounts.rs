@@ -1560,20 +1560,22 @@ async fn a_handle_host_serves_the_did_and_a_redirect_and_nothing_else() {
     let host = "nova.linkjar.social";
     let (status, headers, body) = get(host, "/.well-known/atproto-did").await;
     assert_eq!((status, body.as_str()), (200, did.as_str()));
-    assert_eq!(
-        headers["content-security-policy"],
-        "default-src 'none'; sandbox"
-    );
-    assert_eq!(headers["x-content-type-options"], "nosniff");
-    assert_eq!(headers["referrer-policy"], "no-referrer");
+    // The proxy in front adds the headers to the answers it forwards.
+    assert!(headers.get("content-security-policy").is_none());
     for path in [
         "/.well-known/oauth-authorization-server",
         "/xrpc/com.atproto.server.describeServer",
         "/xrpc/_health",
     ] {
-        let (status, _, body) = get(host, path).await;
+        let (status, headers, body) = get(host, path).await;
         assert_eq!(status, 404, "{path}");
         assert_eq!(body, "Use the PDS service endpoint at pds.test", "{path}");
+        assert_eq!(
+            headers["content-security-policy"],
+            "default-src 'none'; sandbox"
+        );
+        assert_eq!(headers["x-content-type-options"], "nosniff");
+        assert_eq!(headers["referrer-policy"], "no-referrer");
     }
     let page = format!("https://linkjar.io/jar/{}", did.replace(':', "%3A"));
     for path in [
