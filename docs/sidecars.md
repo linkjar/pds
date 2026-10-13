@@ -267,6 +267,64 @@ named here so the hosted mode is not mistaken for the whole story.
   the MCP Inspector through sign-in, discovery, scope challenge, refresh and
   revocation, against both profiles.
 
+### 2.8 State after unit 10
+
+Built, as the crate `pds-mcp` and the binary `linkjar-pds-mcp` (image:
+`Dockerfile.mcp`):
+
+- **Toward AI clients.** Protected resource metadata and authorization
+  server metadata; registration of public clients (`POST /register`) and
+  Client ID Metadata Documents; the authorization code grant with PKCE
+  (S256) and the `resource` parameter; bearer access tokens of one hour;
+  refresh tokens that rotate, where a second use ends the session;
+  revocation; a 401 challenge that names the metadata, and a 403
+  challenge that names the missing scope.
+- **A consent page of its own.** The PDS shows the name of the MCP
+  server, not the name of the AI client, and it asks once for a client it
+  authorized. The MCP server therefore asks each time: it names the AI
+  client, the account and the host the browser goes to. The form is tied
+  to the browser that started the request.
+- **Toward the PDS.** A confidential client with `private_key_jwt` and a
+  DPoP key for each session. The PDS knows it from
+  `PDS_OAUTH_KNOWN_CLIENTS_FILE` or fetches its metadata.
+- **MCP.** One JSON-RPC message for each POST to `/mcp`, with a JSON
+  answer. Protocol revisions `2025-11-25`, `2025-06-18` and `2025-03-26`.
+  Eight tools: `whoami`, `describe_repo`, `list_collections`,
+  `list_records`, `get_record`, `create_record`, `put_record`,
+  `delete_record`. One resource template, `at://<did>/{collection}/{rkey}`.
+  Two prompts.
+- **Scopes.** `account:read`, `repo:read`, `repo:write`, and
+  `repo:write:<collection>` for each collection of
+  `MCP_WRITE_COLLECTIONS`.
+- **Limits.** 120 calls and 20 writes in a minute for each session.
+- **Audit.** Each write goes to the PDS with the id of the AI client,
+  and the PDS writes the entry (SPEC §22.2).
+
+Configuration: `MCP_PUBLIC_URL`, `MCP_PDS_PUBLIC_URL`,
+`MCP_PDS_INTERNAL_URL`, `MCP_CLIENT_KEY_P256_PRIVATE_KEY_HEX`,
+`MCP_WRITE_COLLECTIONS` and `MCP_ADDRESS`.
+
+Not built:
+
+1. A store that outlives the process. Clients, sessions and the sessions
+   at the PDS are in memory: a restart ends every session, and the server
+   runs as one instance.
+2. `search_records`, `apply_writes`, `upload_blob` and `export_car`; blob
+   resources; `sync:subscribe` and resource subscriptions; the
+   preferences scopes.
+3. Input schemas from the lexicons. A record is an object, and the PDS
+   validates it.
+4. The confirmation prompt for each write of a client that is not
+   trusted. A write tool says in its annotations that it writes.
+5. DPoP for an AI client that offers it. Tokens are bearer tokens.
+6. A fetch that pins the address it checked. The server checks the
+   addresses of a client's host and then lets the HTTP client resolve the
+   name again, as the PDS does.
+7. The run of the official MCP TypeScript client and of the MCP Inspector
+   in the Harness. The test of this unit drives the server as a client
+   written for the test.
+8. The local mode for private data, which belongs to `linkjar.io`.
+
 ## 3. What this adds to the SPEC and the plan
 
 | SPEC | Change |

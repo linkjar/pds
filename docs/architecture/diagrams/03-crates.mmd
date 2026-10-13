@@ -16,6 +16,7 @@ flowchart BT
   bin[linkjar-pds<br/>binary, CLI, ops listener]
   xtask[xtask<br/>codegen]
   console[pds-console<br/>operations console sidecar]
+  mcp[pds-mcp<br/>MCP server sidecar]
   lexicon --> types
   repo --> types
   storage --> repo
@@ -36,3 +37,4 @@ flowchart BT
   bin --> types & xrpc & storage & identity & blob & repo & sequencer & ext & linkjar & audit
   xtask --> lexicon
   console --> identity & oauth
+  mcp --> identity & oauth

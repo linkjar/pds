@@ -1,6 +1,6 @@
 # LinkJar PDS Specification
 
-Status: Draft, revision 13, 2026-10-13
+Status: Draft, revision 14, 2026-10-13
 Normative keywords: **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, **MAY** ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119))
 
 LinkJar PDS is an AT Protocol Personal Data Server written in Rust. It is
@@ -97,6 +97,10 @@ operations console
 ([unit record](research/2026-10-13-ops-console.md)). The changes are
 listed in Appendix Q.
 
+Revision 14 follows unit 10: the MCP server
+([unit record](research/2026-10-13-mcp-server.md)). The changes are
+listed in Appendix R.
+
 ## Table of Contents
 
 - [0. Conventions and Terminology](#0-conventions-and-terminology)
@@ -139,6 +143,7 @@ listed in Appendix Q.
 - [Appendix O. Changes in Revision 11](#appendix-o-changes-in-revision-11)
 - [Appendix P. Changes in Revision 12](#appendix-p-changes-in-revision-12)
 - [Appendix Q. Changes in Revision 13](#appendix-q-changes-in-revision-13)
+- [Appendix R. Changes in Revision 14](#appendix-r-changes-in-revision-14)
 
 ## 0. Conventions and Terminology
 
@@ -2123,6 +2128,23 @@ audit log. The hosted server exposes public records and the account only;
 it never attempts to decrypt LinkJar private data. The private-data mode is
 a TypeScript process in `linkjar.io` (decision of 2026-10-08).
 
+As of unit 10:
+
+- **Known clients.** `PDS_OAUTH_KNOWN_CLIENTS_FILE` names a JSON object
+  from client id to metadata document. The server checks each document as
+  it checks a fetched one, at start, and fetches nothing for these
+  clients. A confidential client has its keys in `jwks`. A sidecar on a
+  private network is a client this way.
+- **Audit.** `PDS_MCP_CLIENT_IDS` names the MCP servers of this server.
+  A repository write with an OAuth token of one of them is an audit
+  entry: the account as actor, the MCP server as client, and
+  `mcp:<AI client>` as sidecar. The MCP server names the AI client in the
+  header `X-MCP-Client-Id`.
+- **Scopes.** The MCP server asks for `atproto` for reads, `repo:*` for
+  the scope `repo:write`, and `repo:<collection>` for
+  `repo:write:<collection>`. The server takes a scope that the client
+  metadata declares, so the collections are part of the metadata.
+
 ### 22.3 Rules
 
 Sidecars hold no database connection, no signing key and no PDS secret
@@ -2252,6 +2274,10 @@ New in the Candidate:
 - `PDS_OPS_ADDRESS`: the private ops listener (§22.1); unset disables it.
 - `PDS_OPS_CLIENT_IDS`: the OAuth client ids of the consoles whose
   sessions the ops listener takes, separated by commas (§22.1).
+- `PDS_MCP_CLIENT_IDS`: the OAuth client ids of the MCP servers of this
+  server, separated by commas (§22.2).
+- `PDS_OAUTH_KNOWN_CLIENTS_FILE`: a JSON file of OAuth clients that the
+  server knows without a fetch (§22.2).
 - `PDS_OTLP_ENDPOINT`: OTLP/HTTP export target (§14.4); unset disables it.
 - `PDS_AUDIT_KEY_*`: the audit checkpoint key reference (§20.3). As of
   unit 7 the Candidate reads `PDS_AUDIT_KEY_ED25519_PRIVATE_KEY_HEX`, the
@@ -2553,3 +2579,12 @@ Revision 13 follows unit 9.
 - §14.4: the metric `pds_firehose_subscribers`.
 - Appendix C: `PDS_OPS_CLIENT_IDS`.
 - [sidecars.md](sidecars.md) §1.6: the state of the console.
+
+## Appendix R. Changes in Revision 14
+
+Revision 14 follows unit 10.
+
+- §22.2: known clients, the audit entry of a write of the MCP server,
+  and the scopes the MCP server asks for.
+- Appendix C: `PDS_MCP_CLIENT_IDS` and `PDS_OAUTH_KNOWN_CLIENTS_FILE`.
+- [sidecars.md](sidecars.md) §2.8: the state of the MCP server.
