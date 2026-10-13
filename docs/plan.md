@@ -138,6 +138,7 @@ upstream bumps, which nothing does today beyond the image smoke gate.
 
 | Date | Event |
 |---|---|
+| 2026-10-13 | Unit 8, the part that needs no system of the owner, on `feat/unit-8a-migration`. An account moves here with its DID and a service token, and starts deactivated. The server has a private metrics listener in the Prometheus text format, with requests by route and status, their durations, and the state of the audit log and of the notice outbox. One server serves a data directory: a second one exits 2. The cutover is written as a runbook ([docs/runbooks/cutover.md](runbooks/cutover.md)). SPEC revision 12. **Unit 8 is not complete**: the restore drill on staging, the alert rules and the service definition in `linkjar/infra`, the measurement against the targets of SPEC §16 on the production host, and the cutover are the owner's ([below](#open-questions-for-the-owner)). Not built: export over OTLP, the metrics of the commit path and of the firehose, and a Nix package. Pull request #44 merged unit 7. Next: unit 9. |
 | 2026-10-13 | Unit 7 on `feat/unit-7-audit`. **The Candidate has a tamper-evident audit log** ([unit record](research/2026-10-13-audit-log.md)). Account and admin actions are entries of a hash chain in `audit.sqlite`, which takes inserts only. Every five minutes and at shutdown the server signs a Merkle root of the new entries with an Ed25519 key and publishes the checkpoint as a record of the operator's repository, so it travels the firehose. `audit export` writes a bundle; `audit verify` and the binary `pds-audit-verify` recompute the chain, the roots and the signatures from it and share only the entry format with the writer. `audit seal` writes the one entry for the history before the log. SPEC revision 11. Not built: entries of the two sidecars (units 9 and 10), the reason and the request id of an entry, a key in a KMS or an HSM. Pull request #43 merged unit 6. Next: unit 8. |
 | 2026-10-13 | Unit 6 on `feat/unit-6a-handle-policy`. **The Candidate has the `linkjar` profile: the behaviour of the eight account patches** ([unit record](research/2026-10-13-linkjar-profile.md)). `pds-ext` has the `Profile` trait and the stock profile; `pds-ext-linkjar` has the hosted handle policy, sign-in with Apple, Google and GitHub, the creation receipt, the sign-up policy with hCaptcha, sign-in methods with notices through an outbox, LinkJar's mail templates, and the invite hand-off. The profile applies the four migrations of the patch stack that a database lacks. The Harness runs the Candidate with `PDS_PROFILE=linkjar`. **All 22 default scenarios pass against the Candidate alone**, and so do the `captcha`, `firehose` and `invites` profiles. Three admin invite methods that unit 5 left out are built. SPEC revision 10. Not built: a password set from the account page, operator roles (with unit 9), the reactivation step in a provider flow. Pull request #42 merged the ninth part of unit 5. Next: unit 7. |
 | 2026-10-13 | Unit 5, ninth part, on `feat/unit-5i-oauth-metadata`. **The Candidate is an OAuth authorization server, serves OAuth sessions on its XRPC routes, and adds an account's own writes to the AppView's reads** ([unit record](research/2026-10-13-oauth.md)). Pushed requests, the authorization pages rendered on the server, the token endpoint with rotation and replay detection, revocation, DPoP with nonces, scope checks, the three metadata documents with the Reference's CORS answers, and `/account` with its lists of sessions and devices. The rows are the Reference's, so a session from before the cutover goes on after it. Read-after-write covers the six methods of the Reference, and `registerPush` goes to the service that the request names. `reserveSigningKey` is built. **18 of 22 default scenarios pass against the Candidate alone**: `01-server`, `11-identity`, `13-admin`, `14-appview-local` and `20` to `22` joined. The four that fail are the LinkJar profile, `30` to `33` (unit 6). SPEC revision 9. Two rules now follow the Reference and await the owner's word ([below](#open-questions-for-the-owner)): a handle under `.test`, and the signing algorithms in the metadata. Not built: request objects, permission sets, the settings of the account page, hCaptcha on sign-up, the reactivation step, and address pinning in safe fetch. Next: unit 6. |
@@ -229,7 +230,7 @@ question. Revision 7 of the SPEC applies them.
 
 ## Open questions for the owner
 
-Four are actions on a system that is the owner's. Two are rules that
+Five are actions on a system that is the owner's. Two are rules that
 unit 5 changed to what the Reference does; each has a recommendation and
 stays as built unless the owner says otherwise.
 
@@ -246,6 +247,10 @@ stays as built unless the owner says otherwise.
   two it verifies, `ES256` and `ES256K`. Recommendation: keep the two. Every
   atproto client signs DPoP proofs with `ES256`; RSA and the other curves
   are code to audit for no known client.
+
+- **The cutover.** [The runbook](runbooks/cutover.md) lists the steps
+  before the day, on the day and in the 48 hours after it. Each is an
+  action on staging, on production or in `linkjar/infra`.
 
 - **`verify` on a staging restore.** Unit 3's gate asks for zero
   differences on a staging restore of production data. The unit had no such

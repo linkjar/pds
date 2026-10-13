@@ -1,0 +1,139 @@
+# Cutover from the Reference to the Candidate
+
+[SPEC §18](../SPEC.md#18-cutover-and-rollback) · [Plan](../plan.md)
+
+This runbook replaces the reference image with `linkjar-pds` on the same
+host name and the same data directory. Each step names the command and
+what to expect. The operator runs every step: none of them is automated.
+
+## 1. Before the day
+
+Do each of these on staging, on a restored copy of the production data
+directory. Production is touched only at cutover.
+
+1. **Restore a copy.** Follow the recovery runbook of `linkjar/infra`.
+2. **Check the copy.** Set the `PDS_*` variables of production, with
+   `PDS_DATA_DIRECTORY` and the blob store of the copy.
+
+   ```bash
+   linkjar-pds check-config
+   ```
+
+   ```bash
+   linkjar-pds verify
+   ```
+
+   `verify` must print no difference and exit 0. It writes nothing. A
+   finding is a fact about production data: resolve it before the day.
+3. **Run the Harness against the copy** with the `linkjar` profile
+   ([parity/README.md](../../parity/README.md)).
+4. **Create the checkpoint key.** 32 random bytes as 64 hexadecimal
+   digits, kept in the host's secret store as
+   `PDS_AUDIT_KEY_ED25519_PRIVATE_KEY_HEX`.
+
+   ```bash
+   openssl rand -hex 32
+   ```
+
+5. **Name the operator's repository.** Set `PDS_AUDIT_CHECKPOINT_REPO` to
+   the DID of the operator's account on the server. Without it the
+   checkpoints stay in `audit.sqlite` and nobody outside sees them.
+6. **Set the profile and the listeners.** `PDS_PROFILE=linkjar`, and
+   `PDS_METRICS_ADDRESS` on a private address, such as `127.0.0.1:9464`.
+7. **Leave the secrets as they are:** `PDS_JWT_SECRET`, `PDS_DPOP_SECRET`,
+   the rotation key, the admin password, the SMTP and the provider
+   credentials. Sessions from before the cutover depend on them.
+8. **Update `linkjar/infra`:** the service definition for the new binary,
+   the alert rules for the metrics below, and the recovery runbook.
+
+## 2. The cutover
+
+1. Announce maintenance on the status page.
+2. Stop the reference container. Check that it is stopped: the two servers
+   must never serve one data directory.
+3. Check the data directory.
+
+   ```bash
+   linkjar-pds verify
+   ```
+
+   Stop here when it exits 1. Start the reference container again.
+4. Seal the history. This writes the first entry of the audit log: the
+   number of accounts and the SHA-256 of their DIDs and repository heads.
+
+   ```bash
+   linkjar-pds audit seal
+   ```
+
+   It prints `sealed <n> accounts as sha256:…` and `signed by ed25519:…`.
+   Keep both lines with the record of the cutover.
+5. Start the Candidate.
+
+   ```bash
+   linkjar-pds serve
+   ```
+
+6. Check what a client sees.
+
+   ```bash
+   linkjar-pds health
+   ```
+
+   ```bash
+   curl -s https://pds.linkjar.social/xrpc/com.atproto.server.describeServer
+   ```
+
+   ```bash
+   curl -s https://pds.linkjar.social/.well-known/oauth-authorization-server
+   ```
+
+   The relay's connection to `subscribeRepos` must resume at its last
+   cursor. Look for it in the relay's own status.
+7. Smoke test: sign in from the web app, from iOS and from the extension;
+   write a record; see it on the firehose; request a password reset mail
+   for a test account and receive it.
+
+## 3. The watch
+
+Watch for 48 hours.
+
+| Metric | What to look for |
+|---|---|
+| `pds_http_requests_total{status=~"5.."}` | A rate above the Reference's baseline. |
+| `pds_http_request_duration_seconds` | The 99th percentile by route against the targets of SPEC §16.2. |
+| `pds_audit_unsigned_entries` | It returns to 0 within five minutes of a change. |
+| `pds_audit_checkpoint_age_seconds` | It stays under 600 while `pds_audit_unsigned_entries` is above 0. |
+| `pds_notice_outbox_depth` | It returns to 0. A value that grows means SMTP fails. |
+
+After the first day, export the audit log and verify it away from the
+host.
+
+```bash
+linkjar-pds audit export > audit-bundle.json
+```
+
+```bash
+pds-audit-verify audit-bundle.json
+```
+
+## 4. Rollback
+
+The rollback window is open until the operator applies the first
+Candidate-only migration of a shared database. No such migration exists
+yet: the migrations of the `linkjar` profile are the patch stack's own, and
+the reference image knows them.
+
+1. Stop the Candidate.
+2. Start the reference image on the same data directory.
+
+The Candidate's own files stay in place and the Reference ignores them:
+`ops.sqlite`, `audit.sqlite`, `linkjar-pds.lock`. A session that an OAuth
+client opened on the Candidate goes on at the Reference, because the rows
+are the Reference's.
+
+## 5. What this runbook does not cover
+
+- The restore itself and the backup schedule, which the recovery runbook
+  of `linkjar/infra` owns.
+- A move to Postgres or to an entryway (units 11 and 12).
+- Export over OTLP: the Candidate has the metrics listener only.
