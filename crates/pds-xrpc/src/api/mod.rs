@@ -93,6 +93,7 @@ enum Procedure {
     CreateAccount,
     DeactivateAccount,
     ActivateAccount,
+    UpdateHandle,
 }
 
 /// The procedure that `nsid` names. `None` for a method without a handler.
@@ -110,6 +111,7 @@ fn procedure(nsid: &str) -> Option<Procedure> {
         "com.atproto.server.createAccount" => Procedure::CreateAccount,
         "com.atproto.server.deactivateAccount" => Procedure::DeactivateAccount,
         "com.atproto.server.activateAccount" => Procedure::ActivateAccount,
+        "com.atproto.identity.updateHandle" => Procedure::UpdateHandle,
         "com.atproto.server.createAppPassword" => Procedure::CreateAppPassword,
         "com.atproto.server.revokeAppPassword" => Procedure::RevokeAppPassword,
         _ => return None,
@@ -315,6 +317,7 @@ async fn xrpc(
                 lifecycle::deactivate_account(state, headers, body).await
             }
             Procedure::ActivateAccount => lifecycle::activate_account(state, headers).await,
+            Procedure::UpdateHandle => lifecycle::update_handle(state, headers, body).await,
             Procedure::CreateAppPassword => {
                 session::create_app_password(state, headers, body).await
             }

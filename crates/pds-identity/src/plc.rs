@@ -44,16 +44,8 @@ pub fn create_op(
     pds: &str,
     signer: &Keypair,
 ) -> Genesis {
-    let also_known_as = if handle.starts_with("at://") {
-        handle.to_owned()
-    } else {
-        format!("at://{handle}")
-    };
-    let endpoint = if pds.starts_with("http://") || pds.starts_with("https://") {
-        pds.to_owned()
-    } else {
-        format!("https://{pds}")
-    };
+    let also_known_as = at_prefixed(handle);
+    let endpoint = http_prefixed(pds);
     let mut fields = vec![
         ("type", text("plc_operation")),
         (
@@ -89,6 +81,135 @@ pub fn create_op(
         // The data model has no value that JSON lacks here.
         operation: serde_json::to_value(&complete).unwrap_or_default(),
     }
+}
+
+/// Why an operation cannot follow the last one of a DID.
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+pub enum UpdateError {
+    /// The DID is tombstoned.
+    #[error("Cannot apply op to tombstone")]
+    Tombstone,
+    /// The last operation is not one this server can read.
+    #[error("the last operation of the DID is malformed")]
+    Malformed,
+}
+
+/// The fields of an operation in today's form, without `sig` and `prev`.
+/// An operation of the first form of the method is translated, as
+/// `normalizeOp` of the library does.
+fn normalized(last: &Data) -> Result<BTreeMap<String, Data>, UpdateError> {
+    let Data::Object(fields) = last else {
+        return Err(UpdateError::Malformed);
+    };
+    let field = |key: &str| fields.get(key).cloned().ok_or(UpdateError::Malformed);
+    let kind = match fields.get("type") {
+        Some(Data::String(kind)) => kind.as_str(),
+        _ => return Err(UpdateError::Malformed),
+    };
+    match kind {
+        "plc_tombstone" => Err(UpdateError::Tombstone),
+        "plc_operation" => {
+            let mut fields = fields.clone();
+            fields.remove("sig");
+            fields.remove("prev");
+            Ok(fields)
+        }
+        "create" => {
+            let (Data::String(handle), Data::String(service)) =
+                (field("handle")?, field("service")?)
+            else {
+                return Err(UpdateError::Malformed);
+            };
+            let Data::Object(map) = object(&[
+                ("type", text("plc_operation")),
+                (
+                    "verificationMethods",
+                    object(&[("atproto", field("signingKey")?)]),
+                ),
+                (
+                    "rotationKeys",
+                    Data::Array(vec![field("recoveryKey")?, field("signingKey")?]),
+                ),
+                (
+                    "alsoKnownAs",
+                    Data::Array(vec![text(&at_prefixed(&handle))]),
+                ),
+                (
+                    "services",
+                    object(&[(
+                        "atproto_pds",
+                        object(&[
+                            ("type", text("AtprotoPersonalDataServer")),
+                            ("endpoint", text(&http_prefixed(&service))),
+                        ]),
+                    )]),
+                ),
+            ]) else {
+                return Err(UpdateError::Malformed);
+            };
+            Ok(map)
+        }
+        _ => Err(UpdateError::Malformed),
+    }
+}
+
+fn at_prefixed(handle: &str) -> String {
+    if handle.starts_with("at://") {
+        handle.to_owned()
+    } else {
+        format!("at://{handle}")
+    }
+}
+
+fn http_prefixed(pds: &str) -> String {
+    if pds.starts_with("http://") || pds.starts_with("https://") {
+        pds.to_owned()
+    } else {
+        format!("https://{pds}")
+    }
+}
+
+/// The operation that follows `last` with the fields that `change` edits,
+/// signed by `signer`. `last` is the last operation of the DID as the
+/// directory serves it.
+pub fn update_op(
+    last: &serde_json::Value,
+    signer: &Keypair,
+    change: impl FnOnce(&mut BTreeMap<String, Data>),
+) -> Result<serde_json::Value, UpdateError> {
+    let last = Data::from_json_str(&last.to_string()).map_err(|_| UpdateError::Malformed)?;
+    let mut fields = normalized(&last)?;
+    change(&mut fields);
+    let prev = pds_types::content::cid_for_cbor(&last.to_dag_cbor()).to_string();
+    fields.insert("prev".to_owned(), text(&prev));
+    let unsigned = Data::Object(fields.clone()).to_dag_cbor();
+    let signature = BASE64URL_NOPAD.encode(&signer.sign(&unsigned));
+    fields.insert("sig".to_owned(), text(&signature));
+    Ok(serde_json::to_value(Data::Object(fields)).unwrap_or_default())
+}
+
+/// The operation that gives the DID the handle `handle`: it replaces the
+/// first `at://` name, or becomes the first name.
+pub fn update_handle_op(
+    last: &serde_json::Value,
+    signer: &Keypair,
+    handle: &str,
+) -> Result<serde_json::Value, UpdateError> {
+    let name = text(&at_prefixed(handle));
+    update_op(last, signer, |fields| {
+        let mut names = match fields.remove("alsoKnownAs") {
+            Some(Data::Array(names)) => names,
+            _ => Vec::new(),
+        };
+        let at = names
+            .iter()
+            .position(|known| matches!(known, Data::String(known) if known.starts_with("at://")));
+        match at {
+            Some(at) => names[at] = name,
+            None => names.insert(0, name),
+        }
+        fields.insert("alsoKnownAs".to_owned(), Data::Array(names));
+    })
 }
 
 #[cfg(test)]
@@ -141,5 +262,36 @@ mod tests {
             &signer,
         );
         assert_eq!(again, genesis);
+    }
+
+    #[test]
+    fn an_update_follows_the_last_operation_and_keeps_the_other_fields() {
+        let signer = Keypair::generate(Algorithm::Secp256k1, |bytes| bytes.fill(7));
+        let account = Keypair::generate(Algorithm::Secp256k1, |bytes| bytes.fill(9));
+        let genesis = create_op(
+            &account.did_key(),
+            &[signer.did_key()],
+            "alice.pds.test",
+            "https://pds.test",
+            &signer,
+        );
+        let next = update_handle_op(&genesis.operation, &signer, "alicia.pds.test").unwrap();
+        assert_eq!(
+            next["alsoKnownAs"],
+            serde_json::json!(["at://alicia.pds.test"])
+        );
+        assert_eq!(next["services"], genesis.operation["services"]);
+        assert_eq!(next["rotationKeys"], genesis.operation["rotationKeys"]);
+        let last = Data::from_json_str(&genesis.operation.to_string()).unwrap();
+        assert_eq!(
+            next["prev"],
+            pds_types::content::cid_for_cbor(&last.to_dag_cbor()).to_string()
+        );
+        assert_ne!(next["sig"], genesis.operation["sig"]);
+        let tombstone = serde_json::json!({"type": "plc_tombstone", "prev": "x", "sig": "y"});
+        assert_eq!(
+            update_handle_op(&tombstone, &signer, "a.pds.test"),
+            Err(UpdateError::Tombstone)
+        );
     }
 }

@@ -32,6 +32,18 @@ async fn plc() -> (String, Ops) {
             .get(|| async { StatusCode::NOT_FOUND }),
         )
         .route(
+            "/{did}/log/last",
+            axum::routing::get(
+                |State(ops): State<Ops>, Path(did): Path<String>| async move {
+                    let ops = ops.lock().unwrap();
+                    match ops.iter().rev().find(|(sent, _)| *sent == did) {
+                        Some((_, op)) => op.to_string().into_response(),
+                        None => StatusCode::NOT_FOUND.into_response(),
+                    }
+                },
+            ),
+        )
+        .route(
             "/{did}/data",
             axum::routing::get(
                 |State(ops): State<Ops>, Path(did): Path<String>| async move {
@@ -499,4 +511,98 @@ async fn an_account_is_deactivated_checked_and_activated() {
     );
     let report = linkjar_pds::verify::verify(&server.dir.config).unwrap();
     assert_eq!(report.findings.len(), 0, "{report}");
+}
+
+#[tokio::test]
+async fn a_handle_is_changed_in_the_directory_the_account_and_the_log() {
+    let server = Server::start(&[]).await;
+    let (_, made) = server
+        .create(&json!({"handle": "gina.pds-users.org", "email": "gina@example.com", "password": PASSWORD}))
+        .await;
+    let (did, access) = (
+        text(&made, "did").to_owned(),
+        text(&made, "accessJwt").to_owned(),
+    );
+    let update = "com.atproto.identity.updateHandle";
+
+    let (status, body) = server
+        .post(
+            update,
+            Some(&access),
+            &json!({"handle": "Georgina.pds-users.org"}),
+        )
+        .await;
+    assert_eq!(status, 200, "{body}");
+    let ops = server.ops.lock().unwrap().clone();
+    assert_eq!(ops.len(), 2);
+    assert_eq!(ops[1].0, did);
+    assert_eq!(
+        ops[1].1["alsoKnownAs"],
+        json!(["at://georgina.pds-users.org"])
+    );
+    assert!(ops[1].1["prev"].as_str().unwrap().starts_with("bafyrei"));
+    let (status, session) = server
+        .post(
+            "com.atproto.server.createSession",
+            None,
+            &json!({"identifier": "georgina.pds-users.org", "password": PASSWORD}),
+        )
+        .await;
+    assert_eq!((status, &session["did"]), (200, &json!(did)));
+    let last: String = common::open(&server.dir.root.join("sequencer.sqlite"))
+        .query_row(
+            r#"select "eventType" from "repo_seq" where "did" = ?1 order by "seq" desc limit 1"#,
+            [&did],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(last, "identity");
+
+    for (handle, error, message) in [
+        (
+            "alice.pds.test",
+            "InvalidHandle",
+            "Handle TLD is invalid or disallowed",
+        ),
+        ("ab.pds-users.org", "InvalidHandle", "Handle too short"),
+        (
+            "admin.pds-users.org",
+            "HandleNotAvailable",
+            "Reserved handle",
+        ),
+        (
+            "unreachable.elsewhere.org",
+            "InvalidRequest",
+            "External handle did not resolve to DID",
+        ),
+    ] {
+        let (status, body) = server
+            .post(update, Some(&access), &json!({"handle": handle}))
+            .await;
+        assert_eq!(
+            (status, text(&body, "error"), text(&body, "message")),
+            (400, error, message),
+            "{handle}"
+        );
+    }
+    // Another account's handle is not available.
+    server
+        .create(&json!({"handle": "henry.pds-users.org", "email": "henry@example.com", "password": PASSWORD}))
+        .await;
+    let (status, body) = server
+        .post(
+            update,
+            Some(&access),
+            &json!({"handle": "henry.pds-users.org"}),
+        )
+        .await;
+    assert_eq!(
+        (status, text(&body, "error"), text(&body, "message")),
+        (
+            400,
+            "HandleNotAvailable",
+            "Handle already taken: henry.pds-users.org"
+        )
+    );
+    assert_eq!(server.ops.lock().unwrap().len(), 3);
 }

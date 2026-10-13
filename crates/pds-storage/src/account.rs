@@ -303,6 +303,16 @@ impl AccountDb {
             .optional()?)
     }
 
+    /// Gives an account a handle. Returns `false`, and changes nothing,
+    /// when another account has the handle or the account is not there.
+    pub fn update_handle(&self, did: &str, handle: &str) -> Result<bool, StorageError> {
+        let updated = self.conn.execute(
+            r#"update "actor" set "handle" = ?2 where "did" = ?1 and not exists (select 1 from "actor" where "handle" = ?2 and "did" != ?1)"#,
+            [did, handle],
+        )?;
+        Ok(updated > 0)
+    }
+
     /// Deactivates an account at `now`. With `delete_after` it is deleted
     /// at that time unless it is activated. Returns whether the actor
     /// exists.
