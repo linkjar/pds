@@ -38,6 +38,7 @@ fn state() -> AppState {
             jwt_secret: b"secret".to_vec(),
             admin_password: "password".to_owned(),
             service_did: "did:web:pds.test".to_owned(),
+            entryway: None,
         },
         identity: None,
         mail: pds_xrpc::mail::MailConfig::default(),
