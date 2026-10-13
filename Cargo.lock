@@ -1485,6 +1485,12 @@ version = "0.0.1"
 [[package]]
 name = "pds-ext-linkjar"
 version = "0.0.1"
+dependencies = [
+ "icu_normalizer",
+ "icu_properties",
+ "pds-identity",
+ "pds-types",
+]
 
 [[package]]
 name = "pds-identity"
