@@ -52,7 +52,95 @@ pub struct HandlePolicy {
     pub rename_handle: Option<String>,
 }
 
+/// An identity to store with an account.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NewIdentity<'a> {
+    /// `apple`, `google` or `github`.
+    pub provider: &'a str,
+    /// The provider's identifier of the person.
+    pub subject: &'a str,
+    /// The email address the provider asserted.
+    pub email: Option<&'a str>,
+    /// Whether the provider said the address is verified.
+    pub email_verified: bool,
+    /// The name the provider gave.
+    pub display_name: Option<&'a str>,
+}
+
+/// An identity of an account.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Identity {
+    /// `apple`, `google` or `github`.
+    pub provider: String,
+    /// The provider's identifier of the person.
+    pub subject: String,
+    /// The email address the provider asserted.
+    pub email: Option<String>,
+}
+
+/// Stores an identity for an account. `false` means the identity has an
+/// account already: an identity is one account's.
+pub(crate) fn insert_identity(
+    conn: &rusqlite::Connection,
+    did: &str,
+    identity: &NewIdentity<'_>,
+    now: &str,
+) -> Result<bool, StorageError> {
+    let inserted = conn.execute(
+        r#"insert into "external_identity" ("provider", "subject", "did", "assertedEmail", "emailVerified", "displayName", "createdAt", "lastUsedAt") values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7) on conflict do nothing"#,
+        params![
+            identity.provider,
+            identity.subject,
+            did,
+            identity.email,
+            i64::from(identity.email_verified),
+            identity.display_name,
+            now
+        ],
+    )?;
+    Ok(inserted == 1)
+}
+
 impl AccountDb {
+    /// The account of an identity. A sign-in with it is recorded at `now`.
+    pub fn external_identity(
+        &self,
+        provider: &str,
+        subject: &str,
+        now: &str,
+    ) -> Result<Option<String>, StorageError> {
+        let did: Option<String> = self
+            .conn
+            .query_row(
+                r#"select "did" from "external_identity" where "provider" = ?1 and "subject" = ?2"#,
+                [provider, subject],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if did.is_some() {
+            self.conn.execute(
+                r#"update "external_identity" set "lastUsedAt" = ?3 where "provider" = ?1 and "subject" = ?2"#,
+                [provider, subject, now],
+            )?;
+        }
+        Ok(did)
+    }
+
+    /// The identities of an account, by provider.
+    pub fn external_identities(&self, did: &str) -> Result<Vec<Identity>, StorageError> {
+        let mut statement = self.conn.prepare(
+            r#"select "provider", "subject", "assertedEmail" from "external_identity" where "did" = ?1 order by "provider", "subject""#,
+        )?;
+        let rows = statement.query_map([did], |row| {
+            Ok(Identity {
+                provider: row.get(0)?,
+                subject: row.get(1)?,
+                email: row.get(2)?,
+            })
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
     /// Applies the migrations of the profile that the database lacks, each
     /// in a transaction with its record. Returns how many it applied.
     pub fn apply_linkjar_migrations(&mut self, now: &str) -> Result<usize, StorageError> {

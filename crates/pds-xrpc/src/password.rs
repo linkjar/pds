@@ -28,7 +28,11 @@ pub fn hash_with_salt(password: &str, salt: &str) -> Option<String> {
     Some(format!("{salt}:{}", derive(password, salt)?))
 }
 
-/// Whether `password` is the one that `stored` was made from.
+/// What an account without a password has in the place of a hash
+/// (SPEC §13, patch 099). It has no salt, so no password matches it.
+pub const EXTERNAL_IDENTITY: &str = "!external-identity";
+
+/// Whether `password` is the one of the stored hash.
 pub fn verify(password: &str, stored: &str) -> bool {
     let Some((salt, hash)) = stored.split_once(':') else {
         return false;

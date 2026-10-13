@@ -1110,15 +1110,31 @@ async fn sign_up_handle(
     if let Some(code) = &first.invite_code {
         input["inviteCode"] = Value::String(code.clone());
     }
-    let mut json_headers = HeaderMap::new();
-    json_headers.insert(
-        header::CONTENT_TYPE,
-        HeaderValue::from_static("application/json"),
-    );
-    let mut body = Some(Body::from(input.to_string()));
-    let created = crate::api::account::create_account(state, &json_headers, &mut body).await;
-    let response = match created {
-        Ok(response) => response,
+    let Value::Object(input) = input else {
+        return Err(OAuthError::server("the sign-up input is not an object"));
+    };
+    // The checks and the limit of `createAccount`. The sign-up opens no
+    // legacy session.
+    let limit = [(
+        crate::ratelimit::of_route("com.atproto.server.createAccount-0", 300, 100),
+        crate::ratelimit::Key::Ip,
+        1,
+    )];
+    let created = match crate::ratelimit::consume(state, &limit) {
+        Err(refusal) => Err(refusal),
+        Ok(()) => match state
+            .blocking(move |state| crate::api::account::validate(state, &input))
+            .await
+        {
+            Err(refusal) => Err(refusal),
+            Ok((mut request, _)) => {
+                request.legacy_session = false;
+                crate::api::account::create(state, request).await
+            }
+        },
+    };
+    let created = match created {
+        Ok(created) => created,
         Err(error) if error.status.is_server_error() => {
             return Err(OAuthError::server(error.message));
         }
@@ -1134,14 +1150,7 @@ async fn sign_up_handle(
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
         .remove(key);
-    let bytes = axum::body::to_bytes(response.into_body(), 64 * 1024)
-        .await
-        .map_err(OAuthError::server)?;
-    let session: Value = serde_json::from_slice(&bytes).map_err(OAuthError::server)?;
-    let did = session
-        .get("did")
-        .and_then(Value::as_str)
-        .ok_or_else(|| OAuthError::server("the new account has no DID"))?;
+    let did = created.did.as_str();
     // A new account that came through a trusted client has authorized it by signing up there.
     let ask = !posted.client.trusted;
     after_authentication(state, posted, did, &handle, false, Some(ask)).await
