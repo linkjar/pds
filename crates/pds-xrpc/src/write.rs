@@ -365,6 +365,13 @@ fn repo_error(error: RepoError) -> XrpcError {
 }
 
 impl Session<'_> {
+    /// Makes the transaction end with `event`, which states the head
+    /// `committed`: the note, the event and the account root follow the
+    /// order of a commit (SPEC §7.4).
+    pub(crate) fn state_head(&mut self, event: SeqInsert, committed: Committed) {
+        self.event = Some((event, committed));
+    }
+
     /// The transaction, for reads that belong to the same work.
     pub const fn txn(&self) -> &ActorTxn<'_> {
         self.txn
@@ -757,7 +764,13 @@ pub fn repair(state: &AppState) -> Result<Repaired, XrpcError> {
                 .block(&head.cid)?
                 .ok_or_else(|| XrpcError::internal("the commit block of the head is missing"))?;
             let now = writes.sequencer().now();
-            let event = sync_event(&note.did, &head.rev, &head.cid, &block, &now);
+            // The revision of the commit block: after an import the store
+            // names a newer one.
+            let rev = pds_repo::Commit::decode(&block).map_or_else(
+                |_| head.rev.clone(),
+                |commit| commit.rev.as_str().to_owned(),
+            );
+            let event = sync_event(&note.did, &rev, &head.cid, &block, &now);
             writes.sequencer().sequence(std::slice::from_ref(&event))?;
             if let Err(error) = writes.with_accounts(|accounts| {
                 accounts.update_repo_root(&note.did, &head.cid.to_string(), &head.rev, &now)

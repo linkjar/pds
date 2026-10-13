@@ -621,7 +621,7 @@ mod tests {
         assert!(s3.force_path_style);
         assert_eq!(s3.upload_timeout, Duration::from_secs(20));
         assert_eq!(s3.stall_timeout(), Duration::from_secs(15));
-        assert!(config.unknown_variables.is_empty());
+        assert_eq!(config.unknown_variables, Vec::<String>::new());
         // The secret stays out of every log.
         assert!(!format!("{config:?}").contains("hidden"));
 

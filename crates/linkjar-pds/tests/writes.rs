@@ -719,6 +719,21 @@ async fn an_import_replaces_the_repository_and_checks_the_commit() {
     assert_eq!(server.head().0, head);
     assert!(server.head().1 > rev);
     server.assert_verifies();
+    // The account is active, so the import states the head (DD-19). The
+    // event names the revision of the commit block.
+    let last_event = || -> (String, String) {
+        common::open(&server.dir.root.join("sequencer.sqlite"))
+            .query_row(
+                "select eventType, event from repo_seq where did = ?1 order by seq desc limit 1",
+                [ALICE],
+                |row| {
+                    let event: Vec<u8> = row.get(1)?;
+                    Ok((row.get(0)?, pds_sequencer::event_rev(&event).unwrap()))
+                },
+            )
+            .unwrap()
+    };
+    assert_eq!(last_event(), ("sync".to_owned(), rev.clone()));
 
     // Another repository of the same account, signed with its key.
     assert_eq!(import(repository(ALICE, 0, &["a", "b"])).await.status, 200);

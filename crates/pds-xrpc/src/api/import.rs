@@ -6,9 +6,11 @@
 //! (DD-8), and the commit must name the account and carry a signature of
 //! its key (DD-14). Bytes that are not a CAR are 400 (DD-15).
 //!
-//! As at the pin, an import appends no event to the log. An account that
-//! moves in is deactivated while it imports, and its activation emits
-//! `#sync`.
+//! An account that moves in is deactivated while it imports, and its
+//! activation emits `#sync`; the import appends no event, as at the pin.
+//! An import into an active account appends `#sync` (DD-19): the pin
+//! appends nothing, and a strict relay then drops the account's next
+//! commit, which does not follow the relay's copy.
 
 use axum::body::Body;
 use axum::http::{HeaderMap, StatusCode};
@@ -16,6 +18,7 @@ use axum::response::{IntoResponse, Response};
 use pds_identity::{Algorithm, Keypair};
 use pds_repo::repo::{Expect, verify_diff_car, verify_repo_car};
 use pds_repo::{BlockMap, Repo, RepoError, TreeDefect};
+use pds_sequencer::sync_event;
 use pds_storage::ActorDb;
 use pds_types::{Data, Did};
 
@@ -24,7 +27,7 @@ use crate::auth::{ACCESS_FULL, session};
 use crate::body;
 use crate::error::XrpcError;
 use crate::state::AppState;
-use crate::write::{Session, backlinks, blob_cids, record_uri, transact};
+use crate::write::{Committed, Session, backlinks, blob_cids, record_uri, transact};
 
 /// The encoding of the input.
 const CAR: &str = "application/vnd.ipld.car";
@@ -49,7 +52,7 @@ fn refused(error: &RepoError) -> XrpcError {
 impl Session<'_> {
     /// Replaces the repository with the one in `car`, and indexes the
     /// records that differ.
-    fn import(&self, car: &[u8]) -> Result<(), XrpcError> {
+    fn import(&mut self, car: &[u8], active: bool) -> Result<(), XrpcError> {
         let did = Did::parse(self.did()).map_err(XrpcError::internal)?;
         let key = self
             .state()
@@ -94,13 +97,14 @@ impl Session<'_> {
         // commit says, as at the pin.
         let rev = self.writes().tids().next().as_str().to_owned();
         let now = self.now().to_owned();
-        let (cid, changes, new_blocks, removed) = if let Some(root) = &root {
+        let (cid, commit_rev, changes, new_blocks, removed) = if let Some(root) = &root {
             let repo = Repo::load(actor, root.cid).map_err(XrpcError::internal)?;
             let stored = usize::try_from(txn.block_count()?).unwrap_or(usize::MAX);
             let diff = verify_diff_car(&repo, car, &expect, stored).map_err(invalid)?;
             check_commit(&diff.commit)?;
             let removed: Vec<_> = diff.removed_cids.into_iter().collect();
-            (diff.cid, diff.changes, diff.new_blocks, removed)
+            let commit_rev = diff.commit.rev.as_str().to_owned();
+            (diff.cid, commit_rev, diff.changes, diff.new_blocks, removed)
         } else {
             let repo = verify_repo_car(car, &expect, false).map_err(invalid)?;
             check_commit(&repo.commit)?;
@@ -124,13 +128,28 @@ impl Session<'_> {
                     cid: Some(cid),
                 })
                 .collect();
-            (repo.cid, changes, blocks, Vec::new())
+            let commit_rev = repo.commit.rev.as_str().to_owned();
+            (repo.cid, commit_rev, changes, blocks, Vec::new())
         };
 
         txn.update_root(self.did(), &cid, &rev, &now, root.is_none())?;
         txn.put_blocks(&new_blocks, &rev)?;
         txn.delete_blocks(&removed)?;
-        self.index_imported(&changes, &new_blocks, &rev, &now)
+        self.index_imported(&changes, &new_blocks, &rev, &now)?;
+        if active {
+            // The event names the revision of the commit block, which a
+            // relay checks; the note and the account root name the stored
+            // revision.
+            let block = match new_blocks.get(&cid) {
+                Some(block) => block.to_vec(),
+                None => self.txn().block(&cid)?.ok_or_else(|| {
+                    XrpcError::internal("the commit block of the import is missing")
+                })?,
+            };
+            let event = sync_event(self.did(), &commit_rev, &cid, &block, &now);
+            self.state_head(event, Committed { cid, rev });
+        }
+        Ok(())
     }
 
     /// Indexes the records an import changed: the record row, the links and
@@ -182,12 +201,14 @@ pub async fn import_repo(
     body: &mut Option<Body>,
 ) -> Result<Response, XrpcError> {
     let did = session(state, headers, Some(ACCESS_FULL))?;
-    {
+    let active = {
         let did = did.clone();
         state
-            .blocking(move |state| find_account(state, &did, true, false).map(|_| ()))
-            .await?;
-    }
+            .blocking(move |state| {
+                find_account(state, &did, true, false).map(|actor| actor.deactivated_at.is_none())
+            })
+            .await?
+    };
     body::expect_body(headers)?;
     let encoding = body::request_encoding(headers)?;
     if encoding != CAR {
@@ -216,7 +237,7 @@ pub async fn import_repo(
     });
     let car = body::collect(body.take().unwrap_or_default(), limit).await?;
     state
-        .blocking(move |state| transact(state, &did, |session| session.import(&car)))
+        .blocking(move |state| transact(state, &did, |session| session.import(&car, active)))
         .await?;
     Ok(StatusCode::OK.into_response())
 }

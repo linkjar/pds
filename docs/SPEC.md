@@ -61,7 +61,8 @@ listed in Appendix K.
 Revision 8 follows the first part of unit 4b: the S3-compatible blob
 store. It states the object names, how the Candidate uploads and what it
 needs at the start, and one more answer of the Reference that the writes
-run showed on that store. The evidence is in the
+run showed on that store. It also applies the owner's decisions of
+2026-10-13 on DD-18 and on `#sync` after an import. The evidence is in the
 [unit record](research/2026-10-13-s3-blob-store.md); the changes are listed
 in Appendix L.
 
@@ -268,6 +269,7 @@ answer. Until then the Harness does not count the row.
 | DD-16 | `createAccount` with the handle of a deactivated or taken-down account (§10.1). The pin answers 500 | 400 `InvalidRequest` | 5 |
 | DD-17 | `createAccount` with the email of a deactivated or taken-down account (§10.1). The pin answers 500 | 400 `InvalidRequest` | 5 |
 | DD-18 | `getBlob` of an upload that no record references, with blobs in the S3-compatible store (§6.4). The pin answers 500: it reads the object at its permanent name and does not map the store's `NoSuchKey`. On the disk store it answers 400 | 400 `InvalidRequest`, "Blob not found", on both stores | 4b |
+| DD-19 | `importRepo` into an account that is active (§6.5). The pin appends no event, and a strict relay drops the account's next commit, which does not follow the relay's copy | `#sync` for the imported head, and the account database's root follows | 4b |
 
 DD-11 and DD-12 cannot be observed before the server verifies a handle and
 reads a signing key itself, which it first does in unit 5.
@@ -704,8 +706,8 @@ the DPoP proof, nonce, scope.
   Candidate.
 - With blobs in the S3-compatible store the pin answers 500 to `getBlob`
   of an unreferenced upload, where it answers 400 on the disk store. The
-  Candidate answers 400 on both (§2.3, DD-18; it waits for the owner's
-  confirmation as a case of D15).
+  Candidate answers 400 on both (§2.3, DD-18; a case of D15, decided
+  2026-10-13).
 - The Candidate serves a blob only when its index row is permanent. A commit
   that stops after it moved an upload into place and before it stored the
   reference leaves the file in place and the row waiting; no record
@@ -734,11 +736,18 @@ the DPoP proof, nonce, scope.
   and a commit for another account, and replaces the repository with it
   (§2.3, DD-14).
 - As at the pin, the stored revision of an imported repository is a new
-  one, whatever the commit says; an import appends no event to the log and
-  does not write the root that the account database holds. An account that
-  moves in is deactivated while it imports, and its activation emits
-  `#sync` (§10.4). Whether an import into an active account emits `#sync`
-  is an open question for the owner ([plan.md](plan.md)).
+  one, whatever the commit says. An account that moves in is deactivated
+  while it imports: the import appends no event to the log and does not
+  write the root that the account database holds, as at the pin, and the
+  activation emits `#sync` (§10.4).
+- An import into an account that is active MUST append `#sync` for the
+  imported head and write the account database's root (decision of
+  2026-10-13; §2.3, DD-19). The event carries the commit block and names
+  the revision of that block, which a relay checks; the store and the
+  account database name the new stored revision. The commit, the note and
+  the event follow the order of §7.4, and the repair of §7.4 states the
+  same head when the server stops between them. The pin appends nothing
+  here.
 
 ### 6.6 Determinism
 
@@ -2196,7 +2205,11 @@ Revision 7 follows unit 4 and applies the owner's decisions of 2026-10-13.
 
 Revision 8 follows the first part of unit 4b, the S3-compatible blob store.
 
-- §2.3: DD-18 is new and observed.
+- §2.3: DD-18 is new and observed in the Harness. DD-19 is new; the
+  Candidate's side is held by `crates/linkjar-pds/tests/writes.rs`, and no
+  Harness scenario reads the firehose after an import yet.
+- §6.5: an import into an active account appends `#sync` (decision of
+  2026-10-13). The question that revision 7 left open is closed.
 - §6.4: what both servers answer to `getBlob` of an unreferenced upload on
   each store.
 - §8.1: the object names of the S3-compatible store, how the Candidate
