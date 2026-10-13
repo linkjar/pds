@@ -217,6 +217,31 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
     Ok(state)
 }
 
+/// Takes the lock file of the data directory, and refuses when another
+/// server of this kind holds it. The Reference takes no such lock: against
+/// it the runbook stops one server before it starts the other.
+fn lock_data_directory(config: &Config) -> Result<std::fs::File, ServeError> {
+    let dir = config
+        .layout
+        .account_db
+        .parent()
+        .unwrap_or_else(|| std::path::Path::new("."));
+    std::fs::create_dir_all(dir)?;
+    let path = dir.join("linkjar-pds.lock");
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(&path)?;
+    file.try_lock().map_err(|_| {
+        ServeError::Storage(format!(
+            "another server holds {}; one server serves a data directory",
+            path.display()
+        ))
+    })?;
+    Ok(file)
+}
+
 /// Starts the private metrics listener (SPEC §14.4): `GET /metrics` in the
 /// Prometheus text format. It is a listener of its own, so that the
 /// public port never serves it.
@@ -313,6 +338,9 @@ pub async fn serve(config: &Config) -> Result<(), ServeError> {
         tracing::warn!(%setting, "fail points are armed");
         pds_storage::fail::arm_from(setting)?;
     }
+    // One server for a data directory (SPEC §8.3, §18.4). The lock goes
+    // when the process ends, however it ends.
+    let _lock = lock_data_directory(config)?;
     create_missing_databases(config)?;
     let state = app_state(config)?;
     // Commits that were in flight at the last stop are settled before the
