@@ -27,11 +27,10 @@ flowchart BT
   oauth --> identity
   oauth -.-> account & lexicon & ext
   audit -.-> storage & repo
-  xrpc --> types & repo & storage & identity & blob & lexicon & sequencer & oauth
+  xrpc --> types & repo & storage & identity & blob & lexicon & sequencer & oauth & ext
   xrpc -.-> account
   ext -.-> types & storage
-  linkjar -.-> ext
+  linkjar --> ext & identity & types
   sim --> bin & xrpc & storage & sequencer & repo & identity & blob
-  bin --> types & xrpc & storage & identity & blob & repo & sequencer
-  bin -.-> linkjar
+  bin --> types & xrpc & storage & identity & blob & repo & sequencer & ext & linkjar
   xtask --> lexicon
