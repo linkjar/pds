@@ -1,6 +1,6 @@
 # LinkJar PDS Specification
 
-Status: Draft, revision 12, 2026-10-13
+Status: Draft, revision 13, 2026-10-13
 Normative keywords: **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, **MAY** ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119))
 
 LinkJar PDS is an AT Protocol Personal Data Server written in Rust. It is
@@ -92,6 +92,11 @@ owner: an account that moves here with its DID, the metrics listener, the
 lock of the data directory and the cutover runbook. The changes are
 listed in Appendix P.
 
+Revision 13 follows unit 9: the ops listener, operator roles and the
+operations console
+([unit record](research/2026-10-13-ops-console.md)). The changes are
+listed in Appendix Q.
+
 ## Table of Contents
 
 - [0. Conventions and Terminology](#0-conventions-and-terminology)
@@ -133,6 +138,7 @@ listed in Appendix P.
 - [Appendix N. Changes in Revision 10](#appendix-n-changes-in-revision-10)
 - [Appendix O. Changes in Revision 11](#appendix-o-changes-in-revision-11)
 - [Appendix P. Changes in Revision 12](#appendix-p-changes-in-revision-12)
+- [Appendix Q. Changes in Revision 13](#appendix-q-changes-in-revision-13)
 
 ## 0. Conventions and Terminology
 
@@ -1399,7 +1405,9 @@ rules of §8.4 apply.
 `authorize(operator, action) -> Allow | Deny` for every ops-listener action
 (§22.1), where the operator identity comes from an OAuth session on this
 server or the entryway. Stock: the basic-auth admin identity is the only
-operator. The `linkjar` profile grants roles to named accounts.
+operator. The `linkjar` profile grants roles to named accounts. As of
+unit 9 the roles are `operator` and `moderator`, and §22.1 says what each
+may do.
 
 ## 13. The LinkJar Profile
 
@@ -1524,7 +1532,8 @@ time.
   `pds_http_requests_total{route,status}`,
   `pds_http_request_duration_seconds{route}` as a histogram,
   `pds_audit_entries`, `pds_audit_unsigned_entries`,
-  `pds_audit_checkpoint_age_seconds` and, in a profile with notices,
+  `pds_audit_checkpoint_age_seconds`, `pds_firehose_subscribers` and, in a
+  profile with notices,
   `pds_notice_outbox_depth`. A `route` label is a method the server
   handles, a path it knows, `proxied` or `other`: a client cannot make a
   label. Not built: commit latency, sequencer lag, subscriber counts,
@@ -2068,6 +2077,42 @@ repository cards; job state; abuse lists; rate multipliers; `verify`,
 invite controls. Every mutating call carries an operator identity and a
 reason and produces an audit entry naming the console.
 
+As of unit 9:
+
+- **Credentials.** `Authorization: Basic` with the admin password, or
+  `Authorization: DPoP` with an OAuth access token of this server. A
+  token is taken when its client is one of `PDS_OPS_CLIENT_IDS`, the
+  profile grants roles (§12.11) and the account holds one. The DPoP proof
+  names the public address of the server, not the address of the
+  listener.
+- **Roles.** `moderator` reads, changes the status of a subject, ends the
+  sessions of an account and disables invites. `operator` takes every
+  action but the grant of a role. Only the admin credential grants and
+  revokes a role. The roles are rows of `ops.sqlite`.
+- **Reason.** Every `POST` carries `X-Ops-Reason`: one line of at most
+  500 bytes. A request without it is refused with 400.
+- **Reads.** `internal.ops.getOperator`, `getOverview`, `listSubscribers`,
+  `listAccounts`, `getAccount`, `listAudit`, `listRoles`,
+  `listBlockedEmailDomains` and `verify`, and the stream
+  `internal.ops.subscribeState`, which sends the overview and the
+  subscribers as a JSON text frame every two seconds.
+- **Actions.** `internal.ops.disconnectSubscriber`, `revokeSessions`,
+  `grantRole`, `revokeRole`, `blockEmailDomain`, `unblockEmailDomain`,
+  `emitSync`, `purgeExpired` and `checkpoint`.
+- **Admin methods.** The listener serves `com.atproto.admin.*`,
+  `createInviteCode` and `createInviteCodes` for an operator. It runs
+  them with the admin credential, and the audit entry names the operator.
+- **Audit.** The entry of an action has the operator as actor, the
+  credential (`admin` or `oauth`), the OAuth client, the reason, and
+  `console` as sidecar. A refused action is an entry with the name of
+  the refusal as outcome.
+- **Blocked email domains.** `createAccount` refuses an address whose
+  domain, or a domain above it, is on the list.
+- **Not built:** upstream health, job state beyond the counts of the
+  overview, rate multipliers, blocked IP ranges, `repair`, blob garbage
+  collection and log compaction as triggers, a rate cap for a subscriber,
+  and the queue depth of a subscriber.
+
 ### 22.2 MCP bridge
 
 The MCP server is a confidential atproto OAuth client of this server with a
@@ -2205,6 +2250,8 @@ New in the Candidate:
 - `PDS_PROFILE`: `stock` (default) or `linkjar`.
 - `PDS_METRICS_ADDRESS`: the private metrics listener; unset disables it.
 - `PDS_OPS_ADDRESS`: the private ops listener (§22.1); unset disables it.
+- `PDS_OPS_CLIENT_IDS`: the OAuth client ids of the consoles whose
+  sessions the ops listener takes, separated by commas (§22.1).
 - `PDS_OTLP_ENDPOINT`: OTLP/HTTP export target (§14.4); unset disables it.
 - `PDS_AUDIT_KEY_*`: the audit checkpoint key reference (§20.3). As of
   unit 7 the Candidate reads `PDS_AUDIT_KEY_ED25519_PRIVATE_KEY_HEX`, the
@@ -2493,3 +2540,16 @@ Revision 12 follows the part of unit 8 that needs no system of the owner.
   A second server on the directory exits 2.
 - §18: the procedure is written as
   [`docs/runbooks/cutover.md`](runbooks/cutover.md).
+
+## Appendix Q. Changes in Revision 13
+
+Revision 13 follows unit 9.
+
+- §22.1: the credentials, the roles, the reason header, the methods and
+  the audit entries of the ops listener as built, and what is not built.
+- §12.11: the profile decides whether named accounts hold roles. The
+  stock profile grants none; the `linkjar` profile grants `operator` and
+  `moderator`.
+- §14.4: the metric `pds_firehose_subscribers`.
+- Appendix C: `PDS_OPS_CLIENT_IDS`.
+- [sidecars.md](sidecars.md) §1.6: the state of the console.

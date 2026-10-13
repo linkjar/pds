@@ -27,11 +27,12 @@ instead of source patches. Dual-licensed MIT or Apache-2.0.
 > checkpoints and an offline verifier. From unit 8 the server takes an
 > account that moves here, serves metrics on a private listener, and has
 > a [cutover runbook](docs/runbooks/cutover.md); the cutover itself is the
-> owner's. Not built yet: the sidecars, Postgres and the entryway. The
-> repository engine
+> owner's. Unit 9 adds the ops listener, operator roles and the
+> [operations console](docs/sidecars.md#16-state-after-unit-9). Not built
+> yet: the MCP sidecar, Postgres and the entryway. The repository engine
 > is written here and gives the same bytes as `@atproto/repo` at the pin
 > ([decision D2](docs/research/2026-10-12-repository-crate.md)). The
-> specification is at revision 12. The reference image under
+> specification is at revision 13. The reference image under
 > [`legacy/`](legacy/README.md) remains the deployed server until cutover.
 > Progress is logged in [docs/plan.md](docs/plan.md#status).
 

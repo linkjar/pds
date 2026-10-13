@@ -93,6 +93,49 @@ typed confirmation and a reason. The reason goes into the audit entry.
 Not a labeler and not Ozone. It moderates hosting status and content on
 this PDS. If LinkJar later runs a labeling service, the console links to it.
 
+### 1.6 State after unit 9
+
+Built, as the crate `pds-console` and the binary `linkjar-pds-console`
+(image: `Dockerfile.console`):
+
+- **Sign-in.** The console is a loopback OAuth client of the PDS. The
+  operator signs in on the pages of the PDS; the console keeps the session
+  and its DPoP key in memory, and a restart signs every operator out. An
+  account without a role gets no session.
+- **Pages.** The overview with live numbers and the diagram of the
+  firehose subscribers; the accounts and the card of one account with its
+  sessions; the audit log; the blocked email domains; the roles.
+- **Actions.** Take an account down and lift the takedown, end the
+  sessions of an account, send `#sync`, disconnect a subscriber, block
+  and unblock an email domain, sign a checkpoint, remove expired sessions.
+  Each form has a field for the reason. A takedown needs the DID typed
+  again.
+- **Rules.** The console holds no database connection, no signing key and
+  no secret of the PDS. Every page has a content security policy without
+  inline script, and every form has the token of its session.
+
+Configuration: `CONSOLE_PUBLIC_URL` (a loopback address such as
+`http://127.0.0.1:2585`), `CONSOLE_PDS_PUBLIC_URL`,
+`CONSOLE_PDS_INTERNAL_URL`, `CONSOLE_OPS_URL` and `CONSOLE_ADDRESS`. The
+console logs its client id at start; `PDS_OPS_CLIENT_IDS` of the PDS must
+hold it.
+
+Not built:
+
+1. The telemetry pane and the OTLP receiver. The PDS exports no OTLP yet.
+2. A console under a host name. The console is a loopback client, so an
+   operator reaches it through an SSH tunnel or a VPN that ends on the
+   loopback address. A host name needs client metadata that the PDS can
+   fetch, or a client that the PDS knows without a fetch.
+3. Relay crawl status, upstream health, job state, the result of the last
+   `verify` on a card, and the inclusion proof of an audit entry.
+4. Record and blob takedowns, forced email, handle and password changes,
+   scheduled deletion, invite codes, rate multipliers, blocked IP ranges,
+   and the cleanup triggers. The ops listener serves the admin methods
+   for the first five; the console has no form for them.
+5. The live views use a request every two seconds, not a WebSocket. The
+   ops listener has the stream.
+
 ## 2. The MCP server
 
 ### 2.1 Purpose
