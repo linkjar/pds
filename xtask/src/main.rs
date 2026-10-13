@@ -109,7 +109,9 @@ fn bundle(root: &std::path::Path) -> Result<String> {
             .strip_prefix(root)
             .context("lexicon outside the root")?;
         let relative = relative.to_str().context("lexicon path is not UTF-8")?;
-        out.push_str(&format!("    include_str!(\"../../../{relative}\"),\n"));
+        out.push_str("    include_str!(\"../../../");
+        out.push_str(relative);
+        out.push_str("\"),\n");
     }
     out.push_str("];\n");
     Ok(out)
