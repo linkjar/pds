@@ -92,6 +92,10 @@ pub(crate) fn checked_handle(
         return Err(refuse("UnsupportedDomain", "Not a supported handle domain"));
     };
     let front = &handle[..handle.len() - domain.len()];
+    // A reservation of the profile holds for the admin too.
+    if state.config().profile.reserves(domain, front) {
+        return Err(refuse("HandleNotAvailable", "Reserved handle"));
+    }
     if front.contains('.') {
         return Err(refuse("InvalidHandle", "Invalid characters in handle"));
     }

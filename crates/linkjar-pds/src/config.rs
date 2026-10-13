@@ -169,6 +169,15 @@ fn refusal(name: &str) -> Option<&'static str> {
     }
 }
 
+/// Which profile the server runs (SPEC §12.1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProfileName {
+    /// The Stock Reference's behaviour.
+    Stock,
+    /// LinkJar's behaviour (SPEC §13).
+    Linkjar,
+}
+
 /// The settings of the read-only server.
 #[derive(Clone)]
 pub struct Config {
@@ -229,6 +238,8 @@ pub struct Config {
     /// `PDS_RATE_LIMITS_ENABLED`, `PDS_RATE_LIMIT_BYPASS_KEY` and
     /// `PDS_RATE_LIMIT_BYPASS_IPS`.
     pub rate_limits: pds_xrpc::ratelimit::RateLimitConfig,
+    /// `PDS_PROFILE` (SPEC §12.1).
+    pub profile: ProfileName,
     /// The OAuth settings (SPEC §11).
     pub oauth: pds_xrpc::oauth::OAuthConfig,
     /// `PDS_BSKY_APP_VIEW_CDN_URL_PATTERN`.
@@ -421,6 +432,19 @@ impl Env<'_> {
         })
     }
 
+    /// `PDS_PROFILE`: `stock` when unset.
+    fn profile(&self) -> Result<ProfileName, ConfigError> {
+        match self.text("PDS_PROFILE").as_deref() {
+            None | Some("stock") => Ok(ProfileName::Stock),
+            Some("linkjar") => Ok(ProfileName::Linkjar),
+            Some(other) => Err(ConfigError::Invalid {
+                name: "PDS_PROFILE",
+                value: other.to_owned(),
+                reason: "expected stock or linkjar",
+            }),
+        }
+    }
+
     /// The OAuth settings.
     fn oauth(&self) -> Result<pds_xrpc::oauth::OAuthConfig, ConfigError> {
         Ok(pds_xrpc::oauth::OAuthConfig {
@@ -519,6 +543,8 @@ impl Env<'_> {
 
 impl Config {
     /// Reads the configuration from `vars`.
+    // A table: one entry for each setting.
+    #[allow(clippy::too_many_lines)]
     pub fn from_vars(vars: &BTreeMap<String, String>) -> Result<Self, ConfigError> {
         let env = Env(vars);
         let unknown_variables = env.unknown_variables()?;
@@ -602,6 +628,7 @@ impl Config {
             recovery_did_key: env.text("PDS_RECOVERY_DID_KEY"),
             mail: env.mail()?,
             rate_limits: env.rate_limits()?,
+            profile: env.profile()?,
             oauth: env.oauth()?,
             appview_cdn_url_pattern: env.text("PDS_BSKY_APP_VIEW_CDN_URL_PATTERN"),
             jwt_secret: env.text("PDS_JWT_SECRET"),

@@ -139,3 +139,127 @@ fn escape(text: &str) -> String {
         .replace('>', "&gt;")
         .replace('"', "&quot;")
 }
+
+/// The path that a proxy in front of the server rewrites a request on a
+/// handle host to (`legacy/staging/Caddyfile.handles`).
+pub const PROFILE_HELPER: &str = "/.well-known/linkjar-profile";
+
+fn host_of(headers: &HeaderMap) -> String {
+    headers
+        .get(header::HOST)
+        .and_then(|value| value.to_str().ok())
+        .map(|host| host.rsplit_once(':').map_or(host, |(name, _port)| name))
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+}
+
+/// The page of the account that holds the host name as its handle: a
+/// redirect that the profile builds from the DID alone. The path and the
+/// query of the request have no part in it.
+async fn profile_redirect(state: &AppState, host: String) -> Response {
+    let found = {
+        let host = host.clone();
+        state
+            .blocking(move |state| {
+                let accounts = AccountDb::open(&state.layout().account_db)?;
+                Ok(accounts.actor(&host, Availability::ACTIVE)?)
+            })
+            .await
+    };
+    let target = match found {
+        Ok(Some(actor)) => state.config().profile.profile_page(&host, &actor.did),
+        _ => None,
+    };
+    let mut response = match target.and_then(|url| HeaderValue::from_str(&url).ok()) {
+        Some(location) => {
+            let mut response = StatusCode::FOUND.into_response();
+            response.headers_mut().insert(header::LOCATION, location);
+            response
+        }
+        None => html(StatusCode::NOT_FOUND, "User not found".to_owned()),
+    };
+    response
+        .headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    response
+}
+
+/// What the host name of a hosted handle serves (SPEC §12.4, §13.2).
+///
+/// It serves the DID of the handle, and a redirect to the account's page.
+/// It serves no other well-known document, no XRPC method and no page of
+/// the server, so nothing of an account is readable under a name that the
+/// account chose. `None` means the request is for the server itself.
+pub async fn handle_host(
+    state: &AppState,
+    method: &Method,
+    path: &str,
+    headers: &HeaderMap,
+) -> Option<Response> {
+    let config = state.config();
+    if !config.profile.has_handle_hosts() {
+        return None;
+    }
+    let reads = method == Method::GET || method == Method::HEAD;
+    let host = host_of(headers);
+    // A proxy that already sorted the request sends the rest here.
+    if path == PROFILE_HELPER {
+        return Some(if reads {
+            profile_redirect(state, host).await
+        } else {
+            not_found(method, path)
+        });
+    }
+    if host == config.hostname || !config.is_hosted_handle(&host) {
+        return None;
+    }
+    let mut response = if path == pds_identity::handle::WELL_KNOWN_PATH && reads {
+        atproto_did(state, headers).await
+    } else if path.starts_with("/.well-known/") || path.starts_with("/xrpc/") {
+        text(
+            StatusCode::NOT_FOUND,
+            format!("Use the PDS service endpoint at {}", config.hostname),
+        )
+    } else if reads {
+        profile_redirect(state, host).await
+    } else {
+        not_found(method, path)
+    };
+    let headers = response.headers_mut();
+    headers.remove(header::SET_COOKIE);
+    for (name, value) in [
+        (
+            header::CONTENT_SECURITY_POLICY,
+            "default-src 'none'; sandbox",
+        ),
+        (header::X_CONTENT_TYPE_OPTIONS, "nosniff"),
+        (header::REFERRER_POLICY, "no-referrer"),
+    ] {
+        headers.insert(name, HeaderValue::from_static(value));
+    }
+    Some(response)
+}
+
+/// The routes outside `/xrpc/` that need no body: the handle hosts of the
+/// profile, then the plain routes of the server (SPEC §4.1). `None` means
+/// the path is not one of them.
+pub async fn plain(
+    state: &AppState,
+    method: &Method,
+    path: &str,
+    headers: &HeaderMap,
+) -> Option<Response> {
+    if let Some(response) = handle_host(state, method, path, headers).await {
+        return Some(response);
+    }
+    if method != Method::GET && method != Method::HEAD {
+        return None;
+    }
+    match path {
+        "/" => Some(banner()),
+        "/robots.txt" => Some(robots()),
+        "/xrpc/_health" => Some(health(state).await),
+        pds_identity::handle::WELL_KNOWN_PATH => Some(atproto_did(state, headers).await),
+        _ => None,
+    }
+}

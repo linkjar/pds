@@ -22,7 +22,6 @@ pub mod sync;
 use axum::extract::State;
 use axum::http::{HeaderMap, Method};
 use axum::response::{IntoResponse, Response};
-use pds_identity::handle::WELL_KNOWN_PATH;
 use pds_storage::{AccountDb, Actor, Availability};
 
 use crate::auth::{Credentials, optional_credentials};
@@ -351,12 +350,8 @@ pub async fn entry(State(state): State<AppState>, request: axum::extract::Reques
     let uri = parts.uri.clone();
     let path = uri.path();
     let reads = method == Method::GET || method == Method::HEAD;
-    match path {
-        "/" if reads => return root::banner(),
-        "/robots.txt" if reads => return root::robots(),
-        "/xrpc/_health" if reads => return root::health(&state).await,
-        WELL_KNOWN_PATH if reads => return root::atproto_did(&state, &parts.headers).await,
-        _ => {}
+    if let Some(response) = root::plain(&state, &method, path, &parts.headers).await {
+        return response;
     }
     let peer = parts
         .extensions

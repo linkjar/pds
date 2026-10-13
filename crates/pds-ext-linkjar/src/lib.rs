@@ -37,6 +37,10 @@ impl Profile for Linkjar {
         handle::rename(policy, previous, handle, now_ms)
     }
 
+    fn has_handle_hosts(&self) -> bool {
+        true
+    }
+
     fn profile_page(&self, handle: &str, did: &str) -> Option<String> {
         let label = handle.strip_suffix(handle::DOMAIN)?;
         if !handle::is_linkjar_handle(handle) || reserved::is_reserved_label(label) {

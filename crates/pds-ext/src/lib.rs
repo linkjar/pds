@@ -56,6 +56,12 @@ pub trait Profile: Send + Sync + Debug {
         Rename::Free
     }
 
+    /// Whether the server answers the host name of a hosted handle with
+    /// the handle's identity and nothing else (§12.4).
+    fn has_handle_hosts(&self) -> bool {
+        false
+    }
+
     /// Where a handle host sends a browser: the page of the account `did`
     /// that holds `handle`. `None` means the profile has no such page for
     /// the handle.
