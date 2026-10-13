@@ -43,6 +43,14 @@ pub struct Flow<'a> {
     pub captcha: Option<&'a str>,
 }
 
+/// Reads an invite code from the fragment into the form and into the
+/// provider links.
+const INVITE_HANDOFF: &str = "(function(){var m=/(?:^#|&)invite=([^&]+)/.exec(location.hash);if(!m)return;\
+var c=decodeURIComponent(m[1]),f=document.getElementById('inviteCode'),w=document.getElementById('invite-field');\
+if(f){f.value=c;if(w)w.hidden=true;}\
+var a=document.querySelectorAll('a[data-provider]');\
+for(var i=0;i<a.length;i++){a[i].href+=(a[i].href.indexOf('?')<0?'?':'&')+'invite='+encodeURIComponent(c);}})();";
+
 const STYLE: &str = "\
 :root{color-scheme:light dark;--bg:#fff;--fg:#111827;--muted:#4b5563;--line:#d1d5db;--brand:#1d4ed8;--brand-fg:#fff;--bad:#b91c1c;--bad-bg:#fef2f2}\
 @media(prefers-color-scheme:dark){:root{--bg:#0b1220;--fg:#f3f4f6;--muted:#cbd5e1;--line:#475569;--brand:#93c5fd;--brand-fg:#0b1220;--bad:#fecaca;--bad-bg:#450a0a}}\
@@ -123,7 +131,7 @@ fn provider_buttons(flow: &Flow<'_>) -> String {
         );
         let _ = write!(
             out,
-            "<a class=\"button\" href=\"/oauth/external/{}/start?{query}\">Continue with {}</a>",
+            "<a class=\"button\" data-provider href=\"/oauth/external/{}/start?{query}\">Continue with {}</a>",
             escape(id),
             escape(label)
         );
@@ -290,8 +298,8 @@ pub fn sign_up_credentials(
 ) -> String {
     let invite = if invite_required {
         format!(
-            "<label for=\"inviteCode\">Invite code</label>\
-<input id=\"inviteCode\" type=\"text\" name=\"inviteCode\" value=\"{}\" autocapitalize=\"none\" spellcheck=\"false\" required>",
+            "<div id=\"invite-field\"><label for=\"inviteCode\">Invite code</label>\
+<input id=\"inviteCode\" type=\"text\" name=\"inviteCode\" value=\"{}\" autocapitalize=\"none\" spellcheck=\"false\" required></div>",
             escape(invite_code)
         )
     } else {
@@ -311,6 +319,14 @@ pub fn sign_up_credentials(
         escape(email),
         provider_buttons(flow),
         view_form(flow, &[("welcome", "Back", false)]),
+    );
+    // The app hands an invite code over in the fragment `#invite=<code>`
+    // (patch 103). The page then submits it in place of the field, and the
+    // provider links carry it. A page that was sent back with an error
+    // has no fragment, so the field shows again with the server's answer.
+    let body = format!(
+        "{body}<script nonce=\"{}\">{INVITE_HANDOFF}</script>",
+        escape(flow.nonce)
     );
     document(flow.nonce, "Create a new account", &body)
 }
@@ -686,7 +702,7 @@ mod tests {
 
         let sign_up = sign_up_credentials(&FLOW, true, "", "", None);
         assert!(sign_up.contains("name=\"email\"") && sign_up.contains("name=\"inviteCode\""));
-        assert!(!sign_up_credentials(&FLOW, false, "", "", None).contains("inviteCode"));
+        assert!(!sign_up_credentials(&FLOW, false, "", "", None).contains("name=\"inviteCode\""));
         assert!(
             sign_up_handle(&FLOW, "p", "alice", ".test", None)
                 .contains("name=\"handle\" value=\"alice\"")
@@ -726,7 +742,7 @@ mod tests {
             ..FLOW
         };
         let page = sign_in(&flow, "", false, None);
-        let link = "href=\"/oauth/external/google/start?request_uri=urn%3Aietf%3Aparams%3Aoauth%3Arequest_uri%3Areq-00\">Continue with Google</a>";
+        let link = "data-provider href=\"/oauth/external/google/start?request_uri=urn%3Aietf%3Aparams%3Aoauth%3Arequest_uri%3Areq-00\">Continue with Google</a>";
         assert!(page.contains(link), "{page}");
         assert!(page.contains("<details><summary>Or use email</summary><form"));
         assert!(

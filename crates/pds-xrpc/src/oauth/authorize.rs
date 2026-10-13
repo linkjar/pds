@@ -154,7 +154,7 @@ pub(super) fn html(
     let mut response = (status, body).into_response();
     let headers = response.headers_mut();
     let csp = format!(
-        "default-src 'none'; style-src 'nonce-{nonce}'; base-uri 'none'; frame-ancestors 'none'"
+        "default-src 'none'; style-src 'nonce-{nonce}'; script-src 'nonce-{nonce}'; base-uri 'none'; frame-ancestors 'none'"
     );
     if let Ok(csp) = HeaderValue::from_str(&csp) {
         headers.insert(header::CONTENT_SECURITY_POLICY, csp);
