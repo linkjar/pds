@@ -365,6 +365,20 @@ async fn a_client_is_authorized_and_its_session_is_used_refreshed_and_revoked() 
         json!([server.issuer])
     );
 
+    // A browser on another origin may call the token endpoint.
+    let preflight = server
+        .send(reqwest::Method::OPTIONS, "/oauth/token", None, &[])
+        .await;
+    assert_eq!(preflight.status, 200);
+    for (name, value) in [
+        ("access-control-allow-origin", "*"),
+        ("access-control-allow-methods", "*"),
+        ("access-control-allow-headers", "Content-Type,DPoP"),
+        ("access-control-max-age", "86400"),
+    ] {
+        assert_eq!(preflight.header(name), Some(value), "{name}");
+    }
+
     // The first request has no nonce. The server gives one.
     let first = server.push(&[]).await;
     assert_eq!(
