@@ -2,7 +2,8 @@
 
 use std::path::Path;
 
-use rusqlite::{Connection, OpenFlags, OptionalExtension, named_params};
+use crate::sql::{Connection, OptionalExtension, named_params};
+use rusqlite::OpenFlags;
 
 use crate::error::StorageError;
 
@@ -29,7 +30,7 @@ impl DidCacheDb {
         let flags = OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX;
         let conn = crate::io::open(path, flags)?;
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
-        Ok(Self { conn })
+        Ok(Self { conn: conn.into() })
     }
 
     /// The cached document of a DID.

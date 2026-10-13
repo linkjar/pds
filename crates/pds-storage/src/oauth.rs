@@ -7,7 +7,7 @@
 //! Times are ISO 8601 text, and `parameters` and `clientAuth` are JSON
 //! text, as the Reference writes them.
 
-use rusqlite::{OptionalExtension, Row, params};
+use crate::sql::{OptionalExtension, Row, params};
 
 use crate::account::AccountDb;
 use crate::error::StorageError;
@@ -36,7 +36,7 @@ pub struct RequestRow {
 const REQUEST_COLUMNS: &str =
     r#""id", "did", "deviceId", "clientId", "clientAuth", "parameters", "expiresAt", "code""#;
 
-fn request_from_row(row: &Row<'_>) -> rusqlite::Result<RequestRow> {
+fn request_from_row(row: &Row<'_>) -> crate::sql::Result<RequestRow> {
     Ok(RequestRow {
         id: row.get(0)?,
         did: row.get(1)?,
@@ -106,7 +106,7 @@ pub struct TokenRow {
 
 const TOKEN_COLUMNS: &str = r#""id", "did", "tokenId", "createdAt", "updatedAt", "expiresAt", "clientId", "clientAuth", "deviceId", "parameters", "code", "currentRefreshToken", "scope""#;
 
-fn token_from_row(row: &Row<'_>) -> rusqlite::Result<TokenRow> {
+fn token_from_row(row: &Row<'_>) -> crate::sql::Result<TokenRow> {
     Ok(TokenRow {
         id: row.get(0)?,
         did: row.get(1)?,
