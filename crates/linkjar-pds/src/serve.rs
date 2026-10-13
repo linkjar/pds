@@ -96,6 +96,14 @@ pub fn create_missing_databases(config: &Config) -> Result<(), ServeError> {
             tracing::info!(path = %path.display(), "created a database of the data directory");
         }
     }
+    if config.profile == crate::config::ProfileName::Linkjar {
+        let applied = pds_storage::AccountDb::open_writable(&layout.account_db)
+            .and_then(|mut accounts| accounts.apply_linkjar_migrations(&now))
+            .map_err(|error| ServeError::Storage(error.to_string()))?;
+        if applied > 0 {
+            tracing::info!(applied, "applied migrations of the linkjar profile");
+        }
+    }
     Ok(())
 }
 
@@ -147,6 +155,11 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
         mail: config.mail.clone(),
         rate_limits: config.rate_limits.clone(),
         oauth: config.oauth.clone(),
+        profile: if config.profile == crate::config::ProfileName::Linkjar {
+            Arc::new(pds_ext_linkjar::Linkjar)
+        } else {
+            Arc::new(pds_ext::Stock)
+        },
         appview_cdn_url_pattern: config.appview_cdn_url_pattern.clone(),
         identity: config.plc_rotation_key.clone().map(|rotation_key| {
             pds_xrpc::state::IdentityConfig {

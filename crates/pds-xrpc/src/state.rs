@@ -52,6 +52,8 @@ pub struct ServerConfig {
     pub mail: crate::mail::MailConfig,
     /// The settings of the rate limits.
     pub rate_limits: crate::ratelimit::RateLimitConfig,
+    /// The operator's behaviour on top of the protocol (SPEC §12).
+    pub profile: Arc<dyn pds_ext::Profile>,
     /// The OAuth settings.
     pub oauth: crate::oauth::OAuthConfig,
     /// `PDS_BSKY_APP_VIEW_CDN_URL_PATTERN`: the URL of an image, with `%s`

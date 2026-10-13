@@ -359,6 +359,45 @@ pub async fn update_handle(
     Ok(StatusCode::OK.into_response())
 }
 
+/// Applies the rename rule of the profile (SPEC §12.4) before anything is
+/// written to the PLC directory. A change that spends an allowance records
+/// its target first, so two requests cannot both spend it, and the target
+/// stays claimed when the write to the directory has an unknown outcome.
+fn claim_rename(
+    state: &AppState,
+    accounts: &AccountDb,
+    did: &str,
+    previous: Option<&str>,
+    handle: &str,
+) -> Result<(), XrpcError> {
+    let profile = &state.config().profile;
+    if !profile.keeps_handle_policy() {
+        return Ok(());
+    }
+    let refuse = |message: &str| XrpcError::bad_request("HandleNotAvailable", message);
+    let row = accounts
+        .handle_policy(did)?
+        .map(|row| pds_ext::HandlePolicyRow {
+            created_ms: chrono::DateTime::parse_from_rfc3339(&row.created_at)
+                .ok()
+                .map(|created| created.timestamp_millis()),
+            claimed: row.rename_handle,
+        });
+    match profile.rename(row.as_ref(), previous, handle, state.now_ms()) {
+        pds_ext::Rename::Free => Ok(()),
+        pds_ext::Rename::Refused(message) => Err(refuse(message)),
+        pds_ext::Rename::Claim => {
+            let claimed = writes(state)?
+                .with_accounts(|accounts| accounts.claim_handle_rename(did, handle))?;
+            if claimed {
+                Ok(())
+            } else {
+                Err(refuse("Handle change is already in progress."))
+            }
+        }
+    }
+}
+
 /// Gives the account `did` the handle `given`, as `updateHandle` of the
 /// account manager. The admin may give a reserved name.
 pub(crate) async fn change_handle(
@@ -377,9 +416,9 @@ pub(crate) async fn change_handle(
                     include_taken_down: false,
                     include_deactivated: true,
                 };
-                if accounts.actor(&did, availability)?.is_none() {
+                let Some(actor) = accounts.actor(&did, availability)? else {
                     return Err(XrpcError::invalid_request("Account not found"));
-                }
+                };
                 let (handle, hosted) =
                     super::account::checked_handle(state, &given, true, allow_reserved)?;
                 if accounts
@@ -391,6 +430,7 @@ pub(crate) async fn change_handle(
                         format!("Handle already taken: {handle}"),
                     ));
                 }
+                claim_rename(state, &accounts, &did, actor.handle.as_deref(), &handle)?;
                 Ok((handle, hosted))
             })
             .await?

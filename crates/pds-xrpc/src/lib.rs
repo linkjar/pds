@@ -28,6 +28,7 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 
 pub use error::XrpcError;
+pub use pds_ext as ext;
 pub use state::{AppState, ServerConfig, WriteSettings, WriteState};
 
 /// The server's routes over `state`.
