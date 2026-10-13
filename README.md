@@ -6,18 +6,20 @@ instead of source patches. Dual-licensed MIT or Apache-2.0.
 
 > Status: unit 4 of 13. The server reads and writes repositories and
 > serves the firehose, on a data directory that the reference server
-> started. The [parity harness](parity/README.md) runs the same write,
+> started. Blobs are on disk or in an S3-compatible store with the
+> reference server's object names
+> ([unit record](docs/research/2026-10-13-s3-blob-store.md)). The [parity harness](parity/README.md) runs the same write,
 > blob, import and firehose scenarios on both servers and allows only the
 > differences the owner decided
 > ([unit record](docs/research/2026-10-13-writes-and-firehose.md)). A relay
 > in strict mode accepts every commit. When the server stops between a
 > commit and its event, it states the head with `#sync` at the next start.
 > A simulation runs seeded plans with stops inside commits every night.
-> Not built yet: accounts, sessions and OAuth (unit 5), the S3-compatible
-> blob store, and storage faults in the simulation. The repository engine
+> Not built yet: accounts, sessions and OAuth (unit 5), and storage and
+> network faults in the simulation. The repository engine
 > is written here and gives the same bytes as `@atproto/repo` at the pin
 > ([decision D2](docs/research/2026-10-12-repository-crate.md)). The
-> specification is at revision 7. The reference image under
+> specification is at revision 8. The reference image under
 > [`legacy/`](legacy/README.md) remains the deployed server until cutover.
 > Progress is logged in [docs/plan.md](docs/plan.md#status).
 
@@ -111,6 +113,11 @@ export PDS_HOSTNAME=pds.example.com PDS_DATA_DIRECTORY=/path/to/copy \
 cargo run -p linkjar-pds -- verify   # reads only; exit 1 on a difference
 cargo run -p linkjar-pds -- serve    # port 2583
 ```
+
+For blobs in an S3-compatible store, set the reference server's
+`PDS_BLOBSTORE_S3_*` variables in place of `PDS_BLOBSTORE_DISK_LOCATION`
+(SPEC Appendix C). `verify` then lists the bucket and changes nothing in it;
+`serve` writes to it, so point it at a copy of the bucket.
 
 The variables are the reference server's (SPEC Appendix C). `serve` writes
 to the copy: records, blobs and events for a session that the reference

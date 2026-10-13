@@ -18,6 +18,7 @@ type Images = {
   mail: PinnedImage
   edge: PinnedImage
   plcDatabase: PinnedImage
+  s3: PinnedImage
 }
 type Upstream = { tag: string; commit: string; revision: number; officialImage: string }
 
@@ -83,6 +84,7 @@ export const composeImages = () => ({
   RELAY_IMAGE: byDigest(images.relay),
   MAIL_IMAGE: byDigest(images.mail),
   PLC_DATABASE_IMAGE: byDigest(images.plcDatabase),
+  S3_IMAGE: byDigest(images.s3),
   PLC_REPOSITORY: images.plc.repository,
   PLC_COMMIT: images.plc.commit,
 })

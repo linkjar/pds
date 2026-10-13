@@ -32,7 +32,10 @@ scenario('05-blobs', {}, async (s) => {
   refused(await s.http('uploadBlob without a credential', { method: 'POST', path: '/xrpc/com.atproto.repo.uploadBlob', body: text, contentType: 'text/plain' }), 'AuthMissing')
 
   // SPEC 6.4: an unreferenced upload is not downloadable and is absent from listBlobs.
-  refused(await s.query('getBlob before any record references it', 'com.atproto.sync.getBlob', { did: alice.did, cid: blob.ref.$link }), 'InvalidRequest')
+  // The Reference answers 400 InvalidRequest on the disk store and 500 on
+  // the S3-compatible store, where it does not map the store's NoSuchKey.
+  // The transcript holds the answer.
+  refused(await s.query('getBlob before any record references it', 'com.atproto.sync.getBlob', { did: alice.did, cid: blob.ref.$link }))
   const none = await s.query('listBlobs before any record references it', 'com.atproto.sync.listBlobs', { did: alice.did })
   assert.deepEqual(none.json.cids, [])
 

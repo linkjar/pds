@@ -18,6 +18,22 @@ type Pool = { accounts: Account[]; next: number }
 
 const file = (target: TargetName) => join(targetSpec(target).runDir, 'account-pool.json')
 
+/** The collection and the bytes of the seeded blob (scenarios/writes/01-seed-blob). */
+export const SEEDED_NOTE = 'com.example.parity.note'
+export const SEEDED_BYTES = Buffer.from('stored by the Reference\n')
+
+const seedFile = (target: TargetName) => join(targetSpec(target).runDir, 'seeded.json')
+
+/** What a seed scenario left on the Reference for a scenario that runs after the takeover. */
+export function saveSeed(target: TargetName, seed: unknown): void {
+  writeFileSync(seedFile(target), JSON.stringify(seed, null, 2) + '\n', { mode: 0o600 })
+}
+
+export function loadSeed<T>(target: TargetName): T {
+  if (!existsSync(seedFile(target))) throw new Error('No seed. Scenarios that need one run through: pnpm parity writes')
+  return JSON.parse(readFileSync(seedFile(target), 'utf8'))
+}
+
 export const poolEnabled = () => process.env.PARITY_ACCOUNT_POOL === '1'
 
 export function savePool(target: TargetName, accounts: Account[]): void {

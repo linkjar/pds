@@ -138,6 +138,7 @@ upstream bumps, which nothing does today beyond the image smoke gate.
 
 | Date | Event |
 |---|---|
+| 2026-10-13 | Unit 4b, first part, on `feat/unit-4b-s3-store`. **The Candidate keeps blobs in an S3-compatible store** ([unit record](research/2026-10-13-s3-blob-store.md)). The owner chose on 2026-10-13 to build the three missing parts of unit 4 before unit 5, the store first. The object names are the Reference's, requests are signed with Signature Version 4, and an upload goes to the store in parts of 8 MiB as the client sends it. The writes run has an `s3` stage on a store that checks signatures: the Reference stores a blob and stages an upload, the Candidate takes over, serves and removes them, and `verify` checks the bucket with 0 differences. The stage showed that the Reference answers 500 to `getBlob` of an unreferenced upload on this store; the Candidate answers 400 (DD-18, [below](#open-questions-for-the-owner)). SPEC revision 8. The first nightly seed run of unit 4 was dispatched by hand after `sim.yml` was repaired (pull request #30). Next: the fault-injecting VFS, then `turmoil`. |
 | 2026-10-13 | Unit 4 on `feat/unit-4-writes`. **The Candidate writes, sequences and serves the firehose on a data directory that the Reference started** ([unit record](research/2026-10-13-writes-and-firehose.md)). `createRecord`, `putRecord`, `deleteRecord`, `applyWrites`, `uploadBlob`, `importRepo`, `listMissingBlobs` and `subscribeRepos` answer as the Reference does. The Harness has a writes run, `pnpm parity writes`: the Reference creates a pool of accounts, the Candidate takes over the volume, and eight scenarios run on each server; the differences are the deliberate ones of SPEC §2.3 and one wording, 37 entries in all. A relay in strict mode re-emits every commit of the Candidate. The Candidate stores a commit before it appends the event and notes the commit in `ops.sqlite`; stopped between the two, it states the head with `#sync` at the next start, and the relay converges. The run recorded what the Reference at the pin does with data from elsewhere: `importRepo` accepts a commit that any key signed and a commit for another account, a tree that is not a Merkle search tree, and record blocks that are not canonical. `pds-sim` runs seeded plans with stops at the fail points and five oracles; 550 seeds passed before the merge, and a seed run twice gives the same trace. SPEC revision 7 carries the owner's decisions of 2026-10-13 and what the run showed. **Not built: the fault-injecting VFS, the `turmoil` network and the S3-compatible blob store** ([below](#open-questions-for-the-owner)). Left for unit 5: the account events, rate limits, OAuth and service tokens, the proxy. Next: unit 5, from `main`. |
 | 2026-10-13 | After unit 3, an audit and a cleanup (pull request #28). Nine readers audited the repository and a second reader checked each finding; 111 were confirmed and most are fixed. A streamed answer ends with an error when its producer fails or the client stalls for 60 seconds, and shutdown is bounded. `verify` reports a break in the event log without counting it as a difference, because the Reference deletes the events of a deleted account; it names fifteen kinds of damage in tests. The restore run has its own workflow. The reads of both servers are measured on one data directory of 100,000 records ([perf-reads.md](../parity/results/perf-reads.md)): the export takes 1,385 ms on the Reference and 167 ms on the Candidate, for the same bytes. What was not fixed, and why, is in the pull request. |
 | 2026-10-13 | Unit 3 done on `feat/unit-3-read-server`. **The Candidate serves the reads of a data directory that the Reference wrote** ([unit record](research/2026-10-13-read-only-server.md)): the sync and repository reads, `describeServer`, `resolveHandle` and the plain routes. The Harness has a restore run, `pnpm parity restore`: the Reference seeds six accounts and answers four read scenarios, the Candidate replaces it on the same volume and answers them again. 331 requests, no difference in status, compared headers or body, and 328 bodies equal byte for byte, repository exports among them. `verify` reports zero differences on that directory and names fourteen kinds of damage in tests. `pds-storage` reads the Reference's SQLite files, `pds-identity` resolves DIDs through the cache, `pds-xrpc` validates parameters in the Reference's order and with its messages. The image is built by `./Dockerfile`, and CI runs the restore run on every change to the crates. SPEC revision 6 carries what the comparison showed. **Not met: `verify` on a staging restore**, which needs the owner's copy ([below](#open-questions-for-the-owner)). Left for later units: the proxy, the read-after-write methods, rate limits, OAuth tokens, handle resolution over DNS. Next: unit 4, from `main`. |
@@ -210,24 +211,19 @@ question. Revision 7 of the SPEC applies them.
 | Three more cases for D15 | The Candidate answers 400 `InvalidRequest` to each. `importRepo` with bytes that are not a CAR is DD-15 (unit 4). `createAccount` with the handle, and with the email, of a deactivated or taken-down account are DD-16 and DD-17 (unit 5). |
 | Outbound TLS | `aws-lc-rs` is accepted as the TLS provider of outbound requests. SPEC §3.2 names RustCrypto for the protocol's own cryptography only. |
 | The licence of the root list | `deny.toml` keeps the CDLA-Permissive-2.0 exception for `webpki-root-certs`. |
+| The three missing parts of unit 4 | Built before unit 5, as unit 4b: the S3-compatible blob store first, then the fault-injecting VFS, then `turmoil`. |
 | The S3 client of the pin (#5575) | Not carried now. A tenth patch publishes an image, and the evidence that decides it is a measurement on staging. The question stays open [below](#open-questions-for-the-owner). |
 
 ## Open questions for the owner
 
-Six. The first decides what unit 4 still owes; unit 5 needs none of them.
+Six. Unit 5 needs none of them.
 
-- **Where the three missing parts of unit 4 go.** The decision of
-  2026-10-08 placed the `StorageIo` seam, a fault-injecting SQLite VFS and
-  `turmoil` in unit 4, and the plan lists the blob store there. The unit
-  built the fail points, the seed runner, the oracles and the disk store;
-  it did not build the VFS, the network simulation or the S3-compatible
-  store ([unit record](research/2026-10-13-writes-and-firehose.md)). The
-  recommendation: a unit 4b of about two weeks before unit 5, with the
-  S3-compatible store first, because production blobs are in R2 and a
-  staging restore of production cannot be served without it; then the VFS,
-  which needs the one reviewed use of `unsafe` that SPEC §3.2 allows; then
-  `turmoil`. The other choice is to move them into unit 8, where the
-  restore drill needs the store anyway.
+- **DD-18: `getBlob` of an unreferenced upload on the S3-compatible
+  store.** The Reference answers 500 there and 400 on the disk store
+  ([unit record](research/2026-10-13-s3-blob-store.md) §4). Production is
+  on R2, so production answers 500 today. The Candidate answers 400
+  `InvalidRequest`, "Blob not found", on both stores. The recommendation:
+  confirm it as one more case of D15.
 
 - **`#sync` after an import into an active account.** At the pin an import
   appends no event, and SPEC revision 6 required `#sync`. The Candidate
@@ -251,9 +247,11 @@ Six. The first decides what unit 4 still owes; unit 5 needs none of them.
   copy. Run `linkjar-pds verify` on it
   ([unit record](research/2026-10-13-read-only-server.md) §5) and send the
   report; a finding there is a fact about production data that the cutover
-  runbook has to handle. With blobs in R2 the blob check needs the store of
-  the first question; without `PDS_BLOBSTORE_DISK_LOCATION` the command
-  checks everything else and says that it skipped the blob store.
+  runbook has to handle. Production blobs are in R2: with the
+  `PDS_BLOBSTORE_S3_*` variables of a copy of the bucket, or of the bucket
+  itself, the command lists the objects of each account and writes
+  nothing. Without a blob store configured it checks everything else and
+  says that it skipped the blob store.
 
 - **Imports in production until revision 12 is deployed.** Revision 12 of
   the reference image is published. Until it runs in production, the

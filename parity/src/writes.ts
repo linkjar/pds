@@ -47,7 +47,15 @@ export type WritesOptions = {
 const scenario = (path: string) => join(PARITY_DIR, 'scenarios', `${path}.scenario.ts`)
 const POOL = scenario('writes/00-pool')
 
-type Stage = { name: string; profile: Profile; files: string[] }
+type Stage = {
+  name: string
+  profile: Profile
+  files: string[]
+  /** Scenarios that run on the Reference before the takeover, in both passes. */
+  seed?: string[]
+  /** The transcript groups, when the stage is compared on its own. */
+  groups?: [string, string]
+}
 
 const STAGES: Stage[] = [
   {
@@ -61,6 +69,19 @@ const STAGES: Stage[] = [
 
 const REFERENCE = 'writes-reference'
 const CANDIDATE = 'writes-candidate'
+
+// Blobs in the S3-compatible store (SPEC 8.1). The Reference stores a blob
+// before the takeover, so the Candidate reads and deletes an object that
+// the Reference wrote. The stage has its own difference list: the blob
+// scenario runs in the `records` stage on the disk store as well.
+const S3: Stage = {
+  name: 's3',
+  profile: 'writes-s3',
+  seed: [scenario('writes/01-seed-blob')],
+  files: ['default/05-blobs', 'writes/23-seeded-blob'].map(scenario),
+  groups: ['writes-s3-reference', 'writes-s3-candidate'],
+}
+STAGES.push(S3)
 const CRASH = 'writes-crash'
 
 const PERF: Stage = { name: 'perf', profile: 'writes-perf', files: [scenario('perf/01-repository')] }
@@ -74,14 +95,14 @@ export async function writes(options: WritesOptions = {}): Promise<number> {
   const stages = STAGES.filter((stage) => !options.only || stage.name.includes(options.only))
   const crash = !options.only || 'crash'.includes(options.only)
   if (!options.only) {
-    for (const group of [REFERENCE, CANDIDATE, CRASH]) rmSync(join(spec.runDir, 'transcripts', group), { recursive: true, force: true })
+    for (const group of [REFERENCE, CANDIDATE, CRASH, ...(S3.groups ?? [])]) rmSync(join(spec.runDir, 'transcripts', group), { recursive: true, force: true })
   }
 
   /** One fresh stack: the pool on the Reference, then the scenarios on one of the two servers. */
-  const pass = async (label: string, profile: Profile, files: string[], group: string, takeover?: Profile): Promise<number> => {
+  const pass = async (label: string, profile: Profile, files: string[], group: string, takeover?: Profile, seed: string[] = []): Promise<number> => {
     console.log(`\n── writes: ${label}`)
     await up(target, profile, { fresh: true, image: reference })
-    let status = await runFiles(target, [POOL], { PARITY_TRANSCRIPTS: `${group}-pool` })
+    let status = await runFiles(target, [POOL, ...seed], { PARITY_TRANSCRIPTS: `${group}-pool` })
     if (status !== 0) return status
     if (takeover) swapPds(target, spec.image, takeover)
     status = await runFiles(target, files, { PARITY_TRANSCRIPTS: group, PARITY_ACCOUNT_POOL: '1' })
@@ -92,8 +113,9 @@ export async function writes(options: WritesOptions = {}): Promise<number> {
   let status = 0
   try {
     for (const stage of stages) {
-      status = await pass(`${stage.name}, on the Reference`, stage.profile, stage.files, REFERENCE)
-      if (status === 0) status = await pass(`${stage.name}, on the Candidate`, stage.profile, stage.files, CANDIDATE, stage.profile)
+      const [left, right] = stage.groups ?? [REFERENCE, CANDIDATE]
+      status = await pass(`${stage.name}, on the Reference`, stage.profile, stage.files, left, undefined, stage.seed)
+      if (status === 0) status = await pass(`${stage.name}, on the Candidate`, stage.profile, stage.files, right, stage.profile, stage.seed)
       if (status !== 0) {
         console.error(`writes: stage "${stage.name}" failed`)
         break
@@ -112,12 +134,26 @@ export async function writes(options: WritesOptions = {}): Promise<number> {
   }
   if (status !== 0) return status
   console.log('\n── writes: compare')
-  return compareGroups(target, REFERENCE, CANDIDATE, {
-    update: options.update,
-    label: 'writes',
-    hint: 'pnpm parity writes',
-    names: ['reference', 'candidate'],
-  })
+  // A stage with groups of its own has a difference list of its own.
+  if (stages.some((stage) => !stage.groups)) {
+    status = compareGroups(target, REFERENCE, CANDIDATE, {
+      update: options.update,
+      label: 'writes',
+      hint: 'pnpm parity writes',
+      names: ['reference', 'candidate'],
+    })
+  }
+  for (const stage of stages) {
+    if (!stage.groups) continue
+    const result = compareGroups(target, stage.groups[0], stage.groups[1], {
+      update: options.update,
+      label: `writes-${stage.name}`,
+      hint: `pnpm parity writes --only=${stage.name}`,
+      names: [`reference-${stage.name}`, `candidate-${stage.name}`],
+    })
+    status = status || result
+  }
+  return status
 }
 
 /**
