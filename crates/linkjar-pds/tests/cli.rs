@@ -212,6 +212,18 @@ fn serve_answers_health_and_stops_on_sigterm() {
         std::thread::sleep(Duration::from_millis(50));
     }
 
+    // A second server on the same data directory is refused (SPEC §8.3).
+    let other_port = free_port().to_string();
+    let mut second = data_vars(&dir);
+    second.push(("PDS_PORT", other_port));
+    let refused = run(&borrowed(&second), &["serve"]);
+    assert_eq!(exit(&refused), 2);
+    assert!(
+        stderr(&refused).contains("one server serves a data directory"),
+        "{}",
+        stderr(&refused)
+    );
+
     let killed = Command::new("kill")
         .args(["-TERM", &server.id().to_string()])
         .status()
