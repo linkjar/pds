@@ -120,6 +120,7 @@ pub async fn create_record(
     let validate = body::boolean(&input, "validate", "$")?;
     let record = body::record(&input, "record", "$")?.clone();
     let swap_commit = body::cid(&input, "swapCommit", "$")?;
+    crate::oauth::resource::check_repo(&collection, "create")?;
 
     let (write, commit) = state
         .blocking(move |state| {
@@ -197,6 +198,8 @@ pub async fn put_record(
     let record = body::record(&input, "record", "$")?.clone();
     let swap = swap_record(&input)?;
     let swap_commit = body::cid(&input, "swapCommit", "$")?;
+    crate::oauth::resource::check_repo(&collection, "create")?;
+    crate::oauth::resource::check_repo(&collection, "update")?;
 
     let (write, commit) = state
         .blocking(move |state| {
@@ -255,6 +258,7 @@ pub async fn delete_record(
         .to_owned();
     let swap = body::cid(&input, "swapRecord", "$")?.map_or(Swap::Unset, Swap::Cid);
     let swap_commit = body::cid(&input, "swapCommit", "$")?;
+    crate::oauth::resource::check_repo(&collection, "delete")?;
 
     let commit = state
         .blocking(move |state| {
@@ -300,6 +304,19 @@ enum BatchWrite {
         collection: String,
         rkey: String,
     },
+}
+
+/// Refuses a batch that the scope of an OAuth session does not cover.
+fn check_batch_scope(batch: &[BatchWrite]) -> Result<(), XrpcError> {
+    for write in batch {
+        let (collection, action) = match write {
+            BatchWrite::Create { collection, .. } => (collection, "create"),
+            BatchWrite::Update { collection, .. } => (collection, "update"),
+            BatchWrite::Delete { collection, .. } => (collection, "delete"),
+        };
+        crate::oauth::resource::check_repo(collection, action)?;
+    }
+    Ok(())
 }
 
 fn batch_write(entry: &Value, at: &str) -> Result<BatchWrite, XrpcError> {
@@ -373,6 +390,7 @@ pub async fn apply_writes(
     for (index, entry) in entries.iter().enumerate() {
         batch.push(batch_write(entry, &format!("$.writes[{index}]"))?);
     }
+    check_batch_scope(&batch)?;
     let swap_commit = body::cid(&input, "swapCommit", "$")?;
 
     let (prepared, commit) = state
@@ -512,6 +530,7 @@ pub async fn upload_blob(
     }
     body::expect_body(headers)?;
     let declared = body::request_encoding(headers)?;
+    crate::oauth::resource::check_blob(&declared)?;
     let limit = state.config().blob_upload_limit;
     if body::content_length(headers)?.is_some_and(|length| length > limit) {
         return Err(body::payload_too_large());

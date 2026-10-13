@@ -122,6 +122,28 @@ fn login(
     Ok((account, Some(app)))
 }
 
+/// A sign-in that takes at least [`LOGIN_FLOOR`], so that its duration says
+/// little of why it failed.
+pub(crate) async fn timed_login(
+    state: &AppState,
+    identifier: &str,
+    given: &str,
+) -> Result<(Account, Option<AppPassword>), XrpcError> {
+    if given.len() > password::OLD_PASSWORD_MAX_LENGTH {
+        return Err(unauthorized(
+            "AuthenticationRequired",
+            "Password too long. Consider resetting your password.",
+        ));
+    }
+    let started = Instant::now();
+    let (identifier, given) = (identifier.to_owned(), given.to_owned());
+    let found = state
+        .blocking(move |state| login(state, &identifier, &given))
+        .await;
+    tokio::time::sleep(LOGIN_FLOOR.saturating_sub(started.elapsed())).await;
+    found
+}
+
 /// `com.atproto.server.createSession`.
 pub async fn create_session(
     state: &AppState,
@@ -155,18 +177,7 @@ pub async fn create_session(
             ],
         )?;
     }
-    if given.len() > password::OLD_PASSWORD_MAX_LENGTH {
-        return Err(unauthorized(
-            "AuthenticationRequired",
-            "Password too long. Consider resetting your password.",
-        ));
-    }
-
-    let started = Instant::now();
-    let found = state
-        .blocking(move |state| login(state, &identifier, &given))
-        .await;
-    tokio::time::sleep(LOGIN_FLOOR.saturating_sub(started.elapsed())).await;
+    let found = timed_login(state, &identifier, &given).await;
     let (account, app_password) = found?;
     let taken_down = account.actor.takedown_ref.is_some();
     if taken_down && !allow_takendown {
@@ -287,6 +298,12 @@ pub async fn get_session(state: &AppState, headers: &HeaderMap) -> Result<Respon
         .await?;
     let mut out = Map::new();
     describe(&mut out, &account);
+    // An OAuth session reads the email address with its own permission.
+    if !crate::oauth::resource::may_read_email() {
+        for field in ["email", "emailConfirmed", "emailAuthFactor"] {
+            out.remove(field);
+        }
+    }
     Ok(json_response(StatusCode::OK, &out.into()))
 }
 

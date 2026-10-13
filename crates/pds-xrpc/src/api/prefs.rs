@@ -53,7 +53,17 @@ fn session(
     additional: &[&str],
 ) -> Result<(String, bool), XrpcError> {
     match auth::optional_credentials(headers, &state.config().auth, additional, state.now_s())? {
-        Credentials::Access { did, scope } => Ok((did, scope == SCOPE_ACCESS)),
+        Credentials::Access { did, scope } => {
+            // An OAuth session reads preferences as a call to the AppView,
+            // and never the personal details.
+            let oauth = crate::oauth::resource::grant().is_some();
+            let appview = state.config().appview_did.as_deref().unwrap_or_default();
+            crate::oauth::resource::check_rpc(
+                "app.bsky.actor.getPreferences",
+                &format!("{appview}#bsky_appview"),
+            )?;
+            Ok((did, scope == SCOPE_ACCESS && !oauth))
+        }
         Credentials::None => Err(XrpcError::auth_required("AuthMissing")),
         Credentials::Admin => Err(XrpcError::bad_request(
             "InvalidToken",

@@ -52,6 +52,8 @@ pub struct ServerConfig {
     pub mail: crate::mail::MailConfig,
     /// The settings of the rate limits.
     pub rate_limits: crate::ratelimit::RateLimitConfig,
+    /// The OAuth settings.
+    pub oauth: crate::oauth::OAuthConfig,
 }
 
 /// What the server needs to create and change `did:plc` identities.
@@ -80,6 +82,14 @@ impl std::fmt::Debug for IdentityConfig {
 }
 
 impl ServerConfig {
+    /// The public origin of the server: the OAuth issuer.
+    pub fn public_url(&self) -> String {
+        self.identity.as_ref().map_or_else(
+            || format!("https://{}", self.hostname),
+            |identity| identity.public_url.clone(),
+        )
+    }
+
     /// Whether `handle` is under a hosted suffix, or is a suffix without its
     /// dot.
     pub fn is_hosted_handle(&self, handle: &str) -> bool {
@@ -255,6 +265,7 @@ struct Inner {
     http: reqwest::Client,
     writes: Option<WriteState>,
     limiter: crate::ratelimit::Limiter,
+    oauth: crate::oauth::OAuthState,
     now_ms: Box<dyn Fn() -> i64 + Send + Sync>,
 }
 
@@ -280,8 +291,10 @@ impl AppState {
         writes: Option<WriteState>,
         now_ms: impl Fn() -> i64 + Send + Sync + 'static,
     ) -> Self {
+        let oauth = crate::oauth::OAuthState::new(&config.oauth);
         Self {
             inner: Arc::new(Inner {
+                oauth,
                 config,
                 layout,
                 blobs,
@@ -297,6 +310,11 @@ impl AppState {
     /// The buckets of the rate limits.
     pub fn limiter(&self) -> &crate::ratelimit::Limiter {
         &self.inner.limiter
+    }
+
+    /// What the authorization server keeps in memory.
+    pub fn oauth(&self) -> &crate::oauth::OAuthState {
+        &self.inner.oauth
     }
 
     /// The configuration.

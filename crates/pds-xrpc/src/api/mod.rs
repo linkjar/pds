@@ -355,8 +355,32 @@ pub async fn entry(State(state): State<AppState>, request: axum::extract::Reques
         WELL_KNOWN_PATH if reads => return root::atproto_did(&state, &parts.headers).await,
         _ => {}
     }
+    let peer = parts
+        .extensions
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        .map(|info| info.0.ip());
     if !path.starts_with("/xrpc/") {
-        return root::not_found(&method, path);
+        // The authorization server (SPEC §11). Each request spends the
+        // point of the address bucket.
+        let mut body = Some(body);
+        let oauth = async {
+            if let Err(refusal) = crate::ratelimit::route(&state, &[]) {
+                return refusal.into_response();
+            }
+            let query = uri.query();
+            crate::oauth::serve(
+                &state,
+                &method,
+                path,
+                query,
+                &parts.headers,
+                peer,
+                &mut body,
+            )
+            .await
+            .unwrap_or_else(|| root::not_found(&method, path))
+        };
+        return crate::ratelimit::scope(&state, &parts.headers, peer, oauth).await;
     }
     let Some(nsid) = path_nsid(path) else {
         return XrpcError::invalid_request("invalid xrpc path").into_response();
@@ -374,28 +398,39 @@ pub async fn entry(State(state): State<AppState>, request: axum::extract::Reques
             .into_response();
     }
     let mut body = Some(body);
-    let peer = parts
-        .extensions
-        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
-        .map(|info| info.0.ip());
-    let served = async {
+    let dpop = crate::oauth::resource::is_dpop(&parts.headers);
+    let answer = async {
         let limited = if ROUTES_WITH_LIMITS.contains(&nsid) {
             Ok(())
         } else {
             crate::ratelimit::route(&state, &[])
         };
-        let response = match limited {
-            Ok(()) => xrpc(
-                &state,
-                nsid,
-                &method,
-                uri.query(),
-                &parts.headers,
-                &mut body,
+        // An OAuth access token is checked once, here (SPEC §11.3).
+        let granted = match limited {
+            Ok(()) if dpop => oauth_grant(&state, nsid, &method, path, &parts.headers).await,
+            Ok(()) => Ok(None),
+            Err(refusal) => Err(Box::new(refusal.into_response())),
+        };
+        let response = match granted {
+            Ok(grant) => crate::oauth::resource::with_grant(
+                grant,
+                xrpc(
+                    &state,
+                    nsid,
+                    &method,
+                    uri.query(),
+                    &parts.headers,
+                    &mut body,
+                ),
             )
             .await
             .unwrap_or_else(IntoResponse::into_response),
-            Err(refusal) => refusal.into_response(),
+            Err(refusal) => *refusal,
+        };
+        let response = if dpop {
+            crate::oauth::with_nonce(&state, response)
+        } else {
+            response
         };
         // A handler that answered without reading the body left it here.
         if let Some(unread) = body {
@@ -403,7 +438,29 @@ pub async fn entry(State(state): State<AppState>, request: axum::extract::Reques
         }
         response
     };
-    crate::ratelimit::scope(&state, &parts.headers, peer, served).await
+    Box::pin(crate::ratelimit::scope(
+        &state,
+        &parts.headers,
+        peer,
+        answer,
+    ))
+    .await
+}
+
+/// The grant of a request with an OAuth access token, when the token is
+/// good and may call the method.
+async fn oauth_grant(
+    state: &AppState,
+    nsid: &str,
+    method: &Method,
+    path: &str,
+    headers: &HeaderMap,
+) -> Result<Option<crate::oauth::resource::Grant>, Box<Response>> {
+    let grant = crate::oauth::resource::authenticate(state, method, path, headers).await?;
+    let handled = procedure(nsid).is_some() || served(nsid).is_some();
+    crate::oauth::resource::check_method(&grant, nsid, handled)
+        .map_err(|refusal| Box::new(refusal.into_response()))?;
+    Ok(Some(grant))
 }
 
 /// The methods with limiters of their own. Each spends its points, and the

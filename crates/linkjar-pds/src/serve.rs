@@ -146,6 +146,7 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
         },
         mail: config.mail.clone(),
         rate_limits: config.rate_limits.clone(),
+        oauth: config.oauth.clone(),
         identity: config.plc_rotation_key.clone().map(|rotation_key| {
             pds_xrpc::state::IdentityConfig {
                 plc_url: config.plc_url.trim_end_matches('/').to_owned(),

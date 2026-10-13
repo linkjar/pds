@@ -42,6 +42,7 @@ fn state() -> AppState {
         identity: None,
         mail: pds_xrpc::mail::MailConfig::default(),
         rate_limits: pds_xrpc::ratelimit::RateLimitConfig::default(),
+        oauth: pds_xrpc::oauth::OAuthConfig::default(),
     };
     let resolver = DidResolver::new(
         ResolverConfig {
