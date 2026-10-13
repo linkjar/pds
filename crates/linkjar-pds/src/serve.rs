@@ -126,6 +126,7 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
         now_ms,
     );
     let server = ServerConfig {
+        hostname: config.hostname.clone(),
         version: config.version.clone(),
         handle_domains: config.handle_domains.clone(),
         invite_required: config.invite_required,

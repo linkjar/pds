@@ -182,6 +182,7 @@ async fn start(
         now.clone(),
     );
     let config = ServerConfig {
+        hostname: "pds.test".to_owned(),
         version: Some("0.0.0-sim".to_owned()),
         handle_domains: vec![".pds.test".to_owned()],
         invite_required: false,

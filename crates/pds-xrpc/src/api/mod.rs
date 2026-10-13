@@ -4,6 +4,7 @@ pub mod account;
 pub mod admin;
 pub mod identity;
 pub mod import;
+pub mod invites;
 pub mod lifecycle;
 pub mod prefs;
 pub mod proxy;
@@ -78,6 +79,9 @@ enum Served {
     AdminGetAccountInfo,
     ServerGetServiceAuth,
     ActorGetPreferences,
+    AdminGetAccountInfos,
+    AdminGetInviteCodes,
+    ServerGetAccountInviteCodes,
     AdminGetSubjectStatus,
     IdentityResolveHandle,
     RepoListMissingBlobs,
@@ -103,6 +107,8 @@ enum Procedure {
     UpdateHandle,
     AdminUpdateSubjectStatus,
     PutPreferences,
+    CreateInviteCode,
+    CreateInviteCodes,
 }
 
 /// The procedure that `nsid` names. `None` for a method without a handler.
@@ -123,6 +129,8 @@ fn procedure(nsid: &str) -> Option<Procedure> {
         "com.atproto.identity.updateHandle" => Procedure::UpdateHandle,
         "com.atproto.admin.updateSubjectStatus" => Procedure::AdminUpdateSubjectStatus,
         "app.bsky.actor.putPreferences" => Procedure::PutPreferences,
+        "com.atproto.server.createInviteCode" => Procedure::CreateInviteCode,
+        "com.atproto.server.createInviteCodes" => Procedure::CreateInviteCodes,
         "com.atproto.server.createAppPassword" => Procedure::CreateAppPassword,
         "com.atproto.server.revokeAppPassword" => Procedure::RevokeAppPassword,
         _ => return None,
@@ -222,6 +230,29 @@ fn served(nsid: &str) -> Option<(Served, &'static [Spec])> {
         "com.atproto.server.listAppPasswords" => (Served::ServerListAppPasswords, &[]),
         "com.atproto.server.checkAccountStatus" => (Served::ServerCheckAccountStatus, &[]),
         "app.bsky.actor.getPreferences" => (Served::ActorGetPreferences, &[]),
+        "com.atproto.admin.getAccountInfos" => (
+            Served::AdminGetAccountInfos,
+            const { &[Spec::list("dids", Format::Did)] },
+        ),
+        "com.atproto.admin.getInviteCodes" => (
+            Served::AdminGetInviteCodes,
+            const {
+                &[
+                    Spec::optional("sort", Format::Any),
+                    Spec::integer("limit", 1, 500, 100),
+                    Spec::optional("cursor", Format::Any),
+                ]
+            },
+        ),
+        "com.atproto.server.getAccountInviteCodes" => (
+            Served::ServerGetAccountInviteCodes,
+            const {
+                &[
+                    Spec::boolean("includeUsed", true),
+                    Spec::boolean("createAvailable", true),
+                ]
+            },
+        ),
         "com.atproto.server.getServiceAuth" => (
             Served::ServerGetServiceAuth,
             const {
@@ -354,6 +385,10 @@ async fn xrpc(
             Procedure::ActivateAccount => lifecycle::activate_account(state, headers).await,
             Procedure::UpdateHandle => lifecycle::update_handle(state, headers, body).await,
             Procedure::PutPreferences => prefs::put_preferences(state, headers, body).await,
+            Procedure::CreateInviteCode => invites::create_invite_code(state, headers, body).await,
+            Procedure::CreateInviteCodes => {
+                invites::create_invite_codes(state, headers, body).await
+            }
             Procedure::AdminUpdateSubjectStatus => {
                 admin::update_subject_status(state, headers, body).await
             }
@@ -400,6 +435,11 @@ async fn xrpc(
         Served::ServerDescribeServer => Ok(server::describe_server(state)),
         Served::ServerGetSession => session::get_session(state, headers).await,
         Served::ServerListAppPasswords => session::list_app_passwords(state, headers).await,
+        Served::AdminGetAccountInfos => admin::get_account_infos(state, &query).await,
+        Served::AdminGetInviteCodes => invites::get_invite_codes(state, &query).await,
+        Served::ServerGetAccountInviteCodes => {
+            invites::get_account_invite_codes(state, &query).await
+        }
         Served::ActorGetPreferences => prefs::get_preferences(state, &query).await,
         Served::ServerGetServiceAuth => proxy::get_service_auth(state, &query).await,
         Served::AdminGetAccountInfo => admin::get_account_info(state, &query).await,

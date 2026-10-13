@@ -16,6 +16,8 @@ use crate::error::XrpcError;
 /// The part of the configuration that the HTTP surface reads.
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
+    /// `PDS_HOSTNAME`.
+    pub hostname: String,
     /// `PDS_VERSION`, reported by the health route.
     pub version: Option<String>,
     /// `PDS_SERVICE_HANDLE_DOMAINS`: hosted handle suffixes, each with its
