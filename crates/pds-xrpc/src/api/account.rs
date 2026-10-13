@@ -13,7 +13,7 @@ use data_encoding::HEXLOWER;
 use pds_identity::{Algorithm, Keypair, check_handle_policy, plc, reserved};
 use pds_repo::{MemoryBlockStore, Repo};
 use pds_sequencer::{account_event, commit_event, identity_event, sync_event};
-use pds_storage::{AccountDb, ActorDb, Availability, NewAccount, Refused, schema};
+use pds_storage::{ActorDb, Availability, NewAccount, Refused, schema};
 use pds_types::{Did, Handle};
 use serde_json::{Map, Value};
 
@@ -215,7 +215,7 @@ pub(crate) fn validate(
     }
     identity(state)?;
     let (handle, _) = checked_handle(state, &handle, did.is_some(), false)?;
-    let accounts = AccountDb::open(&state.layout().account_db)?;
+    let accounts = state.layout().accounts()?;
     if required
         && let Some(code) = &invite_code
         && !accounts.invite_available(code)?

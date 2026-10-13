@@ -6,7 +6,7 @@ use axum::body::Body;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse as _, Response};
 use data_encoding::HEXLOWER;
-use pds_storage::{Account, AccountDb, Availability};
+use pds_storage::{Account, Availability};
 use serde_json::json;
 
 use crate::auth::{self, session};
@@ -69,7 +69,9 @@ pub(crate) fn valid_token(
     token: &str,
     did: Option<&str>,
 ) -> Result<String, XrpcError> {
-    let found = AccountDb::open(&state.layout().account_db)?
+    let found = state
+        .layout()
+        .accounts()?
         .email_token(purpose, &token.to_uppercase(), did)?
         .ok_or_else(|| XrpcError::bad_request("InvalidToken", "Token is invalid"))?;
     let requested =
@@ -85,7 +87,9 @@ async fn account_with_email(state: &AppState, did: &str) -> Result<(Account, Str
     let did = did.to_owned();
     state
         .blocking(move |state| {
-            let account = AccountDb::open(&state.layout().account_db)?
+            let account = state
+                .layout()
+                .accounts()?
                 .account(&did, false, Availability::ANY)?
                 .ok_or_else(|| XrpcError::invalid_request("account not found"))?;
             let email = account.email.clone().ok_or_else(|| {
@@ -150,7 +154,9 @@ pub async fn confirm_email(
         .to_owned();
     state
         .blocking(move |state| {
-            let account = AccountDb::open(&state.layout().account_db)?
+            let account = state
+                .layout()
+                .accounts()?
                 .account(&did, false, Availability::ANY)?
                 .ok_or_else(|| XrpcError::bad_request("AccountNotFound", "user not found"))?;
             if account.email.as_deref() != Some(email.as_str()) {
@@ -214,7 +220,9 @@ pub async fn update_email(
     }
     state
         .blocking(move |state| {
-            let account = AccountDb::open(&state.layout().account_db)?
+            let account = state
+                .layout()
+                .accounts()?
                 .account(&did, false, Availability::ANY)?
                 .ok_or_else(|| XrpcError::invalid_request("account not found"))?;
             match &token {
@@ -270,11 +278,10 @@ pub async fn request_password_reset(
         .to_lowercase();
     let account = state
         .blocking(move |state| {
-            Ok(AccountDb::open(&state.layout().account_db)?.account(
-                &email,
-                true,
-                Availability::ANY,
-            )?)
+            Ok(state
+                .layout()
+                .accounts()?
+                .account(&email, true, Availability::ANY)?)
         })
         .await?;
     let Some((account, to)) = account.and_then(|account| {

@@ -8,7 +8,7 @@ use axum::body::Body;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 use futures_util::StreamExt as _;
-use pds_storage::{AccountDb, Actor, Availability};
+use pds_storage::{Actor, Availability};
 use serde_json::{Map, Value, json};
 
 use super::Query;
@@ -45,7 +45,7 @@ pub(crate) fn find_account(
     check_takedown: bool,
     check_deactivated: bool,
 ) -> Result<Actor, XrpcError> {
-    let accounts = AccountDb::open(&state.layout().account_db)?;
+    let accounts = state.layout().accounts()?;
     let Some(actor) = accounts.actor(handle_or_did, Availability::ANY)? else {
         return Err(XrpcError {
             status: StatusCode::FORBIDDEN,

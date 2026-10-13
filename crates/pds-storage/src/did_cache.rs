@@ -24,6 +24,11 @@ pub struct DidCacheDb {
 }
 
 impl DidCacheDb {
+    /// The cache over a connection of the shared tier.
+    pub(crate) const fn over(conn: Connection) -> Self {
+        Self { conn }
+    }
+
     /// Opens the cache the Reference created. It is not created here: the
     /// schema comes from the `migrate` command.
     pub fn open(path: &Path) -> Result<Self, StorageError> {

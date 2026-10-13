@@ -165,7 +165,7 @@ impl WriteState {
         Ok(Self {
             sequencer,
             ops: Mutex::new(OpsDb::open(&layout.ops_db)?),
-            accounts: Mutex::new(AccountDb::open_writable(&layout.account_db)?),
+            accounts: Mutex::new(layout.accounts_writable()?),
             tids,
             locks: Mutex::new(HashMap::new()),
             stores: Mutex::new(Vec::new()),

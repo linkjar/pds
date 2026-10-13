@@ -12,7 +12,7 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse as _, Response};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD_NO_PAD;
-use pds_storage::{Account, AccountDb, AppPassword, Availability};
+use pds_storage::{Account, AppPassword, Availability};
 use serde_json::{Map, Value};
 
 use crate::auth::{
@@ -98,7 +98,7 @@ fn login(
 ) -> Result<(Account, Option<AppPassword>), XrpcError> {
     let refused = || unauthorized("AuthenticationRequired", "Invalid identifier or password");
     let identifier = identifier.to_lowercase();
-    let accounts = AccountDb::open(&state.layout().account_db)?;
+    let accounts = state.layout().accounts()?;
     let account = if identifier.contains('@') {
         accounts.account(&identifier, true, Availability::ANY)?
     } else if Format::AtIdentifier.check(&identifier).is_ok() {
@@ -213,7 +213,9 @@ pub async fn refresh_session(state: &AppState, headers: &HeaderMap) -> Result<Re
     let (did, id) = auth::refresh(headers, &state.config().auth, now_s, false)?;
     let rotated = state
         .blocking(move |state| {
-            let account = AccountDb::open(&state.layout().account_db)?
+            let account = state
+                .layout()
+                .accounts()?
                 .account(&did, false, Availability::ANY)?
                 .ok_or_else(|| {
                     XrpcError::invalid_request(format!(
@@ -287,7 +289,9 @@ pub async fn get_session(state: &AppState, headers: &HeaderMap) -> Result<Respon
                 include_taken_down: false,
                 include_deactivated: true,
             };
-            AccountDb::open(&state.layout().account_db)?
+            state
+                .layout()
+                .accounts()?
                 .account(&did, false, availability)?
                 .ok_or_else(|| {
                     XrpcError::invalid_request(format!(
@@ -391,9 +395,7 @@ pub async fn list_app_passwords(
 ) -> Result<Response, XrpcError> {
     let did = session(state, headers, None)?;
     let listed = state
-        .blocking(move |state| {
-            Ok(AccountDb::open(&state.layout().account_db)?.list_app_passwords(&did)?)
-        })
+        .blocking(move |state| Ok(state.layout().accounts()?.list_app_passwords(&did)?))
         .await?;
     let passwords: Vec<Value> = listed
         .into_iter()

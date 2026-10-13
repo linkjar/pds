@@ -3,7 +3,7 @@
 use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use pds_identity::resolver::claimed_handle;
-use pds_storage::{AccountDb, ActorDb, Availability, RecordRow};
+use pds_storage::{ActorDb, Availability, RecordRow};
 use pds_types::{Data, Did, Handle};
 use serde_json::{Map, Value, json};
 
@@ -50,7 +50,7 @@ pub async fn get_record(state: &AppState, query: &Query<'_>) -> Result<Response,
     let cid = query.params.get("cid").map(str::to_owned);
     let found = state
         .blocking(move |state| {
-            let accounts = AccountDb::open(&state.layout().account_db)?;
+            let accounts = state.layout().accounts()?;
             let Some(actor) = accounts.actor(&repo, Availability::ACTIVE)? else {
                 return Ok(None);
             };
@@ -127,7 +127,7 @@ pub async fn list_records(state: &AppState, query: &Query<'_>) -> Result<Respons
     let reverse = query.params.boolean("reverse");
     let rows = state
         .blocking(move |state| {
-            let accounts = AccountDb::open(&state.layout().account_db)?;
+            let accounts = state.layout().accounts()?;
             let actor = accounts
                 .actor(&repo, Availability::ACTIVE)?
                 .ok_or_else(|| {

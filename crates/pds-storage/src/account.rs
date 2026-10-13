@@ -235,6 +235,11 @@ fn invite_available(conn: &Connection, code: &str) -> Result<bool, StorageError>
 }
 
 impl AccountDb {
+    /// The database over a connection of the shared tier.
+    pub(crate) const fn over(conn: Connection) -> Self {
+        Self { conn }
+    }
+
     /// Opens the database for reading.
     pub fn open(path: &Path) -> Result<Self, StorageError> {
         Ok(Self {

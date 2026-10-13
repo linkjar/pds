@@ -12,7 +12,7 @@ use std::pin::Pin;
 
 use axum::http::{HeaderValue, StatusCode};
 use axum::response::Response;
-use pds_storage::{AccountDb, ActorDb, Availability, RecordRow};
+use pds_storage::{ActorDb, Availability, RecordRow};
 use serde_json::{Map, Value, json};
 
 use super::proxy;
@@ -175,7 +175,7 @@ fn load(state: &AppState, did: &str, rev: &str) -> Result<Local, XrpcError> {
             local.posts.push(described);
         }
     }
-    let actor = AccountDb::open(&state.layout().account_db)?.actor(did, Availability::ANY)?;
+    let actor = state.layout().accounts()?.actor(did, Availability::ANY)?;
     if let Some(actor) = actor {
         let mut author = json!({
             "did": did,
@@ -536,7 +536,9 @@ async fn thread_not_found(
             let resolved = if host.starts_with("did:") {
                 host
             } else {
-                AccountDb::open(&state.layout().account_db)?
+                state
+                    .layout()
+                    .accounts()?
                     .actor(&host, Availability::ANY)?
                     .map_or(host, |actor| actor.did)
             };

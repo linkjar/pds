@@ -835,7 +835,7 @@ pub fn collect_uploads(state: &AppState) -> Result<usize, XrpcError> {
         return Ok(0);
     };
     let before = pds_sequencer::iso_millis(state.now_ms().saturating_sub(UPLOAD_GRACE_MS));
-    let actors = pds_storage::AccountDb::open(&state.layout().account_db)?.all_actors()?;
+    let actors = state.layout().accounts()?.all_actors()?;
     let mut collected = 0;
     for actor in actors {
         let path = state.layout().actor_db(&actor.did);

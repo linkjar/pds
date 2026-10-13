@@ -23,7 +23,7 @@ pub mod sync;
 use axum::extract::State;
 use axum::http::{HeaderMap, Method};
 use axum::response::{IntoResponse, Response};
-use pds_storage::{AccountDb, Actor, Availability};
+use pds_storage::{Actor, Availability};
 
 use crate::auth::{Credentials, optional_credentials};
 use crate::error::XrpcError;
@@ -790,7 +790,7 @@ pub fn repo_availability(
     handle_or_did: &str,
     admin_or_self: bool,
 ) -> Result<Actor, XrpcError> {
-    let accounts = AccountDb::open(&state.layout().account_db)?;
+    let accounts = state.layout().accounts()?;
     let actor = accounts
         .actor(handle_or_did, Availability::ANY)?
         .ok_or_else(|| {

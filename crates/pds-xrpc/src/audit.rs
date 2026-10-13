@@ -58,8 +58,21 @@ fn to_row(checkpoint: &Checkpoint) -> CheckpointRow {
 }
 
 impl AuditLog {
-    /// Opens the log at `path`. Without a signer the log chains its
+    /// Opens the log of a data directory, in the file or in the shared
+    /// tier that the layout names. Without a signer the log chains its
     /// entries and signs no checkpoint.
+    pub fn open_in(
+        layout: &pds_storage::DataLayout,
+        signer: Option<Signer>,
+    ) -> Result<Self, StorageError> {
+        Ok(Self {
+            db: Mutex::new(layout.audit()?),
+            signer,
+        })
+    }
+
+    /// Opens the log in the file at `path`, and creates it when it is not
+    /// there.
     pub fn open(path: &Path, signer: Option<Signer>) -> Result<Self, StorageError> {
         Ok(Self {
             db: Mutex::new(AuditDb::open(path)?),

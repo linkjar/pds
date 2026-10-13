@@ -102,6 +102,30 @@ pub fn create_shared(
     Ok(conn)
 }
 
+/// Creates the tables of a shared database over a connection of the
+/// shared tier, with its migrations recorded at `now`. On Postgres the
+/// statements get the types of Postgres.
+pub fn fill_shared(
+    conn: &crate::sql::Connection,
+    shared: &crate::schema_shared::Shared,
+    now: &str,
+) -> Result<(), StorageError> {
+    for statement in shared.statements {
+        conn.execute_batch(statement)?;
+    }
+    conn.execute(
+        r#"insert into "kysely_migration_lock" ("id", "is_locked") values ('migration_lock', 0)"#,
+        [],
+    )?;
+    for name in shared.migrations {
+        conn.execute(
+            r#"insert into "kysely_migration" ("name", "timestamp") values (?1, ?2)"#,
+            [name, &now],
+        )?;
+    }
+    Ok(())
+}
+
 /// Creates the store of a new actor as the Reference creates it: the
 /// tables of [`ACTOR_STORE`] and its one migration, recorded at `now`.
 pub fn create_actor_store(path: &Path, now: &str) -> Result<Connection, StorageError> {

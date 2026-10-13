@@ -10,7 +10,7 @@
 use axum::body::Body;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse as _, Response};
-use pds_storage::{AccountDb, Availability, InviteCode, Invites};
+use pds_storage::{Availability, InviteCode, Invites};
 use serde_json::{Map, Value, json};
 
 use super::Query;
@@ -170,7 +170,7 @@ pub async fn get_account_invite_codes(
     let codes = state
         .blocking(move |state| {
             super::repo_write::find_account(state, &did, true, false)?;
-            let accounts = AccountDb::open(&state.layout().account_db)?;
+            let accounts = state.layout().accounts()?;
             if accounts.actor(&did, Availability::ACTIVE)?.is_none() {
                 return Err(XrpcError::bad_request("NotFound", "Account not found"));
             }
@@ -197,7 +197,7 @@ pub async fn get_invite_codes(state: &AppState, query: &Query<'_>) -> Result<Res
     let malformed = || XrpcError::invalid_request("Malformed cursor");
     let page = state
         .blocking(move |state| {
-            let accounts = AccountDb::open(&state.layout().account_db)?;
+            let accounts = state.layout().accounts()?;
             let parts = cursor
                 .as_deref()
                 .map(|cursor| cursor.split_once("::").ok_or_else(malformed))

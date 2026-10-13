@@ -322,7 +322,7 @@ fn for_postgres(sql: &str, params: Params) -> (String, Vec<Value>) {
             out.push('$');
             at += 1;
         } else if byte == b':'
-            && bytes.get(at + 1).is_some_and(|next| next.is_ascii_alphabetic())
+            && bytes.get(at + 1).is_some_and(u8::is_ascii_alphabetic)
             && (at == 0 || bytes[at - 1] != b':')
         {
             let end = bytes[at + 1..]
@@ -330,10 +330,13 @@ fn for_postgres(sql: &str, params: Params) -> (String, Vec<Value>) {
                 .position(|other| !is_name(*other))
                 .map_or(bytes.len(), |offset| at + 1 + offset);
             let name = &sql[at..end];
-            let index = names.iter().position(|known| *known == name).unwrap_or_else(|| {
-                names.push(name);
-                names.len() - 1
-            });
+            let index = names
+                .iter()
+                .position(|known| *known == name)
+                .unwrap_or_else(|| {
+                    names.push(name);
+                    names.len() - 1
+                });
             out.push('$');
             out.push_str(&(index + 1).to_string());
             at = end;
@@ -354,7 +357,9 @@ fn for_postgres(sql: &str, params: Params) -> (String, Vec<Value>) {
                 given
                     .iter_mut()
                     .find(|(known, _)| known == name)
-                    .map_or(Value::Null, |(_, value)| std::mem::replace(value, Value::Null))
+                    .map_or(Value::Null, |(_, value)| {
+                        std::mem::replace(value, Value::Null)
+                    })
             })
             .collect(),
     };
@@ -374,7 +379,10 @@ pub fn ddl_for_postgres(statement: &str) -> String {
             out.push_str(part);
         } else {
             let lower = part
-                .replace(" integer primary key autoincrement", " bigserial primary key")
+                .replace(
+                    " integer primary key autoincrement",
+                    " bigserial primary key",
+                )
                 .replace(" integer", " bigint")
                 .replace(" blob", " bytea")
                 .replace(" varchar(255)", " varchar")
@@ -417,9 +425,9 @@ impl rusqlite::ToSql for Value {
 /// The rows a statement changed, and the rows it gave.
 type Outcome = (usize, Vec<Vec<Value>>);
 
-fn run_sqlite(conn: &rusqlite::Connection, sql: &str, params: Params) -> Result<Outcome> {
+fn run_sqlite(conn: &rusqlite::Connection, sql: &str, params: &Params) -> Result<Outcome> {
     let mut statement = conn.prepare_cached(sql)?;
-    match &params {
+    match params {
         Params::Positional(values) => {
             for (index, value) in values.iter().enumerate() {
                 statement.raw_bind_parameter(index + 1, value)?;
@@ -508,13 +516,12 @@ impl PgPool {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .pop();
-        let client = match idle {
-            Some(client) => client,
-            None => {
-                let mut client = PgClient::connect(&self.target, PG_TIMEOUT)?;
-                client.batch(&format!(r#"set search_path to "{}""#, self.schema))?;
-                client
-            }
+        let client = if let Some(client) = idle {
+            client
+        } else {
+            let mut client = PgClient::connect(&self.target, PG_TIMEOUT)?;
+            client.batch(&format!(r#"set search_path to "{}""#, self.schema))?;
+            client
         };
         Ok(Connection {
             inner: Inner::Postgres {
@@ -598,7 +605,7 @@ impl Connection {
 
     fn run(&self, sql: &str, params: Params) -> Result<Outcome> {
         match &self.inner {
-            Inner::Sqlite(conn) => run_sqlite(conn, sql, params),
+            Inner::Sqlite(conn) => run_sqlite(conn, sql, &params),
             Inner::Postgres { client, .. } => {
                 let (sql, values) = for_postgres(sql, params);
                 let mut client = client.borrow_mut();
@@ -606,7 +613,9 @@ impl Connection {
                     return Err(PgError::Connection("the connection is closed".to_owned()).into());
                 };
                 match live.query(&sql, &values) {
-                    Ok((changed, rows)) => Ok((usize::try_from(changed).unwrap_or(usize::MAX), rows)),
+                    Ok((changed, rows)) => {
+                        Ok((usize::try_from(changed).unwrap_or(usize::MAX), rows))
+                    }
                     Err(error) => {
                         // A connection that broke is not used again.
                         if matches!(error, PgError::Connection(_)) {
@@ -666,6 +675,61 @@ impl Connection {
         self.prepare(sql)
     }
 
+    /// Runs a query and gives its rows as values.
+    pub fn query_values(&self, sql: &str, params: impl IntoParams) -> Result<Vec<Vec<Value>>> {
+        Ok(self.run(sql, params.into_params())?.1)
+    }
+
+    /// The tables of the database, by name.
+    pub fn tables(&self) -> Result<Vec<String>> {
+        let sql = if self.is_postgres() {
+            "select table_name from information_schema.tables where table_schema = current_schema() order by table_name"
+        } else {
+            "select name from sqlite_master where type = 'table' and name not like 'sqlite_%' order by name"
+        };
+        self.prepare(sql)?
+            .query_map([], |row| row.get(0))?
+            .collect()
+    }
+
+    /// The columns of a table, in the order of the table.
+    pub fn columns(&self, table: &str) -> Result<Vec<String>> {
+        if self.is_postgres() {
+            return self
+                .prepare("select column_name from information_schema.columns where table_schema = current_schema() and table_name = ?1 order by ordinal_position")?
+                .query_map([table], |row| row.get(0))?
+                .collect();
+        }
+        let quoted = table.replace('"', "");
+        self.prepare(&format!(r#"pragma table_info("{quoted}")"#))?
+            .query_map([], |row| row.get(1))?
+            .collect()
+    }
+
+    /// Sets each sequence of a table of Postgres to the largest value of
+    /// its column, so the next row gets the number after it. SQLite keeps
+    /// the count itself.
+    pub fn align_sequences(&self, table: &str) -> Result<()> {
+        if !self.is_postgres() {
+            return Ok(());
+        }
+        let serial: Vec<String> = self
+            .prepare("select column_name from information_schema.columns where table_schema = current_schema() and table_name = ?1 and column_default like 'nextval(%'")?
+            .query_map([table], |row| row.get(0))?
+            .collect::<Result<_>>()?;
+        let table = table.replace('"', "");
+        for column in serial {
+            let column = column.replace('"', "");
+            self.query_values(
+                &format!(
+                    r#"select setval(pg_get_serial_sequence('"{table}"', '{column}'), coalesce(max("{column}"), 1), max("{column}") is not null) from "{table}""#
+                ),
+                [],
+            )?;
+        }
+        Ok(())
+    }
+
     /// Whether the database has the table.
     pub fn table_exists(&self, table: &str) -> Result<bool> {
         let sql = if self.is_postgres() {
@@ -689,7 +753,11 @@ impl Connection {
         let immediate = behavior == TransactionBehavior::Immediate;
         match &self.inner {
             Inner::Sqlite(conn) => {
-                conn.execute_batch(if immediate { "begin immediate" } else { "begin" })?;
+                conn.execute_batch(if immediate {
+                    "begin immediate"
+                } else {
+                    "begin"
+                })?;
             }
             Inner::Postgres { .. } => {
                 self.run("begin", Params::Positional(Vec::new()))?;
@@ -808,9 +876,15 @@ mod tests {
             sql,
             r#"insert into "t" ("did", "rev") values ($1, $2) on conflict ("did") do update set "rev" = $2"#
         );
-        assert_eq!(values, [Value::Text("d1".to_owned()), Value::Text("r1".to_owned())]);
+        assert_eq!(
+            values,
+            [Value::Text("d1".to_owned()), Value::Text("r1".to_owned())]
+        );
         // A cast keeps its two colons.
-        assert_eq!(for_postgres("select 1::bigint", params![]).0, "select 1::bigint");
+        assert_eq!(
+            for_postgres("select 1::bigint", params![]).0,
+            "select 1::bigint"
+        );
     }
 
     #[test]
@@ -853,9 +927,12 @@ mod tests {
         let unique = conn.execute(r#"insert into "t" ("name") values (?1)"#, ["b"]);
         assert!(matches!(unique, Err(Error::Postgres(error)) if error.is_unique_violation()));
         // After an error the connection takes the next statement.
-        let count: i64 = conn.query_row(r#"select count(*) from "t""#, [], |row| row.get(0)).unwrap();
+        let count: i64 = conn
+            .query_row(r#"select count(*) from "t""#, [], |row| row.get(0))
+            .unwrap();
         assert_eq!(count, 1);
-        conn.execute_batch(&format!(r#"drop schema "{}" cascade"#, pool.schema())).unwrap();
+        conn.execute_batch(&format!(r#"drop schema "{}" cascade"#, pool.schema()))
+            .unwrap();
     }
 
     fn exercise(mut conn: Connection) {
@@ -867,11 +944,17 @@ mod tests {
             )
             .unwrap();
         assert_eq!(id, 1);
-        assert_eq!(conn.execute(r#"insert into "t" ("name") values (?1)"#, ["b"]).unwrap(), 1);
+        assert_eq!(
+            conn.execute(r#"insert into "t" ("name") values (?1)"#, ["b"])
+                .unwrap(),
+            1
+        );
         let row: (String, Option<Vec<u8>>, Option<bool>) = conn
-            .query_row(r#"select "name", "data", "flag" from "t" where "id" = ?1"#, [2], |row| {
-                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
-            })
+            .query_row(
+                r#"select "name", "data", "flag" from "t" where "id" = ?1"#,
+                [2],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
             .unwrap();
         assert_eq!(row, ("b".to_owned(), None, None));
         let names: Vec<String> = conn
@@ -883,7 +966,9 @@ mod tests {
             .unwrap();
         assert_eq!(names, ["a", "b"]);
         let none = conn
-            .query_row(r#"select "name" from "t" where "id" = 9"#, [], |row| row.get::<String>(0))
+            .query_row(r#"select "name" from "t" where "id" = 9"#, [], |row| {
+                row.get::<String>(0)
+            })
             .optional()
             .unwrap();
         assert_eq!(none, None);
@@ -900,10 +985,18 @@ mod tests {
             let txn = conn.transaction().unwrap();
             txn.execute(r#"delete from "t""#, []).unwrap();
         }
-        let txn = conn.transaction_with_behavior(TransactionBehavior::Immediate).unwrap();
-        assert_eq!(txn.execute(r#"delete from "t" where "name" = ?1"#, ["a"]).unwrap(), 1);
+        let txn = conn
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .unwrap();
+        assert_eq!(
+            txn.execute(r#"delete from "t" where "name" = ?1"#, ["a"])
+                .unwrap(),
+            1
+        );
         txn.commit().unwrap();
-        let count: i64 = conn.query_row(r#"select count(*) from "t""#, [], |row| row.get(0)).unwrap();
+        let count: i64 = conn
+            .query_row(r#"select count(*) from "t""#, [], |row| row.get(0))
+            .unwrap();
         assert_eq!(count, 1);
     }
 }
