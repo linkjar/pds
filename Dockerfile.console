@@ -1,0 +1,32 @@
+# The operations console of LinkJar PDS (docs/sidecars.md section 1).
+#
+# The console is a sidecar: it holds no data directory and no secret of the
+# PDS. Publish its port on a loopback address of the host only, and reach
+# it through the VPN or an SSH tunnel.
+
+FROM rust:1.99.0-slim-trixie AS build
+WORKDIR /src
+COPY Cargo.toml Cargo.lock ./
+COPY crates crates
+COPY lexicons lexicons
+COPY xtask xtask
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/src/target \
+    cargo build --release --locked --package pds-console \
+ && cp target/release/linkjar-pds-console /linkjar-pds-console
+
+FROM debian:trixie-slim
+RUN apt-get update \
+ && apt-get install --yes --no-install-recommends ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && useradd --uid 1000 --create-home console
+COPY --from=build /linkjar-pds-console /usr/local/bin/linkjar-pds-console
+
+EXPOSE 2585
+ENV CONSOLE_ADDRESS=0.0.0.0:2585
+USER console
+CMD ["linkjar-pds-console"]
+
+LABEL org.opencontainers.image.source=https://github.com/linkjar/pds
+LABEL org.opencontainers.image.description="The operations console of LinkJar PDS"
+LABEL org.opencontainers.image.licenses="MIT OR Apache-2.0"

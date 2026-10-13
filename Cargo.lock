@@ -1267,6 +1267,7 @@ dependencies = [
  "hmac",
  "pds-audit",
  "pds-blob",
+ "pds-console",
  "pds-ext",
  "pds-ext-linkjar",
  "pds-identity",
@@ -1486,6 +1487,25 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "url",
+]
+
+[[package]]
+name = "pds-console"
+version = "0.0.1"
+dependencies = [
+ "axum",
+ "base64 0.22.1",
+ "pds-identity",
+ "rand 0.9.5",
+ "reqwest",
+ "serde_json",
+ "sha2",
+ "subtle",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
  "url",
 ]
 
