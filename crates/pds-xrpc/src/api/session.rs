@@ -137,6 +137,24 @@ pub async fn create_session(
         .to_owned();
     body::string(&input, "authFactorToken", false, Format::Any, None, "$")?;
     let allow_takendown = body::boolean(&input, "allowTakendown", "$")?.unwrap_or(false);
+    {
+        use crate::ratelimit::{Key, of_route, route};
+        route(
+            state,
+            &[
+                (
+                    of_route("com.atproto.server.createSession-0", 86_400, 300),
+                    Key::WithIp(&identifier),
+                    1,
+                ),
+                (
+                    of_route("com.atproto.server.createSession-1", 300, 30),
+                    Key::WithIp(&identifier),
+                    1,
+                ),
+            ],
+        )?;
+    }
     if given.len() > password::OLD_PASSWORD_MAX_LENGTH {
         return Err(unauthorized(
             "AuthenticationRequired",

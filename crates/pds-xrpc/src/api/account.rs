@@ -264,6 +264,14 @@ pub async fn create_account(
     body: &mut Option<Body>,
 ) -> Result<Response, XrpcError> {
     let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
+    crate::ratelimit::route(
+        state,
+        &[(
+            crate::ratelimit::of_route("com.atproto.server.createAccount-0", 300, 100),
+            crate::ratelimit::Key::Ip,
+            1,
+        )],
+    )?;
     let (request, brought_did) = {
         let input = input.clone();
         state.blocking(move |state| validate(state, &input)).await?

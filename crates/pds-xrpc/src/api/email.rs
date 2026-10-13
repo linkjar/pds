@@ -118,6 +118,12 @@ pub async fn request_email_confirmation(
     headers: &HeaderMap,
 ) -> Result<Response, XrpcError> {
     let did = active_session(state, headers, None).await?;
+    crate::ratelimit::mail_request(
+        state,
+        "com.atproto.server.requestEmailConfirmation-0",
+        "com.atproto.server.requestEmailConfirmation-1",
+        &did,
+    )?;
     let (_, email) = account_with_email(state, &did).await?;
     let token = create_token(state, &did, "confirm_email").await?;
     state
@@ -166,6 +172,12 @@ pub async fn request_email_update(
     headers: &HeaderMap,
 ) -> Result<Response, XrpcError> {
     let did = active_session(state, headers, Some(auth::ACCESS_FULL)).await?;
+    crate::ratelimit::mail_request(
+        state,
+        "com.atproto.server.requestEmailUpdate-0",
+        "com.atproto.server.requestEmailUpdate-1",
+        &did,
+    )?;
     let (account, email) = account_with_email(state, &did).await?;
     let token_required = account.email_confirmed_at.is_some();
     if token_required {
@@ -235,6 +247,24 @@ pub async fn request_password_reset(
     body: &mut Option<Body>,
 ) -> Result<Response, XrpcError> {
     let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
+    {
+        use crate::ratelimit::{Key, of_route, route};
+        route(
+            state,
+            &[
+                (
+                    of_route("com.atproto.server.requestPasswordReset-0", 86_400, 50),
+                    Key::Ip,
+                    1,
+                ),
+                (
+                    of_route("com.atproto.server.requestPasswordReset-1", 3600, 15),
+                    Key::Ip,
+                    1,
+                ),
+            ],
+        )?;
+    }
     let email = body::string(&input, "email", true, Format::Any, None, "$")?
         .unwrap_or_default()
         .to_lowercase();
@@ -272,6 +302,14 @@ pub async fn reset_password(
     body: &mut Option<Body>,
 ) -> Result<Response, XrpcError> {
     let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
+    crate::ratelimit::route(
+        state,
+        &[(
+            crate::ratelimit::of_route("com.atproto.server.resetPassword-0", 300, 50),
+            crate::ratelimit::Key::Ip,
+            1,
+        )],
+    )?;
     let token = body::string(&input, "token", true, Format::Any, None, "$")?
         .unwrap_or_default()
         .to_owned();

@@ -54,6 +54,16 @@ pub async fn get_repo(
     let since = query.params.get("since").map(str::to_owned);
     let additional: &[&str] = if with_since { &[SCOPE_TAKENDOWN] } else { &[] };
     let credentials = query.credentials(state, additional)?;
+    // The export has a bucket of its own and spends nothing of the
+    // address bucket.
+    crate::ratelimit::consume(
+        state,
+        &[(
+            crate::ratelimit::of_route("com.atproto.sync.getRepo-0", 300, 6000),
+            crate::ratelimit::Key::Ip,
+            1,
+        )],
+    )?;
     let (store, root) = state
         .blocking(move |state| {
             repo_availability(state, &did, credentials.is_admin_or(&did))?;
