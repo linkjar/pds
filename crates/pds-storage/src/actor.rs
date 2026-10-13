@@ -382,6 +382,20 @@ impl ActorDb {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
+    /// The number of indexed records, of blob rows, and of distinct blobs
+    /// that records reference.
+    pub fn counts(&self) -> Result<(u64, u64, u64), StorageError> {
+        let count = |sql: &str| -> Result<u64, StorageError> {
+            let value: i64 = self.conn.query_row(sql, [], |row| row.get(0))?;
+            Ok(u64::try_from(value).unwrap_or(0))
+        };
+        Ok((
+            count(r#"select count(*) from "record""#)?,
+            count(r#"select count(*) from "blob""#)?,
+            count(r#"select count(distinct "blobCid") from "record_blob""#)?,
+        ))
+    }
+
     /// The number of blocks in the store.
     pub fn block_count(&self) -> Result<u64, StorageError> {
         let count: i64 =

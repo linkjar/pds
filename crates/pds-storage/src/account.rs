@@ -303,6 +303,32 @@ impl AccountDb {
             .optional()?)
     }
 
+    /// Deactivates an account at `now`. With `delete_after` it is deleted
+    /// at that time unless it is activated. Returns whether the actor
+    /// exists.
+    pub fn deactivate(
+        &self,
+        did: &str,
+        now: &str,
+        delete_after: Option<&str>,
+    ) -> Result<bool, StorageError> {
+        let updated = self.conn.execute(
+            r#"update "actor" set "deactivatedAt" = ?2, "deleteAfter" = ?3 where "did" = ?1"#,
+            rusqlite::params![did, now, delete_after],
+        )?;
+        Ok(updated > 0)
+    }
+
+    /// Activates an account that is not taken down. Returns whether there
+    /// is one.
+    pub fn activate(&self, did: &str) -> Result<bool, StorageError> {
+        let updated = self.conn.execute(
+            r#"update "actor" set "deactivatedAt" = null, "deleteAfter" = null where "did" = ?1 and "takedownRef" is null"#,
+            [did],
+        )?;
+        Ok(updated > 0)
+    }
+
     /// Whether the invite code can still be used: it exists, it is not
     /// disabled, its owner is not taken down, and it has uses left.
     pub fn invite_available(&self, code: &str) -> Result<bool, StorageError> {

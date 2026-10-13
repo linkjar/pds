@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
+use axum::response::IntoResponse as _;
 use common::{DataDir, PASSWORD};
 use linkjar_pds::serve::app_state;
 use serde_json::{Value, json};
@@ -29,6 +30,18 @@ async fn plc() -> (String, Ops) {
                 },
             )
             .get(|| async { StatusCode::NOT_FOUND }),
+        )
+        .route(
+            "/{did}/data",
+            axum::routing::get(
+                |State(ops): State<Ops>, Path(did): Path<String>| async move {
+                    let ops = ops.lock().unwrap();
+                    match ops.iter().rev().find(|(sent, _)| *sent == did) {
+                        Some((_, op)) => op.to_string().into_response(),
+                        None => StatusCode::NOT_FOUND.into_response(),
+                    }
+                },
+            ),
         )
         .with_state(Arc::clone(&ops));
     tokio::spawn(async move { axum::serve(listener, app).await });
@@ -305,4 +318,185 @@ async fn an_invite_code_is_required_and_used_once() {
         .await;
     assert_eq!((status, text(&answer, "error")), (400, "InvalidInviteCode"));
     assert_eq!(server.ops.lock().unwrap().len(), 1);
+}
+
+/// A server on an empty directory creates the databases of the Reference,
+/// with its migrations recorded, and takes an account.
+#[tokio::test]
+async fn a_new_data_directory_gets_the_databases_of_the_reference() {
+    let (plc, _ops) = plc().await;
+    let root = std::env::temp_dir().join(format!("linkjar-pds-fresh-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(root.join("blocks")).unwrap();
+    let vars = [
+        ("PDS_HOSTNAME", "pds.test"),
+        ("PDS_DATA_DIRECTORY", root.to_str().unwrap()),
+        (
+            "PDS_BLOBSTORE_DISK_LOCATION",
+            root.join("blocks").to_str().unwrap(),
+        ),
+        ("PDS_JWT_SECRET", common::JWT_SECRET),
+        ("PDS_ADMIN_PASSWORD", common::ADMIN_PASSWORD),
+        ("PDS_INVITE_REQUIRED", "false"),
+        ("PDS_DID_PLC_URL", plc.as_str()),
+        ("PDS_SERVICE_HANDLE_DOMAINS", ".pds-users.org"),
+        (
+            "PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX",
+            "0707070707070707070707070707070707070707070707070707070707070707",
+        ),
+    ]
+    .into_iter()
+    .map(|(k, v)| (k.to_owned(), v.to_owned()))
+    .collect();
+    let config = linkjar_pds::config::Config::from_vars(&vars).unwrap();
+    linkjar_pds::serve::create_missing_databases(&config).unwrap();
+    // A second start changes nothing.
+    linkjar_pds::serve::create_missing_databases(&config).unwrap();
+
+    for (file, tables, migrations) in [
+        ("account.sqlite", 18, 7),
+        ("sequencer.sqlite", 3, 1),
+        ("did_cache.sqlite", 3, 1),
+    ] {
+        let db = common::open(&root.join(file));
+        let count = |sql: &str| -> i64 { db.query_row(sql, [], |row| row.get(0)).unwrap() };
+        assert_eq!(
+            count(
+                "select count(*) from sqlite_master where type = 'table' and name not like 'sqlite_%'"
+            ),
+            tables,
+            "{file}"
+        );
+        assert_eq!(
+            count("select count(*) from kysely_migration"),
+            migrations,
+            "{file}"
+        );
+        assert_eq!(
+            count("select is_locked from kysely_migration_lock"),
+            0,
+            "{file}"
+        );
+        let mode: String = db
+            .query_row("pragma journal_mode", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(mode, "wal", "{file}");
+    }
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let origin = format!("http://{}", listener.local_addr().unwrap());
+    let router = pds_xrpc::router(app_state(&config).unwrap());
+    tokio::spawn(async move { axum::serve(listener, router).await });
+    let response = reqwest::Client::new()
+        .post(format!("{origin}/xrpc/com.atproto.server.createAccount"))
+        .header("content-type", "application/json")
+        .body(json!({"handle": "zoe-one.pds-users.org", "email": "zoe@example.com", "password": PASSWORD}).to_string())
+        .send()
+        .await
+        .unwrap();
+    let status = response.status().as_u16();
+    let made: Value = serde_json::from_slice(&response.bytes().await.unwrap()).unwrap();
+    assert_eq!(status, 200, "{made}");
+    let report = linkjar_pds::verify::verify(&config).unwrap();
+    assert_eq!((report.actors, report.findings.len()), (1, 0), "{report}");
+    // The actor store records its migration too.
+    let store = common::open(&config.layout.actor_db(text(&made, "did")));
+    let recorded: String = store
+        .query_row("select name from kysely_migration", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(recorded, "001");
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+#[tokio::test]
+async fn an_account_is_deactivated_checked_and_activated() {
+    let server = Server::start(&[]).await;
+    let (_, made) = server
+        .create(&json!({"handle": "frank.pds-users.org", "email": "frank@example.com", "password": PASSWORD}))
+        .await;
+    let (did, access) = (
+        text(&made, "did").to_owned(),
+        text(&made, "accessJwt").to_owned(),
+    );
+    let get = |nsid: &'static str| {
+        let (http, origin, access) = (server.http.clone(), server.origin.clone(), access.clone());
+        async move {
+            let response = http
+                .get(format!("{origin}/xrpc/{nsid}"))
+                .bearer_auth(access)
+                .send()
+                .await
+                .unwrap();
+            let status = response.status().as_u16();
+            let body: Value = serde_json::from_slice(&response.bytes().await.unwrap()).unwrap();
+            (status, body)
+        }
+    };
+    let events = || -> Vec<String> {
+        common::open(&server.dir.root.join("sequencer.sqlite"))
+            .prepare(r#"select "eventType" from "repo_seq" where "did" = ?1 order by "seq""#)
+            .unwrap()
+            .query_map([&did], |row| row.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect()
+    };
+
+    let (status, checked) = get("com.atproto.server.checkAccountStatus").await;
+    assert_eq!(status, 200, "{checked}");
+    assert_eq!(
+        (
+            &checked["activated"],
+            &checked["validDid"],
+            &checked["repoBlocks"],
+            &checked["indexedRecords"]
+        ),
+        // The commit and the empty root of the tree.
+        (&json!(true), &json!(true), &json!(2), &json!(0))
+    );
+    assert_eq!(checked.as_object().unwrap().len(), 9);
+
+    let deactivate = "com.atproto.server.deactivateAccount";
+    assert_eq!(
+        server.post(deactivate, Some(&access), &json!({})).await.0,
+        200
+    );
+    let (_, session) = get("com.atproto.server.getSession").await;
+    assert_eq!(
+        (&session["active"], &session["status"]),
+        (&json!(false), &json!("deactivated"))
+    );
+    let (_, checked) = get("com.atproto.server.checkAccountStatus").await;
+    assert_eq!(checked["activated"], false);
+    // A deactivated repository takes no write.
+    let (status, refused) = server
+        .post(
+            "com.atproto.repo.createRecord",
+            Some(&access),
+            &json!({"repo": did, "collection": "com.example.test.note", "record": {"$type": "com.example.test.note"}}),
+        )
+        .await;
+    assert_eq!(
+        (status, text(&refused, "error")),
+        (401, "AccountDeactivated")
+    );
+
+    let (status, body) = server
+        .post(
+            "com.atproto.server.activateAccount",
+            Some(&access),
+            &Value::Null,
+        )
+        .await;
+    assert_eq!(status, 200, "{body}");
+    let (_, session) = get("com.atproto.server.getSession").await;
+    assert_eq!(session["active"], true);
+    assert_eq!(
+        events(),
+        [
+            "identity", "account", "append", "sync", "account", "account", "identity", "sync"
+        ]
+    );
+    let report = linkjar_pds::verify::verify(&server.dir.config).unwrap();
+    assert_eq!(report.findings.len(), 0, "{report}");
 }

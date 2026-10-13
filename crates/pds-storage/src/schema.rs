@@ -64,6 +64,53 @@ pub fn create(path: &Path, schema: &str) -> Result<Connection, StorageError> {
     Ok(conn)
 }
 
+/// The bookkeeping tables of the Reference's migrator. The Reference
+/// finds its migrations recorded and runs none.
+const MIGRATOR: &str = r#"
+create table "kysely_migration" ("name" varchar(255) not null primary key, "timestamp" varchar(255) not null);
+create table "kysely_migration_lock" ("id" varchar(255) not null primary key, "is_locked" integer default 0 not null);
+insert into "kysely_migration_lock" ("id", "is_locked") values ('migration_lock', 0);
+"#;
+
+fn record_migrations(conn: &Connection, names: &[&str], now: &str) -> Result<(), StorageError> {
+    for name in names {
+        conn.execute(
+            r#"insert into "kysely_migration" ("name", "timestamp") values (?1, ?2)"#,
+            [name, &now],
+        )?;
+    }
+    Ok(())
+}
+
+/// Creates one of the shared databases as the Reference creates it at the
+/// pin (`schema_shared`), with its migrations recorded at `now`. The file
+/// must not exist.
+pub fn create_shared(
+    path: &Path,
+    shared: &crate::schema_shared::Shared,
+    now: &str,
+) -> Result<Connection, StorageError> {
+    let conn = create(path, "")?;
+    for statement in shared.statements {
+        conn.execute_batch(statement)?;
+    }
+    conn.execute(
+        r#"insert into "kysely_migration_lock" ("id", "is_locked") values ('migration_lock', 0)"#,
+        [],
+    )?;
+    record_migrations(&conn, shared.migrations, now)?;
+    Ok(conn)
+}
+
+/// Creates the store of a new actor as the Reference creates it: the
+/// tables of [`ACTOR_STORE`] and its one migration, recorded at `now`.
+pub fn create_actor_store(path: &Path, now: &str) -> Result<Connection, StorageError> {
+    let conn = create(path, ACTOR_STORE)?;
+    conn.execute_batch(MIGRATOR)?;
+    record_migrations(&conn, &["001"], now)?;
+    Ok(conn)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
