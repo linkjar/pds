@@ -55,7 +55,7 @@ export async function summariseAll(frames: Frame[]): Promise<Summary[]> {
  * the frame limit, the CAR slice, the signature, and the links between
  * consecutive commits (`since`, `prevData`, the `prev` of each operation).
  */
-export async function checkRepoStream(s: Scenario, did: string, frames: Frame[]): Promise<void> {
+export async function checkRepoStream(s: Scenario, did: string, frames: Frame[], options: { midStream?: boolean } = {}): Promise<void> {
   const didKey = await signingKey(s, did)
   let previous: { rev: string; data: string } | undefined
   const records = new Map<string, string>()
@@ -91,7 +91,8 @@ export async function checkRepoStream(s: Scenario, did: string, frames: Frame[])
     if (previous) {
       assert.equal(view.since, previous.rev, '`since` names the previous revision')
       assert.equal(view.prevData?.toString(), previous.data, '`prevData` is the previous MST root')
-    } else {
+    } else if (!options.midStream) {
+      // A stream that was joined after the repository's first commit starts with a commit that has a `since`.
       assert.equal(view.since, null, 'the first commit has no `since`')
     }
     const present = new Set(view.blockCids)

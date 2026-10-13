@@ -11,7 +11,7 @@ import type { TargetSpec } from './targets.ts'
 
 // `restore` is the production configuration again: its scenarios run against a
 // data directory that the Reference wrote (src/restore.ts).
-export const PROFILES = ['default', 'invites', 'firehose', 'captcha', 'perf', 'restore', 'restore-perf'] as const
+export const PROFILES = ['default', 'invites', 'firehose', 'captcha', 'perf', 'restore', 'restore-perf', 'writes', 'writes-firehose', 'writes-crash'] as const
 export type Profile = (typeof PROFILES)[number]
 
 export function isProfile(value: string): value is Profile {
@@ -135,12 +135,19 @@ export function pdsEnv(spec: TargetSpec, profile: Profile, secrets: Secrets): Re
   if (profile === 'invites') {
     env.PDS_INVITE_REQUIRED = 'true'
   }
-  if (profile === 'firehose') {
+  if (profile === 'firehose' || profile === 'writes-firehose') {
     // Small limits so that the two cursor rows of SPEC 7.3 that depend on
     // them can be reached in seconds: a five-second backfill window and a
     // subscriber buffer of five events.
     env.PDS_REPO_BACKFILL_LIMIT_MS = '5000'
     env.PDS_MAX_SUBSCRIPTION_BUFFER = '5'
+  }
+  if (profile === 'writes-crash') {
+    // The Candidate stops once between a stored commit and its event
+    // (SPEC 7.4). Fail points are read in dev mode only. The marker is on
+    // the data volume, so the restarted server passes the point.
+    env.PDS_DEV_MODE = 'true'
+    env.PDS_FAIL_POINTS = 'commit.stored=abort-once:/app/data/fail-point-commit-stored'
   }
   if (profile === 'captcha') {
     env.PDS_HCAPTCHA_SITE_KEY = HCAPTCHA_SITE_KEY

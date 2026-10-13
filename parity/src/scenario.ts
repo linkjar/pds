@@ -11,6 +11,7 @@ import { dirname, join } from 'node:path'
 import { test } from 'node:test'
 import { Fixtures } from './lib/fixtures.ts'
 import { Normaliser } from './lib/normalise.ts'
+import { poolEnabled, takeFromPool } from './lib/pool.ts'
 import { Target } from './lib/target.ts'
 import { HOSTS, targetSpec } from './stack/targets.ts'
 
@@ -213,8 +214,16 @@ export class Scenario {
     return this.http(step, { method: 'POST', path: `/xrpc/${nsid}`, json: input, ...extra })
   }
 
-  /** Creates an account through the legacy endpoint and records the exchange. */
+  /**
+   * Creates an account through the legacy endpoint and records the exchange.
+   * In a writes run the account comes from the pool instead (lib/pool.ts),
+   * and no exchange is recorded.
+   */
   async createAccount(name: string, input: Record<string, unknown> = {}, extra: Partial<Request> = {}): Promise<Account> {
+    if (poolEnabled()) {
+      assert.deepEqual(input, {}, 'an account from the pool takes no creation input')
+      return takeFromPool(this.target.name, name)
+    }
     const account = { name, handle: this.handle(name), email: this.email(name), password: `${name}-password-${this.tag}` }
     const result = await this.procedure(
       `create account ${name}`,

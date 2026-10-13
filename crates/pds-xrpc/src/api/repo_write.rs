@@ -454,11 +454,20 @@ pub async fn apply_writes(
 
 /// A key for a staged upload: 32 characters of base32, as the Reference
 /// draws them.
-fn staging_key() -> String {
+fn staging_key(writes: &WriteState) -> String {
     const ALPHABET: &[u8; 32] = b"abcdefghijklmnopqrstuvwxyz234567";
-    (0..32)
-        .map(|_| char::from(ALPHABET[usize::from(rand::random::<u8>() & 31)]))
-        .collect()
+    let mut key = String::with_capacity(32);
+    while key.len() < 32 {
+        // Twelve characters of five bits from one draw of 64.
+        let mut bits = writes.random();
+        for _ in 0..12 {
+            if key.len() < 32 {
+                key.push(char::from(ALPHABET[(bits & 31) as usize]));
+            }
+            bits >>= 5;
+        }
+    }
+    key
 }
 
 /// `com.atproto.repo.uploadBlob`.
@@ -492,7 +501,7 @@ pub async fn upload_blob(
     // through a short queue, so a slow disk slows the client down.
     let (chunks, mut queue) = tokio::sync::mpsc::channel::<axum::body::Bytes>(8);
     let did = caller.clone();
-    let key = staging_key();
+    let key = staging_key(write_state(state)?);
     let writer = tokio::task::spawn_blocking(move || {
         let mut staging = blobs.stage(&did, &key).map_err(XrpcError::internal)?;
         while let Some(chunk) = queue.blocking_recv() {

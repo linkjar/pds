@@ -34,7 +34,7 @@ function transcripts(target: TargetName): Map<string, Transcript> {
   const out = new Map<string, Transcript>()
   // The performance profile records measurements, which no two runs share.
   // A restore run compares its own two groups (see compareGroups).
-  for (const profile of PROFILES.filter((name) => name !== 'perf' && !name.startsWith('restore'))) {
+  for (const profile of PROFILES.filter((name) => name !== 'perf' && !name.startsWith('restore') && !name.startsWith('writes'))) {
     transcriptsIn(join(targetSpec(target).runDir, 'transcripts', profile), profile, out)
   }
   return out
@@ -98,9 +98,16 @@ export function compare(left: TargetName, right: TargetName, options: CompareOpt
  * Compares two transcript groups of one target's run directory: the two
  * servers of a restore run. Returns the process exit status.
  */
-export function compareGroups(target: TargetName, left: string, right: string, options: CompareOptions = {}): number {
+export function compareGroups(
+  target: TargetName,
+  left: string,
+  right: string,
+  options: CompareOptions & { label?: string; hint?: string; names?: [string, string] } = {},
+): number {
   const dir = (group: string) => join(targetSpec(target).runDir, 'transcripts', group)
-  return check(left, right, transcriptsIn(dir(left), 'restore'), transcriptsIn(dir(right), 'restore'), options, 'pnpm parity restore')
+  const label = options.label ?? 'restore'
+  const [leftName, rightName] = options.names ?? [left, right]
+  return check(leftName, rightName, transcriptsIn(dir(left), label), transcriptsIn(dir(right), label), options, options.hint ?? 'pnpm parity restore')
 }
 
 /** `hint` is the command that writes the transcripts. */
