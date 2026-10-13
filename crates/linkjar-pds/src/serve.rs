@@ -1,4 +1,4 @@
-//! The `serve` command: the read-only server over a data directory.
+//! The `serve` command: the server over a data directory.
 
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::{Arc, Mutex};
@@ -6,9 +6,11 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use pds_blob::DiskBlobStore;
 use pds_identity::{DidCache, DidResolver, ResolverConfig};
+use pds_sequencer::{Crawlers, Sequencer};
 use pds_storage::DidCacheDb;
+use pds_types::TidGenerator;
 use pds_xrpc::auth::AuthConfig;
-use pds_xrpc::{AppState, ServerConfig};
+use pds_xrpc::{AppState, ServerConfig, WriteSettings, WriteState};
 use socket2::{Domain, Protocol, Socket, Type};
 use tokio::net::TcpListener;
 use tokio::sync::Notify;
@@ -24,6 +26,12 @@ pub enum ServeError {
     /// The HTTP client could not be built.
     #[error("http client: {0}")]
     Http(#[from] reqwest::Error),
+    /// A database of the data directory could not be opened or repaired.
+    #[error("storage: {0}")]
+    Storage(String),
+    /// `PDS_FAIL_POINTS` does not parse.
+    #[error("PDS_FAIL_POINTS: {0}")]
+    FailPoints(#[from] pds_storage::fail::BadSetting),
     /// The listener could not be bound, or the server failed.
     #[error("{0}")]
     Io(#[from] std::io::Error),
@@ -111,12 +119,41 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
             service_did: config.service_did.clone(),
         },
     };
+    let storage = |error: pds_storage::StorageError| ServeError::Storage(error.to_string());
+    let crawlers = Crawlers::new(
+        config.hostname.clone(),
+        config.crawlers.clone(),
+        http.clone(),
+    );
+    let sequencer =
+        Sequencer::open(&config.layout.sequencer_db, crawlers, now_ms).map_err(storage)?;
+    let writes = WriteState::open(
+        &config.layout,
+        Arc::new(sequencer),
+        TidGenerator::new(),
+        WriteSettings {
+            accepting_imports: config.accepting_imports,
+            max_import_size: config.max_import_size,
+            backfill_limit_ms: i64::try_from(config.repo_backfill_limit.as_millis())
+                .unwrap_or(i64::MAX),
+            max_subscription_buffer: config.max_subscription_buffer,
+        },
+    )
+    .map_err(storage)?;
+    let blobs = config.blob_dir.clone().map(|dir| {
+        let store = DiskBlobStore::new(dir);
+        match &config.blob_tmp_dir {
+            Some(tmp) => store.with_tmp(tmp),
+            None => store,
+        }
+    });
     Ok(AppState::new(
         server,
         config.layout.clone(),
-        config.blob_dir.clone().map(DiskBlobStore::new),
+        blobs,
         resolver,
         http,
+        Some(writes),
         now_ms,
     ))
 }
@@ -166,7 +203,25 @@ pub async fn serve(config: &Config) -> Result<(), ServeError> {
     for name in &config.unknown_variables {
         tracing::warn!(variable = %name, "unknown variable: SPEC Appendix C does not name it");
     }
+    if let Some(setting) = &config.fail_points {
+        tracing::warn!(%setting, "fail points are armed");
+        pds_storage::fail::arm_from(setting)?;
+    }
     let state = app_state(config)?;
+    // Commits that were in flight at the last stop are settled before the
+    // first request (SPEC §7.4).
+    let repairing = state.clone();
+    let repaired = tokio::task::spawn_blocking(move || pds_xrpc::write::repair(&repairing))
+        .await
+        .map_err(|error| ServeError::Storage(error.to_string()))?
+        .map_err(|error| ServeError::Storage(error.message))?;
+    if repaired != pds_xrpc::write::Repaired::default() {
+        tracing::warn!(
+            settled = repaired.settled,
+            synced = repaired.synced,
+            "settled the commits that were in flight at the last stop"
+        );
+    }
     let listener = bind(config.port)?;
     let address = listener.local_addr()?;
     tracing::info!(%address, did = %config.service_did, "serving");

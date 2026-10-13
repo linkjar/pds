@@ -39,7 +39,7 @@ pub enum Format {
 }
 
 impl Format {
-    fn check(self, value: &str) -> Result<(), &'static str> {
+    pub(crate) fn check(self, value: &str) -> Result<(), &'static str> {
         let ok = match self {
             Self::Any => true,
             Self::Did => value.parse::<Did>().is_ok(),

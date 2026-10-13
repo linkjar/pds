@@ -21,6 +21,9 @@ pub const ACCESS_STANDARD: &[&str] = &[
     "com.atproto.appPass",
     "com.atproto.appPassPrivileged",
 ];
+/// The scope of a full session. A method that changes the account itself
+/// accepts no other.
+pub const ACCESS_FULL: &[&str] = &["com.atproto.access"];
 /// The scope of a token that a taken-down account holds.
 pub const SCOPE_TAKENDOWN: &str = "com.atproto.takendown";
 
@@ -104,6 +107,37 @@ pub fn optional_credentials(
         _ => Err(invalid_token(&format!(
             "Unsupported authorization type: {kind}"
         ))),
+    }
+}
+
+/// The account of a request that must carry a session: a legacy access
+/// token. `only` narrows the scopes the method accepts; `None` accepts
+/// [`ACCESS_STANDARD`].
+///
+/// The answers are those of `authorization()` in the Reference: no
+/// credential is 401 `AuthMissing`, and the admin password is not a session.
+pub fn session(
+    state: &crate::state::AppState,
+    headers: &HeaderMap,
+    only: Option<&[&str]>,
+) -> Result<String, XrpcError> {
+    if headers
+        .get(header::AUTHORIZATION)
+        .is_none_or(axum::http::HeaderValue::is_empty)
+    {
+        return Err(XrpcError::auth_required("AuthMissing"));
+    }
+    let unexpected = || invalid_token("Unexpected authorization type");
+    match optional_credentials(headers, &state.config().auth, &[], state.now_s()) {
+        Ok(Credentials::Access { did, scope }) => {
+            if only.is_some_and(|only| !only.contains(&scope.as_str())) {
+                return Err(invalid_token("Bad token scope"));
+            }
+            Ok(did)
+        }
+        Ok(Credentials::Admin | Credentials::None) => Err(unexpected()),
+        Err(error) if error.error == "AuthenticationRequired" => Err(unexpected()),
+        Err(error) => Err(error),
     }
 }
 

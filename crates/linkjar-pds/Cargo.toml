@@ -23,6 +23,7 @@ pds-storage.workspace = true
 pds-blob.workspace = true
 pds-identity.workspace = true
 pds-xrpc.workspace = true
+pds-sequencer.workspace = true
 axum.workspace = true
 tokio.workspace = true
 reqwest.workspace = true

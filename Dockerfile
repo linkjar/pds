@@ -11,6 +11,7 @@ FROM rust:1.99.0-slim-trixie AS build
 WORKDIR /src
 COPY Cargo.toml Cargo.lock ./
 COPY crates crates
+COPY lexicons lexicons
 COPY xtask xtask
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/target \

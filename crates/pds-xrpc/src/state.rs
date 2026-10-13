@@ -1,11 +1,14 @@
 //! What every handler shares.
 
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use pds_blob::DiskBlobStore;
 use pds_identity::DidResolver;
-use pds_storage::DataLayout;
+use pds_sequencer::Sequencer;
+use pds_storage::{AccountDb, DataLayout, OpsDb, StorageError};
+use pds_types::TidGenerator;
 
 use crate::auth::AuthConfig;
 use crate::error::XrpcError;
@@ -46,6 +49,95 @@ impl ServerConfig {
     }
 }
 
+/// The settings of the write path and of the firehose.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WriteSettings {
+    /// `PDS_ACCEPTING_REPO_IMPORTS`.
+    pub accepting_imports: bool,
+    /// `PDS_MAX_REPO_IMPORT_SIZE` in bytes, when one is set.
+    pub max_import_size: Option<u64>,
+    /// `PDS_REPO_BACKFILL_LIMIT_MS`.
+    pub backfill_limit_ms: i64,
+    /// `PDS_MAX_SUBSCRIPTION_BUFFER`.
+    pub max_subscription_buffer: u32,
+}
+
+/// What the write path shares: the event log, the notes of commits in
+/// flight, the revision clock and one lock per repository.
+pub struct WriteState {
+    sequencer: Arc<Sequencer>,
+    ops: Mutex<OpsDb>,
+    accounts: Mutex<AccountDb>,
+    tids: TidGenerator,
+    locks: Mutex<HashMap<String, Arc<Mutex<()>>>>,
+    settings: WriteSettings,
+}
+
+impl std::fmt::Debug for WriteState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WriteState")
+            .field("sequencer", &self.sequencer)
+            .field("settings", &self.settings)
+            .finish_non_exhaustive()
+    }
+}
+
+impl WriteState {
+    /// Opens the databases the write path writes besides the actor stores.
+    /// `tids` is the revision clock (SPEC §3.2).
+    pub fn open(
+        layout: &DataLayout,
+        sequencer: Arc<Sequencer>,
+        tids: TidGenerator,
+        settings: WriteSettings,
+    ) -> Result<Self, StorageError> {
+        Ok(Self {
+            sequencer,
+            ops: Mutex::new(OpsDb::open(&layout.ops_db)?),
+            accounts: Mutex::new(AccountDb::open_writable(&layout.account_db)?),
+            tids,
+            locks: Mutex::new(HashMap::new()),
+            settings,
+        })
+    }
+
+    /// The event log.
+    pub fn sequencer(&self) -> &Arc<Sequencer> {
+        &self.sequencer
+    }
+
+    /// The settings.
+    pub fn settings(&self) -> &WriteSettings {
+        &self.settings
+    }
+
+    /// The revision clock.
+    pub fn tids(&self) -> &TidGenerator {
+        &self.tids
+    }
+
+    /// Runs `call` with `ops.sqlite`.
+    pub fn with_ops<T>(&self, call: impl FnOnce(&OpsDb) -> T) -> T {
+        call(&self.ops.lock().unwrap_or_else(PoisonError::into_inner))
+    }
+
+    /// Runs `call` with the writable connection to `account.sqlite`.
+    pub fn with_accounts<T>(&self, call: impl FnOnce(&AccountDb) -> T) -> T {
+        call(&self.accounts.lock().unwrap_or_else(PoisonError::into_inner))
+    }
+
+    /// The lock of one repository: one writer at a time (SPEC §8.3).
+    pub fn repo_lock(&self, did: &str) -> Arc<Mutex<()>> {
+        let mut locks = self.locks.lock().unwrap_or_else(PoisonError::into_inner);
+        // A lock nobody holds or waits for is dropped, so the map does not
+        // grow with the number of accounts that ever wrote.
+        if locks.len() > 1024 {
+            locks.retain(|_, lock| Arc::strong_count(lock) > 1);
+        }
+        Arc::clone(locks.entry(did.to_owned()).or_default())
+    }
+}
+
 /// The shared state of the server.
 #[derive(Clone)]
 pub struct AppState {
@@ -58,6 +150,7 @@ struct Inner {
     blobs: Option<DiskBlobStore>,
     resolver: DidResolver,
     http: reqwest::Client,
+    writes: Option<WriteState>,
     now_ms: Box<dyn Fn() -> i64 + Send + Sync>,
 }
 
@@ -71,13 +164,16 @@ impl std::fmt::Debug for AppState {
 }
 
 impl AppState {
-    /// Builds the state. `now_ms` is the clock (SPEC §3.2).
+    /// Builds the state. `now_ms` is the clock (SPEC §3.2). Without
+    /// `writes` the server is read-only: it serves the reads of the data
+    /// directory and has no handler for a write.
     pub fn new(
         config: ServerConfig,
         layout: DataLayout,
         blobs: Option<DiskBlobStore>,
         resolver: DidResolver,
         http: reqwest::Client,
+        writes: Option<WriteState>,
         now_ms: impl Fn() -> i64 + Send + Sync + 'static,
     ) -> Self {
         Self {
@@ -87,6 +183,7 @@ impl AppState {
                 blobs,
                 resolver,
                 http,
+                writes,
                 now_ms: Box::new(now_ms),
             }),
         }
@@ -115,6 +212,16 @@ impl AppState {
     /// The client for outbound requests.
     pub fn http(&self) -> &reqwest::Client {
         &self.inner.http
+    }
+
+    /// The write path, or `None` for a read-only server.
+    pub fn writes(&self) -> Option<&WriteState> {
+        self.inner.writes.as_ref()
+    }
+
+    /// The time in milliseconds since the Unix epoch.
+    pub fn now_ms(&self) -> i64 {
+        (self.inner.now_ms)()
     }
 
     /// The time in seconds since the Unix epoch.

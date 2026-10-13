@@ -124,6 +124,7 @@ const KNOWN: &[&str] = &[
     "PDS_BACKGROUND_LIGHT_URL",
     "PDS_BACKGROUND_DARK_URL",
     // New in the Candidate
+    "PDS_FAIL_POINTS",
     "PDS_PROFILE",
     "PDS_METRICS_ADDRESS",
     "PDS_OPS_ADDRESS",
@@ -197,6 +198,22 @@ pub struct Config {
     pub layout: DataLayout,
     /// `PDS_BLOBSTORE_DISK_LOCATION`.
     pub blob_dir: Option<PathBuf>,
+    /// `PDS_BLOBSTORE_DISK_TMP_LOCATION`, default `tempt` under the blob
+    /// directory.
+    pub blob_tmp_dir: Option<PathBuf>,
+    /// `PDS_ACCEPTING_REPO_IMPORTS`, default true.
+    pub accepting_imports: bool,
+    /// `PDS_MAX_REPO_IMPORT_SIZE` in bytes.
+    pub max_import_size: Option<u64>,
+    /// `PDS_CRAWLERS`: the hosts to notify, each without a trailing slash.
+    pub crawlers: Vec<String>,
+    /// `PDS_MAX_SUBSCRIPTION_BUFFER`, default 500 events.
+    pub max_subscription_buffer: u32,
+    /// `PDS_REPO_BACKFILL_LIMIT_MS`, default one day.
+    pub repo_backfill_limit: Duration,
+    /// `PDS_FAIL_POINTS`: fail points to arm (SPEC §19.2). Read in dev mode
+    /// only.
+    pub fail_points: Option<String>,
     /// `PDS_JWT_SECRET`.
     pub jwt_secret: Option<String>,
     /// `PDS_ADMIN_PASSWORD`.
@@ -351,12 +368,44 @@ impl Config {
             account_db: path("PDS_ACCOUNT_DB_LOCATION", default_layout.account_db),
             sequencer_db: path("PDS_SEQUENCER_DB_LOCATION", default_layout.sequencer_db),
             did_cache_db: path("PDS_DID_CACHE_DB_LOCATION", default_layout.did_cache_db),
+            // The Candidate's own file has no variable: it stays beside
+            // the account database.
+            ops_db: default_layout.ops_db,
             actor_dir: path("PDS_ACTOR_STORE_DIRECTORY", default_layout.actor_dir),
         };
+        let mut crawlers = Vec::new();
+        for crawler in env
+            .text("PDS_CRAWLERS")
+            .unwrap_or_default()
+            .split(',')
+            .map(str::trim)
+            .filter(|crawler| !crawler.is_empty())
+        {
+            if !crawler.starts_with("http://") && !crawler.starts_with("https://") {
+                return Err(ConfigError::Invalid {
+                    name: "PDS_CRAWLERS",
+                    value: crawler.to_owned(),
+                    reason: "expected http or https URLs separated by commas",
+                });
+            }
+            crawlers.push(crawler.trim_end_matches('/').to_owned());
+        }
+        let dev_mode = env.boolean("PDS_DEV_MODE")?.unwrap_or(false);
         Ok(Self {
             port: env.number("PDS_PORT")?.unwrap_or(2583),
             version: env.text("PDS_VERSION"),
-            dev_mode: env.boolean("PDS_DEV_MODE")?.unwrap_or(false),
+            dev_mode,
+            blob_tmp_dir: env
+                .text("PDS_BLOBSTORE_DISK_TMP_LOCATION")
+                .map(PathBuf::from),
+            accepting_imports: env.boolean("PDS_ACCEPTING_REPO_IMPORTS")?.unwrap_or(true),
+            max_import_size: env.number("PDS_MAX_REPO_IMPORT_SIZE")?,
+            crawlers,
+            max_subscription_buffer: env.number("PDS_MAX_SUBSCRIPTION_BUFFER")?.unwrap_or(500),
+            repo_backfill_limit: env
+                .millis("PDS_REPO_BACKFILL_LIMIT_MS", Duration::from_hours(24))?,
+            // Production ignores the hook (SPEC §3.3).
+            fail_points: env.text("PDS_FAIL_POINTS").filter(|_| dev_mode),
             invite_required: env.boolean("PDS_INVITE_REQUIRED")?.unwrap_or(true),
             blob_upload_limit: env
                 .number("PDS_BLOB_UPLOAD_LIMIT")?

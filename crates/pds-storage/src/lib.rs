@@ -15,14 +15,19 @@
 
 pub mod account;
 pub mod actor;
+pub mod actor_txn;
 pub mod did_cache;
 pub mod error;
+pub mod fail;
 pub mod layout;
+pub mod ops;
 pub mod sequencer;
 
 pub use account::{AccountDb, Actor, Availability, RepoListing};
 pub use actor::{ActorDb, BLOCK_BATCH, BlobMeta, BlockRow, FoundBlocks, RecordRow, RepoRoot};
+pub use actor_txn::{ActorTxn, Backlink, MissingBlob, PendingUpload, StoredBlob};
 pub use did_cache::{CachedDoc, DidCacheDb};
 pub use error::StorageError;
 pub use layout::DataLayout;
-pub use sequencer::{SeqGap, SequencerDb};
+pub use ops::{OpsDb, PendingCommit};
+pub use sequencer::{SeqGap, SeqInsert, SeqRow, SequencerDb};

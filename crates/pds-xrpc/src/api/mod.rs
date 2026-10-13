@@ -1,13 +1,16 @@
 //! The handlers, by namespace, and the way from a request to one.
 
 pub mod identity;
+pub mod import;
 pub mod repo;
+pub mod repo_write;
 pub mod root;
 pub mod server;
+pub mod subscribe;
 pub mod sync;
 
 use axum::extract::State;
-use axum::http::{HeaderMap, Method, Uri, header};
+use axum::http::{HeaderMap, Method};
 use axum::response::{IntoResponse, Response};
 use pds_identity::handle::WELL_KNOWN_PATH;
 use pds_storage::{AccountDb, Actor, Availability};
@@ -16,6 +19,7 @@ use crate::auth::{Credentials, optional_credentials};
 use crate::error::XrpcError;
 use crate::params::{Format, Params, Spec};
 use crate::state::AppState;
+use axum::body::Body;
 
 /// One query as a handler sees it.
 #[derive(Debug)]
@@ -63,6 +67,31 @@ enum Served {
     RepoDescribeRepo,
     ServerDescribeServer,
     IdentityResolveHandle,
+    RepoListMissingBlobs,
+}
+
+/// A procedure the crate serves.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Procedure {
+    CreateRecord,
+    PutRecord,
+    DeleteRecord,
+    ApplyWrites,
+    UploadBlob,
+    ImportRepo,
+}
+
+/// The procedure that `nsid` names. `None` for a method without a handler.
+fn procedure(nsid: &str) -> Option<Procedure> {
+    Some(match nsid {
+        "com.atproto.repo.createRecord" => Procedure::CreateRecord,
+        "com.atproto.repo.putRecord" => Procedure::PutRecord,
+        "com.atproto.repo.deleteRecord" => Procedure::DeleteRecord,
+        "com.atproto.repo.applyWrites" => Procedure::ApplyWrites,
+        "com.atproto.repo.uploadBlob" => Procedure::UploadBlob,
+        "com.atproto.repo.importRepo" => Procedure::ImportRepo,
+        _ => return None,
+    })
 }
 
 /// The query that `nsid` names and its parameters, in the order its lexicon
@@ -142,6 +171,15 @@ fn served(nsid: &str) -> Option<(Served, &'static [Spec])> {
             Served::RepoDescribeRepo,
             const { &[Spec::required("repo", Format::AtIdentifier)] },
         ),
+        "com.atproto.repo.listMissingBlobs" => (
+            Served::RepoListMissingBlobs,
+            const {
+                &[
+                    Spec::integer("limit", 1, 1000, 500),
+                    Spec::optional("cursor", Format::Any),
+                ]
+            },
+        ),
         "com.atproto.server.describeServer" => (Served::ServerDescribeServer, &[]),
         "com.atproto.identity.resolveHandle" => (
             Served::IdentityResolveHandle,
@@ -171,19 +209,17 @@ fn path_nsid(path: &str) -> Option<&str> {
 }
 
 /// Every request enters here.
-pub async fn entry(
-    State(state): State<AppState>,
-    method: Method,
-    uri: Uri,
-    headers: HeaderMap,
-) -> Response {
+pub async fn entry(State(state): State<AppState>, request: axum::extract::Request) -> Response {
+    let (mut parts, body) = request.into_parts();
+    let method = parts.method.clone();
+    let uri = parts.uri.clone();
     let path = uri.path();
     let reads = method == Method::GET || method == Method::HEAD;
     match path {
         "/" if reads => return root::banner(),
         "/robots.txt" if reads => return root::robots(),
         "/xrpc/_health" if reads => return root::health(&state).await,
-        WELL_KNOWN_PATH if reads => return root::atproto_did(&state, &headers).await,
+        WELL_KNOWN_PATH if reads => return root::atproto_did(&state, &parts.headers).await,
         _ => {}
     }
     if !path.starts_with("/xrpc/") {
@@ -192,11 +228,19 @@ pub async fn entry(
     let Some(nsid) = path_nsid(path) else {
         return XrpcError::invalid_request("invalid xrpc path").into_response();
     };
+    // The firehose is a WebSocket. Without an upgrade the method has no
+    // route and falls through, as at the pin (SPEC §7.2).
+    if nsid == subscribe::NSID
+        && state.writes().is_some()
+        && let Some(response) = subscribe::upgrade(&state, &mut parts).await
+    {
+        return response;
+    }
     if !reads && method != Method::POST {
         return XrpcError::invalid_request("XRPC requests only supports GET and POST")
             .into_response();
     }
-    xrpc(&state, nsid, &method, uri.query(), &headers)
+    xrpc(&state, nsid, &method, uri.query(), &parts.headers, body)
         .await
         .unwrap_or_else(IntoResponse::into_response)
 }
@@ -207,7 +251,26 @@ async fn xrpc(
     method: &Method,
     raw_query: Option<&str>,
     headers: &HeaderMap,
+    body: Body,
 ) -> Result<Response, XrpcError> {
+    // A read-only server has no handler for a write.
+    if state.writes().is_some()
+        && let Some(procedure) = procedure(nsid)
+    {
+        if method != Method::POST {
+            return Err(XrpcError::invalid_request(format!(
+                "Incorrect HTTP method ({method}) expected POST"
+            )));
+        }
+        return match procedure {
+            Procedure::CreateRecord => repo_write::create_record(state, headers, body).await,
+            Procedure::PutRecord => repo_write::put_record(state, headers, body).await,
+            Procedure::DeleteRecord => repo_write::delete_record(state, headers, body).await,
+            Procedure::ApplyWrites => repo_write::apply_writes(state, headers, body).await,
+            Procedure::UploadBlob => repo_write::upload_blob(state, headers, body).await,
+            Procedure::ImportRepo => import::import_repo(state, headers, body).await,
+        };
+    }
     let Some((served, specs)) = served(nsid) else {
         return Err(unhandled(state, nsid, headers));
     };
@@ -237,6 +300,10 @@ async fn xrpc(
         Served::RepoDescribeRepo => repo::describe_repo(state, &query).await,
         Served::ServerDescribeServer => Ok(server::describe_server(state)),
         Served::IdentityResolveHandle => identity::resolve_handle(state, &query).await,
+        Served::RepoListMissingBlobs if state.writes().is_some() => {
+            repo_write::list_missing_blobs(state, &query).await
+        }
+        Served::RepoListMissingBlobs => Err(unhandled(state, nsid, headers)),
     }
 }
 
@@ -245,20 +312,8 @@ async fn xrpc(
 /// the admin password is not a session. The proxy itself is not in this
 /// unit, so a request with a valid session is 501.
 fn unhandled(state: &AppState, nsid: &str, headers: &HeaderMap) -> XrpcError {
-    if headers
-        .get(header::AUTHORIZATION)
-        .is_none_or(axum::http::HeaderValue::is_empty)
-    {
-        return XrpcError::auth_required("AuthMissing");
-    }
-    match optional_credentials(headers, &state.config().auth, &[], state.now_s()) {
-        Ok(Credentials::Access { .. }) => XrpcError::not_implemented(nsid),
-        Ok(Credentials::Admin | Credentials::None) => {
-            XrpcError::bad_request("InvalidToken", "Unexpected authorization type")
-        }
-        Err(error) if error.error == "AuthenticationRequired" => {
-            XrpcError::bad_request("InvalidToken", "Unexpected authorization type")
-        }
+    match crate::auth::session(state, headers, None) {
+        Ok(_) => XrpcError::not_implemented(nsid),
         Err(error) => error,
     }
 }

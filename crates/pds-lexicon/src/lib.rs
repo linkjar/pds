@@ -7,8 +7,10 @@
 //! validation modes of SPEC §6.3 belong to the write path, and
 //! permission-set resolution follows in a later unit.
 
+pub mod bundled;
 pub mod model;
 pub mod validate;
+pub mod wording;
 
 pub use validate::{
     BlobRules, Measure, Rule, ValidationError, validate_data_model, validate_record_key,
@@ -156,6 +158,28 @@ pub struct UnresolvedRef {
 }
 
 impl Corpus {
+    /// The lexicons compiled into the server: every file under `lexicons/`.
+    /// They are the schemas the Reference at the pin knows.
+    ///
+    /// # Panics
+    ///
+    /// Never for a build that passed `cargo xtask codegen --check`, which
+    /// loads the same files.
+    pub fn bundled() -> &'static Self {
+        static BUNDLED: std::sync::LazyLock<Corpus> = std::sync::LazyLock::new(|| {
+            let mut corpus = Corpus::new();
+            for text in bundled::DOCS {
+                #[allow(clippy::expect_used)] // checked by codegen and by a test
+                let doc: LexiconDoc =
+                    serde_json::from_str(text).expect("a vendored lexicon parses");
+                #[allow(clippy::expect_used)]
+                corpus.insert(doc).expect("vendored lexicon ids are unique");
+            }
+            corpus
+        });
+        &BUNDLED
+    }
+
     /// An empty corpus.
     pub fn new() -> Self {
         Self::default()

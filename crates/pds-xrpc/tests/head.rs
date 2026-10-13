@@ -50,7 +50,7 @@ fn state() -> AppState {
     );
     // No route under test opens the data directory.
     let layout = DataLayout::new(Path::new("/nonexistent/pds-xrpc-head-test"));
-    AppState::new(config, layout, None, resolver, http, || 0)
+    AppState::new(config, layout, None, resolver, http, None, || 0)
 }
 
 /// One answer as it crossed the wire: the status, the header lines in lower

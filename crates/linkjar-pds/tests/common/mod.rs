@@ -19,7 +19,7 @@ pub const TARA: &str = "did:plc:tttttttttttttttttttttttt";
 pub const POST: &str = "app.bsky.feed.post";
 pub const JWT_SECRET: &str = "test-jwt-secret";
 pub const ADMIN_PASSWORD: &str = "test-admin-password";
-pub const BLOB_CID: &str = "bafkreigh2akiscaildcqabsyg3dfr6chu3fgpregiymsck7e7aqa4s52zy";
+pub const BLOB_CID: &str = "bafkreib5njcqaneu6gbwsmfbqeswb654woqznfim3pjbn7klh3alxjsrhm";
 pub const BLOB_BYTES: &[u8] = b"a text blob";
 
 static NEXT: AtomicU32 = AtomicU32::new(0);
