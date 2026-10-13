@@ -36,6 +36,9 @@ pub struct Flow<'a> {
     pub request_uri: &'a str,
     /// The token that ties a form to the device and the request.
     pub csrf: &'a str,
+    /// The identity providers a person can continue with: the name in the
+    /// path and the name on the button.
+    pub providers: &'a [(&'a str, &'a str)],
 }
 
 const STYLE: &str = "\
@@ -55,6 +58,8 @@ input[readonly]{color:var(--muted)}\
 .row{display:flex;flex-direction:column;gap:.5rem;margin-top:1.25rem}\
 button{width:100%;padding:.7rem 1rem;border-radius:.5rem;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:inherit;font-weight:600;cursor:pointer}\
 button.primary{background:var(--brand);border-color:var(--brand);color:var(--brand-fg)}\
+a.button{display:block;padding:.7rem 1rem;border-radius:.5rem;border:1px solid var(--line);color:var(--fg);font-weight:600;text-align:center;text-decoration:none}\
+summary{margin:1.25rem 0 .25rem;font-weight:600;cursor:pointer}\
 button:focus-visible,input:focus-visible{outline:3px solid var(--brand);outline-offset:2px}\
 [role=alert]{margin:1rem 0;padding:.75rem;border:1px solid var(--bad);border-radius:.5rem;background:var(--bad-bg);color:var(--bad)}\
 code{word-break:break-all;font-size:.9rem}\
@@ -105,6 +110,29 @@ fn view_form(flow: &Flow<'_>, buttons: &[(&str, &str, bool)]) -> String {
     out
 }
 
+/// The buttons of the identity providers: each a link that starts the
+/// sign-in for this request.
+fn provider_buttons(flow: &Flow<'_>) -> String {
+    let mut out = String::new();
+    for (id, label) in flow.providers {
+        let query = format!(
+            "request_uri={}",
+            escape(&flow.request_uri.replace(':', "%3A"))
+        );
+        let _ = write!(
+            out,
+            "<a class=\"button\" href=\"/oauth/external/{}/start?{query}\">Continue with {}</a>",
+            escape(id),
+            escape(label)
+        );
+    }
+    if out.is_empty() {
+        out
+    } else {
+        format!("<div class=\"row\">{out}</div>")
+    }
+}
+
 fn alert(error: Option<&str>) -> String {
     error.map_or_else(String::new, |error| {
         format!("<div role=\"alert\">{}</div>", escape(error))
@@ -133,19 +161,30 @@ pub fn welcome(flow: &Flow<'_>) -> String {
 pub fn sign_in(flow: &Flow<'_>, username: &str, locked: bool, error: Option<&str>) -> String {
     let readonly = if locked { " readonly" } else { " autofocus" };
     let focus = if locked { " autofocus" } else { "" };
-    let body = format!(
-        "<h1>Sign in</h1><p>Enter the password of your {} account.</p>{}\
-<form method=\"post\" action=\"/oauth/authorize/sign-in\">{}\
+    let form = format!(
+        "<form method=\"post\" action=\"/oauth/authorize/sign-in\">{}\
 <label for=\"username\">Handle or email address</label>\
 <input id=\"username\" type=\"text\" name=\"username\" value=\"{}\" autocomplete=\"username\" autocapitalize=\"none\" spellcheck=\"false\" required{readonly}>\
 <label for=\"password\">Password</label>\
 <input id=\"password\" type=\"password\" name=\"password\" autocomplete=\"current-password\" required{focus}>\
 <label class=\"check\"><input type=\"checkbox\" name=\"remember\" value=\"true\"> Remember this account on this device</label>\
-<div class=\"row\"><button type=\"submit\" class=\"primary\">Sign in</button></div></form>{}",
-        escape(flow.service),
-        alert(error),
+<div class=\"row\"><button type=\"submit\" class=\"primary\">Sign in</button></div></form>",
         hidden(flow),
         escape(username),
+    );
+    // With identity providers the password form waits behind a disclosure.
+    // It is open when the form has something to say.
+    let providers = provider_buttons(flow);
+    let form = if providers.is_empty() {
+        form
+    } else {
+        let open = if error.is_some() { " open" } else { "" };
+        format!("{providers}<details{open}><summary>Or use email</summary>{form}</details>")
+    };
+    let body = format!(
+        "<h1>Sign in</h1><p>Sign in to your {} account.</p>{}{form}{}",
+        escape(flow.service),
+        alert(error),
         view_form(flow, &[("welcome", "Back", false)]),
     );
     document(flow.nonce, "Sign in", &body)
@@ -263,11 +302,12 @@ pub fn sign_up_credentials(
 <input id=\"email\" type=\"email\" name=\"email\" value=\"{}\" autocomplete=\"email\" required>\
 <label for=\"password\">Password</label>\
 <input id=\"password\" type=\"password\" name=\"password\" autocomplete=\"new-password\" minlength=\"8\" required>\
-<div class=\"row\"><button type=\"submit\" class=\"primary\">Next</button></div></form>{}",
+<div class=\"row\"><button type=\"submit\" class=\"primary\">Next</button></div></form>{}{}",
         escape(flow.service),
         alert(error),
         hidden(flow),
         escape(email),
+        provider_buttons(flow),
         view_form(flow, &[("welcome", "Back", false)]),
     );
     document(flow.nonce, "Create a new account", &body)
@@ -467,6 +507,7 @@ mod tests {
         client_id: "https://app.example.org/client-metadata.json?a=1&b=\"2\"",
         request_uri: "urn:ietf:params:oauth:request_uri:req-00",
         csrf: "token",
+        providers: &[],
     };
 
     #[test]
@@ -524,5 +565,26 @@ mod tests {
         assert!(trusted.contains("<strong>&lt;b&gt;App&lt;/b&gt;</strong>"));
         assert!(!trusted.contains("<code>"));
         assert!(error("n", "Error", "<script>").contains("&lt;script&gt;"));
+    }
+
+    #[test]
+    fn providers_come_first_and_the_password_form_waits_behind_a_disclosure() {
+        let flow = Flow {
+            providers: &[("google", "Google"), ("github", "GitHub")],
+            ..FLOW
+        };
+        let page = sign_in(&flow, "", false, None);
+        let link = "href=\"/oauth/external/google/start?request_uri=urn%3Aietf%3Aparams%3Aoauth%3Arequest_uri%3Areq-00\">Continue with Google</a>";
+        assert!(page.contains(link), "{page}");
+        assert!(page.contains("<details><summary>Or use email</summary><form"));
+        assert!(
+            page.find("Continue with GitHub").unwrap() < page.find("name=\"password\"").unwrap()
+        );
+        // An error opens the form it is about.
+        assert!(sign_in(&flow, "", false, Some("x")).contains("<details open>"));
+        // The sign-up page opens on the email form, with the providers under it.
+        let page = sign_up_credentials(&flow, false, "", "", None);
+        assert!(page.find("name=\"email\"").unwrap() < page.find("Continue with Google").unwrap());
+        assert!(!sign_in(&FLOW, "", false, None).contains("<details"));
     }
 }
