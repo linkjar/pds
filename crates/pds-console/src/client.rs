@@ -11,7 +11,7 @@ use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use pds_identity::{Algorithm, Keypair};
 use reqwest::header::HeaderMap;
-use serde_json::{Value, json};
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::config::{Config, SCOPE};
@@ -59,8 +59,8 @@ pub fn new_key() -> Keypair {
     Keypair::generate(Algorithm::P256, |bytes| rand::fill(bytes))
 }
 
-/// The DPoP proof of a request (RFC 9449): `htu` is the address the PDS
-/// knows itself by, without the query.
+/// The DPoP proof of a request: `htu` is the address the PDS knows itself
+/// by, without the query.
 fn proof(
     key: &Keypair,
     method: &str,
@@ -68,37 +68,17 @@ fn proof(
     nonce: Option<&str>,
     token: Option<&str>,
 ) -> String {
-    let point = key.public_key().to_uncompressed();
-    let header = json!({
-        "typ": "dpop+jwt",
-        "alg": "ES256",
-        "jwk": {
-            "kty": "EC",
-            "crv": "P-256",
-            "x": URL_SAFE_NO_PAD.encode(&point[1..33]),
-            "y": URL_SAFE_NO_PAD.encode(&point[33..65]),
+    let jti = random_text::<16>();
+    pds_oauth::agent::dpop_proof(
+        key,
+        pds_oauth::agent::ProofOf {
+            method,
+            htu,
+            nonce,
+            token,
+            now_s: now_s(),
+            jti: &jti,
         },
-    });
-    let mut claims = json!({
-        "jti": random_text::<16>(),
-        "htm": method,
-        "htu": htu,
-        "iat": now_s(),
-    });
-    if let Some(nonce) = nonce {
-        claims["nonce"] = json!(nonce);
-    }
-    if let Some(token) = token {
-        claims["ath"] = json!(URL_SAFE_NO_PAD.encode(Sha256::digest(token.as_bytes())));
-    }
-    let signed = format!(
-        "{}.{}",
-        URL_SAFE_NO_PAD.encode(header.to_string()),
-        URL_SAFE_NO_PAD.encode(claims.to_string())
-    );
-    format!(
-        "{signed}.{}",
-        URL_SAFE_NO_PAD.encode(key.sign(signed.as_bytes()))
     )
 }
 

@@ -1,0 +1,37 @@
+[package]
+name = "pds-mcp"
+description = "The MCP server of LinkJar PDS: a sidecar that lets an AI client reach a person's repository after a sign-in on the PDS"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+name = "pds_mcp"
+path = "src/lib.rs"
+
+[[bin]]
+name = "linkjar-pds-mcp"
+path = "src/main.rs"
+
+[dependencies]
+pds-identity.workspace = true
+pds-oauth.workspace = true
+axum.workspace = true
+tokio.workspace = true
+reqwest.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+base64.workspace = true
+sha2.workspace = true
+subtle.workspace = true
+rand.workspace = true
+url.workspace = true
+data-encoding.workspace = true
+
+[lints]
+workspace = true

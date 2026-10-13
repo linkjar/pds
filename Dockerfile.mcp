@@ -1,0 +1,32 @@
+# The MCP server of LinkJar PDS (docs/sidecars.md section 2).
+#
+# The server is a sidecar: it holds no data directory and no secret of the
+# PDS beyond its own client key. It is public: put it behind the TLS proxy
+# under its own host name.
+
+FROM rust:1.99.0-slim-trixie AS build
+WORKDIR /src
+COPY Cargo.toml Cargo.lock ./
+COPY crates crates
+COPY lexicons lexicons
+COPY xtask xtask
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/src/target \
+    cargo build --release --locked --package pds-mcp \
+ && cp target/release/linkjar-pds-mcp /linkjar-pds-mcp
+
+FROM debian:trixie-slim
+RUN apt-get update \
+ && apt-get install --yes --no-install-recommends ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && useradd --uid 1000 --create-home mcp
+COPY --from=build /linkjar-pds-mcp /usr/local/bin/linkjar-pds-mcp
+
+EXPOSE 2586
+ENV MCP_ADDRESS=0.0.0.0:2586
+USER mcp
+CMD ["linkjar-pds-mcp"]
+
+LABEL org.opencontainers.image.source=https://github.com/linkjar/pds
+LABEL org.opencontainers.image.description="The MCP server of LinkJar PDS"
+LABEL org.opencontainers.image.licenses="MIT OR Apache-2.0"

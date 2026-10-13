@@ -1271,6 +1271,7 @@ dependencies = [
  "pds-ext",
  "pds-ext-linkjar",
  "pds-identity",
+ "pds-mcp",
  "pds-repo",
  "pds-sequencer",
  "pds-storage",
@@ -1497,6 +1498,7 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "pds-identity",
+ "pds-oauth",
  "rand 0.9.5",
  "reqwest",
  "serde_json",
@@ -1559,6 +1561,27 @@ dependencies = [
  "serde_json",
  "thiserror",
  "unicode-segmentation",
+]
+
+[[package]]
+name = "pds-mcp"
+version = "0.0.1"
+dependencies = [
+ "axum",
+ "base64 0.22.1",
+ "data-encoding",
+ "pds-identity",
+ "pds-oauth",
+ "rand 0.9.5",
+ "reqwest",
+ "serde_json",
+ "sha2",
+ "subtle",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "url",
 ]
 
 [[package]]

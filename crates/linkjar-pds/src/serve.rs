@@ -132,6 +132,7 @@ fn server_config(config: &Config, jwt_secret: &str, admin_password: &str) -> Ser
         rate_limits: config.rate_limits.clone(),
         oauth: config.oauth.clone(),
         ops_client_ids: config.ops_client_ids.clone(),
+        mcp_client_ids: config.mcp_client_ids.clone(),
         audit_repo: config.audit_repo.clone(),
         profile: if config.profile == crate::config::ProfileName::Linkjar {
             Arc::new(pds_ext_linkjar::Linkjar {
