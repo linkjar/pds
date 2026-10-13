@@ -843,12 +843,32 @@ async fn sign_in_inner(
             "Enter your handle and your password",
         );
     }
+    // A sign-in on the page counts with the sign-ins of `createSession`:
+    // by identifier and address, 300 a day and 30 in five minutes.
+    {
+        use crate::ratelimit::{Key, consume, of_route};
+        let limits = [
+            (
+                of_route("com.atproto.server.createSession-0", 86_400, 300),
+                Key::WithIp(&username),
+                1,
+            ),
+            (
+                of_route("com.atproto.server.createSession-1", 300, 30),
+                Key::WithIp(&username),
+                1,
+            ),
+        ];
+        if consume(state, &limits).is_err() {
+            return refused(
+                StatusCode::TOO_MANY_REQUESTS,
+                "Too many attempts. Try again later.",
+            );
+        }
+    }
     let found = crate::api::session::timed_login(state, &username, &password).await;
     let (account, app_password) = match found {
         Ok(found) => found,
-        Err(error) if error.status == StatusCode::TOO_MANY_REQUESTS => {
-            return refused(error.status, "Too many attempts. Try again later.");
-        }
         Err(error) if error.status.is_server_error() => {
             return Err(OAuthError::server(error.message));
         }

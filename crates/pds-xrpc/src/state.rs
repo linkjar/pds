@@ -54,6 +54,9 @@ pub struct ServerConfig {
     pub rate_limits: crate::ratelimit::RateLimitConfig,
     /// The OAuth settings.
     pub oauth: crate::oauth::OAuthConfig,
+    /// `PDS_BSKY_APP_VIEW_CDN_URL_PATTERN`: the URL of an image, with `%s`
+    /// for the preset, the DID and the CID.
+    pub appview_cdn_url_pattern: Option<String>,
 }
 
 /// What the server needs to create and change `did:plc` identities.

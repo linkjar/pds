@@ -231,6 +231,8 @@ pub struct Config {
     pub rate_limits: pds_xrpc::ratelimit::RateLimitConfig,
     /// The OAuth settings (SPEC §11).
     pub oauth: pds_xrpc::oauth::OAuthConfig,
+    /// `PDS_BSKY_APP_VIEW_CDN_URL_PATTERN`.
+    pub appview_cdn_url_pattern: Option<String>,
     /// `PDS_JWT_SECRET`.
     pub jwt_secret: Option<String>,
     /// `PDS_ADMIN_PASSWORD`.
@@ -601,6 +603,7 @@ impl Config {
             mail: env.mail()?,
             rate_limits: env.rate_limits()?,
             oauth: env.oauth()?,
+            appview_cdn_url_pattern: env.text("PDS_BSKY_APP_VIEW_CDN_URL_PATTERN"),
             jwt_secret: env.text("PDS_JWT_SECRET"),
             admin_password: env.text("PDS_ADMIN_PASSWORD"),
             plc_url: env
