@@ -2394,6 +2394,22 @@ async fn the_shared_tier_runs_on_postgres() {
         )
         .await;
     assert_ne!(status, 500);
+    // A token that the server never sent is refused, not an error of the
+    // server: the statement compares a parameter with NULL.
+    let wrong = json!({"email": "petra@example.com", "token": "aaaaa-bbbbb"});
+    let (status, refused) = server
+        .post("com.atproto.server.confirmEmail", Some(&access), &wrong)
+        .await;
+    assert_eq!(
+        (status, text(&refused, "error")),
+        (400, "InvalidToken"),
+        "{refused}"
+    );
+    let reset = json!({"token": "aaaaa-bbbbb", "password": "another-password"});
+    let (status, refused) = server
+        .post("com.atproto.server.resetPassword", None, &reset)
+        .await;
+    assert_eq!(status, 400, "{refused}");
     let app = json!({"name": "phone"});
     let (status, body) = server
         .post("com.atproto.server.createAppPassword", Some(&access), &app)
