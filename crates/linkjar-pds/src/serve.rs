@@ -458,6 +458,21 @@ pub async fn serve(config: &Config) -> Result<(), ServeError> {
     // One server for a data directory (SPEC §8.3, §18.4). The lock goes
     // when the process ends, however it ends.
     let _lock = lock_data_directory(config)?;
+    // An entryway says what its member host must be configured with.
+    if let Some(host) = &config.member_host
+        && let Ok(key) = pds_identity::Keypair::from_secret_bytes(
+            pds_identity::Algorithm::Secp256k1,
+            &host.signing_key,
+        )
+    {
+        tracing::info!(
+            entryway_did = %config.service_did,
+            jwt_verify_key_k256_public_key_hex =
+                %data_encoding::HEXLOWER.encode(&key.public_key().to_compressed()),
+            member_host = %host.url,
+            "serving as an entryway; the member host needs these two values"
+        );
+    }
     // On Postgres one process appends to the event log (SPEC §21.2).
     let _lease = match &config.layout.shared {
         Some(tier) => Some(
