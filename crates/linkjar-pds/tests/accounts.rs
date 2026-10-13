@@ -1909,3 +1909,40 @@ async fn an_account_moves_here_with_its_did_and_starts_deactivated() {
     let (status, _) = server.post(create, Some(&token(8)), &other).await;
     assert_eq!(status, 401);
 }
+
+#[tokio::test]
+async fn the_metrics_count_requests_by_route_and_read_the_audit_log() {
+    let dir = DataDir::new(1);
+    let state = app_state(&dir.config).unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let origin = format!("http://{}", listener.local_addr().unwrap());
+    let router = pds_xrpc::router(state.clone());
+    tokio::spawn(async move { axum::serve(listener, router).await });
+    let http = reqwest::Client::new();
+    for path in [
+        "/xrpc/_health",
+        "/xrpc/_health",
+        "/xrpc/app.bsky.feed.getTimeline",
+        "/wp-login.php",
+        "/xrpc/com.atproto.admin.getAccountInfo?did=did:plc:aaaaaaaaaaaaaaaaaaaaaaaa",
+    ] {
+        http.get(format!("{origin}{path}")).send().await.unwrap();
+    }
+    let text = tokio::task::spawn_blocking(move || pds_xrpc::metrics::render(&state))
+        .await
+        .unwrap();
+    for line in [
+        "pds_build_info{version=",
+        "pds_http_requests_total{route=\"/xrpc/_health\",status=\"200\"} 2",
+        // A method of another service and a path nobody serves have one label each.
+        "pds_http_requests_total{route=\"proxied\",status=\"400\"} 1",
+        "pds_http_requests_total{route=\"other\",status=\"404\"} 1",
+        "pds_http_request_duration_seconds_count{route=\"/xrpc/_health\"} 2",
+        // The admin method was refused and recorded.
+        "pds_audit_entries 1",
+        "pds_audit_unsigned_entries 1",
+    ] {
+        assert!(text.contains(line), "{line}\n{text}");
+    }
+    assert!(!text.contains("wp-login"));
+}

@@ -217,6 +217,38 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
     Ok(state)
 }
 
+/// Starts the private metrics listener (SPEC §14.4): `GET /metrics` in the
+/// Prometheus text format. It is a listener of its own, so that the
+/// public port never serves it.
+async fn serve_metrics(address: std::net::SocketAddr, state: AppState) -> Result<(), ServeError> {
+    let listener = TcpListener::bind(address).await?;
+    tracing::info!(address = %listener.local_addr()?, "serving metrics");
+    let app = axum::Router::new().route(
+        "/metrics",
+        axum::routing::get(move || {
+            let state = state.clone();
+            async move {
+                let text = tokio::task::spawn_blocking(move || pds_xrpc::metrics::render(&state))
+                    .await
+                    .unwrap_or_default();
+                (
+                    [(
+                        axum::http::header::CONTENT_TYPE,
+                        "text/plain; version=0.0.4; charset=utf-8",
+                    )],
+                    text,
+                )
+            }
+        }),
+    );
+    tokio::spawn(async move {
+        if let Err(error) = axum::serve(listener, app).await {
+            tracing::error!(%error, "the metrics listener stopped");
+        }
+    });
+    Ok(())
+}
+
 /// Opens the audit log of the data directory (SPEC §20). Without a key the
 /// log chains its entries and signs no checkpoint.
 fn open_audit_log(config: &Config, state: &AppState) -> Result<(), ServeError> {
@@ -298,6 +330,9 @@ pub async fn serve(config: &Config) -> Result<(), ServeError> {
         );
     }
     tokio::spawn(collect_uploads(state.clone()));
+    if let Some(address) = config.metrics_address {
+        serve_metrics(address, state.clone()).await?;
+    }
     {
         // A checkpoint every five minutes (SPEC §20.3). The first tick of
         // an interval is immediate: it covers what a stop left open.

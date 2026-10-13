@@ -275,6 +275,7 @@ struct Inner {
     limiter: crate::ratelimit::Limiter,
     oauth: crate::oauth::OAuthState,
     audit: std::sync::OnceLock<crate::audit::AuditLog>,
+    metrics: crate::metrics::Metrics,
     now_ms: Box<dyn Fn() -> i64 + Send + Sync>,
 }
 
@@ -305,6 +306,7 @@ impl AppState {
             inner: Arc::new(Inner {
                 oauth,
                 audit: std::sync::OnceLock::new(),
+                metrics: crate::metrics::Metrics::default(),
                 config,
                 layout,
                 blobs,
@@ -325,6 +327,11 @@ impl AppState {
     /// What the authorization server keeps in memory.
     pub fn oauth(&self) -> &crate::oauth::OAuthState {
         &self.inner.oauth
+    }
+
+    /// What the server counts as it serves.
+    pub fn metrics(&self) -> &crate::metrics::Metrics {
+        &self.inner.metrics
     }
 
     /// Gives the server its audit log. The first call counts.
