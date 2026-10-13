@@ -512,6 +512,19 @@ impl S3BlobStore {
             .map(drop)
     }
 
+    /// Moves a blob to `quarantine/<did>/<cid>`, or back with `apply`
+    /// unset.
+    pub(crate) fn quarantine(&self, did: &str, cid: &str, apply: bool) -> Result<(), BlobError> {
+        let stored = format!("blocks/{did}/{cid}");
+        let held = format!("quarantine/{did}/{cid}");
+        let (from, to) = if apply {
+            (stored, held)
+        } else {
+            (held, stored)
+        };
+        self.wait(self.move_object(&from, &to))
+    }
+
     pub(crate) fn has(&self, did: &str, cid: &str) -> Result<bool, BlobError> {
         self.wait(self.head(&format!("blocks/{did}/{cid}")))
     }

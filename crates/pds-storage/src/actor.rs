@@ -382,6 +382,34 @@ impl ActorDb {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
+    /// The takedown reference of a blob: `None` when the store has no row
+    /// for it, `Some(None)` when it is not taken down.
+    pub fn blob_takedown_ref(&self, cid: &str) -> Result<Option<Option<String>>, StorageError> {
+        Ok(self
+            .conn
+            .query_row(
+                r#"select "takedownRef" from "blob" where "cid" = ?1"#,
+                [cid],
+                |row| row.get(0),
+            )
+            .optional()?)
+    }
+
+    /// The CID and the takedown reference of a record, taken down or not.
+    pub fn record_takedown_ref(
+        &self,
+        uri: &str,
+    ) -> Result<Option<(String, Option<String>)>, StorageError> {
+        Ok(self
+            .conn
+            .query_row(
+                r#"select "cid", "takedownRef" from "record" where "uri" = ?1"#,
+                [uri],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?)
+    }
+
     /// The number of indexed records, of blob rows, and of distinct blobs
     /// that records reference.
     pub fn counts(&self) -> Result<(u64, u64, u64), StorageError> {

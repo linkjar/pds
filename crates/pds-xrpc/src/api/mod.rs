@@ -1,6 +1,7 @@
 //! The handlers, by namespace, and the way from a request to one.
 
 pub mod account;
+pub mod admin;
 pub mod identity;
 pub mod import;
 pub mod lifecycle;
@@ -72,6 +73,8 @@ enum Served {
     ServerGetSession,
     ServerListAppPasswords,
     ServerCheckAccountStatus,
+    AdminGetAccountInfo,
+    AdminGetSubjectStatus,
     IdentityResolveHandle,
     RepoListMissingBlobs,
 }
@@ -94,6 +97,7 @@ enum Procedure {
     DeactivateAccount,
     ActivateAccount,
     UpdateHandle,
+    AdminUpdateSubjectStatus,
 }
 
 /// The procedure that `nsid` names. `None` for a method without a handler.
@@ -112,6 +116,7 @@ fn procedure(nsid: &str) -> Option<Procedure> {
         "com.atproto.server.deactivateAccount" => Procedure::DeactivateAccount,
         "com.atproto.server.activateAccount" => Procedure::ActivateAccount,
         "com.atproto.identity.updateHandle" => Procedure::UpdateHandle,
+        "com.atproto.admin.updateSubjectStatus" => Procedure::AdminUpdateSubjectStatus,
         "com.atproto.server.createAppPassword" => Procedure::CreateAppPassword,
         "com.atproto.server.revokeAppPassword" => Procedure::RevokeAppPassword,
         _ => return None,
@@ -120,6 +125,8 @@ fn procedure(nsid: &str) -> Option<Procedure> {
 
 /// The query that `nsid` names and its parameters, in the order its lexicon
 /// declares them. `None` for a method without a handler.
+// A table: one arm for each query the crate serves.
+#[allow(clippy::too_many_lines)]
 fn served(nsid: &str) -> Option<(Served, &'static [Spec])> {
     const DID: Spec = Spec::required("did", Format::Did);
     const ONLY_DID: &[Spec] = &[DID];
@@ -208,6 +215,17 @@ fn served(nsid: &str) -> Option<(Served, &'static [Spec])> {
         "com.atproto.server.getSession" => (Served::ServerGetSession, &[]),
         "com.atproto.server.listAppPasswords" => (Served::ServerListAppPasswords, &[]),
         "com.atproto.server.checkAccountStatus" => (Served::ServerCheckAccountStatus, &[]),
+        "com.atproto.admin.getAccountInfo" => (Served::AdminGetAccountInfo, const { &[DID] }),
+        "com.atproto.admin.getSubjectStatus" => (
+            Served::AdminGetSubjectStatus,
+            const {
+                &[
+                    Spec::optional("did", Format::Did),
+                    Spec::optional("uri", Format::Any),
+                    Spec::optional("blob", Format::Cid),
+                ]
+            },
+        ),
         "com.atproto.identity.resolveHandle" => (
             Served::IdentityResolveHandle,
             const { &[Spec::required("handle", Format::Handle)] },
@@ -318,6 +336,9 @@ async fn xrpc(
             }
             Procedure::ActivateAccount => lifecycle::activate_account(state, headers).await,
             Procedure::UpdateHandle => lifecycle::update_handle(state, headers, body).await,
+            Procedure::AdminUpdateSubjectStatus => {
+                admin::update_subject_status(state, headers, body).await
+            }
             Procedure::CreateAppPassword => {
                 session::create_app_password(state, headers, body).await
             }
@@ -356,6 +377,8 @@ async fn xrpc(
         Served::ServerDescribeServer => Ok(server::describe_server(state)),
         Served::ServerGetSession => session::get_session(state, headers).await,
         Served::ServerListAppPasswords => session::list_app_passwords(state, headers).await,
+        Served::AdminGetAccountInfo => admin::get_account_info(state, &query).await,
+        Served::AdminGetSubjectStatus => admin::get_subject_status(state, &query).await,
         Served::ServerCheckAccountStatus => lifecycle::check_account_status(state, headers).await,
         Served::IdentityResolveHandle => identity::resolve_handle(state, &query).await,
         Served::RepoListMissingBlobs if state.writes().is_some() => {

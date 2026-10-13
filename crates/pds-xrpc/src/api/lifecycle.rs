@@ -197,6 +197,13 @@ pub async fn activate_account(
     headers: &HeaderMap,
 ) -> Result<Response, XrpcError> {
     let did = session(state, headers, Some(auth::ACCESS_FULL))?;
+    activate(state, did).await?;
+    Ok(StatusCode::OK.into_response())
+}
+
+/// Activates the account `did`, as `activateAccount` of the account
+/// manager: the published identity is checked first.
+pub(crate) async fn activate(state: &AppState, did: String) -> Result<(), XrpcError> {
     assert_valid_did(state, &did).await?;
     state
         .blocking(move |state| {
@@ -229,7 +236,7 @@ pub async fn activate_account(
             Ok(())
         })
         .await?;
-    Ok(StatusCode::OK.into_response())
+    Ok(())
 }
 
 /// `com.atproto.server.checkAccountStatus`.

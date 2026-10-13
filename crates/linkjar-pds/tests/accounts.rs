@@ -1,5 +1,11 @@
 //! Account creation over HTTP (`docs/SPEC.md` §10.1).
-#![allow(clippy::unwrap_used, clippy::expect_used, missing_docs)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    // A test here walks one account through a whole procedure.
+    clippy::too_many_lines,
+    missing_docs
+)]
 
 mod common;
 
@@ -605,4 +611,169 @@ async fn a_handle_is_changed_in_the_directory_the_account_and_the_log() {
         )
     );
     assert_eq!(server.ops.lock().unwrap().len(), 3);
+}
+
+#[tokio::test]
+async fn the_admin_reads_and_changes_the_status_of_accounts_records_and_blobs() {
+    use base64::Engine as _;
+    let server = Server::start(&[]).await;
+    let (_, made) = server
+        .create(&json!({"handle": "irene.pds-users.org", "email": "irene@example.com", "password": PASSWORD}))
+        .await;
+    let (did, access) = (
+        text(&made, "did").to_owned(),
+        text(&made, "accessJwt").to_owned(),
+    );
+    let basic = format!(
+        "Basic {}",
+        base64::engine::general_purpose::STANDARD
+            .encode(format!("admin:{}", common::ADMIN_PASSWORD))
+    );
+    let admin_get = |path: String| {
+        let (http, origin, basic) = (server.http.clone(), server.origin.clone(), basic.clone());
+        async move {
+            let response = http
+                .get(format!("{origin}/xrpc/{path}"))
+                .header("authorization", basic)
+                .send()
+                .await
+                .unwrap();
+            let status = response.status().as_u16();
+            let body: Value = serde_json::from_slice(&response.bytes().await.unwrap()).unwrap();
+            (status, body)
+        }
+    };
+    let admin_post = |nsid: &'static str, body: Value| {
+        let (http, origin, basic) = (server.http.clone(), server.origin.clone(), basic.clone());
+        async move {
+            let response = http
+                .post(format!("{origin}/xrpc/{nsid}"))
+                .header("authorization", basic)
+                .header("content-type", "application/json")
+                .body(body.to_string())
+                .send()
+                .await
+                .unwrap();
+            let status = response.status().as_u16();
+            let body: Value = serde_json::from_slice(&response.bytes().await.unwrap()).unwrap();
+            (status, body)
+        }
+    };
+    let info = format!("com.atproto.admin.getAccountInfo?did={did}");
+    let subject = format!("com.atproto.admin.getSubjectStatus?did={did}");
+    let update = "com.atproto.admin.updateSubjectStatus";
+
+    // Only the admin.
+    let (status, _) = server.post(update, Some(&access), &json!({})).await;
+    assert_eq!(status, 401);
+    let (status, account) = admin_get(info.clone()).await;
+    assert_eq!(status, 200, "{account}");
+    assert_eq!(
+        (
+            &account["handle"],
+            &account["email"],
+            &account["invitesDisabled"]
+        ),
+        (
+            &json!("irene.pds-users.org"),
+            &json!("irene@example.com"),
+            &json!(false)
+        )
+    );
+    let (status, body) = admin_get(
+        "com.atproto.admin.getAccountInfo?did=did:plc:zzzzzzzzzzzzzzzzzzzzzzzz".to_owned(),
+    )
+    .await;
+    assert_eq!((status, text(&body, "error")), (400, "NotFound"));
+
+    // A takedown ends the sessions and is in the log; lifting it restores
+    // the account.
+    let repo = json!({"$type": "com.atproto.admin.defs#repoRef", "did": did});
+    let (status, body) = admin_post(
+        update,
+        json!({"subject": repo, "takedown": {"applied": true, "ref": "case-1"}}),
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["takedown"], json!({"applied": true, "ref": "case-1"}));
+    let (_, state) = admin_get(subject.clone()).await;
+    assert_eq!(state["takedown"], json!({"applied": true, "ref": "case-1"}));
+    assert_eq!(state["deactivated"], json!({"applied": false}));
+    let (status, body) = server
+        .post(
+            "com.atproto.server.refreshSession",
+            Some(text(&made, "refreshJwt")),
+            &Value::Null,
+        )
+        .await;
+    assert_eq!((status, text(&body, "error")), (401, "AccountTakedown"));
+    let (status, _) = admin_post(
+        update,
+        json!({"subject": repo, "takedown": {"applied": false}}),
+    )
+    .await;
+    assert_eq!(status, 200);
+    let (_, state) = admin_get(subject).await;
+    assert_eq!(state["takedown"], json!({"applied": false}));
+    let events: Vec<String> = common::open(&server.dir.root.join("sequencer.sqlite"))
+        .prepare(r#"select "eventType" from "repo_seq" where "did" = ?1 order by "seq""#)
+        .unwrap()
+        .query_map([&did], |row| row.get(0))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert_eq!(
+        events,
+        [
+            "identity", "account", "append", "sync", "account", "account"
+        ]
+    );
+
+    // A record is taken down and no longer read.
+    let (_, session) = server
+        .post(
+            "com.atproto.server.createSession",
+            None,
+            &json!({"identifier": did, "password": PASSWORD}),
+        )
+        .await;
+    let access = text(&session, "accessJwt");
+    let note = "com.example.test.note";
+    let (_, written) = server
+        .post(
+            "com.atproto.repo.createRecord",
+            Some(access),
+            &json!({"repo": did, "collection": note, "rkey": "one", "record": {"$type": note}}),
+        )
+        .await;
+    let uri = text(&written, "uri").to_owned();
+    let strong = json!({"$type": "com.atproto.repo.strongRef", "uri": uri, "cid": written["cid"]});
+    let (status, _) = admin_post(
+        update,
+        json!({"subject": strong, "takedown": {"applied": true}}),
+    )
+    .await;
+    assert_eq!(status, 200);
+    let (_, state) = admin_get(format!("com.atproto.admin.getSubjectStatus?uri={uri}")).await;
+    assert_eq!(state["takedown"]["applied"], true);
+    assert!(state["takedown"]["ref"].is_string());
+    let read = server
+        .http
+        .get(format!(
+            "{}/xrpc/com.atproto.repo.getRecord?repo={did}&collection={note}&rkey=one",
+            server.origin
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(read.status().as_u16(), 400);
+    let (status, body) = admin_post(
+        update,
+        json!({"subject": {"$type": "other"}, "takedown": {"applied": true}}),
+    )
+    .await;
+    assert_eq!(
+        (status, text(&body, "message")),
+        (400, "Invalid subject (other)")
+    );
 }

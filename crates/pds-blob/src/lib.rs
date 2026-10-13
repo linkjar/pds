@@ -283,6 +283,40 @@ impl DiskBlobStore {
         }
     }
 
+    /// Where a taken-down blob waits: `quarantine/<did>/<cid>` beside the
+    /// blob root.
+    fn quarantine_path(&self, did: &str, cid: &str) -> Result<PathBuf, BlobError> {
+        check_component(did)?;
+        check_component(cid)?;
+        Ok(self.root.join("quarantine").join(did).join(cid))
+    }
+
+    fn rename(from: &Path, to: &Path) -> Result<(), BlobError> {
+        if let Some(dir) = to.parent() {
+            std::fs::create_dir_all(dir).map_err(|source| BlobError::Io {
+                path: dir.to_owned(),
+                source,
+            })?;
+        }
+        std::fs::rename(from, to).map_err(|source| match source.kind() {
+            io::ErrorKind::NotFound => BlobError::NotFound,
+            _ => BlobError::Io {
+                path: from.to_owned(),
+                source,
+            },
+        })
+    }
+
+    /// Moves a stored blob out of reach, for a takedown.
+    pub fn quarantine(&self, did: &str, cid: &str) -> Result<(), BlobError> {
+        Self::rename(&self.path(did, cid)?, &self.quarantine_path(did, cid)?)
+    }
+
+    /// Moves a blob back from quarantine.
+    pub fn unquarantine(&self, did: &str, cid: &str) -> Result<(), BlobError> {
+        Self::rename(&self.quarantine_path(did, cid)?, &self.path(did, cid)?)
+    }
+
     /// Where the blob `cid` of `did` is stored.
     fn path(&self, did: &str, cid: &str) -> Result<PathBuf, BlobError> {
         check_component(did)?;
@@ -394,6 +428,31 @@ impl BlobStore {
                 check_component(did)?;
                 check_component(cid)?;
                 Ok(Box::new(store.open(did, cid)?))
+            }
+        }
+    }
+
+    /// Moves a stored blob out of reach, for a takedown. A blob that is
+    /// not in the store is [`BlobError::NotFound`].
+    pub fn quarantine(&self, did: &str, cid: &str) -> Result<(), BlobError> {
+        match self {
+            Self::Disk(store) => store.quarantine(did, cid),
+            Self::S3(store) => {
+                check_component(did)?;
+                check_component(cid)?;
+                store.quarantine(did, cid, true)
+            }
+        }
+    }
+
+    /// Moves a blob back from quarantine.
+    pub fn unquarantine(&self, did: &str, cid: &str) -> Result<(), BlobError> {
+        match self {
+            Self::Disk(store) => store.unquarantine(did, cid),
+            Self::S3(store) => {
+                check_component(did)?;
+                check_component(cid)?;
+                store.quarantine(did, cid, false)
             }
         }
     }
