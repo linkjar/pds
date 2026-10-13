@@ -5,6 +5,7 @@ pub mod admin;
 pub mod identity;
 pub mod import;
 pub mod lifecycle;
+pub mod proxy;
 pub mod repo;
 pub mod repo_write;
 pub mod root;
@@ -74,6 +75,7 @@ enum Served {
     ServerListAppPasswords,
     ServerCheckAccountStatus,
     AdminGetAccountInfo,
+    ServerGetServiceAuth,
     AdminGetSubjectStatus,
     IdentityResolveHandle,
     RepoListMissingBlobs,
@@ -215,6 +217,16 @@ fn served(nsid: &str) -> Option<(Served, &'static [Spec])> {
         "com.atproto.server.getSession" => (Served::ServerGetSession, &[]),
         "com.atproto.server.listAppPasswords" => (Served::ServerListAppPasswords, &[]),
         "com.atproto.server.checkAccountStatus" => (Served::ServerCheckAccountStatus, &[]),
+        "com.atproto.server.getServiceAuth" => (
+            Served::ServerGetServiceAuth,
+            const {
+                &[
+                    Spec::required("aud", Format::Any),
+                    Spec::optional("exp", Format::Any),
+                    Spec::optional("lxm", Format::Nsid),
+                ]
+            },
+        ),
         "com.atproto.admin.getAccountInfo" => (Served::AdminGetAccountInfo, const { &[DID] }),
         "com.atproto.admin.getSubjectStatus" => (
             Served::AdminGetSubjectStatus,
@@ -348,7 +360,12 @@ async fn xrpc(
         };
     }
     let Some((served, specs)) = served(nsid) else {
-        return Err(unhandled(state, nsid, headers));
+        // No handler here: another service has the method.
+        let path = match raw_query {
+            Some(query) => format!("/xrpc/{nsid}?{query}"),
+            None => format!("/xrpc/{nsid}"),
+        };
+        return proxy::proxy(state, nsid, method, &path, headers, body).await;
     };
     if method != Method::GET && method != Method::HEAD {
         return Err(XrpcError::invalid_request(format!(
@@ -377,6 +394,7 @@ async fn xrpc(
         Served::ServerDescribeServer => Ok(server::describe_server(state)),
         Served::ServerGetSession => session::get_session(state, headers).await,
         Served::ServerListAppPasswords => session::list_app_passwords(state, headers).await,
+        Served::ServerGetServiceAuth => proxy::get_service_auth(state, &query).await,
         Served::AdminGetAccountInfo => admin::get_account_info(state, &query).await,
         Served::AdminGetSubjectStatus => admin::get_subject_status(state, &query).await,
         Served::ServerCheckAccountStatus => lifecycle::check_account_status(state, headers).await,

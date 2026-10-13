@@ -134,6 +134,9 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
         terms_of_service_url: config.terms_of_service_url.clone(),
         contact_email: config.contact_email.clone(),
         appview_url: config.appview_url.clone(),
+        appview_did: config.appview_did.clone(),
+        mod_service: config.mod_service.clone(),
+        report_service: config.report_service.clone(),
         proxy_timeout: config.proxy_timeout,
         auth: AuthConfig {
             jwt_secret: jwt_secret.as_bytes().to_vec(),

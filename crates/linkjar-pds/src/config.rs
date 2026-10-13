@@ -238,6 +238,12 @@ pub struct Config {
     pub resolver_timeout: Duration,
     /// `PDS_BSKY_APP_VIEW_URL`.
     pub appview_url: Option<String>,
+    /// `PDS_BSKY_APP_VIEW_DID`.
+    pub appview_did: Option<String>,
+    /// `PDS_MOD_SERVICE_URL` and `PDS_MOD_SERVICE_DID`.
+    pub mod_service: Option<(String, String)>,
+    /// `PDS_REPORT_SERVICE_URL` and `PDS_REPORT_SERVICE_DID`.
+    pub report_service: Option<(String, String)>,
     /// `PDS_PROXY_HEADERS_TIMEOUT` in milliseconds, default ten seconds.
     pub proxy_timeout: Duration,
     /// The `PDS_*` variables that are set and that Appendix C does not
@@ -531,6 +537,13 @@ impl Config {
             did_cache_max_ttl: env.millis("PDS_DID_CACHE_MAX_TTL", Duration::from_hours(24))?,
             resolver_timeout: env.millis("PDS_ID_RESOLVER_TIMEOUT", Duration::from_secs(3))?,
             appview_url: env.url("PDS_BSKY_APP_VIEW_URL")?,
+            appview_did: env.text("PDS_BSKY_APP_VIEW_DID"),
+            mod_service: env
+                .url("PDS_MOD_SERVICE_URL")?
+                .zip(env.text("PDS_MOD_SERVICE_DID")),
+            report_service: env
+                .url("PDS_REPORT_SERVICE_URL")?
+                .zip(env.text("PDS_REPORT_SERVICE_DID")),
             proxy_timeout: env.millis("PDS_PROXY_HEADERS_TIMEOUT", Duration::from_secs(10))?,
             hostname,
             service_did,
