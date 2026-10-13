@@ -410,3 +410,113 @@ pub async fn update_handle(
         .await?;
     Ok(StatusCode::OK.into_response())
 }
+
+/// Removes an account for good: its rows, every event of it but the one
+/// that says it is deleted, its blobs and its actor store. The steps are
+/// safe to repeat.
+pub(crate) fn delete_account_now(state: &AppState, did: &str) -> Result<(), XrpcError> {
+    let writes = writes(state)?;
+    writes.with_accounts(|accounts| accounts.delete_account(did))?;
+    let now = pds_sequencer::iso_millis(state.now_ms());
+    let sequenced =
+        writes
+            .sequencer()
+            .sequence_deletion(&account_event(did, Some("deleted"), &now));
+    // The store goes whether the event was written or not, as at the pin.
+    let layout = state.layout();
+    if let (Some(blobs), Ok(store)) = (state.blobs(), ActorDb::open(&layout.actor_db(did))) {
+        for (cid, staged) in store.all_blob_rows().unwrap_or_default() {
+            let removed = match staged {
+                Some(key) => blobs.delete_staged(did, &key),
+                None => blobs.delete(did, &cid),
+            };
+            if let Err(error) = removed {
+                tracing::error!(%did, %cid, %error, "a blob of a deleted account was not removed");
+            }
+        }
+    }
+    writes.forget_store(did);
+    match std::fs::remove_dir_all(layout.actor_store_dir(did)) {
+        Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
+            tracing::error!(%did, %error, "the actor store of a deleted account was not removed");
+        }
+        _ => {}
+    }
+    sequenced?;
+    Ok(())
+}
+
+/// `com.atproto.server.requestAccountDelete`.
+pub async fn request_account_delete(
+    state: &AppState,
+    headers: &HeaderMap,
+) -> Result<Response, XrpcError> {
+    let did = session(state, headers, Some(auth::ACCESS_FULL))?;
+    let email = {
+        let did = did.clone();
+        state
+            .blocking(move |state| {
+                super::repo_write::find_account(state, &did, true, false)?;
+                AccountDb::open(&state.layout().account_db)?
+                    .account(&did, false, Availability::ANY)?
+                    .ok_or_else(|| XrpcError::invalid_request("account not found"))?
+                    .email
+                    .ok_or_else(|| {
+                        XrpcError::invalid_request("account does not have an email address")
+                    })
+            })
+            .await?
+    };
+    let token = super::email::create_token(state, &did, "delete_account").await?;
+    state
+        .config()
+        .mail
+        .send(crate::mail::Template::DeleteAccount, &email, &token, None)
+        .await?;
+    Ok(StatusCode::OK.into_response())
+}
+
+/// `com.atproto.server.deleteAccount`: the DID, the account password and
+/// the token of the mail.
+pub async fn delete_account(
+    state: &AppState,
+    headers: &HeaderMap,
+    body: &mut Option<Body>,
+) -> Result<Response, XrpcError> {
+    let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
+    let text = |key: &str, format: Format| {
+        body::string(&input, key, true, format, None, "$")
+            .map(|value| value.unwrap_or_default().to_owned())
+    };
+    let did = text("did", Format::Did)?;
+    let given = text("password", Format::Any)?;
+    let token = text("token", Format::Any)?;
+    let denied = |message: &str| XrpcError {
+        status: StatusCode::UNAUTHORIZED,
+        error: "AuthenticationRequired".to_owned(),
+        message: message.to_owned(),
+    };
+    if given.len() > crate::password::OLD_PASSWORD_MAX_LENGTH {
+        return Err(denied(
+            "Password too long. Consider resetting your password.",
+        ));
+    }
+    state
+        .blocking(move |state| {
+            let accounts = AccountDb::open(&state.layout().account_db)?;
+            if accounts.actor(&did, Availability::ANY)?.is_none() {
+                return Err(XrpcError::invalid_request("account not found"));
+            }
+            let valid = accounts
+                .password_hash(&did)?
+                .is_some_and(|stored| crate::password::verify(&given, &stored));
+            if !valid {
+                return Err(denied("Invalid did or password"));
+            }
+            super::email::valid_token(state, "delete_account", &token, Some(&did))?;
+            drop(accounts);
+            delete_account_now(state, &did)
+        })
+        .await?;
+    Ok(StatusCode::OK.into_response())
+}

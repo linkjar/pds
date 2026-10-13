@@ -186,6 +186,15 @@ impl WriteState {
         call(&mut self.accounts.lock().unwrap_or_else(PoisonError::into_inner))
     }
 
+    /// Drops the connection kept for the actor store of `did`: the store is
+    /// about to be removed.
+    pub fn forget_store(&self, did: &str) {
+        self.stores
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .retain(|(owner, _)| owner != did);
+    }
+
     /// The write connection to the actor store of `did`: the one kept from
     /// the last write, or a new one. The caller holds the repository lock
     /// and gives the connection back with [`WriteState::keep_store`].

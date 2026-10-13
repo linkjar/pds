@@ -319,3 +319,21 @@ pub async fn update_subject_status(
     }
     Ok(json_response(StatusCode::OK, &out.into()))
 }
+
+/// `com.atproto.admin.deleteAccount`: as the account's own deletion,
+/// without a password and a token.
+pub async fn delete_account(
+    state: &AppState,
+    headers: &HeaderMap,
+    body: &mut Option<Body>,
+) -> Result<Response, XrpcError> {
+    require_admin(state, headers)?;
+    let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
+    let did = body::string(&input, "did", true, crate::params::Format::Did, None, "$")?
+        .unwrap_or_default()
+        .to_owned();
+    state
+        .blocking(move |state| super::lifecycle::delete_account_now(state, &did))
+        .await?;
+    Ok(axum::response::IntoResponse::into_response(StatusCode::OK))
+}
