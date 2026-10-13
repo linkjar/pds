@@ -282,6 +282,16 @@ pub async fn proxy(
     if privileged(lxm) && scope != SCOPE_ACCESS && scope != SCOPE_APP_PASS_PRIVILEGED {
         return Err(bad_method());
     }
+    // An OAuth session calls the services its scope names.
+    let service = if lxm.starts_with("tools.ozone.") || lxm == "com.atproto.moderation.createReport"
+    {
+        "atproto_labeler"
+    } else {
+        "bsky_appview"
+    };
+    let audience =
+        header("atproto-proxy").map_or_else(|| format!("{}#{service}", target.did), str::to_owned);
+    crate::oauth::resource::check_rpc(lxm, &audience)?;
     let token = account_jwt(state, &did, &target.did, Some(lxm), None).await?;
 
     let mut request = state
@@ -404,6 +414,7 @@ pub async fn get_service_auth(state: &AppState, query: &Query<'_>) -> Result<Res
             "aud must be a valid atproto DID or did#serviceId reference",
         ));
     }
+    crate::oauth::resource::check_rpc(lxm.unwrap_or("*"), aud)?;
     if scope == SCOPE_TAKENDOWN && lxm != Some("com.atproto.server.createAccount") {
         return Err(XrpcError::bad_request("InvalidToken", "Bad token scope"));
     }

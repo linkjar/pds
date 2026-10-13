@@ -12,6 +12,7 @@ pub mod auth;
 pub mod body;
 pub mod error;
 pub mod mail;
+pub mod oauth;
 pub mod params;
 pub mod password;
 pub mod ratelimit;

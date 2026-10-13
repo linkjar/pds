@@ -102,8 +102,18 @@ pub fn optional_credentials(
     match kind.to_ascii_uppercase().as_str() {
         "BASIC" => admin(token, config),
         "BEARER" => access(token, config, additional, now_s),
-        // An OAuth access token. Nothing verifies one until unit 5.
-        "DPOP" => Err(invalid_token("Token could not be verified")),
+        // An OAuth access token. The entry point checked it, and what it
+        // found travels with the task. The methods it may call are an allow
+        // list there, so here it counts as a full session.
+        "DPOP" => crate::oauth::resource::grant().map_or_else(
+            || Err(invalid_token("Token could not be verified")),
+            |grant| {
+                Ok(Credentials::Access {
+                    did: grant.did,
+                    scope: SCOPE_ACCESS.to_owned(),
+                })
+            },
+        ),
         _ => Err(invalid_token(&format!(
             "Unsupported authorization type: {kind}"
         ))),

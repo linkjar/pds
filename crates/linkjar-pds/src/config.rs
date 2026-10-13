@@ -229,6 +229,8 @@ pub struct Config {
     /// `PDS_RATE_LIMITS_ENABLED`, `PDS_RATE_LIMIT_BYPASS_KEY` and
     /// `PDS_RATE_LIMIT_BYPASS_IPS`.
     pub rate_limits: pds_xrpc::ratelimit::RateLimitConfig,
+    /// The OAuth settings (SPEC §11).
+    pub oauth: pds_xrpc::oauth::OAuthConfig,
     /// `PDS_JWT_SECRET`.
     pub jwt_secret: Option<String>,
     /// `PDS_ADMIN_PASSWORD`.
@@ -417,6 +419,25 @@ impl Env<'_> {
         })
     }
 
+    /// The OAuth settings.
+    fn oauth(&self) -> Result<pds_xrpc::oauth::OAuthConfig, ConfigError> {
+        Ok(pds_xrpc::oauth::OAuthConfig {
+            dpop_secret: self.text("PDS_DPOP_SECRET"),
+            trusted_clients: self
+                .text("PDS_OAUTH_TRUSTED_CLIENTS")
+                .map(|list| {
+                    list.split(',')
+                        .map(|client| client.trim().to_owned())
+                        .filter(|client| !client.is_empty())
+                        .collect()
+                })
+                .unwrap_or_default(),
+            disable_ssrf_protection: self
+                .boolean("PDS_DISABLE_SSRF_PROTECTION")?
+                .unwrap_or(false),
+        })
+    }
+
     /// `PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX` as its 32 bytes.
     fn rotation_key(&self) -> Result<Option<Vec<u8>>, ConfigError> {
         const NAME: &str = "PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX";
@@ -579,6 +600,7 @@ impl Config {
             recovery_did_key: env.text("PDS_RECOVERY_DID_KEY"),
             mail: env.mail()?,
             rate_limits: env.rate_limits()?,
+            oauth: env.oauth()?,
             jwt_secret: env.text("PDS_JWT_SECRET"),
             admin_password: env.text("PDS_ADMIN_PASSWORD"),
             plc_url: env
