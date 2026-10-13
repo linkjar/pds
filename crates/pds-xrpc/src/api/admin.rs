@@ -337,3 +337,102 @@ pub async fn delete_account(
         .await?;
     Ok(axum::response::IntoResponse::into_response(StatusCode::OK))
 }
+
+/// `com.atproto.admin.updateAccountEmail`.
+pub async fn update_account_email(
+    state: &AppState,
+    headers: &HeaderMap,
+    body: &mut Option<Body>,
+) -> Result<Response, XrpcError> {
+    require_admin(state, headers)?;
+    let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
+    let text = |key: &str| {
+        body::string(&input, key, true, crate::params::Format::Any, None, "$")
+            .map(|value| value.unwrap_or_default().to_owned())
+    };
+    let (account, email) = (text("account")?, text("email")?);
+    state
+        .blocking(move |state| {
+            let found = AccountDb::open(&state.layout().account_db)?
+                .actor(&account, Availability::ANY)?
+                .ok_or_else(|| {
+                    XrpcError::invalid_request(format!("Account does not exist: {account}"))
+                })?;
+            if !writes(state)?.with_accounts(|db| db.update_email(&found.did, &email))? {
+                return Err(XrpcError::invalid_request(
+                    "This email address is already in use, please use a different email.",
+                ));
+            }
+            Ok(())
+        })
+        .await?;
+    Ok(axum::response::IntoResponse::into_response(StatusCode::OK))
+}
+
+/// `com.atproto.admin.updateAccountHandle`. The admin may give a reserved
+/// name.
+pub async fn update_account_handle(
+    state: &AppState,
+    headers: &HeaderMap,
+    body: &mut Option<Body>,
+) -> Result<Response, XrpcError> {
+    require_admin(state, headers)?;
+    let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
+    let did = body::string(&input, "did", true, crate::params::Format::Did, None, "$")?
+        .unwrap_or_default()
+        .to_owned();
+    let handle = body::string(
+        &input,
+        "handle",
+        true,
+        crate::params::Format::Handle,
+        None,
+        "$",
+    )?
+    .unwrap_or_default()
+    .to_owned();
+    super::lifecycle::change_handle(state, did, handle, true).await?;
+    Ok(axum::response::IntoResponse::into_response(StatusCode::OK))
+}
+
+/// `com.atproto.admin.updateAccountPassword`. The sessions of the account
+/// end.
+pub async fn update_account_password(
+    state: &AppState,
+    headers: &HeaderMap,
+    body: &mut Option<Body>,
+) -> Result<Response, XrpcError> {
+    require_admin(state, headers)?;
+    let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
+    let did = body::string(&input, "did", true, crate::params::Format::Did, None, "$")?
+        .unwrap_or_default()
+        .to_owned();
+    let given = body::string(
+        &input,
+        "password",
+        true,
+        crate::params::Format::Any,
+        None,
+        "$",
+    )?
+    .unwrap_or_default()
+    .to_owned();
+    if given.len() > crate::password::NEW_PASSWORD_MAX_LENGTH {
+        return Err(XrpcError::invalid_request("Invalid password length."));
+    }
+    state
+        .blocking(move |state| {
+            let writes = writes(state)?;
+            let mut salt = [0_u8; 16];
+            for chunk in salt.chunks_mut(8) {
+                chunk.copy_from_slice(&writes.random().to_be_bytes());
+            }
+            let salt = data_encoding::HEXLOWER.encode(&salt);
+            let hash = crate::password::hash_with_salt(&given, &salt)
+                .ok_or_else(|| XrpcError::internal("the password could not be hashed"))?;
+            writes.with_accounts(|db| db.update_password(&did, &hash))?;
+            Ok(())
+        })
+        .await?;
+    Ok(axum::response::IntoResponse::into_response(StatusCode::OK))
+}

@@ -67,6 +67,7 @@ pub(crate) fn checked_handle(
     given: &str,
     identity: &IdentityConfig,
     has_did: bool,
+    allow_reserved: bool,
 ) -> Result<(String, bool), XrpcError> {
     let handle = Handle::parse(&given.to_lowercase())
         .map_err(|error| refuse("InvalidHandle", error.to_string()))?
@@ -98,7 +99,7 @@ pub(crate) fn checked_handle(
     if front.len() > 18 {
         return Err(refuse("InvalidHandle", "Handle too long"));
     }
-    if reserved::is_reserved(front) {
+    if !allow_reserved && reserved::is_reserved(front) {
         return Err(refuse("HandleNotAvailable", "Reserved handle"));
     }
     Ok((handle, true))
@@ -163,7 +164,7 @@ fn validate(
         ));
     }
     let identity = identity(state)?;
-    let (handle, _) = checked_handle(state, &handle, identity, false)?;
+    let (handle, _) = checked_handle(state, &handle, identity, false, false)?;
     let accounts = AccountDb::open(&state.layout().account_db)?;
     if required
         && let Some(code) = &invite_code
