@@ -129,6 +129,7 @@ const KNOWN: &[&str] = &[
     // New in the Candidate
     "PDS_FAIL_POINTS",
     "PDS_PROFILE",
+    "PDS_AUDIT_CHECKPOINT_REPO",
     "PDS_METRICS_ADDRESS",
     "PDS_OPS_ADDRESS",
     "PDS_OTLP_ENDPOINT",

@@ -23,11 +23,12 @@ instead of source patches. Dual-licensed MIT or Apache-2.0.
 > OAuth authorization server with pages rendered on the server. Unit 6 is
 > built too: the `linkjar` profile, which has the behaviour of the eight
 > account patches. All 22 default scenarios of the harness pass against
-> the server alone. Not built yet: the audit log, the sidecars, Postgres
-> and the entryway. The repository engine
+> the server alone. Unit 7 adds a tamper-evident audit log with signed
+> checkpoints and an offline verifier. Not built yet: the sidecars,
+> Postgres and the entryway. The repository engine
 > is written here and gives the same bytes as `@atproto/repo` at the pin
 > ([decision D2](docs/research/2026-10-12-repository-crate.md)). The
-> specification is at revision 10. The reference image under
+> specification is at revision 11. The reference image under
 > [`legacy/`](legacy/README.md) remains the deployed server until cutover.
 > Progress is logged in [docs/plan.md](docs/plan.md#status).
 
