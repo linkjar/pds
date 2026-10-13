@@ -150,7 +150,7 @@ Reference. A pass is one fresh stack, named `candidate`:
 
 | Stage | Profile | Scenarios |
 |---|---|---|
-| `records` | `writes`: the production configuration | `default/03-repo-writes`, `04-repo-reads`, `05-blobs`, `15-import`, and `writes/20-firehose`, `21-relay`, `22-elsewhere` |
+| `records` | `writes`: the production configuration | `default/02-sessions`, `03-repo-writes`, `04-repo-reads`, `05-blobs`, `15-import`, and `writes/20-firehose`, `21-relay`, `22-elsewhere`, `24-create-account` |
 | `cursor-limits` | `writes-firehose`: a five-second backfill window and a buffer of five events | `firehose/01-cursor-limits` |
 | `s3` | `writes-s3`: blobs in the stack's S3-compatible store, configured as production configures R2 | `default/05-blobs` and `writes/23-seeded-blob`; before the takeover `writes/01-seed-blob` stores one blob and stages one upload on the Reference |
 | `crash` | `writes-crash`: dev mode, and the fail point `commit.stored` armed to abort once | `writes-crash/30-crash`, on the Candidate only |

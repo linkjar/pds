@@ -13,7 +13,7 @@ recorded difference that no longer appears.
 | `reference` against `stock` (the production build against the `PATCH_PROFILE=none` build) | [reference-vs-stock.json](reference-vs-stock.json) | 47, in the five groups below. |
 | `stock` against `official` (the `PATCH_PROFILE=none` build against the upstream distribution `ghcr.io/bluesky-social/pds`) | none | None is allowed: the two are different packagings of the same package version. |
 | The Reference against the Candidate on one data directory (`pnpm parity restore`) | none | None is allowed: both servers read the same bytes, and bodies are also compared by hash. |
-| The Reference against the Candidate, each on a data directory the Reference started (`pnpm parity writes`) | [reference-vs-candidate.json](reference-vs-candidate.json) | 37, in the eight groups [below](#the-reference-against-the-candidate). |
+| The Reference against the Candidate, each on a data directory the Reference started (`pnpm parity writes`) | [reference-vs-candidate.json](reference-vs-candidate.json) | 40, in the nine groups [below](#the-reference-against-the-candidate). |
 | The same, with blobs in the S3-compatible store (`pnpm parity writes --only=s3`) | [reference-s3-vs-candidate-s3.json](reference-s3-vs-candidate-s3.json) | 6, one answer in two scenarios: `getBlob` of an upload that no record references. The Reference answers 500 on this store and the Candidate 400 `InvalidRequest`, "Blob not found", as both do on the disk store (SPEC §2.3, DD-18). |
 
 Regenerate a file with `--update` after a change that is meant to move it,
@@ -62,6 +62,7 @@ difference in the wording of a refusal.
 
 | Difference | Scenario | Entries | What differs |
 |---|---|---|---|
+| DD-3 | `default/02-sessions`, "createAppPassword with a used name" | 3 | The Reference answers 500 `InternalServerError`; the Candidate answers 400 `InvalidRequest` and names the app password. |
 | DD-1 | `default/03-repo-writes`, "createRecord with a key that exists" | 3 | The Reference answers 500 `InternalServerError`; the Candidate answers 400 `InvalidRequest`, "Record already exists". |
 | DD-2 | `default/03-repo-writes`, "applyWrites with one invalid operation" | 3 | The same, for a batch that creates a key that exists. |
 | DD-15 | `default/15-import`, "importRepo of bytes that are not a CAR" | 3 | The Reference answers 500; the Candidate answers 400 `InvalidRequest`. |

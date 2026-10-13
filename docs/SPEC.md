@@ -248,8 +248,9 @@ DD-14 and DD-15 on every run
 a run that does not last an hour; a test of the server holds it
 (`crates/linkjar-pds/tests/writes.rs`), and the Reference's side is read from
 its source, which has no collection of uploads
-(`actor-store/blob/transactor.ts` at the pin). DD-3 to DD-5 are observed
-from unit 5.
+(`actor-store/blob/transactor.ts` at the pin). DD-3 is observed in
+`default/02-sessions` of the writes run. DD-4 and DD-5 are observed when
+the proxy is built.
 
 Where both servers refuse, the message may differ: the Candidate names the
 first defect it finds in a tree, and a tree can have several. The tree of
@@ -1052,6 +1053,17 @@ Per-actor secp256k1 signing keys in the `key` file; reserved keys via
   (`temp.checkSignupQueue` always reports activated). Creation of an existing
   DID through service auth creates a deactivated account. The §12.2 gate runs
   before any PLC or storage write.
+  As of the first part of unit 5 the Candidate creates an account that
+  asks for a hosted handle: the checks of `createAccount.ts` at the pin in
+  its order and with its messages, a `did:plc` genesis operation signed
+  with `PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX`, the actor store with
+  an empty signed repository, the account rows with the first session, and
+  the four events of §10.4. Without that variable the server creates no
+  account. Not built yet: an account that brings its DID, which needs
+  service auth; the Reference's list of disposable email domains and its
+  slur check on handles; and the tombstone of a DID whose account rows
+  could not be written. The email address is checked for the common shape
+  of an address and not with `@hapi/address`.
 - **Email tokens.** Confirm email, reset password, update email, delete
   account and PLC operation tokens use the Reference's format, lifetimes and
   single-use rules.
@@ -2262,5 +2274,7 @@ Revision 8 follows the first part of unit 4b, the S3-compatible blob store.
 - §17.1 describes the stage of the writes run on the S3-compatible store.
 - §19.2: the seam below SQLite and the VFS that loses power; the network
   runs on `turmoil`; what each models and what it does not.
+- §10.1: what of account creation the first part of unit 5 built. Legacy
+  sessions and app passwords (§5.1, §5.2) are built as specified.
 - Appendix C lists the `PDS_BLOBSTORE_S3_*` variables, what the Candidate
   needs at the start, and which sources of credentials it reads.

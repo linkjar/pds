@@ -4,7 +4,7 @@ An AT Protocol Personal Data Server in Rust, compatible with the reference
 implementation, with LinkJar's account behaviour as native extension points
 instead of source patches. Dual-licensed MIT or Apache-2.0.
 
-> Status: unit 4 of 13. The server reads and writes repositories and
+> Status: unit 5 of 13, in progress. The server reads and writes repositories and
 > serves the firehose, on a data directory that the reference server
 > started. Blobs are on disk or in an S3-compatible store with the
 > reference server's object names
@@ -17,8 +17,10 @@ instead of source patches. Dual-licensed MIT or Apache-2.0.
 > A simulation runs seeded plans every night, with stops inside commits
 > and losses of power below SQLite.
 > A second set of plans runs the server, a strict relay and a client on a
-> simulated network with partitions. Not built yet: accounts, sessions and
-> OAuth (unit 5). The repository engine
+> simulated network with partitions. Of unit 5 the server creates accounts
+> with a `did:plc` identity and serves legacy sessions and app passwords.
+> Not built yet: email, account lifecycle, admin, the proxy, rate limits
+> and OAuth. The repository engine
 > is written here and gives the same bytes as `@atproto/repo` at the pin
 > ([decision D2](docs/research/2026-10-12-repository-crate.md)). The
 > specification is at revision 8. The reference image under
@@ -123,9 +125,11 @@ For blobs in an S3-compatible store, set the reference server's
 `serve` writes to it, so point it at a copy of the bucket.
 
 The variables are the reference server's (SPEC Appendix C). `serve` writes
-to the copy: records, blobs and events for a session that the reference
-server minted, the DID cache, and its own file `ops.sqlite`. It creates no
-account yet.
+to the copy: records, blobs, events, sessions and new accounts, the DID
+cache, and its own file `ops.sqlite`. It creates an account only with
+`PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX` set, and then it writes to the
+PLC directory that `PDS_DID_PLC_URL` names: point that at a directory of
+your own when you try it.
 
 `devenv shell` installs no git hook. Linked worktrees share one `.git/hooks`,
 so an installed hook would run for every worktree with the configuration of
