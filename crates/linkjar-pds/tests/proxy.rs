@@ -333,3 +333,109 @@ async fn a_method_without_a_handler_goes_to_the_appview_with_a_service_token() {
         assert_eq!((status, &body["error"]), (400, &json!(error)), "{query}");
     }
 }
+
+#[tokio::test]
+async fn preferences_stay_on_this_server() {
+    let (appview, seen) = appview().await;
+    let server = Server::start(&appview).await;
+    let login = |password: &'static str| {
+        let request = server
+            .http
+            .post(format!(
+                "{}/xrpc/com.atproto.server.createSession",
+                server.origin
+            ))
+            .header("content-type", "application/json")
+            .body(json!({"identifier": ALICE, "password": password}).to_string());
+        async {
+            server.send(request).await.2["accessJwt"]
+                .as_str()
+                .unwrap()
+                .to_owned()
+        }
+    };
+    let (full, limited) = (login(PASSWORD).await, login(common::APP_PASSWORD).await);
+    let get = "app.bsky.actor.getPreferences";
+    let put = |token: &str, preferences: Value| {
+        server
+            .http
+            .post(format!(
+                "{}/xrpc/app.bsky.actor.putPreferences",
+                server.origin
+            ))
+            .bearer_auth(token)
+            .header("content-type", "application/json")
+            .body(json!({ "preferences": preferences }).to_string())
+    };
+
+    let (status, _, body) = server.send(server.get(get).bearer_auth(&full)).await;
+    assert_eq!((status, &body), (200, &json!({"preferences": []})));
+    let (status, _, body) = server.send(server.get(get)).await;
+    assert_eq!((status, &body["error"]), (401, &json!("AuthMissing")));
+
+    let adult = json!({"$type": "app.bsky.actor.defs#adultContentPref", "enabled": false});
+    let personal = json!({"$type": "app.bsky.actor.defs#personalDetailsPref", "birthDate": "1990-01-01T00:00:00.000Z"});
+    assert_eq!(
+        server.send(put(&full, json!([adult, personal]))).await.0,
+        200
+    );
+    let (_, _, body) = server.send(server.get(get).bearer_auth(&full)).await;
+    let stored = body["preferences"].as_array().unwrap();
+    assert_eq!(stored.len(), 3);
+    assert_eq!((&stored[0], &stored[1]), (&adult, &personal));
+    assert_eq!(
+        stored[2],
+        json!({"$type": "app.bsky.actor.defs#declaredAgePref", "isOverAge13": true, "isOverAge16": true, "isOverAge18": true})
+    );
+    // An app password reads and writes everything but the personal details.
+    let (_, _, body) = server.send(server.get(get).bearer_auth(&limited)).await;
+    let types: Vec<&str> = body["preferences"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|pref| pref["$type"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        types,
+        [
+            "app.bsky.actor.defs#adultContentPref",
+            "app.bsky.actor.defs#declaredAgePref"
+        ]
+    );
+    let (status, _, body) = server.send(put(&limited, json!([personal]))).await;
+    assert_eq!(status, 400);
+    assert_eq!(
+        body["message"],
+        "Do not have authorization to set preferences: app.bsky.actor.defs#personalDetailsPref"
+    );
+    let muted = json!({"$type": "app.bsky.actor.defs#mutedWordsPref", "items": []});
+    assert_eq!(server.send(put(&limited, json!([muted]))).await.0, 200);
+    let (_, _, body) = server.send(server.get(get).bearer_auth(&full)).await;
+    let types: Vec<&str> = body["preferences"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|pref| pref["$type"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        types,
+        [
+            "app.bsky.actor.defs#personalDetailsPref",
+            "app.bsky.actor.defs#mutedWordsPref",
+            "app.bsky.actor.defs#declaredAgePref"
+        ]
+    );
+
+    for (preferences, message) in [
+        (
+            json!([{"$type": "com.example.pref", "on": true}]),
+            "Some preferences are not in the app.bsky namespace",
+        ),
+        (json!([{"enabled": true}]), "Preference is missing a $type"),
+    ] {
+        let (status, _, body) = server.send(put(&full, preferences)).await;
+        assert_eq!((status, &body["message"]), (400, &json!(message)));
+    }
+    // Nothing of this reached the AppView.
+    assert!(seen.lock().unwrap().is_empty());
+}

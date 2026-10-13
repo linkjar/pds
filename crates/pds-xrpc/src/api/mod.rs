@@ -5,6 +5,7 @@ pub mod admin;
 pub mod identity;
 pub mod import;
 pub mod lifecycle;
+pub mod prefs;
 pub mod proxy;
 pub mod repo;
 pub mod repo_write;
@@ -76,6 +77,7 @@ enum Served {
     ServerCheckAccountStatus,
     AdminGetAccountInfo,
     ServerGetServiceAuth,
+    ActorGetPreferences,
     AdminGetSubjectStatus,
     IdentityResolveHandle,
     RepoListMissingBlobs,
@@ -100,6 +102,7 @@ enum Procedure {
     ActivateAccount,
     UpdateHandle,
     AdminUpdateSubjectStatus,
+    PutPreferences,
 }
 
 /// The procedure that `nsid` names. `None` for a method without a handler.
@@ -119,6 +122,7 @@ fn procedure(nsid: &str) -> Option<Procedure> {
         "com.atproto.server.activateAccount" => Procedure::ActivateAccount,
         "com.atproto.identity.updateHandle" => Procedure::UpdateHandle,
         "com.atproto.admin.updateSubjectStatus" => Procedure::AdminUpdateSubjectStatus,
+        "app.bsky.actor.putPreferences" => Procedure::PutPreferences,
         "com.atproto.server.createAppPassword" => Procedure::CreateAppPassword,
         "com.atproto.server.revokeAppPassword" => Procedure::RevokeAppPassword,
         _ => return None,
@@ -217,6 +221,7 @@ fn served(nsid: &str) -> Option<(Served, &'static [Spec])> {
         "com.atproto.server.getSession" => (Served::ServerGetSession, &[]),
         "com.atproto.server.listAppPasswords" => (Served::ServerListAppPasswords, &[]),
         "com.atproto.server.checkAccountStatus" => (Served::ServerCheckAccountStatus, &[]),
+        "app.bsky.actor.getPreferences" => (Served::ActorGetPreferences, &[]),
         "com.atproto.server.getServiceAuth" => (
             Served::ServerGetServiceAuth,
             const {
@@ -348,6 +353,7 @@ async fn xrpc(
             }
             Procedure::ActivateAccount => lifecycle::activate_account(state, headers).await,
             Procedure::UpdateHandle => lifecycle::update_handle(state, headers, body).await,
+            Procedure::PutPreferences => prefs::put_preferences(state, headers, body).await,
             Procedure::AdminUpdateSubjectStatus => {
                 admin::update_subject_status(state, headers, body).await
             }
@@ -394,6 +400,7 @@ async fn xrpc(
         Served::ServerDescribeServer => Ok(server::describe_server(state)),
         Served::ServerGetSession => session::get_session(state, headers).await,
         Served::ServerListAppPasswords => session::list_app_passwords(state, headers).await,
+        Served::ActorGetPreferences => prefs::get_preferences(state, &query).await,
         Served::ServerGetServiceAuth => proxy::get_service_auth(state, &query).await,
         Served::AdminGetAccountInfo => admin::get_account_info(state, &query).await,
         Served::AdminGetSubjectStatus => admin::get_subject_status(state, &query).await,
