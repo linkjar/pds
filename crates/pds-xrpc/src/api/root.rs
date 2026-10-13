@@ -213,9 +213,14 @@ pub async fn handle_host(
     if host == config.hostname || !config.is_hosted_handle(&host) {
         return None;
     }
-    let mut response = if path == pds_identity::handle::WELL_KNOWN_PATH && reads {
-        atproto_did(state, headers).await
-    } else if path.starts_with("/.well-known/") || path.starts_with("/xrpc/") {
+    // A proxy in front of the server may sort the requests of a handle
+    // host and add the headers below itself (`Caddyfile.handles`). It
+    // forwards the DID and the helper path, so those answers carry none
+    // from here, and the others carry them.
+    if path == pds_identity::handle::WELL_KNOWN_PATH && reads {
+        return Some(atproto_did(state, headers).await);
+    }
+    let mut response = if path.starts_with("/.well-known/") || path.starts_with("/xrpc/") {
         text(
             StatusCode::NOT_FOUND,
             format!("Use the PDS service endpoint at {}", config.hostname),
