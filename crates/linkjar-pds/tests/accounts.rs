@@ -1077,3 +1077,119 @@ async fn email_tokens_confirm_an_address_change_it_and_reset_a_password() {
         .await;
     assert_eq!((status, text(&body, "error")), (400, "ExpiredToken"));
 }
+
+#[tokio::test]
+async fn an_account_is_deleted_by_its_owner_and_by_the_admin() {
+    use base64::Engine as _;
+    let server = Server::start(&[]).await;
+    let make = |name: &'static str| {
+        let body = json!({"handle": format!("{name}.pds-users.org"),
+                          "email": format!("{name}@example.com"), "password": PASSWORD});
+        let server = &server;
+        async move { server.create(&body).await.1 }
+    };
+    let (laura, nolan) = (make("laura").await, make("nolan").await);
+    let did = text(&laura, "did").to_owned();
+    let access = text(&laura, "accessJwt").to_owned();
+    let events = |did: &str| -> Vec<String> {
+        common::open(&server.dir.root.join("sequencer.sqlite"))
+            .prepare(r#"select "eventType" from "repo_seq" where "did" = ?1 order by "seq""#)
+            .unwrap()
+            .query_map([did], |row| row.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect()
+    };
+
+    assert_eq!(
+        server
+            .post(
+                "com.atproto.server.requestAccountDelete",
+                Some(&access),
+                &Value::Null
+            )
+            .await
+            .0,
+        200
+    );
+    let token: String = common::open(&server.dir.root.join("account.sqlite"))
+        .query_row(
+            r#"select "token" from "email_token" where "did" = ?1 and "purpose" = 'delete_account'"#,
+            [&did],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let delete = "com.atproto.server.deleteAccount";
+    let (status, body) = server
+        .post(
+            delete,
+            None,
+            &json!({"did": did, "password": "wrong", "token": token}),
+        )
+        .await;
+    assert_eq!(
+        (status, text(&body, "message")),
+        (401, "Invalid did or password")
+    );
+    let (status, body) = server
+        .post(
+            delete,
+            None,
+            &json!({"did": did, "password": PASSWORD, "token": "AAAAA-BBBBB"}),
+        )
+        .await;
+    assert_eq!((status, text(&body, "error")), (400, "InvalidToken"));
+    let (status, body) = server
+        .post(
+            delete,
+            None,
+            &json!({"did": did, "password": PASSWORD, "token": token}),
+        )
+        .await;
+    assert_eq!(status, 200, "{body}");
+
+    // The account is gone: its rows, its store, and its events but one.
+    assert!(!server.dir.config.layout.actor_store_dir(&did).exists());
+    assert_eq!(events(&did), ["account"]);
+    let (status, _) = server
+        .post(
+            "com.atproto.server.createSession",
+            None,
+            &json!({"identifier": did, "password": PASSWORD}),
+        )
+        .await;
+    assert_eq!(status, 401);
+    let (status, body) = server
+        .post(
+            delete,
+            None,
+            &json!({"did": did, "password": PASSWORD, "token": token}),
+        )
+        .await;
+    assert_eq!((status, text(&body, "message")), (400, "account not found"));
+    let report = linkjar_pds::verify::verify(&server.dir.config).unwrap();
+    assert_eq!(report.findings.len(), 0, "{report}");
+
+    // The admin deletes without a password and a token.
+    let other = text(&nolan, "did").to_owned();
+    let basic = format!(
+        "Basic {}",
+        base64::engine::general_purpose::STANDARD
+            .encode(format!("admin:{}", common::ADMIN_PASSWORD))
+    );
+    let response = server
+        .http
+        .post(format!(
+            "{}/xrpc/com.atproto.admin.deleteAccount",
+            server.origin
+        ))
+        .header("authorization", basic)
+        .header("content-type", "application/json")
+        .body(json!({"did": other}).to_string())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status().as_u16(), 200);
+    assert_eq!(events(&other), ["account"]);
+    assert!(!server.dir.config.layout.actor_store_dir(&other).exists());
+}

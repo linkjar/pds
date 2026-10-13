@@ -116,6 +116,9 @@ enum Procedure {
     UpdateEmail,
     RequestPasswordReset,
     ResetPassword,
+    RequestAccountDelete,
+    DeleteAccount,
+    AdminDeleteAccount,
 }
 
 /// The procedure that `nsid` names. `None` for a method without a handler.
@@ -144,6 +147,9 @@ fn procedure(nsid: &str) -> Option<Procedure> {
         "com.atproto.server.updateEmail" => Procedure::UpdateEmail,
         "com.atproto.server.requestPasswordReset" => Procedure::RequestPasswordReset,
         "com.atproto.server.resetPassword" => Procedure::ResetPassword,
+        "com.atproto.server.requestAccountDelete" => Procedure::RequestAccountDelete,
+        "com.atproto.server.deleteAccount" => Procedure::DeleteAccount,
+        "com.atproto.admin.deleteAccount" => Procedure::AdminDeleteAccount,
         "com.atproto.server.createAppPassword" => Procedure::CreateAppPassword,
         "com.atproto.server.revokeAppPassword" => Procedure::RevokeAppPassword,
         _ => return None,
@@ -397,6 +403,9 @@ async fn run(
         Procedure::RequestPasswordReset => {
             email::request_password_reset(state, headers, body).await
         }
+        Procedure::RequestAccountDelete => lifecycle::request_account_delete(state, headers).await,
+        Procedure::DeleteAccount => lifecycle::delete_account(state, headers, body).await,
+        Procedure::AdminDeleteAccount => admin::delete_account(state, headers, body).await,
         Procedure::ResetPassword => email::reset_password(state, headers, body).await,
         Procedure::CreateInviteCode => invites::create_invite_code(state, headers, body).await,
         Procedure::CreateInviteCodes => invites::create_invite_codes(state, headers, body).await,

@@ -382,6 +382,16 @@ impl ActorDb {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
+    /// Every row of the blob index: the CID and, for an upload that
+    /// waits, the name of its staged bytes.
+    pub fn all_blob_rows(&self) -> Result<Vec<(String, Option<String>)>, StorageError> {
+        let mut statement = self
+            .conn
+            .prepare(r#"select "cid", "tempKey" from "blob""#)?;
+        let rows = statement.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
     /// The stored preferences in the order they were written: row id,
     /// name and JSON value.
     pub fn preferences(&self) -> Result<Vec<(i64, String, String)>, StorageError> {
