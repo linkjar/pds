@@ -35,6 +35,14 @@ fn a_small_subscriber_buffer_still_converges() {
 /// The plan and what the client was told are functions of the seed. The
 /// count of connections is not: the server's storage work runs in real
 /// time.
+///
+/// Under load this run failed with `missing block` (2026-10-14). The
+/// server's storage work runs on real threads while the network's clock is
+/// simulated, so load moves a write of the client between two reads of a
+/// `getRepo` that the relay sent on `#sync`: the root was read, then the
+/// write deleted blocks its new tree no longer references, then the blocks
+/// were read. The export now reads the root and every block in one read
+/// transaction (`ActorDb::open_snapshot`).
 #[test]
 fn a_network_seed_run_twice_gives_the_same_plan() {
     let first = run_network_seed(7, NetOptions::default()).unwrap();

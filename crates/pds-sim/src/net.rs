@@ -191,7 +191,8 @@ async fn fetch(did: &str) -> Result<(String, Cid, BTreeMap<String, Cid>), Halt> 
         did: None,
         verify: None,
     };
-    let repo = verify_repo_car(&car, &expect, false).map_err(|error| error.to_string())?;
+    let repo = verify_repo_car(&car, &expect, false)
+        .map_err(|error| format!("getRepo of {did}: {error}"))?;
     Ok((
         repo.commit.rev.as_str().to_owned(),
         repo.commit.data,

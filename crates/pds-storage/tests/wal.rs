@@ -7,8 +7,8 @@ mod common;
 
 use std::path::{Path, PathBuf};
 
-use common::{ACCOUNT_SCHEMA, Scratch};
-use pds_storage::{AccountDb, Availability};
+use common::{ACCOUNT_SCHEMA, ACTOR_SCHEMA, Scratch};
+use pds_storage::{AccountDb, ActorDb, Availability};
 use rusqlite::{Connection, OpenFlags, params};
 
 const DID: &str = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa";
@@ -121,4 +121,45 @@ fn a_read_connection_needs_a_writable_directory() {
         return;
     }
     assert!(result.is_err(), "{result:?}");
+}
+
+/// What a `getRepo` export needs: a write that commits between two reads
+/// of a snapshot, and deletes a block, does not change what the second read
+/// sees.
+#[test]
+fn a_snapshot_keeps_the_blocks_a_later_write_deletes() {
+    const OLD: &str = "bafyreigtzf3ocq5sgcm6xl3txb6uzn36k2uqzcbm7vkroowjzhn3ivx7o4";
+    const NEW: &str = "bafyreiaaaa3ocq5sgcm6xl3txb6uzn36k2uqzcbm7vkroowjzhn3ivx7o4";
+    let scratch = Scratch::new();
+    let (path, writer) = scratch.database("store.sqlite", ACTOR_SCHEMA);
+    let mode: String = writer
+        .query_row("pragma journal_mode = wal", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(mode, "wal");
+    writer
+        .execute_batch(&format!(
+            r#"create table "repo_root" ("did" varchar primary key, "cid" varchar not null, "rev" varchar not null, "indexedAt" varchar not null);
+               insert into "repo_root" values ('did:plc:a', '{OLD}', 'r1', 't');
+               insert into "repo_block" values ('b', 'r1', 1, x'01');"#
+        ))
+        .unwrap();
+
+    let snapshot = ActorDb::open_snapshot(&path).unwrap();
+    let plain = ActorDb::open(&path).unwrap();
+    assert_eq!(snapshot.root().unwrap().unwrap().cid.to_string(), OLD);
+
+    writer
+        .execute_batch(&format!(
+            r#"update "repo_root" set "cid" = '{NEW}', "rev" = 'r2';
+               delete from "repo_block" where "cid" = 'b';"#
+        ))
+        .unwrap();
+
+    assert_eq!(plain.block_page(None, None).unwrap().len(), 0);
+    let page = snapshot.block_page(None, None).unwrap();
+    assert_eq!(page.len(), 1);
+    assert_eq!(page[0].cid, "b");
+    assert_eq!(snapshot.root().unwrap().unwrap().cid.to_string(), OLD);
+    drop(snapshot);
+    assert_eq!(plain.root().unwrap().unwrap().cid.to_string(), NEW);
 }
