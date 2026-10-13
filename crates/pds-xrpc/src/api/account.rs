@@ -148,6 +148,11 @@ pub(crate) struct Request {
     /// its client and the device. The server passes it; no request field
     /// sets it (EX-3).
     pub(crate) signup: Option<(String, String, String)>,
+    /// The DID of an account that moves here (SPEC §10.3). Its service
+    /// token proved that the caller controls it. The account starts
+    /// deactivated, the server writes nothing to the PLC directory, and
+    /// no event goes out until the account is activated.
+    pub(crate) brought_did: Option<String>,
 }
 
 /// A new account.
@@ -201,7 +206,7 @@ pub(crate) fn validate(
         ));
     }
     identity(state)?;
-    let (handle, _) = checked_handle(state, &handle, false, false)?;
+    let (handle, _) = checked_handle(state, &handle, did.is_some(), false)?;
     let accounts = AccountDb::open(&state.layout().account_db)?;
     if required
         && let Some(code) = &invite_code
@@ -240,6 +245,7 @@ pub(crate) fn validate(
             external: None,
             legacy_session: true,
             signup: None,
+            brought_did: None,
         },
         did,
     ))
@@ -312,26 +318,43 @@ pub async fn create_account(
             1,
         )],
     )?;
+    // A service token of an account names the DID that the caller may
+    // bring: the account moves here from another server (SPEC §10.3).
+    let requester = if crate::service_auth::is_service_token(headers) {
+        Some(crate::service_auth::verify(state, headers, "com.atproto.server.createAccount").await?)
+    } else {
+        None
+    };
+    let named = input.get("did").and_then(Value::as_str);
     // The legacy method cannot carry the proof of a CAPTCHA. With one
     // configured, a new account comes through the sign-up page (SPEC
-    // §12.2, patch 099c). A migration with service auth for its own DID
-    // will pass here once service auth names the caller (unit 8).
-    if state.config().profile.guards_signup() && state.config().oauth.hcaptcha.is_some() {
+    // §12.2, patch 099c). An account that moves here proved control of
+    // its DID and passes.
+    if state.config().profile.guards_signup()
+        && state.config().oauth.hcaptcha.is_some()
+        && (named.is_none() || named != requester.as_deref())
+    {
         return Err(XrpcError::invalid_request(
             "Create an account through the OAuth signup page",
         ));
     }
-    let (request, brought_did) = {
+    let (mut request, brought_did) = {
         let input = input.clone();
         state.blocking(move |state| validate(state, &input)).await?
     };
-    // Service auth is not built yet, so nobody can bring a DID.
     if let Some(did) = brought_did {
-        return Err(XrpcError {
-            status: StatusCode::UNAUTHORIZED,
-            error: "AuthenticationRequired".to_owned(),
-            message: format!("Missing auth to create account with did: {did}"),
-        });
+        if requester.as_deref() != Some(did.as_str()) {
+            return Err(XrpcError {
+                status: StatusCode::UNAUTHORIZED,
+                error: "AuthenticationRequired".to_owned(),
+                message: format!("Missing auth to create account with did: {did}"),
+            });
+        }
+        // A handle under another domain must name the DID already.
+        if !state.config().is_hosted_handle(&request.handle) {
+            super::lifecycle::assert_handle_resolves(state, &request.handle, &did).await?;
+        }
+        request.brought_did = Some(did);
     }
     let created = create(state, request).await?;
     crate::audit::set_subject(&created.did);
@@ -373,14 +396,22 @@ pub(crate) async fn create(state: &AppState, request: Request) -> Result<Created
     if let Some(recovery) = &request.recovery_key {
         rotation_keys.insert(0, recovery.clone());
     }
-    let genesis = plc::create_op(
-        &keypair.did_key(),
-        &rotation_keys,
-        &request.handle,
-        &identity.public_url,
-        &signer,
-    );
-    let did = genesis.did.clone();
+    // An account that brings its DID gets no operation from here: the
+    // account writes its own when it is ready to move.
+    let genesis = request.brought_did.is_none().then(|| {
+        plc::create_op(
+            &keypair.did_key(),
+            &rotation_keys,
+            &request.handle,
+            &identity.public_url,
+            &signer,
+        )
+    });
+    let did = match (&genesis, &request.brought_did) {
+        (Some(genesis), _) => genesis.did.clone(),
+        (None, Some(did)) => did.clone(),
+        (None, None) => return Err(XrpcError::internal("an account without a DID")),
+    };
     let now = pds_sequencer::iso_millis(state.now_ms());
 
     let commit = {
@@ -389,7 +420,16 @@ pub(crate) async fn create(state: &AppState, request: Request) -> Result<Created
             .blocking(move |state| create_store(state, &did, &keypair, &now))
             .await?
     };
-    let created = finish(state, &identity, &request, &genesis, &commit, &now).await;
+    let created = finish(
+        state,
+        &identity,
+        &request,
+        &did,
+        genesis.as_ref(),
+        &commit,
+        &now,
+    )
+    .await;
     if created.is_err() {
         let did = did.clone();
         let _ = state
@@ -449,6 +489,7 @@ fn store_rows(
         repo_root: (&root.0, &root.1),
         now,
         delete_after: None,
+        deactivated: request.brought_did.is_some(),
     };
     Ok(writes(state)?.with_accounts(|accounts| accounts.create_account(&new))?)
 }
@@ -459,24 +500,26 @@ async fn finish(
     state: &AppState,
     identity: &IdentityConfig,
     request: &Request,
-    genesis: &plc::Genesis,
+    did: &str,
+    genesis: Option<&plc::Genesis>,
     commit: &pds_repo::CommitData,
     now: &str,
 ) -> Result<Created, XrpcError> {
-    let did = genesis.did.as_str();
-    let sent = state
-        .http()
-        .post(format!("{}/{did}", identity.plc_url))
-        .header("content-type", "application/json")
-        .body(genesis.operation.to_string())
-        .send()
-        .await
-        .map_err(XrpcError::internal)?;
-    if !sent.status().is_success() {
-        return Err(XrpcError::internal(format!(
-            "the PLC directory answered {} to the creation of {did}",
-            sent.status().as_u16()
-        )));
+    if let Some(genesis) = genesis {
+        let sent = state
+            .http()
+            .post(format!("{}/{did}", identity.plc_url))
+            .header("content-type", "application/json")
+            .body(genesis.operation.to_string())
+            .send()
+            .await
+            .map_err(XrpcError::internal)?;
+        if !sent.status().is_success() {
+            return Err(XrpcError::internal(format!(
+                "the PLC directory answered {} to the creation of {did}",
+                sent.status().as_u16()
+            )));
+        }
     }
     let parsed: Did = did.parse().map_err(XrpcError::internal)?;
     let did_doc = match state.resolver().resolve(&parsed, true).await {
@@ -525,20 +568,25 @@ async fn finish(
         .new_blocks
         .get(&commit.cid)
         .ok_or_else(|| XrpcError::internal("the first commit has no block"))?;
-    let events = [
-        identity_event(did, Some(&request.handle), now),
-        account_event(did, None, now),
-        commit_event(did, commit, &[], now),
-        sync_event(did, commit.rev.as_str(), &commit.cid, block, now),
-    ];
-    if let Err(error) = writes.sequencer().sequence(&events) {
-        let did = did.to_owned();
-        let _ = state
-            .blocking(move |state| {
-                Ok(self::writes(state)?.with_accounts(|accounts| accounts.delete_account(&did))?)
-            })
-            .await;
-        return Err(error.into());
+    // An account that moved here says nothing on the firehose until it is
+    // activated.
+    if request.brought_did.is_none() {
+        let events = [
+            identity_event(did, Some(&request.handle), now),
+            account_event(did, None, now),
+            commit_event(did, commit, &[], now),
+            sync_event(did, commit.rev.as_str(), &commit.cid, block, now),
+        ];
+        if let Err(error) = writes.sequencer().sequence(&events) {
+            let did = did.to_owned();
+            let _ = state
+                .blocking(move |state| {
+                    Ok(self::writes(state)?
+                        .with_accounts(|accounts| accounts.delete_account(&did))?)
+                })
+                .await;
+            return Err(error.into());
+        }
     }
 
     Ok(Created {
