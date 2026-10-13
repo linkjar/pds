@@ -183,8 +183,9 @@ impl DataDir {
                     params![did, TIME],
                 )
                 .unwrap();
+            let multikey = key(n).public_key().to_multikey();
             let doc = format!(
-                r#"{{"@context":["https://www.w3.org/ns/did/v1"],"id":"{did}","alsoKnownAs":["at://{handle}"]}}"#
+                r#"{{"@context":["https://www.w3.org/ns/did/v1"],"id":"{did}","alsoKnownAs":["at://{handle}"],"verificationMethod":[{{"id":"{did}#atproto","type":"Multikey","controller":"{did}","publicKeyMultibase":"{multikey}"}}]}}"#
             );
             did_cache
                 .execute(

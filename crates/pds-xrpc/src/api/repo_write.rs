@@ -470,6 +470,16 @@ fn staging_key(writes: &WriteState) -> String {
     key
 }
 
+/// The account that uploads: a session, or a service token that the
+/// account's key signed for this method.
+async fn uploader(state: &AppState, headers: &HeaderMap) -> Result<String, XrpcError> {
+    if crate::service_auth::is_service_token(headers) {
+        crate::service_auth::verify(state, headers, "com.atproto.repo.uploadBlob").await
+    } else {
+        session(state, headers, None)
+    }
+}
+
 /// `com.atproto.repo.uploadBlob`.
 ///
 /// The body goes to the staging directory while it is hashed (SPEC §6.4).
@@ -479,7 +489,7 @@ pub async fn upload_blob(
     headers: &HeaderMap,
     body: &mut Option<Body>,
 ) -> Result<Response, XrpcError> {
-    let caller = session(state, headers, None)?;
+    let caller = uploader(state, headers).await?;
     {
         let did = caller.clone();
         state

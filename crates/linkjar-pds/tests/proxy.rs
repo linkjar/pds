@@ -439,3 +439,72 @@ async fn preferences_stay_on_this_server() {
     // Nothing of this reached the AppView.
     assert!(seen.lock().unwrap().is_empty());
 }
+
+#[tokio::test]
+async fn a_service_token_of_the_account_uploads_a_blob() {
+    let (appview, _seen) = appview().await;
+    let server = Server::start(&appview).await;
+    let (_, _, session) = server
+        .send(
+            server
+                .http
+                .post(format!(
+                    "{}/xrpc/com.atproto.server.createSession",
+                    server.origin
+                ))
+                .header("content-type", "application/json")
+                .body(json!({"identifier": ALICE, "password": PASSWORD}).to_string()),
+        )
+        .await;
+    let access = session["accessJwt"].as_str().unwrap().to_owned();
+    let token_for = |aud: &'static str, lxm: &'static str| {
+        let request = server
+            .get(&format!(
+                "com.atproto.server.getServiceAuth?aud={aud}&lxm={lxm}"
+            ))
+            .bearer_auth(&access);
+        async {
+            server.send(request).await.2["token"]
+                .as_str()
+                .unwrap()
+                .to_owned()
+        }
+    };
+    let upload = |token: String| {
+        let request = server
+            .http
+            .post(format!(
+                "{}/xrpc/com.atproto.repo.uploadBlob",
+                server.origin
+            ))
+            .bearer_auth(token)
+            .header("content-type", "text/plain")
+            .body("service auth upload");
+        async { server.send(request).await }
+    };
+    let own = "did:web:pds.test";
+    let method = "com.atproto.repo.uploadBlob";
+
+    let (status, _, body) = upload(token_for(own, method).await).await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["blob"]["size"], 19);
+
+    let (status, _, body) = upload(token_for(own, "com.atproto.repo.createRecord").await).await;
+    assert_eq!(
+        (status, &body["error"]),
+        (401, &json!("BadJwtLexiconMethod"))
+    );
+    let (status, _, body) = upload(token_for("did:web:other.test", method).await).await;
+    assert_eq!((status, &body["error"]), (401, &json!("BadJwtAudience")));
+    // A token that another key signed.
+    let forged = {
+        let token = token_for(own, method).await;
+        let (signed, _) = token.rsplit_once('.').unwrap();
+        let signature = common::key(9).sign(signed.as_bytes());
+        format!("{signed}.{}", URL_SAFE_NO_PAD.encode(signature))
+    };
+    // The server asks the directory for a newer key before it refuses. No
+    // directory answers in this test, so the refusal names that.
+    let (status, _, body) = upload(forged).await;
+    assert_eq!(status, 401, "{body}");
+}
