@@ -602,6 +602,38 @@ impl AccountDb {
         Ok(codes)
     }
 
+    /// Disables the codes named and every code of the accounts named.
+    pub fn disable_invite_codes(
+        &mut self,
+        codes: &[String],
+        accounts: &[String],
+    ) -> Result<(), StorageError> {
+        let txn = self.conn.transaction()?;
+        for code in codes {
+            txn.execute(
+                r#"update "invite_code" set "disabled" = 1 where "code" = ?1"#,
+                [code],
+            )?;
+        }
+        for account in accounts {
+            txn.execute(
+                r#"update "invite_code" set "disabled" = 1 where "forAccount" = ?1"#,
+                [account],
+            )?;
+        }
+        txn.commit()?;
+        Ok(())
+    }
+
+    /// Says whether the account may hand out invites.
+    pub fn set_invites_disabled(&self, did: &str, disabled: bool) -> Result<(), StorageError> {
+        self.conn.execute(
+            r#"update "account" set "invitesDisabled" = ?2 where "did" = ?1"#,
+            rusqlite::params![did, i64::from(disabled)],
+        )?;
+        Ok(())
+    }
+
     /// Whether the invite code can still be used: it exists, it is not
     /// disabled, its owner is not taken down, and it has uses left.
     pub fn invite_available(&self, code: &str) -> Result<bool, StorageError> {
