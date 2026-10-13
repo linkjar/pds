@@ -192,10 +192,22 @@ Answered after unit 2. Revision 5 of the SPEC applies them.
 | D17, data from elsewhere | Where the Candidate is stricter than the Reference at the pin, it keeps its check. Each case gets a scenario that records what the pin does and a row in SPEC §2.3: DD-6 to DD-9 and DD-11 to DD-13. The cases are those of [the decision record](research/2026-10-12-repository-crate.md) §7, items 1 to 4, 6 and 7. Item 5 is no difference: the Candidate validates records as the pinned server does. |
 | D16, blobs | The Candidate collects an upload that no record references after one hour (DD-10). It keeps no grace period: a dereferenced blob is deleted at once, as at the pin. |
 
+## Decisions taken by the owner 2026-10-13
+
+Answered after unit 3: the owner took the recommendation on each open
+question. Revision 7 of the SPEC applies them.
+
+| Topic | Decision |
+|---|---|
+| The commit signature on import | The Candidate keeps the check of SPEC §6.5: `importRepo` verifies the commit signature against the account's key. The Reference at the pin verifies nothing. It is deliberate difference DD-14, with a scenario in unit 4. |
+| Three more cases for D15 | The Candidate answers 400 `InvalidRequest` to each. `importRepo` with bytes that are not a CAR is DD-15 (unit 4). `createAccount` with the handle, and with the email, of a deactivated or taken-down account are DD-16 and DD-17 (unit 5). |
+| Outbound TLS | `aws-lc-rs` is accepted as the TLS provider of outbound requests. SPEC §3.2 names RustCrypto for the protocol's own cryptography only. |
+| The licence of the root list | `deny.toml` keeps the CDLA-Permissive-2.0 exception for `webpki-root-certs`. |
+| The S3 client of the pin (#5575) | Not carried now. A tenth patch publishes an image, and the evidence that decides it is a measurement on staging. The question stays open [below](#open-questions-for-the-owner). |
+
 ## Open questions for the owner
 
-Six. The first is the open part of unit 3's gate. Unit 4 needs the answer
-to the third. The other four do not block unit 4.
+Three. None blocks unit 4.
 
 - **`verify` on a staging restore.** Unit 3's gate asks for zero
   differences on a staging restore of production data. The unit had no such
@@ -212,30 +224,9 @@ to the third. The other four do not block unit 4.
   replaces the repository (`default/15-import`). The setting is on the host
   and is yours to change.
 
-- **The commit signature on import.** SPEC §6.5 says the import verifies the
-  commit signature against the account's key. The Reference passes no key
-  and verifies nothing
-  ([the upstream note](research/2026-10-10-upstream-0.5.35-to-0.5.37.md),
-  §7). List it as a deliberate difference, or follow the pin. Unit 4 needs
-  the answer.
-
-- **Three candidates for the D15 list.** The pin answers 500 to each of
-  these client errors: `createAccount` with the handle of a deactivated or
-  taken-down account; `createAccount` with the email of such an account
-  (both 400 from 0.5.36); and `importRepo` with bytes that are not a CAR
-  (`default/15-import`). Decide for each whether the Candidate answers 400
-  `InvalidRequest`, as the four cases already on the list do.
-
 - **The S3 client of the pin.** Production blobs are in R2, and the pin
   builds a new S3 client on every actor store access (#5575). Decide
   whether the legacy build carries the fix.
   [The upstream note](research/2026-10-10-upstream-0.5.35-to-0.5.37.md) §4
   names the evidence: the count of open connections from the PDS to R2 on
   staging under repeated `getBlob`.
-
-- **Two dependency choices of unit 3**
-  ([unit record](research/2026-10-13-read-only-server.md) §6). Outbound TLS
-  uses `aws-lc-rs`, a C library, where SPEC §3.2 names RustCrypto for
-  cryptography: accept it for TLS, or ask for another provider. And
-  `deny.toml` now allows CDLA-Permissive-2.0 for one crate, the Mozilla root
-  list that the certificate verifier depends on.
