@@ -432,6 +432,7 @@ impl Env<'_> {
                 .unwrap_or(false),
             moderation_smtp_url: self.text("PDS_MODERATION_EMAIL_SMTP_URL"),
             moderation_address: self.text("PDS_MODERATION_EMAIL_ADDRESS"),
+            linkjar_templates: self.profile()? == ProfileName::Linkjar,
         })
     }
 
