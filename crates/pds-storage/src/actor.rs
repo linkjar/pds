@@ -303,12 +303,17 @@ impl ActorDb {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
-    /// The index entry of a blob that is not taken down.
+    /// The index entry of a blob that is permanent and not taken down.
+    ///
+    /// An upload that still waits for a record is not one, even when its
+    /// file is already in place: a commit that stopped after the file moved
+    /// leaves that state, and no record references such a blob
+    /// (SPEC §6.4). The Reference reads the row whatever its `tempKey`.
     pub fn blob(&self, cid: &str) -> Result<Option<BlobMeta>, StorageError> {
         let row: Option<(i64, String)> = self
             .conn
             .query_row(
-                r#"select "size", "mimeType" from "blob" where "cid" = :cid and "takedownRef" is null"#,
+                r#"select "size", "mimeType" from "blob" where "cid" = :cid and "takedownRef" is null and "tempKey" is null"#,
                 named_params! { ":cid": cid },
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )

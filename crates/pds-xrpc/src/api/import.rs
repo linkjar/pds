@@ -130,7 +130,20 @@ impl Session<'_> {
         txn.update_root(self.did(), &cid, &rev, &now, root.is_none())?;
         txn.put_blocks(&new_blocks, &rev)?;
         txn.delete_blocks(&removed)?;
-        for change in &changes {
+        self.index_imported(&changes, &new_blocks, &rev, &now)
+    }
+
+    /// Indexes the records an import changed: the record row, the links and
+    /// the blob references of each.
+    fn index_imported(
+        &self,
+        changes: &[pds_repo::repo::RecordChange],
+        new_blocks: &BlockMap,
+        rev: &str,
+        now: &str,
+    ) -> Result<(), XrpcError> {
+        let txn = self.txn();
+        for change in changes {
             let (collection, rkey) = change
                 .key
                 .split_once('/')
@@ -149,7 +162,7 @@ impl Session<'_> {
                 .get(&record_cid)
                 .and_then(|bytes| Data::from_dag_cbor(bytes).ok())
                 .ok_or_else(unparsed)?;
-            txn.index_record(&uri, &record_cid.to_string(), collection, rkey, &rev, &now)?;
+            txn.index_record(&uri, &record_cid.to_string(), collection, rkey, rev, now)?;
             if change.prev.is_some() {
                 txn.remove_backlinks(&uri)?;
             }
