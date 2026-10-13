@@ -80,24 +80,17 @@ impl DidCache for SqliteDidCache {
 /// Reference creates them at the pin. A database that exists is left as it
 /// is.
 pub fn create_missing_databases(config: &Config) -> Result<(), ServeError> {
-    use pds_storage::{schema, schema_shared};
     let now = pds_sequencer::iso_millis(now_ms());
     let layout = &config.layout;
-    for (path, shared) in [
-        (&layout.account_db, &schema_shared::ACCOUNT),
-        (&layout.sequencer_db, &schema_shared::SEQUENCER),
-        (&layout.did_cache_db, &schema_shared::DID_CACHE),
-    ] {
-        if !path.exists() {
-            drop(
-                schema::create_shared(path, shared, &now)
-                    .map_err(|error| ServeError::Storage(error.to_string()))?,
-            );
-            tracing::info!(path = %path.display(), "created a database of the data directory");
-        }
+    let created = layout
+        .create_missing(&now)
+        .map_err(|error| ServeError::Storage(error.to_string()))?;
+    for database in created {
+        tracing::info!(database, "created a database of the shared tier");
     }
     if config.profile == crate::config::ProfileName::Linkjar {
-        let applied = pds_storage::AccountDb::open_writable(&layout.account_db)
+        let applied = layout
+            .accounts_writable()
             .and_then(|mut accounts| accounts.apply_linkjar_migrations(&now))
             .map_err(|error| ServeError::Storage(error.to_string()))?;
         if applied > 0 {
@@ -161,7 +154,7 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
         .user_agent(concat!("linkjar-pds/", env!("CARGO_PKG_VERSION")))
         .redirect(reqwest::redirect::Policy::none())
         .build()?;
-    let cache: Option<Arc<dyn DidCache>> = match DidCacheDb::open(&config.layout.did_cache_db) {
+    let cache: Option<Arc<dyn DidCache>> = match config.layout.did_cache() {
         Ok(db) => Some(Arc::new(SqliteDidCache(Mutex::new(db)))),
         Err(error) => {
             tracing::warn!(%error, "the DID cache is unavailable; every DID is resolved on the network");
@@ -187,8 +180,7 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
         config.crawlers.clone(),
         http.clone(),
     );
-    let sequencer =
-        Sequencer::open(&config.layout.sequencer_db, crawlers, now_ms).map_err(storage)?;
+    let sequencer = Sequencer::open_in(&config.layout, crawlers, now_ms).map_err(storage)?;
     let writes = WriteState::open(
         &config.layout,
         Arc::new(sequencer),
@@ -222,7 +214,7 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
 /// Takes the lock file of the data directory, and refuses when another
 /// server of this kind holds it. The Reference takes no such lock: against
 /// it the runbook stops one server before it starts the other.
-fn lock_data_directory(config: &Config) -> Result<std::fs::File, ServeError> {
+pub fn lock_data_directory(config: &Config) -> Result<std::fs::File, ServeError> {
     let dir = config
         .layout
         .account_db
@@ -353,7 +345,7 @@ fn open_audit_log(config: &Config, state: &AppState) -> Result<(), ServeError> {
         })?),
         None => None,
     };
-    let audit = pds_xrpc::audit::AuditLog::open(&config.layout.audit_db, signer)
+    let audit = pds_xrpc::audit::AuditLog::open_in(&config.layout, signer)
         .map_err(|error| ServeError::Storage(format!("audit log: {error}")))?;
     state.set_audit(audit);
     Ok(())
@@ -411,6 +403,20 @@ pub async fn serve(config: &Config) -> Result<(), ServeError> {
     // One server for a data directory (SPEC §8.3, §18.4). The lock goes
     // when the process ends, however it ends.
     let _lock = lock_data_directory(config)?;
+    // On Postgres one process appends to the event log (SPEC §21.2).
+    let _lease = match &config.layout.shared {
+        Some(tier) => Some(
+            tier.sequencer_lease()
+                .map_err(|error| ServeError::Storage(error.to_string()))?
+                .ok_or_else(|| {
+                    ServeError::Storage(
+                        "another server holds the lease of the event log in this Postgres database"
+                            .to_owned(),
+                    )
+                })?,
+        ),
+        None => None,
+    };
     create_missing_databases(config)?;
     let state = app_state(config)?;
     // Commits that were in flight at the last stop are settled before the

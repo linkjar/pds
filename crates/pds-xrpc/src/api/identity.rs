@@ -2,7 +2,7 @@
 
 use axum::http::StatusCode;
 use axum::response::Response;
-use pds_storage::{AccountDb, Availability};
+use pds_storage::Availability;
 use serde_json::json;
 
 use super::Query;
@@ -21,7 +21,7 @@ pub async fn resolve_handle(state: &AppState, query: &Query<'_>) -> Result<Respo
         .blocking({
             let name = name.clone();
             move |state| {
-                let accounts = AccountDb::open(&state.layout().account_db)?;
+                let accounts = state.layout().accounts()?;
                 Ok(accounts.actor(&name, Availability::ACTIVE)?)
             }
         })

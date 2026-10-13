@@ -8,7 +8,7 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse as _, Response};
 use pds_identity::{Algorithm, Keypair};
 use pds_sequencer::identity_event;
-use pds_storage::{AccountDb, Availability};
+use pds_storage::Availability;
 use pds_types::{Data, Did};
 use serde_json::{Map, Value, json};
 
@@ -47,7 +47,9 @@ async fn handle_of(state: &AppState, did: &str) -> Result<Option<String>, XrpcEr
                 include_taken_down: false,
                 include_deactivated: true,
             };
-            Ok(AccountDb::open(&state.layout().account_db)?
+            Ok(state
+                .layout()
+                .accounts()?
                 .actor(&did, availability)?
                 .and_then(|actor| actor.handle))
         })
@@ -93,7 +95,9 @@ pub async fn request_plc_operation_signature(
         let did = did.clone();
         state
             .blocking(move |state| {
-                AccountDb::open(&state.layout().account_db)?
+                state
+                    .layout()
+                    .accounts()?
                     .account(&did, false, Availability::ANY)?
                     .ok_or_else(|| XrpcError::invalid_request("account not found"))?
                     .email

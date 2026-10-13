@@ -135,6 +135,8 @@ const KNOWN: &[&str] = &[
     "PDS_OPS_CLIENT_IDS",
     "PDS_MCP_CLIENT_IDS",
     "PDS_OAUTH_KNOWN_CLIENTS_FILE",
+    "PDS_POSTGRES_URL",
+    "PDS_POSTGRES_SCHEMA_PREFIX",
     "PDS_OTLP_ENDPOINT",
 ];
 
@@ -558,6 +560,51 @@ impl Env<'_> {
         })
     }
 
+    /// `PDS_POSTGRES_URL`: the shared tier on Postgres (SPEC §21.2). The
+    /// schemas are named with `PDS_POSTGRES_SCHEMA_PREFIX`, `pds` when it
+    /// is not set. A file location for a database of the tier is refused
+    /// beside it: the server has no second place to fall back to.
+    fn shared_tier(&self) -> Result<Option<pds_storage::SharedTier>, ConfigError> {
+        const URL: &str = "PDS_POSTGRES_URL";
+        const PREFIX: &str = "PDS_POSTGRES_SCHEMA_PREFIX";
+        let Some(url) = self.text(URL) else {
+            return Ok(None);
+        };
+        // The value holds a password, so an error does not repeat it.
+        let target = pds_storage::PgTarget::parse(&url).map_err(|reason| ConfigError::Invalid {
+            name: URL,
+            value: "(not shown)".to_owned(),
+            reason,
+        })?;
+        for file in [
+            "PDS_ACCOUNT_DB_LOCATION",
+            "PDS_SEQUENCER_DB_LOCATION",
+            "PDS_DID_CACHE_DB_LOCATION",
+        ] {
+            if let Some(value) = self.text(file) {
+                return Err(ConfigError::Invalid {
+                    name: file,
+                    value,
+                    reason: "PDS_POSTGRES_URL is set: the database is in Postgres and has no file",
+                });
+            }
+        }
+        let prefix = self.text(PREFIX).unwrap_or_else(|| "pds".to_owned());
+        let shape_ok = prefix.len() <= 40
+            && prefix.starts_with(|c: char| c.is_ascii_lowercase())
+            && prefix
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
+        if !shape_ok {
+            return Err(ConfigError::Invalid {
+                name: PREFIX,
+                value: prefix,
+                reason: "expected a lower-case letter, then at most 39 lower-case letters, digits and underscores",
+            });
+        }
+        Ok(Some(pds_storage::SharedTier::new(target, &prefix)))
+    }
+
     /// The values of a variable that holds a list with commas.
     fn list(&self, name: &'static str) -> Vec<String> {
         self.text(name)
@@ -731,6 +778,7 @@ impl Config {
         let path =
             |name: &'static str, default: PathBuf| env.text(name).map_or(default, PathBuf::from);
         let layout = DataLayout {
+            shared: env.shared_tier()?,
             account_db: path("PDS_ACCOUNT_DB_LOCATION", default_layout.account_db),
             sequencer_db: path("PDS_SEQUENCER_DB_LOCATION", default_layout.sequencer_db),
             did_cache_db: path("PDS_DID_CACHE_DB_LOCATION", default_layout.did_cache_db),

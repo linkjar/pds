@@ -24,7 +24,7 @@ use pds_identity::{Algorithm, Keypair};
 use pds_repo::mst::tree::Tree;
 use pds_repo::mst::walk::{Guard, read_tree};
 use pds_repo::{Commit, MemoryBlockStore, Repo, RepoError, TreeDefect};
-use pds_storage::{AccountDb, ActorDb, SeqGap, SequencerDb, StorageError};
+use pds_storage::{AccountDb, ActorDb, SeqGap, StorageError};
 
 use crate::config::Config;
 
@@ -399,7 +399,7 @@ fn verify_actor(
 
 /// Counts the events and the breaks in their sequence numbers.
 fn read_sequencer(config: &Config, report: &mut Report) -> Result<(), StorageError> {
-    let sequencer = SequencerDb::open(&config.layout.sequencer_db)?;
+    let sequencer = config.layout.sequencer()?;
     report.events = sequencer.event_count()?;
     let gaps = sequencer.gaps()?;
     report.sequence_breaks = gaps.len() as u64;
@@ -423,7 +423,7 @@ pub fn verify(config: &Config) -> Result<Report, StorageError> {
 /// store needs a runtime, and the caller holds it.
 pub fn verify_with(config: &Config, blobs: Option<&BlobStore>) -> Result<Report, StorageError> {
     let mut report = Report::default();
-    let accounts = AccountDb::open(&config.layout.account_db)?;
+    let accounts = config.layout.accounts()?;
     report.blob_store_checked = blobs.is_some();
     for actor in accounts.all_actors()? {
         report.actors += 1;

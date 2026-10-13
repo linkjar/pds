@@ -52,6 +52,11 @@ pub struct SequencerDb {
 }
 
 impl SequencerDb {
+    /// The log over a connection of the shared tier.
+    pub(crate) const fn over(conn: Connection) -> Self {
+        Self { conn }
+    }
+
     /// Opens the database for reading.
     pub fn open(path: &Path) -> Result<Self, StorageError> {
         Ok(Self {

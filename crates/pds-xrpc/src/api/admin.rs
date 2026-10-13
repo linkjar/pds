@@ -81,7 +81,7 @@ pub async fn get_account_info(state: &AppState, query: &Query<'_>) -> Result<Res
     crate::audit::set_subject(&did);
     let info = state
         .blocking(move |state| {
-            let accounts = AccountDb::open(&state.layout().account_db)?;
+            let accounts = state.layout().accounts()?;
             account_view(&accounts, &did)?.ok_or_else(|| not_found("Account"))
         })
         .await?;
@@ -100,7 +100,7 @@ pub async fn get_account_infos(state: &AppState, query: &Query<'_>) -> Result<Re
         .collect();
     let infos = state
         .blocking(move |state| {
-            let accounts = AccountDb::open(&state.layout().account_db)?;
+            let accounts = state.layout().accounts()?;
             let mut infos = Vec::new();
             for did in &dids {
                 if let Some(info) = account_view(&accounts, did)? {
@@ -160,7 +160,7 @@ pub async fn get_subject_status(
             let Some(did) = did else {
                 return Err(XrpcError::invalid_request("No provided subject"));
             };
-            let actor = AccountDb::open(&layout.account_db)?.actor(&did, Availability::ANY)?;
+            let actor = layout.accounts()?.actor(&did, Availability::ANY)?;
             Ok(actor.map(|actor| {
                 json!({
                     "subject": {"$type": "com.atproto.admin.defs#repoRef", "did": did},
@@ -177,7 +177,7 @@ pub async fn get_subject_status(
 /// States the status of an account in the log.
 fn sequence_status(state: &AppState, did: &str) -> Result<(), XrpcError> {
     let now = pds_sequencer::iso_millis(state.now_ms());
-    let actor = AccountDb::open(&state.layout().account_db)?.actor(did, Availability::ANY)?;
+    let actor = state.layout().accounts()?.actor(did, Availability::ANY)?;
     let status = match &actor {
         None => Some("deleted"),
         Some(actor) => actor.status(),
@@ -366,7 +366,9 @@ pub async fn update_account_email(
     crate::audit::set_subject(&account);
     state
         .blocking(move |state| {
-            let found = AccountDb::open(&state.layout().account_db)?
+            let found = state
+                .layout()
+                .accounts()?
                 .actor(&account, Availability::ANY)?
                 .ok_or_else(|| {
                     XrpcError::invalid_request(format!("Account does not exist: {account}"))
@@ -478,7 +480,9 @@ pub async fn send_email(
         .unwrap_or_else(|| "Message via your PDS".to_owned());
     let email = state
         .blocking(move |state| {
-            AccountDb::open(&state.layout().account_db)?
+            state
+                .layout()
+                .accounts()?
                 .account(&recipient, false, Availability::ANY)?
                 .ok_or_else(|| XrpcError::invalid_request("Recipient not found"))?
                 .email

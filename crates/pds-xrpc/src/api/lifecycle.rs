@@ -80,7 +80,9 @@ pub async fn deactivate_account(
             if !updated {
                 return Err(not_found());
             }
-            let actor = AccountDb::open(&state.layout().account_db)?
+            let actor = state
+                .layout()
+                .accounts()?
                 .actor(&did, Availability::ANY)?
                 .ok_or_else(not_found)?;
             writes
@@ -216,7 +218,9 @@ pub(crate) async fn activate(state: &AppState, did: String) -> Result<(), XrpcEr
             if !writes.with_accounts(|accounts| accounts.activate(&did))? {
                 return Err(not_found());
             }
-            let actor = AccountDb::open(&state.layout().account_db)?
+            let actor = state
+                .layout()
+                .accounts()?
                 .actor(&did, Availability::ANY)?
                 .ok_or_else(not_found)?;
             let store = ActorDb::open(&state.layout().actor_db(&did))?;
@@ -256,7 +260,9 @@ pub async fn check_account_status(
                 .root()?
                 .ok_or_else(|| XrpcError::internal("the store has no repository root"))?;
             let (records, blobs, referenced) = store.counts()?;
-            let activated = AccountDb::open(&state.layout().account_db)?
+            let activated = state
+                .layout()
+                .accounts()?
                 .actor(&did, Availability::ACTIVE)?
                 .is_some();
             Ok(json!({
@@ -439,7 +445,7 @@ pub(crate) async fn change_handle(
         let did = did.clone();
         state
             .blocking(move |state| {
-                let accounts = AccountDb::open(&state.layout().account_db)?;
+                let accounts = state.layout().accounts()?;
                 let availability = Availability {
                     include_taken_down: false,
                     include_deactivated: true,
@@ -546,7 +552,9 @@ pub async fn request_account_delete(
         state
             .blocking(move |state| {
                 super::repo_write::find_account(state, &did, true, false)?;
-                AccountDb::open(&state.layout().account_db)?
+                state
+                    .layout()
+                    .accounts()?
                     .account(&did, false, Availability::ANY)?
                     .ok_or_else(|| XrpcError::invalid_request("account not found"))?
                     .email
@@ -600,7 +608,7 @@ pub async fn delete_account(
     }
     state
         .blocking(move |state| {
-            let accounts = AccountDb::open(&state.layout().account_db)?;
+            let accounts = state.layout().accounts()?;
             if accounts.actor(&did, Availability::ANY)?.is_none() {
                 return Err(XrpcError::invalid_request("account not found"));
             }

@@ -6,7 +6,7 @@ use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use cid::Cid;
 use pds_repo::{CarWriter, Repo, write_car};
-use pds_storage::{AccountDb, ActorDb, RepoRoot};
+use pds_storage::{ActorDb, RepoRoot};
 use serde_json::{Map, Value, json};
 
 use super::{Query, repo_availability};
@@ -250,7 +250,7 @@ pub async fn list_repos(state: &AppState, query: &Query<'_>) -> Result<Response,
         .transpose()?;
     let rows = state
         .blocking(move |state| {
-            let accounts = AccountDb::open(&state.layout().account_db)?;
+            let accounts = state.layout().accounts()?;
             let after = cursor
                 .as_ref()
                 .map(|(created, did)| (created.as_str(), did.as_str()));

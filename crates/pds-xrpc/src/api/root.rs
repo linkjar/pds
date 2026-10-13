@@ -2,7 +2,7 @@
 
 use axum::http::{HeaderMap, HeaderValue, Method, StatusCode, header};
 use axum::response::{IntoResponse, Response};
-use pds_storage::{AccountDb, Availability};
+use pds_storage::Availability;
 
 use crate::error::json_response;
 use crate::state::AppState;
@@ -57,7 +57,7 @@ pub fn robots() -> Response {
 pub async fn health(state: &AppState) -> Response {
     let version = state.config().version.clone();
     let reachable = state
-        .blocking(|state| Ok(AccountDb::open(&state.layout().account_db)?.ping()?))
+        .blocking(|state| Ok(state.layout().accounts()?.ping()?))
         .await;
     let mut body = serde_json::Map::new();
     if let Some(version) = version {
@@ -90,7 +90,7 @@ pub async fn atproto_did(state: &AppState, headers: &HeaderMap) -> Response {
     }
     let found = state
         .blocking(move |state| {
-            let accounts = AccountDb::open(&state.layout().account_db)?;
+            let accounts = state.layout().accounts()?;
             Ok(accounts.actor(&host, Availability::ACTIVE)?)
         })
         .await;
@@ -161,7 +161,7 @@ async fn profile_redirect(state: &AppState, host: String) -> Response {
         let host = host.clone();
         state
             .blocking(move |state| {
-                let accounts = AccountDb::open(&state.layout().account_db)?;
+                let accounts = state.layout().accounts()?;
                 Ok(accounts.actor(&host, Availability::ACTIVE)?)
             })
             .await

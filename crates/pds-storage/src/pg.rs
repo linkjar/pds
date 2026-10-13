@@ -174,7 +174,9 @@ fn scram_final(
         .map_err(|_| broken("the SCRAM iteration count is not a number"))?;
     let client_nonce = first_bare.rsplit("r=").next().unwrap_or_default();
     if !nonce.starts_with(client_nonce) || rounds == 0 {
-        return Err(broken("the SCRAM nonce of the server does not extend the client's"));
+        return Err(broken(
+            "the SCRAM nonce of the server does not extend the client's",
+        ));
     }
     let salted = pbkdf2(password.as_bytes(), &salt, rounds);
     let client_key = hmac(&salted, b"Client Key");
@@ -415,7 +417,9 @@ impl PgClient {
                                 .strip_prefix("v=")
                                 .and_then(|value| BASE64.decode(value.as_bytes()).ok());
                             if given.as_deref() != expected.as_ref().map(<[u8; 32]>::as_slice) {
-                                return Err(broken("the server did not prove that it knows the password"));
+                                return Err(broken(
+                                    "the server did not prove that it knows the password",
+                                ));
                             }
                         }
                         _ => {
@@ -483,7 +487,11 @@ impl PgClient {
         parse.extend_from_slice(&0_i16.to_be_bytes());
         let mut bind = vec![0, 0];
         bind.extend_from_slice(&0_i16.to_be_bytes());
-        bind.extend_from_slice(&i16::try_from(params.len()).unwrap_or(i16::MAX).to_be_bytes());
+        bind.extend_from_slice(
+            &i16::try_from(params.len())
+                .unwrap_or(i16::MAX)
+                .to_be_bytes(),
+        );
         for value in params {
             match encode(value) {
                 Some(bytes) => {
@@ -557,7 +565,14 @@ mod tests {
             "6rriTRBi23WpRR/wtup+mMhUZUn/dB5nLTJRsjl95G4="
         );
         // A server that answers with another nonce is refused.
-        assert!(scram_final("pencil", first_bare, "r=other,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096").is_err());
+        assert!(
+            scram_final(
+                "pencil",
+                first_bare,
+                "r=other,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096"
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -567,8 +582,16 @@ mod tests {
             (target.host.as_str(), target.port, target.user.as_str()),
             ("db.internal", 6543, "pds")
         );
-        assert_eq!((target.password.as_str(), target.database.as_str()), ("p@ss", "linkjar"));
-        assert_eq!(PgTarget::parse("postgresql://u@h/d?sslmode=disable").unwrap().port, 5432);
+        assert_eq!(
+            (target.password.as_str(), target.database.as_str()),
+            ("p@ss", "linkjar")
+        );
+        assert_eq!(
+            PgTarget::parse("postgresql://u@h/d?sslmode=disable")
+                .unwrap()
+                .port,
+            5432
+        );
         assert!(!format!("{target:?}").contains("p@ss"));
         for bad in [
             "mysql://u:p@h/d",
@@ -586,7 +609,10 @@ mod tests {
         assert_eq!(decode(16, b"t").unwrap(), Value::Integer(1));
         assert_eq!(decode(20, b"-42").unwrap(), Value::Integer(-42));
         assert_eq!(decode(17, b"\\x00ff").unwrap(), Value::Blob(vec![0, 255]));
-        assert_eq!(decode(1043, b"text").unwrap(), Value::Text("text".to_owned()));
+        assert_eq!(
+            decode(1043, b"text").unwrap(),
+            Value::Text("text".to_owned())
+        );
         assert_eq!(encode(&Value::Blob(vec![0, 255])).unwrap(), b"\\x00ff");
         assert_eq!(encode(&Value::Null), None);
         assert_eq!(changed("INSERT 0 2"), 2);
