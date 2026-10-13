@@ -36,6 +36,19 @@ pub struct AuthConfig {
     pub admin_password: String,
     /// The service DID, the audience of the tokens this server mints.
     pub service_did: String,
+    /// The entryway whose tokens the server takes (SPEC §21.3). With one,
+    /// the server mints no token and takes none that `jwt_secret` signed.
+    pub entryway: Option<EntrywayAuth>,
+}
+
+/// What a member host knows of its entryway to check a token.
+#[derive(Clone)]
+pub struct EntrywayAuth {
+    /// `PDS_ENTRYWAY_DID`. A token may name it as its audience.
+    pub did: String,
+    /// `PDS_ENTRYWAY_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX`: the secp256k1
+    /// key that signs the tokens.
+    pub key: pds_identity::PublicKey,
 }
 
 impl std::fmt::Debug for AuthConfig {
@@ -193,23 +206,46 @@ fn verify(
         serde_json::from_slice(&URL_SAFE_NO_PAD.decode(part).ok()?).ok()
     };
     let header = json(head).ok_or_else(unverified)?;
-    if header.get("alg").and_then(|v| v.as_str()) != Some("HS256") {
-        return Err(unverified());
-    }
+    let alg = header.get("alg").and_then(|v| v.as_str());
     let signature = URL_SAFE_NO_PAD
         .decode(signature)
         .map_err(|_| unverified())?;
-    let mut mac = Hmac::<Sha256>::new_from_slice(&config.jwt_secret).map_err(|_| unverified())?;
-    mac.update(head.as_bytes());
-    mac.update(b".");
-    mac.update(body.as_bytes());
-    mac.verify_slice(&signature).map_err(|_| unverified())?;
+    match &config.entryway {
+        // A member host takes the tokens of its entryway and no other.
+        Some(entryway) => {
+            if alg != Some("ES256K") {
+                return Err(unverified());
+            }
+            entryway
+                .key
+                .verify_any_s(format!("{head}.{body}").as_bytes(), &signature)
+                .map_err(|_| unverified())?;
+        }
+        None => {
+            if alg != Some("HS256") {
+                return Err(unverified());
+            }
+            let mut mac =
+                Hmac::<Sha256>::new_from_slice(&config.jwt_secret).map_err(|_| unverified())?;
+            mac.update(head.as_bytes());
+            mac.update(b".");
+            mac.update(body.as_bytes());
+            mac.verify_slice(&signature).map_err(|_| unverified())?;
+        }
+    }
 
     let claims = json(body).ok_or_else(unverified)?;
     if header.get("typ").and_then(|v| v.as_str()) != Some(typ) {
         return Err(unverified());
     }
-    if claims.get("aud").and_then(|v| v.as_str()) != Some(config.service_did.as_str()) {
+    // The audience is this server, or the entryway for a token that the
+    // server passes on to it.
+    let aud = claims.get("aud").and_then(|v| v.as_str());
+    let for_entryway = config
+        .entryway
+        .as_ref()
+        .is_some_and(|entryway| aud == Some(entryway.did.as_str()));
+    if aud != Some(config.service_did.as_str()) && !for_entryway {
         return Err(unverified());
     }
     match (claims.get("exp"), now_s) {
@@ -359,11 +395,58 @@ pub fn mint_refresh(config: &AuthConfig, did: &str, jti: &str, now_s: i64) -> (S
 mod tests {
     use super::*;
 
+    /// A token as an entryway signs it: ES256K over the header and the
+    /// claims.
+    fn entryway_token(key: &pds_identity::Keypair, typ: &str, claims: &serde_json::Value) -> String {
+        let head = URL_SAFE_NO_PAD.encode(serde_json::json!({"typ": typ, "alg": "ES256K"}).to_string());
+        let body = URL_SAFE_NO_PAD.encode(claims.to_string());
+        let signature = key.sign(format!("{head}.{body}").as_bytes());
+        format!("{head}.{body}.{}", URL_SAFE_NO_PAD.encode(signature))
+    }
+
+    #[test]
+    fn a_member_host_takes_the_tokens_of_its_entryway_and_no_other() {
+        let key = pds_identity::Keypair::generate(pds_identity::Algorithm::Secp256k1, |bytes| bytes.fill(11));
+        let member = AuthConfig {
+            entryway: Some(EntrywayAuth {
+                did: "did:web:entryway.test".to_owned(),
+                key: key.public_key(),
+            }),
+            ..config()
+        };
+        let did = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa";
+        let claims = |aud: &str| serde_json::json!({"sub": did, "aud": aud, "scope": SCOPE_ACCESS, "exp": 2_000});
+        let with = |token: &str| {
+            let mut headers = HeaderMap::new();
+            headers.insert(header::AUTHORIZATION, format!("Bearer {token}").parse().unwrap());
+            headers
+        };
+        // For this server, and for the entryway.
+        for aud in ["did:web:pds.test", "did:web:entryway.test"] {
+            let token = entryway_token(&key, "at+jwt", &claims(aud));
+            let taken = optional_credentials(&with(&token), &member, &[], 1_000).unwrap();
+            assert!(matches!(taken, Credentials::Access { did: found, .. } if found == did));
+        }
+        // Another audience, another key, and a token of the server's own secret.
+        let other = entryway_token(&key, "at+jwt", &claims("did:web:other.test"));
+        assert!(optional_credentials(&with(&other), &member, &[], 1_000).is_err());
+        let stranger = pds_identity::Keypair::generate(pds_identity::Algorithm::Secp256k1, |bytes| bytes.fill(12));
+        let forged = entryway_token(&stranger, "at+jwt", &claims("did:web:pds.test"));
+        assert!(optional_credentials(&with(&forged), &member, &[], 1_000).is_err());
+        let own = mint_access(&config(), did, SCOPE_ACCESS, 1_000);
+        assert!(optional_credentials(&with(&own), &config(), &[], 1_000).is_ok());
+        assert!(optional_credentials(&with(&own), &member, &[], 1_000).is_err());
+        // A server without an entryway takes no ES256K token.
+        let token = entryway_token(&key, "at+jwt", &claims("did:web:pds.test"));
+        assert!(optional_credentials(&with(&token), &config(), &[], 1_000).is_err());
+    }
+
     fn config() -> AuthConfig {
         AuthConfig {
             jwt_secret: b"secret".to_vec(),
             admin_password: "pa:ss".to_owned(),
             service_did: "did:web:pds.test".to_owned(),
+            entryway: None,
         }
     }
 

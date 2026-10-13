@@ -199,6 +199,7 @@ async fn start(
             jwt_secret: JWT_SECRET.as_bytes().to_vec(),
             admin_password: ADMIN_PASSWORD.to_owned(),
             service_did: SERVICE_DID.to_owned(),
+            entryway: None,
         },
         identity: None,
         mail: pds_xrpc::mail::MailConfig::default(),

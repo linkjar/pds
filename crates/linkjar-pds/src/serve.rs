@@ -120,6 +120,7 @@ fn server_config(config: &Config, jwt_secret: &str, admin_password: &str) -> Ser
             jwt_secret: jwt_secret.as_bytes().to_vec(),
             admin_password: admin_password.to_owned(),
             service_did: config.service_did.clone(),
+            entryway: None,
         },
         mail: config.mail.clone(),
         rate_limits: config.rate_limits.clone(),
