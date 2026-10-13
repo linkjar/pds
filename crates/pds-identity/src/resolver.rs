@@ -240,6 +240,19 @@ impl DidResolver {
         Some(doc)
     }
 
+    /// Whether the cache holds a document of `did` that is not stale.
+    async fn is_fresh(&self, did: &Did) -> bool {
+        let Some(cache) = self.inner.cache.as_ref().map(Arc::clone) else {
+            return false;
+        };
+        let key = did.to_string();
+        let Ok(Some((_, updated_at))) = tokio::task::spawn_blocking(move || cache.get(&key)).await
+        else {
+            return false;
+        };
+        (self.inner.now_ms)().saturating_sub(updated_at) <= millis(self.inner.config.stale_ttl)
+    }
+
     /// Starts a refresh of `did`, unless one is in flight.
     fn refresh_in_background(&self, did: &Did) {
         let Some(mark) = Refreshing::begin(&self.inner, did) else {
@@ -249,6 +262,11 @@ impl DidResolver {
         let did = did.clone();
         tokio::spawn(async move {
             let _mark = mark;
+            // Another refresh may have stored the document between the
+            // caller's read of the cache and this task's mark.
+            if resolver.is_fresh(&did).await {
+                return;
+            }
             if let Err(error) = resolver.resolve(&did, true).await {
                 tracing::warn!(%did, %error, "refreshing the DID cache failed");
             }

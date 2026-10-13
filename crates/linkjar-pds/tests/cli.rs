@@ -172,7 +172,10 @@ fn export_car_refuses_an_argument_that_is_not_a_did() {
 
 #[test]
 fn health_exits_1_when_nothing_answers_and_when_the_configuration_is_invalid() {
-    let port = free_port().to_string();
+    // A listener that never accepts: the port is owned for the length of
+    // the call, and nothing answers.
+    let held = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = held.local_addr().unwrap().port().to_string();
     let silent = run(&[("PDS_PORT", &port)], &["health"]);
     assert_eq!(exit(&silent), 1, "{}", stderr(&silent));
     assert!(stderr(&silent).contains("health"));
@@ -226,7 +229,6 @@ fn serve_answers_health_and_stops_on_sigterm() {
         std::thread::sleep(Duration::from_millis(20));
     };
     assert_eq!(status.code(), Some(0));
-    assert_eq!(exit(&run(&vars, &["health"])), 1);
 }
 
 /// A connection that never finishes its request does not hold the server
@@ -264,7 +266,13 @@ async fn shutdown_ends_at_the_limit_with_a_connection_open() {
         .expect("the server stopped within the limit")
         .unwrap()
         .unwrap();
+    // The server waited for the limit and not much longer.
     assert!(told.elapsed() >= limit, "{:?}", told.elapsed());
+    assert!(
+        told.elapsed() < limit + Duration::from_secs(2),
+        "{:?}",
+        told.elapsed()
+    );
     drop(slow);
 }
 

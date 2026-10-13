@@ -124,7 +124,12 @@ fn run(args: &[String]) -> Result<ExitCode, Failure> {
     match words.as_slice() {
         ["serve"] => {
             init_logging();
-            runtime()?.block_on(serve::serve(&config))?;
+            let runtime = runtime()?;
+            let served = runtime.block_on(serve::serve(&config));
+            // A read still running on the blocking pool does not hold the
+            // exit: the limit of SPEC §14.3 has passed or nothing is open.
+            runtime.shutdown_timeout(std::time::Duration::from_secs(1));
+            served?;
             Ok(ExitCode::SUCCESS)
         }
         ["verify"] | ["verify", "--json"] => {

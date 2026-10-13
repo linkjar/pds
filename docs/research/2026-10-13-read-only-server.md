@@ -76,8 +76,9 @@ preflights.
 directory in the Reference's schema with the repository engine.
 [`server.rs`](../../crates/linkjar-pds/tests/server.rs) drives the server
 through a real listener: nine tests. [`verify.rs`](../../crates/linkjar-pds/tests/verify.rs)
-checks that a clean directory has no differences and that fourteen kinds of
-damage are named, a tree with a shared node among them: eleven tests. The validation and credential modules
+checks that a clean directory has no differences, that fifteen kinds of
+damage are named, a tree with a shared node among them, and that a break
+in the event log is reported without being a difference: fifteen tests. The validation and credential modules
 of `pds-xrpc` carry the Reference's answers as unit tests.
 
 ## 3. What the comparison found
