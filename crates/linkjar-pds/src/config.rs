@@ -240,6 +240,9 @@ pub struct Config {
     pub rate_limits: pds_xrpc::ratelimit::RateLimitConfig,
     /// `PDS_PROFILE` (SPEC §12.1).
     pub profile: ProfileName,
+    /// `PDS_EXTERNAL_<PROVIDER>_CLIENT_ID` and `_CLIENT_SECRET`, for the
+    /// providers that have both (SPEC §13.1).
+    pub external_providers: Vec<pds_ext_linkjar::providers::Provider>,
     /// The OAuth settings (SPEC §11).
     pub oauth: pds_xrpc::oauth::OAuthConfig,
     /// `PDS_BSKY_APP_VIEW_CDN_URL_PATTERN`.
@@ -430,6 +433,46 @@ impl Env<'_> {
             moderation_smtp_url: self.text("PDS_MODERATION_EMAIL_SMTP_URL"),
             moderation_address: self.text("PDS_MODERATION_EMAIL_ADDRESS"),
         })
+    }
+
+    /// The identity providers of the `linkjar` profile. A provider with
+    /// one of its two variables stops the start, as in the patch.
+    fn external_providers(&self) -> Result<Vec<pds_ext_linkjar::providers::Provider>, ConfigError> {
+        use pds_ext_linkjar::providers::{Provider, ProviderId};
+        const NAMES: [(ProviderId, &str, &str); 3] = [
+            (
+                ProviderId::Apple,
+                "PDS_EXTERNAL_APPLE_CLIENT_ID",
+                "PDS_EXTERNAL_APPLE_CLIENT_SECRET",
+            ),
+            (
+                ProviderId::Google,
+                "PDS_EXTERNAL_GOOGLE_CLIENT_ID",
+                "PDS_EXTERNAL_GOOGLE_CLIENT_SECRET",
+            ),
+            (
+                ProviderId::GitHub,
+                "PDS_EXTERNAL_GITHUB_CLIENT_ID",
+                "PDS_EXTERNAL_GITHUB_CLIENT_SECRET",
+            ),
+        ];
+        let mut providers = Vec::new();
+        if self.profile()? != ProfileName::Linkjar {
+            return Ok(providers);
+        }
+        for (id, client_id, client_secret) in NAMES {
+            match (self.text(client_id), self.text(client_secret)) {
+                (Some(client_id), Some(client_secret)) => providers.push(Provider {
+                    id,
+                    client_id,
+                    client_secret,
+                }),
+                (None, None) => {}
+                (Some(_), None) => return Err(ConfigError::Missing(client_secret)),
+                (None, Some(_)) => return Err(ConfigError::Missing(client_id)),
+            }
+        }
+        Ok(providers)
     }
 
     /// `PDS_PROFILE`: `stock` when unset.
@@ -629,6 +672,7 @@ impl Config {
             mail: env.mail()?,
             rate_limits: env.rate_limits()?,
             profile: env.profile()?,
+            external_providers: env.external_providers()?,
             oauth: env.oauth()?,
             appview_cdn_url_pattern: env.text("PDS_BSKY_APP_VIEW_CDN_URL_PATTERN"),
             jwt_secret: env.text("PDS_JWT_SECRET"),

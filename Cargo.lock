@@ -1483,6 +1483,9 @@ dependencies = [
 [[package]]
 name = "pds-ext"
 version = "0.0.1"
+dependencies = [
+ "serde_json",
+]
 
 [[package]]
 name = "pds-ext-linkjar"
