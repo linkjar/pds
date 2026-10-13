@@ -209,6 +209,8 @@ pub struct Config {
     pub crawlers: Vec<String>,
     /// `PDS_MAX_SUBSCRIPTION_BUFFER`, default 500 events.
     pub max_subscription_buffer: u32,
+    /// `PDS_ACTOR_STORE_CACHE_SIZE`, default 100 stores.
+    pub actor_store_cache_size: usize,
     /// `PDS_REPO_BACKFILL_LIMIT_MS`, default one day.
     pub repo_backfill_limit: Duration,
     /// `PDS_FAIL_POINTS`: fail points to arm (SPEC §19.2). Read in dev mode
@@ -413,6 +415,7 @@ impl Config {
             max_import_size: env.number("PDS_MAX_REPO_IMPORT_SIZE")?,
             crawlers: env.urls("PDS_CRAWLERS")?,
             max_subscription_buffer: env.number("PDS_MAX_SUBSCRIPTION_BUFFER")?.unwrap_or(500),
+            actor_store_cache_size: env.number("PDS_ACTOR_STORE_CACHE_SIZE")?.unwrap_or(100),
             repo_backfill_limit: env
                 .millis("PDS_REPO_BACKFILL_LIMIT_MS", Duration::from_hours(24))?,
             // Production ignores the hook (SPEC §3.3).

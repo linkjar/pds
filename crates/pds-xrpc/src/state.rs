@@ -7,7 +7,7 @@ use std::time::Duration;
 use pds_blob::DiskBlobStore;
 use pds_identity::DidResolver;
 use pds_sequencer::Sequencer;
-use pds_storage::{AccountDb, DataLayout, OpsDb, StorageError};
+use pds_storage::{AccountDb, ActorDb, DataLayout, OpsDb, StorageError};
 use pds_types::TidGenerator;
 
 use crate::auth::AuthConfig;
@@ -60,6 +60,9 @@ pub struct WriteSettings {
     pub backfill_limit_ms: i64,
     /// `PDS_MAX_SUBSCRIPTION_BUFFER`.
     pub max_subscription_buffer: u32,
+    /// `PDS_ACTOR_STORE_CACHE_SIZE`: how many actor stores stay open for
+    /// the next write.
+    pub actor_store_cache_size: usize,
 }
 
 /// What the write path shares: the event log, the notes of commits in
@@ -70,6 +73,9 @@ pub struct WriteState {
     accounts: Mutex<AccountDb>,
     tids: TidGenerator,
     locks: Mutex<HashMap<String, Arc<Mutex<()>>>>,
+    /// Write connections to actor stores, the one used last at the back
+    /// (SPEC §8.3).
+    stores: Mutex<Vec<(String, ActorDb)>>,
     settings: WriteSettings,
     random: Box<dyn Fn() -> u64 + Send + Sync>,
 }
@@ -98,6 +104,7 @@ impl WriteState {
             accounts: Mutex::new(AccountDb::open_writable(&layout.account_db)?),
             tids,
             locks: Mutex::new(HashMap::new()),
+            stores: Mutex::new(Vec::new()),
             settings,
             random: Box::new(rand::random::<u64>),
         })
@@ -139,6 +146,38 @@ impl WriteState {
     /// Runs `call` with the writable connection to `account.sqlite`.
     pub fn with_accounts<T>(&self, call: impl FnOnce(&AccountDb) -> T) -> T {
         call(&self.accounts.lock().unwrap_or_else(PoisonError::into_inner))
+    }
+
+    /// The write connection to the actor store of `did`: the one kept from
+    /// the last write, or a new one. The caller holds the repository lock
+    /// and gives the connection back with [`WriteState::keep_store`].
+    pub fn take_store(&self, did: &str, layout: &DataLayout) -> Result<ActorDb, StorageError> {
+        let kept = {
+            let mut stores = self.stores.lock().unwrap_or_else(PoisonError::into_inner);
+            stores
+                .iter()
+                .position(|(owner, _)| owner == did)
+                .map(|index| stores.remove(index).1)
+        };
+        match kept {
+            Some(store) => Ok(store),
+            None => ActorDb::open_writable(&layout.actor_db(did)),
+        }
+    }
+
+    /// Keeps a write connection for the next write of `did`. The store
+    /// that was used longest ago is closed when the cache is full.
+    pub fn keep_store(&self, did: &str, store: ActorDb) {
+        if self.settings.actor_store_cache_size == 0 {
+            return;
+        }
+        let mut stores = self.stores.lock().unwrap_or_else(PoisonError::into_inner);
+        stores.push((did.to_owned(), store));
+        let closed =
+            (stores.len() > self.settings.actor_store_cache_size).then(|| stores.remove(0));
+        drop(stores);
+        // The connection closes outside the lock: a close can checkpoint.
+        drop(closed);
     }
 
     /// The lock of one repository: one writer at a time (SPEC §8.3).

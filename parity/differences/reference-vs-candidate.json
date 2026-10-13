@@ -42,48 +42,6 @@
     "right": 400
   },
   {
-    "scenario": "writes/05-blobs",
-    "step": "uploadBlob one byte over the limit",
-    "path": "body",
-    "left": {
-      "error": "PayloadTooLarge",
-      "message": "request entity too large"
-    },
-    "right": ""
-  },
-  {
-    "scenario": "writes/05-blobs",
-    "step": "uploadBlob one byte over the limit",
-    "path": "headers.access-control-allow-origin",
-    "left": "*"
-  },
-  {
-    "scenario": "writes/05-blobs",
-    "step": "uploadBlob one byte over the limit",
-    "path": "headers.content-type",
-    "left": "application/json; charset=utf-8"
-  },
-  {
-    "scenario": "writes/05-blobs",
-    "step": "uploadBlob one byte over the limit",
-    "path": "status",
-    "left": 413,
-    "right": 502
-  },
-  {
-    "scenario": "writes/05-blobs",
-    "step": "over the limit",
-    "path": "note.error",
-    "left": "PayloadTooLarge"
-  },
-  {
-    "scenario": "writes/05-blobs",
-    "step": "over the limit",
-    "path": "note.status",
-    "left": 413,
-    "right": 502
-  },
-  {
     "scenario": "writes/15-import",
     "step": "importRepo of bytes that are not a CAR",
     "path": "body.error",

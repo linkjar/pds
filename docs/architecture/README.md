@@ -60,10 +60,10 @@ SPEC §3.1. Arrows point from a crate to the crates it depends on; the binary
 wires everything and extension crates depend only on the trait crate. The
 graph is the target of SPEC §3.1. A solid arrow is a dependency in a crate
 manifest today. A dashed arrow is planned: every arrow to or from a crate
-that is still a stub (`pds-account`, `pds-oauth`, `pds-audit`,
-`pds-sequencer`, `pds-ext`, `pds-ext-linkjar`, `pds-sim`), and the arrows
-from `pds-storage` to `pds-types`, from `pds-blob` to `pds-storage` and
-from `pds-xrpc` to `pds-lexicon`. Source:
+that is still a stub (`pds-account`, `pds-oauth`, `pds-audit`, `pds-ext`,
+`pds-ext-linkjar`), and the arrows from `pds-storage` to `pds-types` and
+from `pds-blob` to `pds-storage`. `pds-sim` depends on the binary's
+library, for `verify`. Source:
 [`03-crates.mmd`](diagrams/03-crates.mmd).
 
 <picture>
@@ -83,10 +83,14 @@ tasks, injectable time and randomness. Source: [`04-process.mmd`](diagrams/04-pr
 
 ## Write path
 
-SPEC §6.3, §6.4, §7.4. What happens on `createRecord`, and why the sequencer
-row is durable with the commit. `pds-repo` formats the commit and stores
-nothing: it reads the tree nodes on one path through the actor store and
-returns the blocks to insert, the blocks to delete and the blocks of the
+SPEC §6.3, §6.4, §7.4. What happens on `createRecord`. The commit and its
+event are in two files, so the server notes the commit in `ops.sqlite`
+before it stores it and removes the note after the event is in the log. A
+note that is still there at the next start names a repository whose head
+is ahead of the log, and the server states that head with `#sync`.
+`pds-repo` formats the commit and stores nothing: it reads the tree nodes
+on one path through the actor store and returns the blocks to insert, the
+blocks to delete and the blocks of the
 firehose event. Source: [`05-write-path.mmd`](diagrams/05-write-path.mmd).
 
 <picture>
@@ -119,7 +123,8 @@ engine is written here. Source:
 SPEC §7. Frames come only from the durable log; the broadcast is a wakeup.
 Cursor rules: no cursor, live only; `0`, the whole window; in window,
 backfill then live; above head, `FutureCursor`; older than the window,
-`OutdatedCursor`; slow consumer, `ConsumerTooSlow`. Source:
+`OutdatedCursor`; slow consumer, `ConsumerTooSlow`. A page of the log ends
+after 500 events or 4 MiB. Source:
 [`06-firehose.mmd`](diagrams/06-firehose.mmd).
 
 <picture>
@@ -197,13 +202,14 @@ firehose as the witness. Source: [`12-audit.mmd`](diagrams/12-audit.mmd).
 
 ## Simulation harness
 
-SPEC §19. One seed drives faults in storage, process and network; oracles
-check verify, repair and firehose delivery. Source:
+SPEC §19. One seed draws a plan and the stops at the fail points of the
+commit path; the oracles run after every stop. Faults below SQLite and the
+network are not simulated yet. Source:
 [`13-simulation.mmd`](diagrams/13-simulation.mmd).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="svg/13-simulation.dark.svg">
-  <img alt="Seeded simulation: plan, fault VFS, fail points, network simulation, oracles" src="svg/13-simulation.svg">
+  <img alt="Seeded simulation: plan, fail points, restart and repair, oracles, and the determinism check" src="svg/13-simulation.svg">
 </picture>
 
 ## Parity harness

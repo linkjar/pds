@@ -1,25 +1,26 @@
 sequenceDiagram
   participant C as Client
   participant X as pds-xrpc
-  participant A as auth
   participant L as pds-lexicon
-  participant S as ActorStore
+  participant S as actor store.sqlite
   participant R as pds-repo
-  participant Q as SequencerStore
-  participant F as firehose fan-out
+  participant O as ops.sqlite
+  participant Q as sequencer.sqlite
+  participant F as subscribers
   C->>X: POST /xrpc/com.atproto.repo.createRecord
-  X->>A: verify token, scope, active account, rate limit
-  A-->>X: DID and permissions
-  X->>L: validate record (mode true, false or unset)
-  L-->>X: ok plus validation flag
-  X->>S: begin write transaction (one writer per actor)
-  S->>R: format the commit: the writes, the new rev, the actor's key
+  X->>X: session, then the body in the lexicon's order
+  X->>L: validate the record (mode true, false or unset)
+  L-->>X: valid, unknown, or the Reference's message
+  X->>S: begin immediate (one writer for a repository)
+  S->>R: format the commit: the writes, the next rev, the actor's key
   R->>S: read the tree nodes on the path
-  R-->>S: signed commit, new blocks, unused blocks, firehose blocks
-  S->>S: insert and delete blocks, record row, blob refs
-  S->>Q: append #commit (seq, ops, blocks, since, rev, prevData)
-  Q-->>S: durable in the same step
-  S-->>X: commit (cid, rev)
+  R-->>S: signed commit, new blocks, unused blocks, event blocks
+  S->>S: root, blocks, record index, backlinks, blob references
+  X->>O: note the account and the rev
+  X->>S: commit
+  X->>Q: append #commit (ops, blocks, since, rev, prevData)
+  X->>O: remove the note
   X->>F: wakeup, no frame on the bus
-  F->>Q: read frames in seq order
+  F->>Q: read pages in seq order
   X-->>C: 200 uri, cid, commit, validationStatus
+  Note over O,Q: A stop after the commit leaves the note. At the next start the server appends #sync with the head.

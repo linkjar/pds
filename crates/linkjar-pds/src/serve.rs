@@ -137,6 +137,7 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
             backfill_limit_ms: i64::try_from(config.repo_backfill_limit.as_millis())
                 .unwrap_or(i64::MAX),
             max_subscription_buffer: config.max_subscription_buffer,
+            actor_store_cache_size: config.actor_store_cache_size,
         },
     )
     .map_err(storage)?;

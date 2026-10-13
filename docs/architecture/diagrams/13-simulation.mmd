@@ -1,11 +1,13 @@
 flowchart TB
-  seed[seed plus commit] --> plan[interaction plan<br/>writes, subscribers, imports, lifecycle, OAuth, mail]
-  plan --> run[pds-sim run, single thread]
-  run --> vfs[fault VFS via sqlite-plugin<br/>I/O error after N, fsync failure, torn write, bit flip, disk full, power loss]
-  run --> fp[fail points<br/>commit, sequence, outbox, PLC, checkpoint]
-  run --> net[turmoil plus mad-turmoil<br/>partitions, delays, crashes, seeded time and randomness]
-  vfs & fp & net --> sut[linkjar-pds, same code as production]
-  sut --> o1{verify passes or repair restores the recorded MST root}
-  sut --> o2{no acknowledged write lost}
-  sut --> o3{every seq delivered once, in order}
-  sut --> o4{TRACE logs identical on rerun}
+  seed[seed] --> plan[plan<br/>writes, batches, uploads, subscribers with cursors, restarts]
+  plan --> run[pds-sim run, one thread<br/>clock, revision clock and random source from the seed]
+  run --> fp[fail points<br/>before the commit is stored, after it, after its event]
+  run --> later[not written yet<br/>fault VFS below SQLite, turmoil network]
+  fp --> sut[the router of linkjar-pds, in process<br/>same code as production]
+  sut --> restart[stop, start again, repair]
+  restart --> o1{verify finds no difference}
+  restart --> o2{each repository holds the acknowledged writes and no other}
+  restart --> o3{each subscriber saw every event once, in order}
+  restart --> o4{a strict relay model converges, with #sync as its only repair}
+  restart --> o5{a blob is served only while a record references it}
+  run --> meta{two runs of a seed give the same trace}

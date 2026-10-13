@@ -631,7 +631,24 @@ pub fn transact<T>(
     let _one_writer = lock
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    let mut db = ActorDb::open_writable(&state.layout().actor_db(did))?;
+    let mut db = writes.take_store(did, state.layout())?;
+    let result = transact_on(state, writes, did, &mut db, work);
+    // A connection whose work failed is closed: its transaction rolled
+    // back, and the next write starts from the file.
+    if result.is_ok() {
+        writes.keep_store(did, db);
+    }
+    result
+}
+
+/// The work of [`transact`] on an open store.
+fn transact_on<T>(
+    state: &AppState,
+    writes: &WriteState,
+    did: &str,
+    db: &mut ActorDb,
+    work: impl FnOnce(&mut Session<'_>) -> Result<T, XrpcError>,
+) -> Result<T, XrpcError> {
     let txn = db.begin()?;
     let mut session = Session {
         state,

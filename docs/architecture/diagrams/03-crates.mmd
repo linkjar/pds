@@ -2,7 +2,7 @@ flowchart BT
   types[pds-types<br/>syntax, data model, generated API types]
   lexicon[pds-lexicon<br/>lexicon model, validation, permission sets]
   repo[pds-repo<br/>MST, commits, CAR, diffs]
-  storage[pds-storage<br/>seams, SQLite, StorageIo]
+  storage[pds-storage<br/>seams, SQLite, fail points]
   blob[pds-blob]
   identity[pds-identity<br/>DID, handle, PLC, keys]
   sequencer[pds-sequencer<br/>event log, firehose]
@@ -12,24 +12,25 @@ flowchart BT
   xrpc[pds-xrpc<br/>routing, limits, proxy]
   ext{{pds-ext<br/>extension traits, stock profile}}
   linkjar{{pds-ext-linkjar<br/>linkjar profile}}
-  sim[pds-sim<br/>fault VFS, fail points, turmoil]
+  sim[pds-sim<br/>seeded plans, oracles]
   bin[linkjar-pds<br/>binary, CLI, ops listener]
   xtask[xtask<br/>codegen]
   lexicon --> types
   repo --> types
   storage --> repo
   storage -.-> types
+  blob --> types
   blob -.-> storage
   identity --> types
-  sequencer -.-> repo & storage
+  sequencer --> types & repo & storage
   account -.-> storage & identity & ext & audit
   oauth -.-> account & lexicon & ext
   audit -.-> storage & repo
-  xrpc --> types & repo & storage & identity & blob
-  xrpc -.-> lexicon & sequencer & account & oauth
+  xrpc --> types & repo & storage & identity & blob & lexicon & sequencer
+  xrpc -.-> account & oauth
   ext -.-> types & storage
   linkjar -.-> ext
-  sim -.-> storage & sequencer
-  bin --> types & xrpc & storage & identity & blob & repo
-  bin -.-> linkjar & sim
+  sim --> bin & xrpc & storage & sequencer & repo & identity & blob
+  bin --> types & xrpc & storage & identity & blob & repo & sequencer
+  bin -.-> linkjar
   xtask --> lexicon
