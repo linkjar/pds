@@ -131,15 +131,13 @@ impl Sequencer {
         if events.is_empty() {
             return Ok(Vec::new());
         }
-        let seqs = {
-            let mut writer = self.writer.lock().unwrap_or_else(PoisonError::into_inner);
-            let seqs = writer.append(events)?;
-            if let Some(last) = seqs.last() {
-                // Inside the lock, so the head never goes backwards.
-                self.head.send_replace(*last);
-            }
-            seqs
-        };
+        let mut writer = self.writer.lock().unwrap_or_else(PoisonError::into_inner);
+        let seqs = writer.append(events)?;
+        if let Some(last) = seqs.last() {
+            // Inside the lock, so the head never goes backwards.
+            self.head.send_replace(*last);
+        }
+        drop(writer);
         self.crawlers.notify_of_update((self.now_ms)());
         Ok(seqs)
     }
@@ -182,6 +180,7 @@ impl Sequencer {
             frames.pop_front();
         }
         frames.push_back((row.seq, Arc::clone(&encoded)));
+        drop(frames);
         Ok(encoded)
     }
 }

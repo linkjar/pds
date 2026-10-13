@@ -182,10 +182,9 @@ pub fn string<'a>(
             &at,
         ));
     }
-    if let Err(name) = format.check(text) {
-        // `check` names the format as the message does; `invalid_format`
-        // takes the lexicon's name.
-        let lexicon_name = match format {
+    if format.check(text).is_err() {
+        // `invalid_format` takes the lexicon's name of the format.
+        let name = match format {
             Format::Any => "string",
             Format::Did => "did",
             Format::Handle => "handle",
@@ -195,11 +194,7 @@ pub fn string<'a>(
             Format::Tid => "tid",
             Format::Cid => "cid",
         };
-        debug_assert!(!name.is_empty());
-        return Err(refuse(
-            &invalid_format(lexicon_name, &stringify_str(text)),
-            &at,
-        ));
+        return Err(refuse(&invalid_format(name, &stringify_str(text)), &at));
     }
     Ok(Some(text))
 }

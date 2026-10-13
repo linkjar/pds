@@ -60,6 +60,13 @@ pub struct Report {
     pub sequence_breaks: u64,
     /// The first breaks, at most five.
     pub first_sequence_breaks: Vec<SeqGap>,
+    /// Actors whose root in `account.sqlite` is behind their store, or
+    /// absent. This is not a difference: the Reference writes that root
+    /// after a commit and logs a failure, and it does not write it on an
+    /// import, so its own data directories hold such rows.
+    pub stale_account_roots: u64,
+    /// The first of those actors, at most five.
+    pub first_stale_account_roots: Vec<String>,
     /// Whether the blob store was checked: false when none is configured.
     pub blob_store_checked: bool,
     /// The differences. An empty list is a clean data directory.
@@ -87,6 +94,8 @@ impl Report {
             "firstSequenceBreaks": self.first_sequence_breaks.iter().map(|gap| serde_json::json!({
                 "after": gap.after, "before": gap.before,
             })).collect::<Vec<_>>(),
+            "staleAccountRoots": self.stale_account_roots,
+            "firstStaleAccountRoots": self.first_stale_account_roots,
             "blobStoreChecked": self.blob_store_checked,
             "differences": self.findings.len(),
             "findings": self.findings.iter().map(|f| serde_json::json!({
@@ -106,6 +115,10 @@ impl fmt::Display for Report {
         writeln!(f, "sequence breaks   {}", self.sequence_breaks)?;
         for gap in &self.first_sequence_breaks {
             writeln!(f, "  no event between {} and {}", gap.after, gap.before)?;
+        }
+        writeln!(f, "stale account roots {}", self.stale_account_roots)?;
+        for did in &self.first_stale_account_roots {
+            writeln!(f, "  {did}")?;
         }
         if !self.blob_store_checked {
             writeln!(
@@ -309,17 +322,29 @@ fn verify_actor(
         report.find(did, "root-missing", "the store has no repository root");
         return Ok(());
     };
-    match accounts.repo_root(did)? {
-        None => report.find(did, "root-mismatch", "account.sqlite has no repo_root row"),
-        Some((cid, rev)) if cid != root.cid.to_string() || rev != root.rev => report.find(
-            did,
-            "root-mismatch",
-            format!(
-                "account.sqlite has {cid} at {rev}; the store has {} at {}",
-                root.cid, root.rev
-            ),
-        ),
-        Some(_) => {}
+    // The account database's root is a copy that `listRepos` reads. One
+    // that is behind the store, or absent, is stale and not damage. One
+    // that is ahead of the store says the store lost a commit.
+    let stale = match accounts.repo_root(did)? {
+        None => true,
+        Some((cid, rev)) if rev > root.rev || (rev == root.rev && cid != root.cid.to_string()) => {
+            report.find(
+                did,
+                "root-mismatch",
+                format!(
+                    "account.sqlite has {cid} at {rev}; the store has {} at {}",
+                    root.cid, root.rev
+                ),
+            );
+            false
+        }
+        Some((_, rev)) => rev < root.rev,
+    };
+    if stale {
+        report.stale_account_roots += 1;
+        if report.first_stale_account_roots.len() < BREAKS_LISTED {
+            report.first_stale_account_roots.push(did.to_owned());
+        }
     }
     let repo = match Repo::load(&store, root.cid) {
         Ok(repo) => repo,

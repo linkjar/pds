@@ -21,6 +21,13 @@ const CLOSE_POLICY: u16 = 1008;
 /// The close code of a stream that ended without an error.
 const CLOSE_NORMAL: u16 = 1000;
 
+const CURSOR: &[Spec] = &[Spec::integer(
+    "cursor",
+    -MAX_SAFE_INTEGER,
+    MAX_SAFE_INTEGER,
+    0,
+)];
+
 /// The `cursor` of the request: `Ok(None)` when it gives none, and the
 /// message of the error frame when it is not an integer.
 fn cursor(query: Option<&str>) -> Result<Option<i64>, String> {
@@ -31,12 +38,6 @@ fn cursor(query: Option<&str>) -> Result<Option<i64>, String> {
     if !given {
         return Ok(None);
     }
-    const CURSOR: &[Spec] = &[Spec::integer(
-        "cursor",
-        -MAX_SAFE_INTEGER,
-        MAX_SAFE_INTEGER,
-        0,
-    )];
     Params::parse(NSID, query, CURSOR)
         .map(|params| Some(params.integer("cursor")))
         .map_err(|error| error.message)
@@ -108,7 +109,7 @@ async fn serve(
             // A frame the client sends is ignored. The end of its side ends
             // the stream.
             received = socket.recv() => match received {
-                Some(Ok(Message::Close(_))) | Some(Err(_)) | None => return,
+                Some(Ok(Message::Close(_)) | Err(_)) | None => return,
                 Some(Ok(_)) => {}
             },
             frames = subscription.next() => match frames {

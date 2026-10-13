@@ -124,17 +124,26 @@ fn a_root_that_the_account_database_does_not_agree_on_is_found() {
 }
 
 #[test]
-fn a_root_that_the_account_database_does_not_hold_is_found() {
+fn a_root_that_the_account_database_is_behind_on_is_stale_and_no_difference() {
+    // The Reference leaves both states: no row after a first import, and an
+    // older row after any import or a failed root update.
     let dir = DataDir::new(3);
-    common::open(&dir.config.layout.account_db)
+    let accounts = common::open(&dir.config.layout.account_db);
+    accounts
         .execute(r#"delete from "repo_root" where "did" = ?1"#, params![DANA])
         .unwrap();
+    accounts
+        .execute(
+            r#"update "repo_root" set "rev" = '2222222222222' where "did" = ?1"#,
+            params![ALICE],
+        )
+        .unwrap();
     let report = verify(&dir.config).unwrap();
-    assert_eq!(kinds(&report), [(DANA, "root-mismatch")]);
-    assert_eq!(
-        report.findings[0].detail,
-        "account.sqlite has no repo_root row"
-    );
+    assert_eq!(kinds(&report), []);
+    assert_eq!(report.stale_account_roots, 2);
+    assert_eq!(report.first_stale_account_roots, [ALICE, DANA]);
+    assert_eq!(report.to_json()["staleAccountRoots"], 2);
+    assert!(report.to_string().contains("stale account roots 2\n"));
 }
 
 #[test]

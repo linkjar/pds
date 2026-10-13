@@ -222,10 +222,34 @@ pub async fn serve(config: &Config) -> Result<(), ServeError> {
             "settled the commits that were in flight at the last stop"
         );
     }
+    tokio::spawn(collect_uploads(state.clone()));
     let listener = bind(config.port)?;
     let address = listener.local_addr()?;
     tracing::info!(%address, did = %config.service_did, "serving");
     serve_until(listener, state, shutdown(), SHUTDOWN_LIMIT).await
+}
+
+/// How often the server looks for uploads that no record references.
+const UPLOAD_SWEEP: Duration = Duration::from_mins(10);
+
+/// Collects unreferenced uploads for as long as the server runs
+/// (SPEC §6.4). A failed sweep is logged, and the next one runs.
+async fn collect_uploads(state: AppState) {
+    let mut sweep = tokio::time::interval(UPLOAD_SWEEP);
+    sweep.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    loop {
+        sweep.tick().await;
+        let sweeping = state.clone();
+        match tokio::task::spawn_blocking(move || pds_xrpc::write::collect_uploads(&sweeping)).await
+        {
+            Ok(Ok(0)) => {}
+            Ok(Ok(collected)) => tracing::info!(collected, "collected unreferenced uploads"),
+            Ok(Err(error)) => {
+                tracing::error!(error = %error.message, "the upload sweep failed");
+            }
+            Err(error) => tracing::error!(%error, "the upload sweep failed"),
+        }
+    }
 }
 
 /// Serves `state` on `listener` until `stop` resolves, then waits at most
