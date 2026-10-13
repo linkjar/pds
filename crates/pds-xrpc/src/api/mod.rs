@@ -452,6 +452,12 @@ pub async fn entry(State(state): State<AppState>, request: axum::extract::Reques
     .await
 }
 
+/// Whether the server has a handler for the method. Every other method
+/// goes to the proxy.
+pub fn is_handled(nsid: &str) -> bool {
+    procedure(nsid).is_some() || served(nsid).is_some() || nsid == subscribe::NSID
+}
+
 /// Runs a method with the grant of its OAuth token in reach, and writes
 /// its audit entry when the method is audited.
 async fn call(

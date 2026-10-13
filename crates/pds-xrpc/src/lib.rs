@@ -13,6 +13,7 @@ pub mod auth;
 pub mod body;
 pub mod error;
 pub mod mail;
+pub mod metrics;
 pub mod oauth;
 pub mod params;
 pub mod password;
@@ -42,7 +43,23 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .fallback(api::entry)
         .layer(middleware::from_fn(cors))
+        .layer(middleware::from_fn_with_state(state.clone(), measure))
         .with_state(state)
+}
+
+/// Counts and times every request for the metrics (SPEC §14.4).
+async fn measure(
+    axum::extract::State(state): axum::extract::State<AppState>,
+    request: Request,
+    next: Next,
+) -> Response {
+    let route = metrics::route_label(request.uri().path());
+    let started = std::time::Instant::now();
+    let response = next.run(request).await;
+    state
+        .metrics()
+        .observe(&route, response.status().as_u16(), started.elapsed());
+    response
 }
 
 /// The routes of the authorization server that a browser calls from

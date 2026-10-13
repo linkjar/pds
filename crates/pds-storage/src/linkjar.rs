@@ -392,6 +392,16 @@ impl AccountDb {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
+    /// How many notices wait for delivery.
+    pub fn notice_count(&self) -> Result<u64, StorageError> {
+        let count: i64 =
+            self.conn
+                .query_row(r#"select count(*) from "sign_in_notice""#, [], |row| {
+                    row.get(0)
+                })?;
+        Ok(u64::try_from(count).unwrap_or(0))
+    }
+
     /// Removes a notice that was delivered.
     pub fn delete_notice(&self, id: &str) -> Result<(), StorageError> {
         self.conn

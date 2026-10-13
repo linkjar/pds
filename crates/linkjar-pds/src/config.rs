@@ -248,6 +248,9 @@ pub struct Config {
     /// `PDS_AUDIT_CHECKPOINT_REPO`: the DID of the operator's account
     /// here whose repository publishes the checkpoints.
     pub audit_repo: Option<String>,
+    /// `PDS_METRICS_ADDRESS`: where the private metrics listener binds
+    /// (SPEC §14.4). Unset, the server has none.
+    pub metrics_address: Option<std::net::SocketAddr>,
     /// `PDS_PROFILE` (SPEC §12.1).
     pub profile: ProfileName,
     /// `PDS_EXTERNAL_<PROVIDER>_CLIENT_ID` and `_CLIENT_SECRET`, for the
@@ -713,6 +716,16 @@ impl Config {
             rate_limits: env.rate_limits()?,
             audit_key: env.secret_bytes("PDS_AUDIT_KEY_ED25519_PRIVATE_KEY_HEX")?,
             audit_repo: env.text("PDS_AUDIT_CHECKPOINT_REPO"),
+            metrics_address: env
+                .text("PDS_METRICS_ADDRESS")
+                .map(|address| {
+                    address.parse().map_err(|_| ConfigError::Invalid {
+                        name: "PDS_METRICS_ADDRESS",
+                        value: address,
+                        reason: "expected an address and a port, such as 127.0.0.1:9464",
+                    })
+                })
+                .transpose()?,
             profile: env.profile()?,
             external_providers: env.external_providers()?,
             oauth: env.oauth()?,

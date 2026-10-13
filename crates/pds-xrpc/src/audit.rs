@@ -146,6 +146,28 @@ impl AuditLog {
         Ok(Some((checkpoint, previous_root)))
     }
 
+    /// How many entries the log has.
+    pub fn len(&self) -> Result<u64, StorageError> {
+        self.db().last_seq()
+    }
+
+    /// How many entries no checkpoint covers yet.
+    pub fn unsigned(&self) -> Result<u64, StorageError> {
+        let db = self.db();
+        let covered = db.last_checkpoint()?.map_or(0, |row| row.last);
+        Ok(db.last_seq()?.saturating_sub(covered))
+    }
+
+    /// The seconds since the last checkpoint was signed. `None` for a
+    /// log without a checkpoint.
+    pub fn checkpoint_age_s(&self, now_ms: i64) -> Result<Option<i64>, StorageError> {
+        Ok(self.db().last_checkpoint()?.and_then(|row| {
+            chrono::DateTime::parse_from_rfc3339(&row.time)
+                .ok()
+                .map(|time| (now_ms - time.timestamp_millis()) / 1000)
+        }))
+    }
+
     /// Whether the log has no entry yet.
     pub fn is_empty(&self) -> Result<bool, StorageError> {
         Ok(self.db().last_seq()? == 0)
