@@ -1717,13 +1717,38 @@ together with the write path (decision of 2026-10-08).
   or a hash seed outside the providers of §3.2 fails that test and is
   wrapped or replaced.
 
-As of unit 4 the crate has the fail points of the commit path, the seeded
-plans, the oracles of §19.4, the seed runner and the determinism meta-test,
-which compares the traces of two runs of a seed. Three things of this
-section are not written yet, and the crate's documentation says so:
+As of unit 4b the crate has the fail points of the commit path, the seeded
+plans, the oracles of §19.4, the seed runner, the determinism meta-test,
+which compares the traces of two runs of a seed, and a file system below
+SQLite that loses power.
 
-- the `StorageIo` trait and the fault-injecting VFS, so no run loses or
-  tears a write below SQLite: a stop is a process stop between two steps;
+The seam is `pds_storage::io`: every database of the data directory is
+opened there, with the operating system's files in production and through
+a named SQLite VFS in the simulation. It is one function and not a trait,
+because SQLite's own VFS interface is the trait. The simulation's VFS is
+registered through `sqlite-plugin`, whose registration is a safe function,
+so the rule of §3.2 on `unsafe` holds without an exception. It passes
+every operation to the files of the host and remembers what each write and
+truncation replaced until the file is synced. The write-ahead log's shared
+memory and all locks are in the process. When the power is lost inside a
+write of the plan:
+
+- every operation of the running server fails from that operation on;
+- each file keeps a prefix of its writes since its last sync, drawn from
+  the seed, and loses the rest;
+- the last write that is kept may be torn at a 512-byte sector, which is
+  the sector size the VFS declares, with no atomic write and no safe
+  append;
+- the server starts again and repairs (§7.4), and the run then requires
+  that the repository holds the records from before the write or those
+  after it, that an acknowledged write is there, and every oracle of §19.4.
+
+Not written yet, and the crate's documentation says so:
+
+- the other storage faults of the list above: an I/O error that the
+  process survives, a failed `fsync` that is not a power loss, bit flips,
+  misdirected writes and a full disk; and the blob store and the key
+  files, which are not behind the seam;
 - the `turmoil` network, so no run has a socket, a partition or a slow
   consumer: requests enter the router in process;
 - concurrent operations: a plan runs one operation after the other.
@@ -2215,5 +2240,7 @@ Revision 8 follows the first part of unit 4b, the S3-compatible blob store.
 - §8.1: the object names of the S3-compatible store, how the Candidate
   uploads, retries and times out.
 - §17.1 describes the stage of the writes run on the S3-compatible store.
+- §19.2: the seam below SQLite and the VFS that loses power; what it
+  models and what it does not.
 - Appendix C lists the `PDS_BLOBSTORE_S3_*` variables, what the Candidate
   needs at the start, and which sources of credentials it reads.

@@ -74,6 +74,10 @@
     "sources:vendor".exec = ''scripts/vendor-agent-sources.sh "$@"'';
   };
 
+  # `sqlite-plugin`, which the simulation uses, generates its bindings
+  # with bindgen at build time.
+  env.LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
+
   enterShell = ''
     echo "LinkJar PDS: $(rustc --version)"
   '';

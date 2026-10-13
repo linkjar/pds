@@ -93,6 +93,8 @@ pub struct World {
     router: Router,
     /// The random source of the server: the names of staged uploads.
     server_rng: Arc<Mutex<Rng>>,
+    /// The file system below the databases.
+    pub vfs: &'static crate::vfs::SimVfs,
     /// How many times the server was started.
     pub starts: u32,
 }
@@ -311,6 +313,9 @@ impl World {
         ));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("blocks")).map_err(storage)?;
+        // Every database of the run is behind the simulation's file system.
+        let vfs = crate::vfs::SimVfs::install().map_err(storage)?;
+        vfs.reset();
         let layout = DataLayout::new(&root);
         let clock = Clock::new();
         let account_db = schema::create(&layout.account_db, ACCOUNT_SCHEMA).map_err(storage)?;
@@ -358,8 +363,21 @@ impl World {
             dids,
             config,
             server_rng,
+            vfs,
             starts: 1,
         })
+    }
+
+    /// The power is lost: the files lose writes that were not synced, and
+    /// the server starts again over them. `choose(n)` answers a number
+    /// below `n`.
+    pub async fn power_loss(
+        &mut self,
+        choose: impl FnMut(u64) -> u64,
+    ) -> Result<(crate::vfs::Lost, pds_xrpc::write::Repaired), Failure> {
+        let lost = self.vfs.power_on(choose).map_err(storage)?;
+        let repaired = self.restart().await?;
+        Ok((lost, repaired))
     }
 
     /// Stops the server and starts it again over the same files. Returns

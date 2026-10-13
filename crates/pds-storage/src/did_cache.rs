@@ -27,7 +27,7 @@ impl DidCacheDb {
     /// schema comes from the `migrate` command.
     pub fn open(path: &Path) -> Result<Self, StorageError> {
         let flags = OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX;
-        let conn = Connection::open_with_flags(path, flags)?;
+        let conn = crate::io::open(path, flags)?;
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         Ok(Self { conn })
     }

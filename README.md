@@ -14,9 +14,10 @@ instead of source patches. Dual-licensed MIT or Apache-2.0.
 > ([unit record](docs/research/2026-10-13-writes-and-firehose.md)). A relay
 > in strict mode accepts every commit. When the server stops between a
 > commit and its event, it states the head with `#sync` at the next start.
-> A simulation runs seeded plans with stops inside commits every night.
-> Not built yet: accounts, sessions and OAuth (unit 5), and storage and
-> network faults in the simulation. The repository engine
+> A simulation runs seeded plans every night, with stops inside commits
+> and losses of power below SQLite.
+> Not built yet: accounts, sessions and OAuth (unit 5), and network
+> faults in the simulation. The repository engine
 > is written here and gives the same bytes as `@atproto/repo` at the pin
 > ([decision D2](docs/research/2026-10-12-repository-crate.md)). The
 > specification is at revision 8. The reference image under
@@ -99,7 +100,7 @@ cargo build --workspace
 cargo test --workspace
 cargo xtask codegen --check     # generated types are current
 cargo deny check                 # advisories, licences, bans, sources
-cargo run -p pds-sim -- --seeds 20   # the simulation: seeded plans, stops inside commits
+cargo run -p pds-sim -- --seeds 20   # the simulation; its build needs libclang
 devenv shell -- pds:check        # the Rust gates of CI
 devenv shell -- pds:hooks        # the rustfmt and clippy hooks, by hand
 ```

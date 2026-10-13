@@ -3,7 +3,8 @@
 //! A run is a function of its seed. The seed draws a plan of operations
 //! against one server over one data directory: record writes on several
 //! accounts, batches, uploads, subscribers that connect with a cursor and
-//! leave, restarts, and stops at the fail points of the commit path. The
+//! leave, restarts, stops at the fail points of the commit path, and losses
+//! of power inside a write, below SQLite ([`vfs`]). The
 //! clock, the revision clock and the server's random source are the
 //! simulation's, so two runs of a seed produce the same trace, down to the
 //! commit CIDs.
@@ -22,10 +23,11 @@
 //!
 //! # What this simulator does not model
 //!
-//! - **Storage faults below SQLite.** A stop is a process stop between two
-//!   steps of a commit: the files hold what SQLite committed. Lost or torn
-//!   writes, failed syncs, bit flips and a full disk need a fault-injecting
-//!   VFS, which this crate does not have yet.
+//! - **Storage faults other than a power loss.** The file system of the
+//!   simulation loses and tears the writes that were not synced when the
+//!   power went. It injects no error that the process survives, no bit
+//!   flip, no write at another offset and no full disk. The blob store and
+//!   the key files are not behind it.
 //! - **The network.** Requests enter the router in process, and subscribers
 //!   read the log through the subscription type. No socket, no partition
 //!   and no slow consumer is simulated.
@@ -37,6 +39,7 @@
 
 pub mod model;
 pub mod rng;
+pub mod vfs;
 pub mod world;
 
 use std::collections::BTreeMap;
@@ -81,6 +84,8 @@ pub struct Options {
     pub steps: usize,
     /// How many writes in a hundred stop at a fail point.
     pub fault_percent: u64,
+    /// How many writes in a hundred lose power below SQLite.
+    pub power_loss_percent: u64,
 }
 
 impl Default for Options {
@@ -89,6 +94,7 @@ impl Default for Options {
             accounts: 3,
             steps: 150,
             fault_percent: 8,
+            power_loss_percent: 5,
         }
     }
 }
@@ -103,6 +109,12 @@ pub struct Outcome {
     pub commits: u32,
     /// Stops at a fail point.
     pub crashes: u32,
+    /// Losses of power inside a write.
+    pub power_losses: u32,
+    /// Writes below SQLite that a loss of power took, and files it tore.
+    pub writes_lost: u32,
+    /// Writes that a loss of power interrupted and that were stored.
+    pub interrupted_stored: u32,
     /// Starts of the server, the first one included.
     pub starts: u32,
     /// Events in the log at the end.
@@ -120,6 +132,10 @@ const POINTS: [&str; 3] = ["commit.before-store", "commit.stored", "commit.seque
 /// A check runs at least this often, in steps.
 const CHECK_EVERY: usize = 40;
 const SUBSCRIBERS: usize = 3;
+/// A loss of power comes after at most this many writes and syncs below
+/// SQLite. A commit takes fewer, so some losses come after the answer and
+/// do not happen.
+const POWER_WINDOW: usize = 40;
 
 /// What the model expects of a write before it is sent.
 enum Prediction {
@@ -239,9 +255,17 @@ impl Sim {
         if let Some(point) = point {
             fail::arm(point, Action::Error);
         }
+        let power = point.is_none() && commits && self.rng.chance(self.options.power_loss_percent);
+        if power {
+            self.world.vfs.arm(self.rng.index(POWER_WINDOW) as u64);
+        }
         let answer = self.world.procedure(nsid, did, body).await;
         fail::disarm_all();
+        let lost_power = self.world.vfs.disarm();
         let answer = answer?;
+        if lost_power {
+            return self.after_power_loss(what, did, &answer, prediction).await;
+        }
 
         if let Some(point) = point {
             if answer.status != 500 {
@@ -321,6 +345,82 @@ impl Sim {
             }
         }
         Ok(())
+    }
+
+    /// The power went inside a write. The files lose what was not synced,
+    /// the server starts again, and the store says whether the commit is
+    /// there: an acknowledged one must be, and no other state than the one
+    /// before or the one after is allowed.
+    async fn after_power_loss(
+        &mut self,
+        what: &str,
+        did: &str,
+        answer: &Answer,
+        prediction: Prediction,
+    ) -> Result<(), Failure> {
+        let Prediction::Commit(changes) = prediction else {
+            return Err(self.fail(format!("{what}: a power loss outside a commit")));
+        };
+        let (lost, repaired) = {
+            let rng = &mut self.rng;
+            self.world
+                .power_loss(|below| rng.index(usize::try_from(below).unwrap_or(1)) as u64)
+                .await?
+        };
+        self.outcome.power_losses += 1;
+        self.outcome.writes_lost += u32::try_from(lost.writes).unwrap_or(u32::MAX);
+
+        let before: BTreeMap<String, String> = self
+            .expected
+            .repos
+            .get(did)
+            .map(|records| {
+                records
+                    .iter()
+                    .map(|(path, entry)| (path.clone(), entry.cid.clone()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let mut after = before.clone();
+        for (path, entry) in &changes {
+            match entry {
+                Some(entry) => after.insert(path.clone(), entry.cid.clone()),
+                None => after.remove(path),
+            };
+        }
+        let (_, _, records) = self.stored(did).await?;
+        let stored: BTreeMap<String, String> = records
+            .into_iter()
+            .map(|(path, cid)| (path, cid.to_string()))
+            .collect();
+        let landed = if stored == after {
+            true
+        } else if stored == before {
+            false
+        } else {
+            return Err(self.fail(format!(
+                "{what}: after a power loss the repository of {did} holds neither the records before the write nor those after it"
+            )));
+        };
+        if answer.status == 200 && !landed {
+            return Err(self.fail(format!(
+                "{what}: the write was acknowledged and a power loss took it"
+            )));
+        }
+        if landed {
+            self.apply(did, changes);
+            if answer.status == 200 {
+                self.outcome.commits += 1;
+            } else {
+                self.outcome.interrupted_stored += 1;
+            }
+        }
+        self.trace(&format!(
+            "{what} -> power loss, answered {}, {}; {lost:?}; restart -> {repaired:?}",
+            answer.status,
+            if landed { "stored" } else { "not stored" }
+        ));
+        self.check().await
     }
 
     fn accepted(&self, what: &str, answer: &Answer) -> Result<Value, Failure> {

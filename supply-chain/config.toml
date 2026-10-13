@@ -68,6 +68,10 @@ criteria = "safe-to-deploy"
 version = "1.8.3"
 criteria = "safe-to-deploy"
 
+[[exemptions.bindgen]]
+version = "0.72.1"
+criteria = "safe-to-deploy"
+
 [[exemptions.bit-set]]
 version = "0.8.0"
 criteria = "safe-to-run"
@@ -104,6 +108,10 @@ criteria = "safe-to-run"
 version = "1.6.0"
 criteria = "safe-to-deploy"
 
+[[exemptions.cexpr]]
+version = "0.6.0"
+criteria = "safe-to-deploy"
+
 [[exemptions.cfg-if]]
 version = "1.0.5"
 criteria = "safe-to-deploy"
@@ -122,6 +130,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.cid]]
 version = "0.11.3"
+criteria = "safe-to-deploy"
+
+[[exemptions.clang-sys]]
+version = "1.9.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.cmake]]
@@ -216,6 +228,10 @@ criteria = "safe-to-deploy"
 version = "0.17.0"
 criteria = "safe-to-deploy"
 
+[[exemptions.either]]
+version = "1.19.0"
+criteria = "safe-to-deploy"
+
 [[exemptions.elliptic-curve]]
 version = "0.14.1"
 criteria = "safe-to-deploy"
@@ -298,6 +314,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.getrandom]]
 version = "0.4.3"
+criteria = "safe-to-deploy"
+
+[[exemptions.glob]]
+version = "0.3.4"
 criteria = "safe-to-deploy"
 
 [[exemptions.group]]
@@ -416,6 +436,10 @@ criteria = "safe-to-deploy"
 version = "2.12.2"
 criteria = "safe-to-deploy"
 
+[[exemptions.itertools]]
+version = "0.13.0"
+criteria = "safe-to-deploy"
+
 [[exemptions.itoa]]
 version = "1.0.18"
 criteria = "safe-to-deploy"
@@ -496,6 +520,10 @@ criteria = "safe-to-deploy"
 version = "0.3.17"
 criteria = "safe-to-deploy"
 
+[[exemptions.minimal-lexical]]
+version = "0.2.1"
+criteria = "safe-to-deploy"
+
 [[exemptions.mio]]
 version = "1.2.4"
 criteria = "safe-to-deploy"
@@ -506,6 +534,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.multihash]]
 version = "0.19.5"
+criteria = "safe-to-deploy"
+
+[[exemptions.nom]]
+version = "7.1.3"
 criteria = "safe-to-deploy"
 
 [[exemptions.num-traits]]
@@ -777,6 +809,10 @@ version = "0.1.7"
 criteria = "safe-to-deploy"
 
 [[exemptions.shlex]]
+version = "1.3.0"
+criteria = "safe-to-deploy"
+
+[[exemptions.shlex]]
 version = "2.0.1"
 criteria = "safe-to-deploy"
 
@@ -810,6 +846,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.spki]]
 version = "0.8.1"
+criteria = "safe-to-deploy"
+
+[[exemptions.sqlite-plugin]]
+version = "0.11.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.sqlite-wasm-rs]]
