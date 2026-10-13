@@ -1,6 +1,6 @@
 //! The LinkJar PDS binary (`docs/SPEC.md` §14.2).
 //!
-//! As of unit 3 it has `serve` (the read-only server), `verify`, `export-car`,
+//! It has `serve`, `verify`, `export-car`, the `audit` commands of §20,
 //! `check-config`, `health` and `version`. The other commands of §14.2
 //! arrive with their units (`docs/plan.md`).
 
@@ -15,7 +15,7 @@ use pds_storage::ActorDb;
 const USAGE: &str = "\
 Usage: linkjar-pds <command>
 
-  serve              serve the data directory (read-only in this build)
+  serve              serve the data directory
   verify [--json]    check the data directory; exit 1 when it finds a difference
   export-car <did>   write one repository to standard output as a CAR
   audit export [<from> [<to>]]

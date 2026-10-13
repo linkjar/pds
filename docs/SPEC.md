@@ -1,6 +1,6 @@
 # LinkJar PDS Specification
 
-Status: Draft, revision 10, 2026-10-13
+Status: Draft, revision 11, 2026-10-13
 Normative keywords: **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, **MAY** ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119))
 
 LinkJar PDS is an AT Protocol Personal Data Server written in Rust. It is
@@ -81,6 +81,12 @@ way, and what is not built. The evidence is in the
 [unit record](research/2026-10-13-linkjar-profile.md); the changes are
 listed in Appendix N.
 
+Revision 11 follows unit 7: the audit log. It states the entry and the
+checkpoint as built, the bundle of an export, and what the log does not
+cover yet. The evidence is in the
+[unit record](research/2026-10-13-audit-log.md); the changes are listed in
+Appendix O.
+
 ## Table of Contents
 
 - [0. Conventions and Terminology](#0-conventions-and-terminology)
@@ -120,6 +126,7 @@ listed in Appendix N.
 - [Appendix L. Changes in Revision 8](#appendix-l-changes-in-revision-8)
 - [Appendix M. Changes in Revision 9](#appendix-m-changes-in-revision-9)
 - [Appendix N. Changes in Revision 10](#appendix-n-changes-in-revision-10)
+- [Appendix O. Changes in Revision 11](#appendix-o-changes-in-revision-11)
 
 ## 0. Conventions and Terminology
 
@@ -1948,6 +1955,47 @@ bundle: entries in a range, chain hashes, inclusion proofs, covering
 checkpoints and public keys. History before cutover is sealed as a one-off
 signed snapshot and marked as such.
 
+### 20.5 State after unit 7
+
+The [unit record](research/2026-10-13-audit-log.md) gives the evidence.
+
+- **Entry.** A DAG-CBOR array of thirteen fields in the order of §20.2. A
+  field that does not apply is `null`. The hash of an entry is the SHA-256
+  of its bytes, and the first entry names 32 zero bytes.
+- **Store.** `audit.sqlite` has the tables `entry`, `checkpoint` and
+  `key`. A trigger refuses every update and every delete on each.
+- **What is recorded.** Every method under `com.atproto.admin`, the
+  account, credential, identity and invite methods of §20.1, `importRepo`,
+  and on the pages a sign-up and a link or unlink of a sign-in method. An
+  entry is written after the method answered, with `ok` or the name of
+  the refusal. A method that was refused is recorded too.
+- **Checkpoint.** RFC 6962 Merkle tree over the bytes of the entries of
+  the range. The signature is Ed25519 over a DAG-CBOR array of the text
+  `linkjar-pds-audit-checkpoint-v1`, the first and the last number, the
+  root, the hash of the last entry, the time and the key id. The key is
+  `PDS_AUDIT_KEY_ED25519_PRIVATE_KEY_HEX`, a 32-byte seed. A key id is
+  `ed25519:` and the first 16 hexadecimal digits of the SHA-256 of the
+  public key. A key that is not the one of the last checkpoint gets an
+  entry, `audit.key`, before it signs. Without a key the log chains its
+  entries and signs nothing.
+- **Publication.** With `PDS_AUDIT_CHECKPOINT_REPO` set to the DID of an
+  account on this server, each checkpoint is written into that repository
+  as a record of `lexicons/io/linkjar/pds/audit/checkpoint.json`, and the
+  commit travels the firehose.
+- **Bundle.** A JSON object with `version`, `anchor` (the hash before the
+  first entry), `entries`, `keys`, `checkpoints` and `proofs`. Bytes are
+  base64url without padding.
+- **Verifier.** `linkjar-pds audit verify <file>` and the binary
+  `pds-audit-verify` need no configuration. The verifier builds the tree
+  with a stack and writes the signed bytes by hand, so it shares the
+  entry format with the writer and nothing else.
+- **Seal.** `linkjar-pds audit seal` writes the first entry of a log:
+  `audit.sealed`, with the number of accounts and the SHA-256 of their
+  DIDs and repository heads. It is refused on a log that has an entry.
+- **Not built:** the entries of the ops console and of the MCP bridge
+  (units 9 and 10), the reason of an operator action, the request id, a
+  key in a KMS or an HSM (D11), and the metric of the checkpoint age.
+
 ## 21. Deployment Topologies
 
 ### 21.1 Single node
@@ -2141,7 +2189,12 @@ New in the Candidate:
 - `PDS_METRICS_ADDRESS`: the private metrics listener; unset disables it.
 - `PDS_OPS_ADDRESS`: the private ops listener (§22.1); unset disables it.
 - `PDS_OTLP_ENDPOINT`: OTLP/HTTP export target (§14.4); unset disables it.
-- `PDS_AUDIT_KEY_*`: the audit checkpoint key reference (§20.3).
+- `PDS_AUDIT_KEY_*`: the audit checkpoint key reference (§20.3). As of
+  unit 7 the Candidate reads `PDS_AUDIT_KEY_ED25519_PRIVATE_KEY_HEX`, the
+  32-byte seed as 64 hexadecimal digits.
+- `PDS_AUDIT_CHECKPOINT_REPO`: the DID of the operator's account on this
+  server whose repository publishes the checkpoints (§20.3). Unset, the
+  checkpoints stay in `audit.sqlite`.
 - `PDS_EXTERNAL_<PROVIDER>_CLIENT_ID` and `_CLIENT_SECRET` for Apple, Google and GitHub (`linkjar` profile).
 
 ## Appendix D. Open Decisions
@@ -2396,3 +2449,14 @@ Revision 10 follows unit 6, the `linkjar` profile.
   sign-up on the pages opens no legacy session.
 - §10: `com.atproto.admin.disableInviteCodes`, `disableAccountInvites` and
   `enableAccountInvites` are built.
+
+## Appendix O. Changes in Revision 11
+
+Revision 11 follows unit 7, the audit log.
+
+- §20.5 is new: the entry, the store, what is recorded, the checkpoint,
+  its publication, the bundle, the verifier and the seal as built, and
+  what is not built.
+- Appendix C: `PDS_AUDIT_KEY_ED25519_PRIVATE_KEY_HEX` is the form of the
+  key that the Candidate reads, and `PDS_AUDIT_CHECKPOINT_REPO` is new.
+- §14.2: the commands `audit seal`, `audit export` and `audit verify`.
