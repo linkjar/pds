@@ -3,5 +3,6 @@
 //! Specified in `docs/SPEC.md` §11. Built so far: DPoP proofs, key
 //! thumbprints, the rotating nonce and PKCE.
 
+pub mod client;
 pub mod dpop;
 pub mod pkce;
