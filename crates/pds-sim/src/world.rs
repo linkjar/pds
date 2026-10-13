@@ -204,6 +204,7 @@ async fn start(
         mail: pds_xrpc::mail::MailConfig::default(),
         rate_limits: pds_xrpc::ratelimit::RateLimitConfig::default(),
         oauth: pds_xrpc::oauth::OAuthConfig::default(),
+        appview_cdn_url_pattern: None,
     };
     let crawlers = Crawlers::new("pds.test".to_owned(), Vec::new(), http.clone());
     let sequencer =

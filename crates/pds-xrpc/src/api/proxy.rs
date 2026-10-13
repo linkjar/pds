@@ -71,6 +71,9 @@ const FORWARDED: &[&str] = &[
     "retry-after",
 ];
 
+/// The method whose service the request body names.
+const REGISTER_PUSH: &str = "app.bsky.notification.registerPush";
+
 /// The longest request body the proxy forwards.
 const BODY_LIMIT: usize = 16 * 1024 * 1024;
 
@@ -117,7 +120,7 @@ pub fn service_jwt(
 }
 
 /// A service token of the account `did`, signed with its stored key.
-async fn account_jwt(
+pub(crate) async fn account_jwt(
     state: &AppState,
     did: &str,
     aud: &str,
@@ -264,9 +267,21 @@ pub async fn proxy(
         return Err(bad_method());
     }
     let header = |name: &str| headers.get(name).and_then(|value| value.to_str().ok());
-    let target = match header("atproto-proxy") {
-        Some(proxy_to) => from_header(state, proxy_to).await?,
-        None => default_target(state, lxm)?,
+    // A push registration names its service in the body.
+    let mut collected = None;
+    let mut push_service = None;
+    if lxm == REGISTER_PUSH && method == Method::POST {
+        let bytes = body::collect(body.take().unwrap_or_default(), BODY_LIMIT).await?;
+        push_service = serde_json::from_slice::<Value>(&bytes)
+            .ok()
+            .and_then(|input| input.get("serviceDid")?.as_str().map(str::to_owned))
+            .filter(|service| Some(service) != state.config().appview_did.as_ref());
+        collected = Some(bytes);
+    }
+    let target = match (header("atproto-proxy"), &push_service) {
+        (_, Some(service)) => from_header(state, &format!("{service}#bsky_notif")).await?,
+        (Some(proxy_to), None) => from_header(state, proxy_to).await?,
+        (None, None) => default_target(state, lxm)?,
     };
     let (did, scope) =
         match auth::optional_credentials(headers, &state.config().auth, &[], state.now_s())? {
@@ -286,6 +301,8 @@ pub async fn proxy(
     let service = if lxm.starts_with("tools.ozone.") || lxm == "com.atproto.moderation.createReport"
     {
         "atproto_labeler"
+    } else if lxm == REGISTER_PUSH {
+        "bsky_notif"
     } else {
         "bsky_appview"
     };
@@ -319,7 +336,10 @@ pub async fn proxy(
                 request = request.header(name, value);
             }
         }
-        let bytes = body::collect(body.take().unwrap_or_default(), BODY_LIMIT).await?;
+        let bytes = match collected {
+            Some(bytes) => bytes,
+            None => body::collect(body.take().unwrap_or_default(), BODY_LIMIT).await?,
+        };
         request = request.body(bytes);
     }
     let upstream = request.send().await.map_err(|error| {
@@ -335,38 +355,50 @@ pub async fn proxy(
         }
     })?;
 
+    // The reads that the account's own writes change (SPEC §4.5).
+    if method != Method::POST && super::read_after_write::applies(lxm) {
+        let query = path.split_once('?').map(|(_, query)| query);
+        return super::read_after_write::overlay(state, lxm, &did, query, upstream).await;
+    }
     answer(upstream).await
+}
+
+/// A refusal of the other service as this server's refusal, with the name
+/// and the message it gave.
+pub(crate) async fn refusal(upstream: reqwest::Response) -> XrpcError {
+    let status = upstream.status();
+    let is_json = upstream
+        .headers()
+        .get("content-type")
+        .and_then(|value| value.to_str().ok())
+        .is_none_or(|kind| kind.contains("json"));
+    let parsed: Value = if is_json {
+        let bytes = upstream.bytes().await.unwrap_or_default();
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null)
+    } else {
+        Value::Null
+    };
+    // A failure of the other service is not this server's failure.
+    let status = if status.as_u16() == 500 {
+        502
+    } else {
+        status.as_u16()
+    };
+    let (name, text) = type_name(status);
+    XrpcError {
+        status: StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_GATEWAY),
+        error: parsed["error"].as_str().unwrap_or(name).to_owned(),
+        message: parsed["message"].as_str().unwrap_or(text).to_owned(),
+    }
 }
 
 /// The answer of the other service as this server's: a refusal with its
 /// name and message, or the status, the forwarded headers and the body as
 /// it arrives.
-async fn answer(upstream: reqwest::Response) -> Result<Response, XrpcError> {
+pub(crate) async fn answer(upstream: reqwest::Response) -> Result<Response, XrpcError> {
     let status = upstream.status();
     if status.as_u16() >= 400 {
-        let is_json = upstream
-            .headers()
-            .get("content-type")
-            .and_then(|value| value.to_str().ok())
-            .is_none_or(|kind| kind.contains("json"));
-        let parsed: Value = if is_json {
-            let bytes = upstream.bytes().await.unwrap_or_default();
-            serde_json::from_slice(&bytes).unwrap_or(Value::Null)
-        } else {
-            Value::Null
-        };
-        // A failure of the other service is not this server's failure.
-        let status = if status.as_u16() == 500 {
-            502
-        } else {
-            status.as_u16()
-        };
-        let (name, text) = type_name(status);
-        return Err(XrpcError {
-            status: StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_GATEWAY),
-            error: parsed["error"].as_str().unwrap_or(name).to_owned(),
-            message: parsed["message"].as_str().unwrap_or(text).to_owned(),
-        });
+        return Err(refusal(upstream).await);
     }
     let mut response = Response::builder().status(status);
     for name in FORWARDED {

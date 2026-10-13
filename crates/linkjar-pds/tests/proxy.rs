@@ -59,6 +59,26 @@ async fn appview() -> (String, Seen) {
                 )
                     .into_response();
             }
+            // The feed of an account as the AppView has it at the revision
+            // that the test names.
+            if path.contains("app.bsky.feed.getAuthorFeed") {
+                let rev = path.split("rev=").nth(1).unwrap_or_default().to_owned();
+                let feed = json!({ "feed": [{ "post": {
+                    "uri": format!("at://{ALICE}/app.bsky.feed.post/indexed"),
+                    "cid": "bafyreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku",
+                    "author": { "did": ALICE, "handle": "alice.test" },
+                    "record": { "$type": "app.bsky.feed.post", "text": "indexed" },
+                    "indexedAt": "2020-01-01T00:00:00.000Z",
+                } }] });
+                return (
+                    [
+                        ("content-type", "application/json".to_owned()),
+                        ("atproto-repo-rev", rev),
+                    ],
+                    feed.to_string(),
+                )
+                    .into_response();
+            }
             if path.contains("app.bsky.actor.getProfile") {
                 return (
                     StatusCode::BAD_REQUEST,
@@ -496,4 +516,87 @@ async fn a_service_token_of_the_account_uploads_a_blob() {
     // directory answers in this test, so the refusal names that.
     let (status, _, body) = upload(forged).await;
     assert_eq!(status, 401, "{body}");
+}
+
+#[tokio::test]
+async fn a_read_of_the_appview_shows_what_the_account_wrote_since() {
+    let (appview, _) = appview().await;
+    let server = Server::start(&appview).await;
+    let post = |path: &str, token: Option<&str>, body: Value| {
+        let mut request = server
+            .http
+            .post(format!("{}/xrpc/{path}", server.origin))
+            .header("content-type", "application/json")
+            .body(body.to_string());
+        if let Some(token) = token {
+            request = request.bearer_auth(token);
+        }
+        request
+    };
+    let (_, _, session) = server
+        .send(post(
+            "com.atproto.server.createSession",
+            None,
+            json!({"identifier": ALICE, "password": PASSWORD}),
+        ))
+        .await;
+    let access = session["accessJwt"].as_str().unwrap().to_owned();
+    let note = |text: &str| {
+        json!({
+            "repo": ALICE,
+            "collection": "app.bsky.feed.post",
+            "record": { "$type": "app.bsky.feed.post", "text": text, "createdAt": "2026-01-01T00:00:00.000Z" },
+        })
+    };
+    let (status, _, first) = server
+        .send(post(
+            "com.atproto.repo.createRecord",
+            Some(&access),
+            note("indexed"),
+        ))
+        .await;
+    assert_eq!(status, 200, "{first}");
+    let indexed_rev = first["commit"]["rev"].as_str().unwrap().to_owned();
+    let profile = json!({
+        "repo": ALICE,
+        "collection": "app.bsky.actor.profile",
+        "rkey": "self",
+        "record": { "$type": "app.bsky.actor.profile", "displayName": "Alice, just now" },
+    });
+    let (status, _, _) = server
+        .send(post("com.atproto.repo.putRecord", Some(&access), profile))
+        .await;
+    assert_eq!(status, 200);
+    let (_, _, second) = server
+        .send(post(
+            "com.atproto.repo.createRecord",
+            Some(&access),
+            note("not indexed yet"),
+        ))
+        .await;
+    let latest_rev = second["commit"]["rev"].as_str().unwrap().to_owned();
+
+    // The AppView is behind: the new post and the new name are added.
+    let feed = format!("app.bsky.feed.getAuthorFeed?actor={ALICE}&rev={indexed_rev}");
+    let (status, headers, body) = server.send(server.get(&feed).bearer_auth(&access)).await;
+    assert_eq!(status, 200, "{body}");
+    let items = body["feed"].as_array().unwrap();
+    assert_eq!(items.len(), 2, "{body}");
+    assert_eq!(items[0]["post"]["record"]["text"], "not indexed yet");
+    assert_eq!(items[0]["post"]["uri"], second["uri"]);
+    assert_eq!(items[0]["post"]["likeCount"], 0);
+    assert_eq!(items[0]["post"]["author"]["displayName"], "Alice, just now");
+    assert_eq!(items[1]["post"]["author"]["displayName"], "Alice, just now");
+    let lag = headers["atproto-upstream-lag"].to_str().unwrap();
+    assert!(lag.parse::<u64>().is_ok(), "{lag}");
+    assert!(headers.get("atproto-repo-rev").is_none());
+
+    // The AppView is level: its answer passes as it is.
+    let feed = format!("app.bsky.feed.getAuthorFeed?actor={ALICE}&rev={latest_rev}");
+    let (status, headers, body) = server.send(server.get(&feed).bearer_auth(&access)).await;
+    assert_eq!(status, 200);
+    assert_eq!(body["feed"].as_array().unwrap().len(), 1);
+    assert_eq!(body["feed"][0]["post"]["author"].get("displayName"), None);
+    assert_eq!(headers["atproto-repo-rev"].to_str().unwrap(), latest_rev);
+    assert!(headers.get("atproto-upstream-lag").is_none());
 }

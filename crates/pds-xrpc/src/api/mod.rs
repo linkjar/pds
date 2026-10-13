@@ -10,6 +10,7 @@ pub mod lifecycle;
 pub mod plc;
 pub mod prefs;
 pub mod proxy;
+mod read_after_write;
 pub mod repo;
 pub mod repo_write;
 pub mod root;

@@ -35,7 +35,7 @@ fn lex_json(data: &Data) -> Result<Value, XrpcError> {
 }
 
 /// A record block as the JSON a client reads.
-fn record_value(row: &RecordRow) -> Result<Value, XrpcError> {
+pub(crate) fn record_value(row: &RecordRow) -> Result<Value, XrpcError> {
     let data = Data::from_dag_cbor(&row.content)
         .map_err(|e| XrpcError::internal(format!("record block of {}: {e}", row.uri)))?;
     lex_json(&data)

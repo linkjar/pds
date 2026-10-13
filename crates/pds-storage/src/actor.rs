@@ -36,6 +36,19 @@ pub struct RecordRow {
     pub takedown_ref: Option<String>,
 }
 
+/// A record with the time the server indexed it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RecentRecord {
+    /// The record's AT URI.
+    pub uri: String,
+    /// The CID of the record block.
+    pub cid: String,
+    /// When the server indexed the record (ISO 8601).
+    pub indexed_at: String,
+    /// The record block: DAG-CBOR.
+    pub content: Vec<u8>,
+}
+
 /// What the blob index knows about a blob.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlobMeta {
@@ -244,6 +257,35 @@ impl ActorDb {
             None => statement.query_row(named_params! { ":uri": uri }, record_from_row),
         };
         Ok(row.optional()?)
+    }
+
+    /// Up to ten records written after the revision `rev`, oldest first:
+    /// the URI, the CID, the time of indexing and the block. Empty when the
+    /// store has no record at or before `rev`: a revision from before the
+    /// account came here says nothing of what this store wrote since.
+    pub fn records_since_rev(&self, rev: &str) -> Result<Vec<RecentRecord>, StorageError> {
+        let mut statement = self.conn.prepare(
+            r#"select record."uri", record."cid", record."indexedAt", repo_block."content" from "record" inner join "repo_block" on repo_block."cid" = record."cid" where record."repoRev" > ?1 order by record."repoRev" asc limit 10"#,
+        )?;
+        let rows: Vec<_> = statement
+            .query_map([rev], |row| {
+                Ok(RecentRecord {
+                    uri: row.get(0)?,
+                    cid: row.get(1)?,
+                    indexed_at: row.get(2)?,
+                    content: row.get(3)?,
+                })
+            })?
+            .collect::<Result<_, _>>()?;
+        if rows.is_empty() {
+            return Ok(rows);
+        }
+        let known: bool = self.conn.query_row(
+            r#"select count(*) > 0 from (select 1 from "record" where "repoRev" <= ?1 limit 1)"#,
+            [rev],
+            |row| row.get(0),
+        )?;
+        Ok(if known { rows } else { Vec::new() })
     }
 
     /// A page of the records of a collection that are not taken down, by
