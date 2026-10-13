@@ -329,6 +329,10 @@ async fn link(
     })
     .await
     .map_err(|_| "The account database failed")?;
+    if outcome.is_ok() {
+        let provider = Some(identity.provider);
+        crate::audit::record_page(state, "signin.link", did, &device.id, None, provider).await;
+    }
     match outcome {
         Ok(()) => Ok(super::account::to(
             &format!("/account/{did}/manage"),
@@ -465,6 +469,7 @@ async fn create_account(
     identity: &VerifiedIdentity,
     signup: Option<&(String, String, String)>,
     invite_code: Option<&str>,
+    device_id: &str,
 ) -> Result<String, Stop> {
     let email = identity
         .email
@@ -521,7 +526,14 @@ async fn create_account(
             signup: signup.cloned(),
         };
         match crate::api::account::create(state, request).await {
-            Ok(created) => return Ok(created.did),
+            Ok(created) => {
+                let client_id = signup.map(|(_, client, _)| client.as_str());
+                let provider = Some(identity.provider);
+                let did = created.did;
+                crate::audit::record_page(state, "signup", &did, device_id, client_id, provider)
+                    .await;
+                return Ok(did);
+            }
             // Another sign-up took the handle between the lookup and the write.
             Err(error) if error.message == "User already exists" => {}
             Err(error) => {
@@ -634,7 +646,7 @@ async fn finish(
                 device.id.clone(),
             )
         });
-        create_account(state, identity, signup.as_ref(), invite_code).await?
+        create_account(state, identity, signup.as_ref(), invite_code, &device.id).await?
     };
     let actor = {
         let did = did.clone();

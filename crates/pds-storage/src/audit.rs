@@ -15,6 +15,9 @@ use crate::error::StorageError;
 const SCHEMA: &str = r#"
 create table if not exists "entry" ("seq" integer primary key, "hash" blob not null, "bytes" blob not null);
 create table if not exists "checkpoint" ("last" integer primary key, "first" integer not null, "root" blob not null, "head" blob not null, "time" varchar not null, "keyId" varchar not null, "signature" blob not null);
+create table if not exists "key" ("keyId" varchar primary key, "publicKey" blob not null);
+create trigger if not exists "key_no_update" before update on "key" begin select raise(abort, 'the audit log takes inserts only'); end;
+create trigger if not exists "key_no_delete" before delete on "key" begin select raise(abort, 'the audit log takes inserts only'); end;
 create trigger if not exists "entry_no_update" before update on "entry" begin select raise(abort, 'the audit log takes inserts only'); end;
 create trigger if not exists "entry_no_delete" before delete on "entry" begin select raise(abort, 'the audit log takes inserts only'); end;
 create trigger if not exists "checkpoint_no_update" before update on "checkpoint" begin select raise(abort, 'the audit log takes inserts only'); end;
@@ -171,6 +174,25 @@ impl AuditDb {
             ],
         )?;
         Ok(())
+    }
+
+    /// Keeps the public key of a checkpoint key, so that an export can
+    /// carry every key that signed.
+    pub fn remember_key(&self, key_id: &str, public_key: &[u8]) -> Result<(), StorageError> {
+        self.conn.execute(
+            r#"insert into "key" ("keyId", "publicKey") values (?1, ?2) on conflict do nothing"#,
+            params![key_id, public_key],
+        )?;
+        Ok(())
+    }
+
+    /// The public keys of the checkpoint keys, by id.
+    pub fn keys(&self) -> Result<Vec<(String, Vec<u8>)>, StorageError> {
+        let mut statement = self
+            .conn
+            .prepare(r#"select "keyId", "publicKey" from "key" order by "keyId""#)?;
+        let rows = statement.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        Ok(rows.collect::<Result<_, _>>()?)
     }
 
     /// The checkpoints that cover an entry from `from` to `to`, in order.

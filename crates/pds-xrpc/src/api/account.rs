@@ -334,6 +334,7 @@ pub async fn create_account(
         });
     }
     let created = create(state, request).await?;
+    crate::audit::set_subject(&created.did);
     let mut out = Map::new();
     out.insert("handle".to_owned(), created.handle.into());
     out.insert("did".to_owned(), created.did.into());

@@ -1101,6 +1101,38 @@ async fn sign_up_credentials(state: &AppState, posted: &Posted) -> Result<Respon
     }))
 }
 
+/// Creates the account of a sign-up on the pages, with the checks and the
+/// limit of `createAccount`. The sign-up opens no legacy session, and the
+/// authorization it happens in holds its receipt.
+async fn create_from_page(
+    state: &AppState,
+    posted: &Posted,
+    input: Value,
+) -> Result<crate::api::account::Created, crate::error::XrpcError> {
+    let Value::Object(input) = input else {
+        return Err(crate::error::XrpcError::internal(
+            "the sign-up input is not an object",
+        ));
+    };
+    let limit = [(
+        crate::ratelimit::of_route("com.atproto.server.createAccount-0", 300, 100),
+        crate::ratelimit::Key::Ip,
+        1,
+    )];
+    crate::ratelimit::consume(state, &limit)?;
+    let signup = (
+        posted.pending.row.id.clone(),
+        posted.pending.row.client_id.clone(),
+        posted.device.id.clone(),
+    );
+    let (mut request, _) = state
+        .blocking(move |state| crate::api::account::validate(state, &input))
+        .await?;
+    request.legacy_session = false;
+    request.signup = Some(signup);
+    crate::api::account::create(state, request).await
+}
+
 /// The second step of a sign-up: the handle, and the account.
 async fn sign_up_handle(
     state: &AppState,
@@ -1156,35 +1188,7 @@ async fn sign_up_handle(
     if let Some(code) = &first.invite_code {
         input["inviteCode"] = Value::String(code.clone());
     }
-    let Value::Object(input) = input else {
-        return Err(OAuthError::server("the sign-up input is not an object"));
-    };
-    // The checks and the limit of `createAccount`. The sign-up opens no
-    // legacy session.
-    let limit = [(
-        crate::ratelimit::of_route("com.atproto.server.createAccount-0", 300, 100),
-        crate::ratelimit::Key::Ip,
-        1,
-    )];
-    let signup = (
-        posted.pending.row.id.clone(),
-        posted.pending.row.client_id.clone(),
-        posted.device.id.clone(),
-    );
-    let created = match crate::ratelimit::consume(state, &limit) {
-        Err(refusal) => Err(refusal),
-        Ok(()) => match state
-            .blocking(move |state| crate::api::account::validate(state, &input))
-            .await
-        {
-            Err(refusal) => Err(refusal),
-            Ok((mut request, _)) => {
-                request.legacy_session = false;
-                request.signup = Some(signup);
-                crate::api::account::create(state, request).await
-            }
-        },
-    };
+    let created = create_from_page(state, posted, input).await;
     let created = match created {
         Ok(created) => created,
         Err(error) if error.status.is_server_error() => {
@@ -1203,6 +1207,16 @@ async fn sign_up_handle(
         .unwrap_or_else(PoisonError::into_inner)
         .remove(key);
     let did = created.did.as_str();
+    let client_id = posted.pending.row.client_id.as_str();
+    crate::audit::record_page(
+        state,
+        "signup",
+        did,
+        &posted.device.id,
+        Some(client_id),
+        None,
+    )
+    .await;
     // A new account that came through a trusted client has authorized it by signing up there.
     let ask = !posted.client.trusted;
     after_authentication(state, posted, did, &handle, false, Some(ask)).await

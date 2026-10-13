@@ -107,33 +107,9 @@ pub fn create_missing_databases(config: &Config) -> Result<(), ServeError> {
     Ok(())
 }
 
-/// Builds the server state from the configuration.
-pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
-    let (jwt_secret, admin_password) = config.serve_secrets()?;
-    let http = reqwest::Client::builder()
-        .user_agent(concat!("linkjar-pds/", env!("CARGO_PKG_VERSION")))
-        .redirect(reqwest::redirect::Policy::none())
-        .build()?;
-    let cache: Option<Arc<dyn DidCache>> = match DidCacheDb::open(&config.layout.did_cache_db) {
-        Ok(db) => Some(Arc::new(SqliteDidCache(Mutex::new(db)))),
-        Err(error) => {
-            tracing::warn!(%error, "the DID cache is unavailable; every DID is resolved on the network");
-            None
-        }
-    };
-    let resolver = DidResolver::new(
-        ResolverConfig {
-            plc_url: config.plc_url.clone(),
-            timeout: config.resolver_timeout,
-            stale_ttl: config.did_cache_stale_ttl,
-            max_ttl: config.did_cache_max_ttl,
-            dev_mode: config.dev_mode,
-        },
-        http.clone(),
-        cache,
-        now_ms,
-    );
-    let server = ServerConfig {
+/// The settings of the HTTP surface, from the configuration.
+fn server_config(config: &Config, jwt_secret: &str, admin_password: &str) -> ServerConfig {
+    ServerConfig {
         hostname: config.hostname.clone(),
         version: config.version.clone(),
         handle_domains: config.handle_domains.clone(),
@@ -173,7 +149,36 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
                 dev_mode: config.dev_mode,
             }
         }),
+    }
+}
+
+/// Builds the server state from the configuration.
+pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
+    let (jwt_secret, admin_password) = config.serve_secrets()?;
+    let http = reqwest::Client::builder()
+        .user_agent(concat!("linkjar-pds/", env!("CARGO_PKG_VERSION")))
+        .redirect(reqwest::redirect::Policy::none())
+        .build()?;
+    let cache: Option<Arc<dyn DidCache>> = match DidCacheDb::open(&config.layout.did_cache_db) {
+        Ok(db) => Some(Arc::new(SqliteDidCache(Mutex::new(db)))),
+        Err(error) => {
+            tracing::warn!(%error, "the DID cache is unavailable; every DID is resolved on the network");
+            None
+        }
     };
+    let resolver = DidResolver::new(
+        ResolverConfig {
+            plc_url: config.plc_url.clone(),
+            timeout: config.resolver_timeout,
+            stale_ttl: config.did_cache_stale_ttl,
+            max_ttl: config.did_cache_max_ttl,
+            dev_mode: config.dev_mode,
+        },
+        http.clone(),
+        cache,
+        now_ms,
+    );
+    let server = server_config(config, jwt_secret, admin_password);
     let storage = |error: pds_storage::StorageError| ServeError::Storage(error.to_string());
     let crawlers = Crawlers::new(
         config.hostname.clone(),

@@ -372,6 +372,8 @@ async fn post_inner(
             let message = "This is your only sign-in method. Add another one before you remove it.";
             return home(state, &device, &did, &handle, Some(message)).await;
         }
+        let provider = Some(field("provider"));
+        crate::audit::record_page(state, "signin.unlink", &did, &device.id, None, provider).await;
         return Ok(to(&manage, &device.cookies));
     }
     let (token_id, device_id) = (field("token_id").to_owned(), field("device_id").to_owned());

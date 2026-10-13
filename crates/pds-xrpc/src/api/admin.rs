@@ -78,6 +78,7 @@ fn account_view(accounts: &AccountDb, did: &str) -> Result<Option<Value>, XrpcEr
 pub async fn get_account_info(state: &AppState, query: &Query<'_>) -> Result<Response, XrpcError> {
     require_admin(state, query.headers)?;
     let did = query.params.text("did").to_owned();
+    crate::audit::set_subject(&did);
     let info = state
         .blocking(move |state| {
             let accounts = AccountDb::open(&state.layout().account_db)?;
@@ -284,6 +285,16 @@ pub async fn update_subject_status(
         .and_then(Value::as_str)
         .unwrap_or_default()
         .to_owned();
+    // The audit entry names the account, the record or the blob.
+    let named = ["uri", "cid", "did"]
+        .iter()
+        .filter_map(|key| subject.get(*key).and_then(Value::as_str))
+        .collect::<Vec<_>>();
+    crate::audit::set_subject(&match named.as_slice() {
+        [cid, did] => format!("{did}/{cid}"),
+        [first, ..] => (*first).to_owned(),
+        [] => String::new(),
+    });
     {
         let (subject, takedown) = (subject.clone(), takedown.clone());
         let deactivate = applied(&deactivated);
@@ -332,6 +343,7 @@ pub async fn delete_account(
     let did = body::string(&input, "did", true, crate::params::Format::Did, None, "$")?
         .unwrap_or_default()
         .to_owned();
+    crate::audit::set_subject(&did);
     state
         .blocking(move |state| super::lifecycle::delete_account_now(state, &did))
         .await?;
@@ -351,6 +363,7 @@ pub async fn update_account_email(
             .map(|value| value.unwrap_or_default().to_owned())
     };
     let (account, email) = (text("account")?, text("email")?);
+    crate::audit::set_subject(&account);
     state
         .blocking(move |state| {
             let found = AccountDb::open(&state.layout().account_db)?
@@ -381,6 +394,7 @@ pub async fn update_account_handle(
     let did = body::string(&input, "did", true, crate::params::Format::Did, None, "$")?
         .unwrap_or_default()
         .to_owned();
+    crate::audit::set_subject(&did);
     let handle = body::string(
         &input,
         "handle",
@@ -407,6 +421,7 @@ pub async fn update_account_password(
     let did = body::string(&input, "did", true, crate::params::Format::Did, None, "$")?
         .unwrap_or_default()
         .to_owned();
+    crate::audit::set_subject(&did);
     let given = body::string(
         &input,
         "password",
@@ -457,6 +472,7 @@ pub async fn send_email(
         body::string(&input, key, required, format, None, "$").map(|value| value.map(str::to_owned))
     };
     let recipient = text("recipientDid", true, crate::params::Format::Did)?.unwrap_or_default();
+    crate::audit::set_subject(&recipient);
     let content = text("content", true, crate::params::Format::Any)?.unwrap_or_default();
     let subject = text("subject", false, crate::params::Format::Any)?
         .unwrap_or_else(|| "Message via your PDS".to_owned());
