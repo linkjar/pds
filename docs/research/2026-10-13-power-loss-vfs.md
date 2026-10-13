@@ -94,7 +94,41 @@ A kept write was torn in 354 of them.
 - The build of `pds-sim` needs libclang, because `sqlite-plugin` generates
   its bindings with `bindgen`. `devenv.nix` sets `LIBCLANG_PATH`. The
   server's binary and image do not depend on the crate.
-- `cargo vet` has 296 exemptions, 10 more than before: `sqlite-plugin`
+- `cargo vet` had 296 exemptions after this part, 10 more than before (300 with `turmoil`, §7): `sqlite-plugin`
   and the build-time crates of `bindgen`.
 - `the_first_seeds_pass_every_oracle` and the nightly seeds now run with
   power losses. The second nightly shape runs with 25 in 100.
+
+## 7. The network
+
+The third part of unit 4b. `pds-sim --network` runs separate plans on
+`turmoil`'s network (`crates/pds-sim/src/net.rs`).
+
+| Host | What it does |
+|---|---|
+| `pds` | The router of production behind `hyper`, over HTTP and WebSocket. |
+| `relay` | Follows `subscribeRepos` from its cursor, checks every commit strictly, fetches a repository with `getRepo` on `#sync`, and connects again when a connection ends or is silent for 2 seconds. |
+| `client` | Runs the plan: puts and deletes records over HTTP, partitions the relay's link, repairs it, holds and releases its messages, waits. |
+
+At the end the link is whole. The run requires that the relay received
+every event of the log once and in order, dropped no commit, needed no
+repair with `#sync`, holds the server's repositories, and that each
+repository holds what the client was told.
+
+- 200 seeds of 120 steps passed with the default buffer of 20 events.
+- 40 seeds of 400 steps passed with a buffer of 2 events. The server
+  closed the relay as `ConsumerTooSlow` 11 times, in 10 of the seeds.
+- The first runs with the small buffer failed in 2 of 8 seeds. The fault
+  was in the relay of the harness: its `getRepo` had no timeout, and a
+  partition during the fetch left it waiting for ever. `turmoil` does not
+  send a dropped segment again. The fetch now has the 2-second limit and
+  leaves the cursor before the `#sync` when it fails.
+
+Not simulated, and SPEC §19.2 lists it: a restart of the server on the
+network, a fault on the client's link, the crawler notification, identity
+resolution and mail. The server's storage work runs on threads in real
+time, so the interleaving of frames and writes is not a function of the
+seed; the plan and the final state are.
+
+The network adds `turmoil` and names `hyper`, `hyper-util` and
+`http-body-util`, which were in the tree.

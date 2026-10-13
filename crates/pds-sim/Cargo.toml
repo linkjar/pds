@@ -27,6 +27,13 @@ tower.workspace = true
 reqwest.workspace = true
 rusqlite.workspace = true
 sqlite-plugin.workspace = true
+turmoil.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
+http-body-util.workspace = true
+bytes.workspace = true
+tokio-tungstenite.workspace = true
+futures-util = { workspace = true, features = ["sink"] }
 serde_json.workspace = true
 cid.workspace = true
 hmac.workspace = true

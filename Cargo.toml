@@ -72,6 +72,11 @@ unicode-segmentation = "1"
 # dev
 # The simulation only: its build needs libclang.
 sqlite-plugin = "0.11"
+# The simulation only: the network.
+turmoil = "0.7"
+hyper = { version = "1", default-features = false, features = ["client", "server", "http1"] }
+hyper-util = { version = "0.1", default-features = false, features = ["tokio", "service"] }
+http-body-util = "0.1"
 tokio-tungstenite = { version = "0.29", default-features = false, features = ["connect"] }
 anyhow = "1"
 heck = "0.5"

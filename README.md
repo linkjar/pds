@@ -16,8 +16,9 @@ instead of source patches. Dual-licensed MIT or Apache-2.0.
 > commit and its event, it states the head with `#sync` at the next start.
 > A simulation runs seeded plans every night, with stops inside commits
 > and losses of power below SQLite.
-> Not built yet: accounts, sessions and OAuth (unit 5), and network
-> faults in the simulation. The repository engine
+> A second set of plans runs the server, a strict relay and a client on a
+> simulated network with partitions. Not built yet: accounts, sessions and
+> OAuth (unit 5). The repository engine
 > is written here and gives the same bytes as `@atproto/repo` at the pin
 > ([decision D2](docs/research/2026-10-12-repository-crate.md)). The
 > specification is at revision 8. The reference image under
@@ -101,6 +102,7 @@ cargo test --workspace
 cargo xtask codegen --check     # generated types are current
 cargo deny check                 # advisories, licences, bans, sources
 cargo run -p pds-sim -- --seeds 20   # the simulation; its build needs libclang
+cargo run -p pds-sim -- --network    # the same server on a simulated network
 devenv shell -- pds:check        # the Rust gates of CI
 devenv shell -- pds:hooks        # the rustfmt and clippy hooks, by hand
 ```

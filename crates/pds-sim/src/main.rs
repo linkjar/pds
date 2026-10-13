@@ -9,6 +9,7 @@
 
 use std::process::ExitCode;
 
+use pds_sim::net::{NetOptions, run_network_seed};
 use pds_sim::{Options, run_seed_blocking};
 
 struct Args {
@@ -16,6 +17,7 @@ struct Args {
     seeds: u64,
     options: Options,
     trace: bool,
+    network: bool,
 }
 
 fn parse() -> Result<Args, String> {
@@ -24,6 +26,7 @@ fn parse() -> Result<Args, String> {
         seeds: 20,
         options: Options::default(),
         trace: false,
+        network: false,
     };
     let mut words = std::env::args().skip(1);
     while let Some(word) = words.next() {
@@ -49,10 +52,68 @@ fn parse() -> Result<Args, String> {
                 args.options.power_loss_percent = number("--power-loss")?.min(100);
             }
             "--trace" => args.trace = true,
+            "--network" => args.network = true,
             other => return Err(format!("unknown argument: {other}")),
         }
     }
     Ok(args)
+}
+
+/// The network runs: the server, a relay and a client on a simulated
+/// network with partitions and held links.
+fn network(args: &Args) -> ExitCode {
+    let defaults = NetOptions::default();
+    let options = NetOptions {
+        accounts: args.options.accounts,
+        // The plan of a network run is shorter unless `--steps` says more.
+        steps: if args.options.steps == Options::default().steps {
+            defaults.steps
+        } else {
+            args.options.steps
+        },
+        buffer: std::env::var("PDS_SIM_BUFFER")
+            .ok()
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(defaults.buffer),
+    };
+    let mut failed = Vec::new();
+    for seed in args.from..args.from.saturating_add(args.seeds) {
+        match run_network_seed(seed, options) {
+            Ok(outcome) => {
+                println!(
+                    "seed {seed}: ok, {} commits, {} events, {} partitions, {} holds, {} connections, {} closed as too slow",
+                    outcome.commits,
+                    outcome.events,
+                    outcome.partitions,
+                    outcome.holds,
+                    outcome.connections,
+                    outcome.too_slow
+                );
+                if args.trace {
+                    for line in &outcome.trace {
+                        println!("  {line}");
+                    }
+                }
+            }
+            Err(failure) => {
+                println!("seed {seed}: FAILED, {failure}");
+                failed.push(seed);
+            }
+        }
+    }
+    println!(
+        "{} network seeds from {}, {} steps each: {} failed",
+        args.seeds,
+        args.from,
+        options.steps,
+        failed.len()
+    );
+    if failed.is_empty() {
+        ExitCode::SUCCESS
+    } else {
+        println!("failed seeds: {failed:?}");
+        ExitCode::FAILURE
+    }
 }
 
 fn main() -> ExitCode {
@@ -60,11 +121,14 @@ fn main() -> ExitCode {
         Ok(args) => args,
         Err(message) => {
             eprintln!(
-                "{message}\nusage: pds-sim [--seeds N] [--from S] [--steps N] [--accounts N] [--faults PERCENT] [--power-loss PERCENT] [--trace]"
+                "{message}\nusage: pds-sim [--seeds N] [--from S] [--steps N] [--accounts N] [--faults PERCENT] [--power-loss PERCENT] [--trace]\n       pds-sim --network [--seeds N] [--from S] [--steps N] [--accounts N] [--trace]"
             );
             return ExitCode::from(2);
         }
     };
+    if args.network {
+        return network(&args);
+    }
     let mut failed = Vec::new();
     let (mut commits, mut crashes, mut power, mut events) = (0_u64, 0_u64, 0_u64, 0_i64);
     for seed in args.from..args.from.saturating_add(args.seeds) {
