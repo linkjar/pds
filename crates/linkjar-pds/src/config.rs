@@ -241,6 +241,12 @@ pub struct Config {
     /// `PDS_RATE_LIMITS_ENABLED`, `PDS_RATE_LIMIT_BYPASS_KEY` and
     /// `PDS_RATE_LIMIT_BYPASS_IPS`.
     pub rate_limits: pds_xrpc::ratelimit::RateLimitConfig,
+    /// `PDS_AUDIT_KEY_ED25519_PRIVATE_KEY_HEX`: the 32-byte seed of the
+    /// key that signs audit checkpoints (SPEC §20.3, D11).
+    pub audit_key: Option<Vec<u8>>,
+    /// `PDS_AUDIT_CHECKPOINT_REPO`: the DID of the operator's account
+    /// here whose repository publishes the checkpoints.
+    pub audit_repo: Option<String>,
     /// `PDS_PROFILE` (SPEC §12.1).
     pub profile: ProfileName,
     /// `PDS_EXTERNAL_<PROVIDER>_CLIENT_ID` and `_CLIENT_SECRET`, for the
@@ -537,8 +543,12 @@ impl Env<'_> {
 
     /// `PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX` as its 32 bytes.
     fn rotation_key(&self) -> Result<Option<Vec<u8>>, ConfigError> {
-        const NAME: &str = "PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX";
-        let Some(hex) = self.text(NAME) else {
+        self.secret_bytes("PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX")
+    }
+
+    /// A 32-byte secret that a variable gives as 64 hexadecimal digits.
+    fn secret_bytes(&self, name: &'static str) -> Result<Option<Vec<u8>>, ConfigError> {
+        let Some(hex) = self.text(name) else {
             return Ok(None);
         };
         data_encoding::HEXLOWER_PERMISSIVE
@@ -547,7 +557,7 @@ impl Env<'_> {
             .filter(|bytes| bytes.len() == 32)
             .map(Some)
             .ok_or_else(|| ConfigError::Invalid {
-                name: NAME,
+                name,
                 // The value is a secret and stays out of the message.
                 value: "(hidden)".to_owned(),
                 reason: "expected 64 hexadecimal digits",
@@ -667,6 +677,7 @@ impl Config {
             // The Candidate's own file has no variable: it stays beside
             // the account database.
             ops_db: default_layout.ops_db,
+            audit_db: default_layout.audit_db,
             actor_dir: path("PDS_ACTOR_STORE_DIRECTORY", default_layout.actor_dir),
         };
         let dev_mode = env.boolean("PDS_DEV_MODE")?.unwrap_or(false);
@@ -699,6 +710,8 @@ impl Config {
             recovery_did_key: env.text("PDS_RECOVERY_DID_KEY"),
             mail: env.mail()?,
             rate_limits: env.rate_limits()?,
+            audit_key: env.secret_bytes("PDS_AUDIT_KEY_ED25519_PRIVATE_KEY_HEX")?,
+            audit_repo: env.text("PDS_AUDIT_CHECKPOINT_REPO"),
             profile: env.profile()?,
             external_providers: env.external_providers()?,
             oauth: env.oauth()?,

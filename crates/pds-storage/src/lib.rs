@@ -16,6 +16,7 @@
 pub mod account;
 pub mod actor;
 pub mod actor_txn;
+pub mod audit;
 pub mod did_cache;
 pub mod error;
 pub mod fail;
@@ -36,6 +37,7 @@ pub use actor::{
     ActorDb, BLOCK_BATCH, BlobMeta, BlockRow, FoundBlocks, RecentRecord, RecordRow, RepoRoot,
 };
 pub use actor_txn::{ActorTxn, Backlink, MissingBlob, PendingUpload, StoredBlob};
+pub use audit::{AuditDb, CheckpointRow};
 pub use did_cache::{CachedDoc, DidCacheDb};
 pub use error::StorageError;
 pub use layout::DataLayout;

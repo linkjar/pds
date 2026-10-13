@@ -24,6 +24,7 @@ pds-blob.workspace = true
 pds-identity.workspace = true
 pds-xrpc.workspace = true
 pds-ext.workspace = true
+pds-audit.workspace = true
 pds-ext-linkjar.workspace = true
 pds-sequencer.workspace = true
 axum.workspace = true
