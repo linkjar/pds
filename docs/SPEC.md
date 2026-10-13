@@ -1,6 +1,6 @@
 # LinkJar PDS Specification
 
-Status: Draft, revision 11, 2026-10-13
+Status: Draft, revision 12, 2026-10-13
 Normative keywords: **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, **MAY** ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119))
 
 LinkJar PDS is an AT Protocol Personal Data Server written in Rust. It is
@@ -87,6 +87,11 @@ cover yet. The evidence is in the
 [unit record](research/2026-10-13-audit-log.md); the changes are listed in
 Appendix O.
 
+Revision 12 follows the part of unit 8 that needs no system of the
+owner: an account that moves here with its DID, the metrics listener, the
+lock of the data directory and the cutover runbook. The changes are
+listed in Appendix P.
+
 ## Table of Contents
 
 - [0. Conventions and Terminology](#0-conventions-and-terminology)
@@ -127,6 +132,7 @@ Appendix O.
 - [Appendix M. Changes in Revision 9](#appendix-m-changes-in-revision-9)
 - [Appendix N. Changes in Revision 10](#appendix-n-changes-in-revision-10)
 - [Appendix O. Changes in Revision 11](#appendix-o-changes-in-revision-11)
+- [Appendix P. Changes in Revision 12](#appendix-p-changes-in-revision-12)
 
 ## 0. Conventions and Terminology
 
@@ -1513,6 +1519,17 @@ time.
   rules are updated in the cutover unit (Appendix D, D8).
 - Logs are JSON lines with request ids. They never contain tokens, passwords,
   email addresses, provider subjects or record bodies.
+- As of unit 8 the metrics listener serves `GET /metrics` on
+  `PDS_METRICS_ADDRESS` with: `pds_build_info`,
+  `pds_http_requests_total{route,status}`,
+  `pds_http_request_duration_seconds{route}` as a histogram,
+  `pds_audit_entries`, `pds_audit_unsigned_entries`,
+  `pds_audit_checkpoint_age_seconds` and, in a profile with notices,
+  `pds_notice_outbox_depth`. A `route` label is a method the server
+  handles, a path it knows, `proxied` or `other`: a client cannot make a
+  label. Not built: commit latency, sequencer lag, subscriber counts,
+  actor LRU hits, SQLite busy events, background task state, and the
+  export over OTLP.
 
 ### 14.5 Build, gates and distribution
 
@@ -2460,3 +2477,19 @@ Revision 11 follows unit 7, the audit log.
 - Appendix C: `PDS_AUDIT_KEY_ED25519_PRIVATE_KEY_HEX` is the form of the
   key that the Candidate reads, and `PDS_AUDIT_CHECKPOINT_REPO` is new.
 - §14.2: the commands `audit seal`, `audit export` and `audit verify`.
+
+## Appendix P. Changes in Revision 12
+
+Revision 12 follows the part of unit 8 that needs no system of the owner.
+
+- §10.1: `createAccount` takes a DID with a service token of that DID for
+  `com.atproto.server.createAccount`. The account starts deactivated, the
+  server sends nothing to the PLC directory and appends no event until
+  the account is activated. A handle under another domain must name the
+  DID. With hCaptcha configured, the `linkjar` profile lets this request
+  pass and no other.
+- §14.4: the metrics that the listener serves, and the ones not built.
+- §8.3 and §18.4: the lock file is `linkjar-pds.lock` beside the account database.
+  A second server on the directory exits 2.
+- §18: the procedure is written as
+  [`docs/runbooks/cutover.md`](runbooks/cutover.md).
