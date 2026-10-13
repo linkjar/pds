@@ -45,8 +45,9 @@ from `main`; §5 has what ran before the merge.
 | `pds-sim` | Seeded plans against the server in process, stops at the fail points, a relay model, the oracles of SPEC §19.4, a seed runner and the determinism meta-test. |
 | `linkjar-pds` | The settings of the write path, the repair before the first request, and the upload sweep every ten minutes. `verify` counts a stale root of the account database without calling it a difference. |
 
-The server still opens a SQLite connection for each request. The actor
-store cache of SPEC §8.3 is not built; §7 has what that costs.
+The server keeps the write connection of an actor store open between
+writes, up to `PDS_ACTOR_STORE_CACHE_SIZE` stores. It still opens a
+connection for each read.
 
 ## 2. How it is held to the Reference
 
@@ -243,7 +244,7 @@ Besides the three items at the top:
 | Rate limits (SPEC §4.3). The Harness sends its bypass key, so it does not see their absence. | Unit 5, with the account endpoints that share the limiters |
 | The slur check on a record key. The Reference refuses a key from its list. | Unit 5, with the handle policy that owns the list |
 | The proxy and read-after-write. A method without a handler is still 501 for a valid session. | Unit 5 |
-| The actor store cache of SPEC §8.3. | See §7 |
+| A cache of read connections to actor stores (SPEC §8.3). Writes have one. | Unit 8, with the performance targets |
 | `repair <did>` (SPEC §19.5). The startup repair covers the boundary of §4. | Unit 8 |
 | The Reference's message for a body that is not JSON, which repeats its JSON parser. | Not planned; SPEC §6.3 says so |
 | An upper bound on an import when `PDS_MAX_REPO_IMPORT_SIZE` is unset. The Reference has none either. | Unit 8, with the migration endpoints |
@@ -254,7 +255,29 @@ may name different ones (SPEC §6.3).
 
 ## 7. Measurements
 
-PERF_SECTION
+[perf-writes.md](../../parity/results/perf-writes.md), measured on 2026-10-13
+by `pnpm parity writes --perf`: SPEC §16.1, S1 to S3, on each server, on a
+stack of its own. One run on one host, sequential requests. It is not a
+benchmark and not a run against the targets of SPEC §16.2.
+
+| | Reference | Candidate |
+|---|---|---|
+| S1, one `createRecord`, 1,000 records in the repository, p50 / p99 ms | 14.4 / 43.4 | 4.9 / 10.8 |
+| S1, 100,000 records, p50 / p99 ms | 14.5 / 53.9 | 11.5 / 37.4 |
+| S2, `applyWrites` of 200, 1,000 records, p50 ms | 190.3 | 14.3 |
+| S2, 100,000 records, p50 ms | 274.7 | 31.4 |
+| S3, export of 101,100 records, ms | 1,529 | 201 |
+
+The bytes of new blocks per write are the same on both servers at every
+size, and the export has the same 128,312 blocks.
+
+A single write on the Candidate costs more at 100,000 records than at
+10,000: 11.5 ms against 5.1 ms at p50. The cause is not measured. The
+Candidate syncs five times for one write: the note, the commit, the event,
+and the root in the account database, each in a file of its own; the
+removal of the note is not synced. It keeps the write connection of an
+actor store open between writes (`PDS_ACTOR_STORE_CACHE_SIZE`), and opens a
+connection for each read.
 
 ## 8. Dependencies
 
