@@ -4,7 +4,11 @@ flowchart TB
   run --> vfs[power loss below SQLite<br/>writes since the last sync are lost or torn]
   vfs --> sut
   run --> fp[fail points<br/>before the commit is stored, after it, after its event]
-  run --> later[not written yet<br/>turmoil network, I/O errors the process survives]
+  seed --> netplan[network plan<br/>writes over HTTP, partitions and held messages on the relay's link]
+  netplan --> net[pds-sim --network<br/>server, strict relay and client as hosts on turmoil]
+  net --> sut
+  net --> o6{the relay received every event once, in order, dropped none, and holds the server's repositories}
+  run --> later[not written yet<br/>I/O errors the process survives, a server restart on the network]
   fp --> sut[the router of linkjar-pds, in process<br/>same code as production]
   sut --> restart[stop, start again, repair]
   restart --> o1{verify finds no difference}

@@ -1749,9 +1749,29 @@ Not written yet, and the crate's documentation says so:
   process survives, a failed `fsync` that is not a power loss, bit flips,
   misdirected writes and a full disk; and the blob store and the key
   files, which are not behind the seam;
-- the `turmoil` network, so no run has a socket, a partition or a slow
-  consumer: requests enter the router in process;
-- concurrent operations: a plan runs one operation after the other.
+- on the network: a restart of the server, a fault on the link of the
+  writing client, and the crawler notification, identity resolution and
+  mail, whose HTTP client connects to the host's network. The
+  `mad-turmoil` overrides are not used: the clocks and the random sources
+  of the server are injected (§3.2);
+- concurrent writers: a plan runs one write after the other.
+
+The network runs (`pds-sim --network`) are separate plans. The server, a
+relay and a writing client are hosts on `turmoil`'s network, and the
+server answers with the router of production over HTTP and WebSocket. The
+relay follows `subscribeRepos` from its cursor, checks every commit
+strictly, fetches a repository with `getRepo` on `#sync`, and connects
+again when a connection ends or stays silent for 2 seconds. The plan
+partitions the link between the relay and the server, repairs it, and
+holds its messages. At the end the link is whole, and the run requires
+that the relay received every event of the log once and in order over all
+of its connections, that it dropped no commit and needed no repair, that
+its copy of each repository is the server's, and that each repository
+holds what the client was told. With a small subscriber buffer the server
+closes the relay as `ConsumerTooSlow`, and the same holds. The server does
+its storage work on threads that run in real time, so the plan and the
+final state are functions of the seed and the interleaving of frames and
+writes is not.
 
 `PDS_FAIL_POINTS` arms fail points in a running server, in dev mode only
 (§3.3): `name=action` pairs, where an action is `abort`,
@@ -2240,7 +2260,7 @@ Revision 8 follows the first part of unit 4b, the S3-compatible blob store.
 - §8.1: the object names of the S3-compatible store, how the Candidate
   uploads, retries and times out.
 - §17.1 describes the stage of the writes run on the S3-compatible store.
-- §19.2: the seam below SQLite and the VFS that loses power; what it
-  models and what it does not.
+- §19.2: the seam below SQLite and the VFS that loses power; the network
+  runs on `turmoil`; what each models and what it does not.
 - Appendix C lists the `PDS_BLOBSTORE_S3_*` variables, what the Candidate
   needs at the start, and which sources of credentials it reads.

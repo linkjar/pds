@@ -95,6 +95,8 @@ pub struct World {
     server_rng: Arc<Mutex<Rng>>,
     /// The file system below the databases.
     pub vfs: &'static crate::vfs::SimVfs,
+    /// The subscriber buffer of the server.
+    buffer: u32,
     /// How many times the server was started.
     pub starts: u32,
 }
@@ -120,7 +122,7 @@ fn storage(error: impl std::fmt::Display) -> Failure {
 }
 
 /// A legacy access token for `did`, as the Reference mints it.
-fn token(did: &str) -> String {
+pub fn token(did: &str) -> String {
     let head =
         URL_SAFE_NO_PAD.encode(serde_json::json!({"alg": "HS256", "typ": "at+jwt"}).to_string());
     let claims = serde_json::json!({
@@ -158,6 +160,7 @@ async fn start(
     clock: &Clock,
     server_rng: &Arc<Mutex<Rng>>,
     starts: u32,
+    buffer: u32,
 ) -> Result<(AppState, pds_xrpc::write::Repaired), Failure> {
     let layout = DataLayout::new(root);
     let http = reqwest::Client::new();
@@ -215,7 +218,7 @@ async fn start(
             accepting_imports: true,
             max_import_size: None,
             backfill_limit_ms: 86_400_000,
-            max_subscription_buffer: 500,
+            max_subscription_buffer: buffer,
             actor_store_cache_size: 2,
         },
     )
@@ -305,6 +308,12 @@ impl World {
     /// repository and the four events of an account creation
     /// (SPEC §10.4), and a server over it.
     pub async fn create(seed: u64, accounts: usize) -> Result<Self, Failure> {
+        Self::create_sized(seed, accounts, 500).await
+    }
+
+    /// [`World::create`] with a subscriber buffer of `buffer` events
+    /// (`PDS_MAX_SUBSCRIPTION_BUFFER`).
+    pub async fn create_sized(seed: u64, accounts: usize, buffer: u32) -> Result<Self, Failure> {
         static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
         let root = std::env::temp_dir().join(format!(
             "pds-sim-{}-{}-{seed}",
@@ -354,7 +363,7 @@ impl World {
         // every revision of the plan follows the first commits.
         clock.advance(60_000);
         let server_rng = Arc::new(Mutex::new(Rng::new(seed ^ 0x5eed_5eed_5eed_5eed)));
-        let (state, _) = start(&root, &clock, &server_rng, 1).await?;
+        let (state, _) = start(&root, &clock, &server_rng, 1, buffer).await?;
         Ok(Self {
             router: pds_xrpc::router(state.clone()),
             state,
@@ -364,6 +373,7 @@ impl World {
             config,
             server_rng,
             vfs,
+            buffer,
             starts: 1,
         })
     }
@@ -384,11 +394,22 @@ impl World {
     /// what the repair of SPEC §7.4 did.
     pub async fn restart(&mut self) -> Result<pds_xrpc::write::Repaired, Failure> {
         self.starts += 1;
-        let (state, repaired) =
-            start(&self.root, &self.clock, &self.server_rng, self.starts).await?;
+        let (state, repaired) = start(
+            &self.root,
+            &self.clock,
+            &self.server_rng,
+            self.starts,
+            self.buffer,
+        )
+        .await?;
         self.router = pds_xrpc::router(state.clone());
         self.state = state;
         Ok(repaired)
+    }
+
+    /// The router of the running server.
+    pub fn router(&self) -> Router {
+        self.router.clone()
     }
 
     /// The event log of the running server.

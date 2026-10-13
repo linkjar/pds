@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1888.0169999999994 1040.596" width="1888.0169999999994" height="1040.596" style="--bg:#0d1117;--fg:#e6edf3;--line:#3d444d;--accent:#4493f8;--muted:#9198a1;background:var(--bg)">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2069.1079999999993 1549.6299999999997" width="2069.1079999999993" height="1549.6299999999997" style="--bg:#0d1117;--fg:#e6edf3;--line:#3d444d;--accent:#4493f8;--muted:#9198a1;background:var(--bg)">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter%2C%20ui-sans-serif%2C%20system-ui%2C%20sans-serif:wght@400;500;600;700&amp;display=swap');
   text { font-family: 'Inter, ui-sans-serif, system-ui, sans-serif', system-ui, sans-serif; }
@@ -26,79 +26,97 @@
     <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
   </marker>
 </defs>
-<polyline class="edge" data-from="seed" data-to="plan" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1213.47275,60.900000000000006 1213.4727499999997,108.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
-<polyline class="edge" data-from="plan" data-to="run" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1213.4727499999997,162.70000000000002 1213.4727499999997,210.70000000000002" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
-<polyline class="edge" data-from="run" data-to="vfs" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1213.4727499999997,264.5 1213.4727499999997,288.5000000000001 642.5249999999997,288.5000000000001 642.5249999999997,312.50000000000017" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
-<polyline class="edge" data-from="vfs" data-to="sut" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="642.5249999999997,366.3000000000002 642.5249999999997,390.3000000000003 878.0594999999998,390.3000000000003 878.0594999999998,414.3000000000003" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
-<polyline class="edge" data-from="run" data-to="fp" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1213.4727499999997,264.5 1213.4727499999997,288.5000000000001 966.2674999999997,288.5000000000001 966.2674999999997,312.50000000000034" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
-<polyline class="edge" data-from="run" data-to="later" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1213.4727499999997,264.5 1213.4727499999997,288.5000000000001 1313.3514999999995,288.5000000000001 1313.3514999999995,502.8520000000002" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
-<polyline class="edge" data-from="fp" data-to="sut" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="966.2674999999997,366.30000000000035 966.2674999999997,390.3000000000003 878.0594999999998,390.3000000000003 878.0594999999998,414.3000000000003" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
-<polyline class="edge" data-from="sut" data-to="restart" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="878.0594999999998,451.2000000000003 878.0594999999997,502.8520000000002" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
-<polyline class="edge" data-from="restart" data-to="o1" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="878.0594999999997,539.7520000000002 878.0594999999997,552.9260000000002 128.4815,552.9260000000002 128.4815,566.1000000000003" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
-<polyline class="edge" data-from="restart" data-to="o2" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="878.0594999999997,539.7520000000002 878.0594999999997,552.9260000000002 468.81399999999985,552.9260000000002 468.81399999999985,566.1000000000003" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
-<polyline class="edge" data-from="restart" data-to="o3" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="878.0594999999997,539.7520000000002 878.0594999999997,552.9260000000002 878.0594999999997,552.9260000000002 878.0594999999997,614.3040000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
-<polyline class="edge" data-from="restart" data-to="o4" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="878.0594999999997,539.7520000000002 878.0594999999997,552.9260000000002 1283.5999999999997,552.9260000000002 1283.5999999999997,614.3040000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
-<polyline class="edge" data-from="restart" data-to="o5" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="878.0594999999997,539.7520000000002 878.0594999999997,552.9260000000002 1689.8814999999995,552.9260000000002 1689.8814999999995,614.3040000000001" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
-<polyline class="edge" data-from="run" data-to="meta" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1213.4727499999997,264.5 1213.4727499999997,288.5000000000001 1643.9069999999997,288.5000000000001 1643.9069999999997,312.50000000000017" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="seed" data-to="plan" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1293.2478166666665,60.900000000000006 1293.2478166666665,72.9 866.2764999999998,72.9 866.2764999999998,452.7239999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="plan" data-to="run" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="866.2764999999998,506.5239999999999 866.2764999999998,554.5239999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="run" data-to="vfs" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="866.2764999999998,608.3239999999998 866.2764999999998,620.3239999999998 161.312,620.3239999999998 161.312,850.3279999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="vfs" data-to="sut" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="161.312,904.1279999999998 161.312,922.1279999999998 681.5569999999999,922.1279999999998 681.5569999999999,940.1279999999998" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="run" data-to="fp" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="866.2764999999998,608.3239999999998 866.2764999999998,620.3239999999998 485.05449999999996,620.3239999999998 485.05449999999996,850.3279999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="seed" data-to="netplan" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1293.2478166666665,60.900000000000006 1293.2478166666665,72.9 1579.3444166666663,72.9 1579.3444166666663,84.9" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="netplan" data-to="net" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1579.3444166666663,138.70000000000002 1579.3444166666663,186.70000000000002" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="net" data-to="sut" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1579.3444166666663,240.50000000000003 1579.3444166666663,264.5 681.5569999999999,264.5 681.5569999999999,940.1279999999998" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="net" data-to="o6" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="1579.3444166666663,240.50000000000003 1579.3444166666663,264.5 1731.2939999999994,264.5 1731.2939999999994,288.5" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="run" data-to="later" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="866.2764999999998,608.3239999999998 866.2764999999998,620.3239999999998 878.0804999999999,620.3239999999998 878.0804999999999,850.3279999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="fp" data-to="sut" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="485.05449999999996,904.1279999999998 485.05449999999996,922.1279999999998 681.5569999999999,922.1279999999998 681.5569999999999,940.1279999999998" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="sut" data-to="restart" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="681.5569999999999,977.0279999999998 681.5569999999999,1025.0279999999998" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="restart" data-to="o1" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="681.5569999999999,1061.9279999999999 681.5569999999999,1079.9279999999999 219.02699999999996,1079.9279999999999 219.02699999999996,1097.9279999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="restart" data-to="o2" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="681.5569999999999,1061.9279999999999 681.5569999999999,1079.9279999999999 559.3594999999998,1079.9279999999999 559.3594999999998,1097.9279999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="restart" data-to="o3" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="681.5569999999999,1061.9279999999999 681.5569999999999,1079.9279999999999 968.6049999999998,1079.9279999999999 968.6049999999998,1097.9279999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="restart" data-to="o4" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="681.5569999999999,1061.9279999999999 681.5569999999999,1079.9279999999999 1374.1454999999994,1079.9279999999999 1374.1454999999994,1097.9279999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="restart" data-to="o5" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="681.5569999999999,1061.9279999999999 681.5569999999999,1079.9279999999999 1780.4269999999992,1079.9279999999999 1780.4269999999992,1097.9279999999999" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="run" data-to="meta" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="866.2764999999998,608.3239999999998 866.2764999999998,620.3239999999998 1254.5779999999995,620.3239999999998 1254.5779999999995,632.3239999999998" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
 <g class="node" data-id="seed" data-label="seed" data-shape="rectangle">
-  <rect x="1177.6777499999998" y="24" width="71.59" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="1213.47275" y="42.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">seed</text>
+  <rect x="1257.4528166666664" y="24" width="71.59" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1293.2478166666665" y="42.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">seed</text>
 </g>
 <g class="node" data-id="plan" data-label="plan
 writes, batches, uploads, subscribers with cursors, restarts" data-shape="rectangle">
-  <rect x="1018.3627499999998" y="108.9" width="390.21999999999986" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="1213.4727499999997" y="135.8" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="1213.4727499999997" dy="-3.9000000000000012">plan</tspan><tspan x="1213.4727499999997" dy="16.900000000000002">writes, batches, uploads, subscribers with cursors, restarts</tspan></text>
+  <rect x="671.1664999999999" y="452.7239999999999" width="390.21999999999986" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="866.2764999999998" y="479.62399999999985" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="866.2764999999998" dy="-3.9000000000000012">plan</tspan><tspan x="866.2764999999998" dy="16.900000000000002">writes, batches, uploads, subscribers with cursors, restarts</tspan></text>
 </g>
 <g class="node" data-id="run" data-label="pds-sim run, one thread
 clock, revision clock and random source from the seed" data-shape="rectangle">
-  <rect x="1033.9237499999997" y="210.70000000000002" width="359.09799999999996" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="1213.4727499999997" y="237.60000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="1213.4727499999997" dy="-3.9000000000000012">pds-sim run, one thread</tspan><tspan x="1213.4727499999997" dy="16.900000000000002">clock, revision clock and random source from the seed</tspan></text>
+  <rect x="686.7274999999998" y="554.5239999999999" width="359.09799999999996" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="866.2764999999998" y="581.4239999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="866.2764999999998" dy="-3.9000000000000012">pds-sim run, one thread</tspan><tspan x="866.2764999999998" dy="16.900000000000002">clock, revision clock and random source from the seed</tspan></text>
 </g>
 <g class="node" data-id="vfs" data-label="power loss below SQLite
 writes since the last sync are lost or torn" data-shape="rectangle">
-  <rect x="505.21299999999974" y="312.50000000000017" width="274.624" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="642.5249999999997" y="339.40000000000015" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="642.5249999999997" dy="-3.9000000000000012">power loss below SQLite</tspan><tspan x="642.5249999999997" dy="16.900000000000002">writes since the last sync are lost or torn</tspan></text>
+  <rect x="24" y="850.3279999999999" width="274.624" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="161.312" y="877.2279999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="161.312" dy="-3.9000000000000012">power loss below SQLite</tspan><tspan x="161.312" dy="16.900000000000002">writes since the last sync are lost or torn</tspan></text>
 </g>
 <g class="node" data-id="sut" data-label="sut" data-shape="rectangle">
-  <rect x="848.0594999999998" y="414.3000000000003" width="60" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="878.0594999999998" y="432.7500000000003" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">sut</text>
+  <rect x="651.5569999999999" y="940.1279999999998" width="60" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="681.5569999999999" y="958.5779999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">sut</text>
 </g>
 <g class="node" data-id="fp" data-label="fail points
 before the commit is stored, after it, after its event" data-shape="rectangle">
-  <rect x="807.8369999999998" y="312.50000000000034" width="316.8609999999999" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="966.2674999999997" y="339.4000000000003" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="966.2674999999997" dy="-3.9000000000000012">fail points</tspan><tspan x="966.2674999999997" dy="16.900000000000002">before the commit is stored, after it, after its event</tspan></text>
+  <rect x="326.624" y="850.3279999999999" width="316.8609999999999" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="485.05449999999996" y="877.2279999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="485.05449999999996" dy="-3.9000000000000012">fail points</tspan><tspan x="485.05449999999996" dy="16.900000000000002">before the commit is stored, after it, after its event</tspan></text>
+</g>
+<g class="node" data-id="netplan" data-label="network plan
+writes over HTTP, partitions and held messages on the relay's link" data-shape="rectangle">
+  <rect x="1367.1914166666666" y="84.9" width="424.30599999999976" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1579.3444166666663" y="111.80000000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="1579.3444166666663" dy="-3.9000000000000012">network plan</tspan><tspan x="1579.3444166666663" dy="16.900000000000002">writes over HTTP, partitions and held messages on the relay&#39;s link</tspan></text>
+</g>
+<g class="node" data-id="net" data-label="pds-sim --network
+server, strict relay and client as hosts on turmoil" data-shape="rectangle">
+  <rect x="1419.8024166666664" y="186.70000000000002" width="319.0839999999999" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1579.3444166666663" y="213.60000000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="1579.3444166666663" dy="-3.9000000000000012">pds-sim --network</tspan><tspan x="1579.3444166666663" dy="16.900000000000002">server, strict relay and client as hosts on turmoil</tspan></text>
+</g>
+<g class="node" data-id="o6" data-label="the relay received every event once, in order, dropped none, and holds the server's repositories" data-shape="diamond">
+  <polygon points="1731.2939999999994,288.49999999999994 2045.1079999999993,602.3139999999999 1731.2939999999994,916.1279999999997 1417.4799999999996,602.3139999999999" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1731.2939999999994" y="602.3139999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">the relay received every event once, in order, dropped none, and holds the server&#39;s repositories</text>
 </g>
 <g class="node" data-id="later" data-label="not written yet
-turmoil network, I/O errors the process survives" data-shape="rectangle">
-  <rect x="1152.6979999999996" y="502.8520000000002" width="321.30699999999996" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="1313.3514999999995" y="529.7520000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="1313.3514999999995" dy="-3.9000000000000012">not written yet</tspan><tspan x="1313.3514999999995" dy="16.900000000000002">turmoil network, I/O errors the process survives</tspan></text>
+I/O errors the process survives, a server restart on the network" data-shape="rectangle">
+  <rect x="671.485" y="850.3279999999999" width="413.1909999999998" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="878.0804999999999" y="877.2279999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="878.0804999999999" dy="-3.9000000000000012">not written yet</tspan><tspan x="878.0804999999999" dy="16.900000000000002">I/O errors the process survives, a server restart on the network</tspan></text>
 </g>
 <g class="node" data-id="restart" data-label="stop, start again, repair" data-shape="rectangle">
-  <rect x="790.0239999999998" y="502.8520000000002" width="176.07099999999997" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="878.0594999999997" y="521.3020000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">stop, start again, repair</text>
+  <rect x="593.5215" y="1025.0279999999998" width="176.07099999999997" height="36.900000000000006" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="681.5569999999999" y="1043.4779999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">stop, start again, repair</text>
 </g>
 <g class="node" data-id="o1" data-label="verify finds no difference" data-shape="diamond">
-  <polygon points="128.4815,566.1000000000003 232.96300000000002,670.5815000000002 128.4815,775.0630000000002 24,670.5815000000002" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="128.4815" y="670.5815000000002" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">verify finds no difference</text>
+  <polygon points="219.02699999999996,1097.9279999999999 323.50849999999997,1202.4095 219.02699999999996,1306.891 114.54549999999995,1202.4095" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="219.02699999999996" y="1202.4095" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">verify finds no difference</text>
 </g>
 <g class="node" data-id="o2" data-label="each repository holds the acknowledged writes and no other" data-shape="diamond">
-  <polygon points="468.81399999999985,566.1000000000003 676.6649999999997,773.9510000000001 468.81399999999985,981.802 260.96299999999997,773.9510000000001" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="468.81399999999985" y="773.9510000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">each repository holds the acknowledged writes and no other</text>
+  <polygon points="559.3594999999998,1097.9279999999999 767.2104999999997,1305.7789999999998 559.3594999999998,1513.6299999999997 351.5084999999999,1305.7789999999998" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="559.3594999999998" y="1305.7789999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">each repository holds the acknowledged writes and no other</text>
 </g>
 <g class="node" data-id="o3" data-label="each subscriber saw every event once, in order" data-shape="diamond">
-  <polygon points="878.0594999999997,614.3040000000001 1051.4539999999997,787.6985000000001 878.0594999999997,961.0930000000001 704.6649999999997,787.6985000000001" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="878.0594999999997" y="787.6985000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">each subscriber saw every event once, in order</text>
+  <polygon points="968.6049999999998,1097.9279999999999 1141.9994999999997,1271.3224999999998 968.6049999999998,1444.7169999999996 795.2104999999998,1271.3224999999998" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="968.6049999999998" y="1271.3224999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">each subscriber saw every event once, in order</text>
 </g>
 <g class="node" data-id="o4" data-label="a strict relay model converges, with #sync as its only repair" data-shape="diamond">
-  <polygon points="1283.5999999999997,614.3040000000001 1487.7459999999996,818.45 1283.5999999999997,1022.596 1079.4539999999997,818.45" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="1283.5999999999997" y="818.45" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">a strict relay model converges, with #sync as its only repair</text>
+  <polygon points="1374.1454999999994,1097.9279999999999 1578.2914999999994,1302.0739999999998 1374.1454999999994,1506.2199999999998 1169.9994999999994,1302.0739999999998" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1374.1454999999994" y="1302.0739999999998" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">a strict relay model converges, with #sync as its only repair</text>
 </g>
 <g class="node" data-id="o5" data-label="a blob is served only while a record references it" data-shape="diamond">
-  <polygon points="1689.8814999999995,614.3040000000001 1864.0169999999994,788.4395000000001 1689.8814999999995,962.575 1515.7459999999996,788.4395000000001" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="1689.8814999999995" y="788.4395000000001" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">a blob is served only while a record references it</text>
+  <polygon points="1780.4269999999992,1097.9279999999999 1954.562499999999,1272.0634999999997 1780.4269999999992,1446.1989999999996 1606.2914999999994,1272.0634999999997" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1780.4269999999992" y="1272.0634999999997" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">a blob is served only while a record references it</text>
 </g>
 <g class="node" data-id="meta" data-label="two runs of a seed give the same trace" data-shape="diamond">
-  <polygon points="1643.9069999999997,312.50000000000017 1785.8089999999997,454.40200000000016 1643.9069999999997,596.3040000000001 1502.0049999999997,454.40200000000016" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
-  <text x="1643.9069999999997" y="454.40200000000016" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">two runs of a seed give the same trace</text>
+  <polygon points="1254.5779999999995,632.3239999999998 1396.4799999999996,774.2259999999999 1254.5779999999995,916.1279999999999 1112.6759999999995,774.2259999999999" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="1254.5779999999995" y="774.2259999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">two runs of a seed give the same trace</text>
 </g>
 </svg>

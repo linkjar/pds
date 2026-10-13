@@ -28,9 +28,10 @@
 //!   power went. It injects no error that the process survives, no bit
 //!   flip, no write at another offset and no full disk. The blob store and
 //!   the key files are not behind it.
-//! - **The network.** Requests enter the router in process, and subscribers
-//!   read the log through the subscription type. No socket, no partition
-//!   and no slow consumer is simulated.
+//! - **The network, in these plans.** Requests enter the router in process,
+//!   and subscribers read the log through the subscription type. The plans
+//!   of [`net`] run the server on a simulated network, with partitions and
+//!   a relay that falls behind, and have no stop of the server.
 //! - **Concurrency.** Operations run one after the other. Two writers on
 //!   one repository are not interleaved here; the repository lock is.
 //! - **Two operations on one key in one batch**, which the Reference
@@ -38,6 +39,7 @@
 //! - Accounts, imports, OAuth and mail, which other units bring.
 
 pub mod model;
+pub mod net;
 pub mod rng;
 pub mod vfs;
 pub mod world;

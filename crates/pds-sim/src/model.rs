@@ -46,6 +46,17 @@ pub struct Event {
     pub body: Data,
 }
 
+/// The name of the error, when `frame` is an error frame.
+pub fn error_of(frame: &[u8]) -> Option<String> {
+    let mut reader = Reader::new(frame, Limits::FRAME).ok()?;
+    let head = reader.data(0).ok()?;
+    let body = reader.data(0).ok()?;
+    match (head.get("op"), body.get("error")) {
+        (Some(Data::Integer(-1)), Some(Data::String(error))) => Some(error.clone()),
+        _ => None,
+    }
+}
+
 impl Event {
     /// Decodes a frame.
     pub fn decode(frame: &[u8]) -> Result<Self, String> {
