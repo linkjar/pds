@@ -1,11 +1,11 @@
-//! `sequencer.sqlite`: the event log. Unit 3 reads it for `verify` only.
+//! `sequencer.sqlite`: the event log (`docs/SPEC.md` §7.1).
 
 use std::path::Path;
 
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension, named_params};
 
 use crate::error::StorageError;
-use crate::layout::open_read_only;
+use crate::layout::{open_read_only, open_read_write};
 
 /// A break in the sequence numbers of `repo_seq`: no row lies between the
 /// two.
@@ -17,7 +17,35 @@ pub struct SeqGap {
     pub before: i64,
 }
 
-/// A read connection to `sequencer.sqlite`.
+/// An event to append.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeqInsert {
+    /// The account the event is about.
+    pub did: String,
+    /// `append`, `sync`, `identity` or `account`.
+    pub event_type: &'static str,
+    /// The DAG-CBOR body, without `seq` and `time`.
+    pub event: Vec<u8>,
+    /// When the event was sequenced, ISO 8601.
+    pub sequenced_at: String,
+}
+
+/// A stored event.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SeqRow {
+    /// The sequence number.
+    pub seq: i64,
+    /// The account the event is about.
+    pub did: String,
+    /// `append`, `sync`, `identity` or `account`.
+    pub event_type: String,
+    /// The DAG-CBOR body, without `seq` and `time`.
+    pub event: Vec<u8>,
+    /// When the event was sequenced, ISO 8601.
+    pub sequenced_at: String,
+}
+
+/// A connection to `sequencer.sqlite`.
 #[derive(Debug)]
 pub struct SequencerDb {
     conn: Connection,
@@ -29,6 +57,125 @@ impl SequencerDb {
         Ok(Self {
             conn: open_read_only(path)?,
         })
+    }
+
+    /// Opens the database for reading and writing.
+    pub fn open_writable(path: &Path) -> Result<Self, StorageError> {
+        Ok(Self {
+            conn: open_read_write(path)?,
+        })
+    }
+
+    /// Appends events in one transaction and returns their sequence
+    /// numbers, in order.
+    pub fn append(&mut self, events: &[SeqInsert]) -> Result<Vec<i64>, StorageError> {
+        let txn = self.conn.transaction()?;
+        let mut seqs = Vec::with_capacity(events.len());
+        {
+            let mut statement = txn.prepare_cached(
+                r#"insert into "repo_seq" ("did", "eventType", "event", "sequencedAt") values (:did, :type, :event, :at) returning "seq""#,
+            )?;
+            for event in events {
+                seqs.push(statement.query_row(
+                    named_params! {
+                        ":did": event.did, ":type": event.event_type,
+                        ":event": event.event, ":at": event.sequenced_at,
+                    },
+                    |row| row.get(0),
+                )?);
+            }
+        }
+        txn.commit()?;
+        Ok(seqs)
+    }
+
+    /// Removes every event of `did` except the one at `keep`.
+    pub fn delete_for_did_except(&self, did: &str, keep: i64) -> Result<(), StorageError> {
+        self.conn.execute(
+            r#"delete from "repo_seq" where "did" = :did and "seq" != :keep"#,
+            named_params! { ":did": did, ":keep": keep },
+        )?;
+        Ok(())
+    }
+
+    /// The highest sequence number, or `None` for an empty log.
+    pub fn current(&self) -> Result<Option<i64>, StorageError> {
+        Ok(self
+            .conn
+            .query_row(
+                r#"select "seq" from "repo_seq" order by "seq" desc limit 1"#,
+                [],
+                |row| row.get(0),
+            )
+            .optional()?)
+    }
+
+    /// When the first event after `cursor` was sequenced, or `None` when
+    /// there is none.
+    pub fn next_time(&self, cursor: i64) -> Result<Option<String>, StorageError> {
+        Ok(self
+            .conn
+            .query_row(
+                r#"select "sequencedAt" from "repo_seq" where "seq" > :cursor order by "seq" asc limit 1"#,
+                named_params! { ":cursor": cursor },
+                |row| row.get(0),
+            )
+            .optional()?)
+    }
+
+    /// The sequence number of the earliest event sequenced at or after
+    /// `time`.
+    pub fn earliest_after_time(&self, time: &str) -> Result<Option<i64>, StorageError> {
+        Ok(self
+            .conn
+            .query_row(
+                r#"select "seq" from "repo_seq" where "sequencedAt" >= :time order by "sequencedAt" asc limit 1"#,
+                named_params! { ":time": time },
+                |row| row.get(0),
+            )
+            .optional()?)
+    }
+
+    /// Up to `limit` events after `cursor`, in order. Invalidated rows are
+    /// left out, as the Reference leaves them out.
+    pub fn range(&self, cursor: i64, limit: u32) -> Result<Vec<SeqRow>, StorageError> {
+        let mut statement = self.conn.prepare_cached(
+            r#"select "seq", "did", "eventType", "event", "sequencedAt" from "repo_seq" where "invalidated" = 0 and "seq" > :cursor order by "seq" asc limit :limit"#,
+        )?;
+        let rows = statement.query_map(
+            named_params! { ":cursor": cursor, ":limit": limit },
+            |row| {
+                Ok(SeqRow {
+                    seq: row.get(0)?,
+                    did: row.get(1)?,
+                    event_type: row.get(2)?,
+                    event: row.get(3)?,
+                    sequenced_at: row.get(4)?,
+                })
+            },
+        )?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// The newest event of `did` among `types`, or `None`.
+    pub fn latest_of(&self, did: &str, types: &[&str]) -> Result<Option<SeqRow>, StorageError> {
+        let mut statement = self.conn.prepare_cached(
+            r#"select "seq", "did", "eventType", "event", "sequencedAt" from "repo_seq" where "did" = :did and "invalidated" = 0 order by "seq" desc"#,
+        )?;
+        let mut rows = statement.query(named_params! { ":did": did })?;
+        while let Some(row) = rows.next()? {
+            let event_type: String = row.get(2)?;
+            if types.contains(&event_type.as_str()) {
+                return Ok(Some(SeqRow {
+                    seq: row.get(0)?,
+                    did: row.get(1)?,
+                    event_type,
+                    event: row.get(3)?,
+                    sequenced_at: row.get(4)?,
+                }));
+            }
+        }
+        Ok(None)
     }
 
     /// The number of events.

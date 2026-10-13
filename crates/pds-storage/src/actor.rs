@@ -65,7 +65,7 @@ pub struct FoundBlocks {
     pub missing: Vec<Cid>,
 }
 
-/// A read connection to one actor's `store.sqlite`.
+/// A connection to one actor's `store.sqlite`.
 #[derive(Debug)]
 pub struct ActorDb {
     conn: Connection,
@@ -92,6 +92,14 @@ impl ActorDb {
         Ok(Self {
             conn: open_read_only(path)?,
         })
+    }
+
+    pub(crate) const fn from_connection(conn: Connection) -> Self {
+        Self { conn }
+    }
+
+    pub(crate) const fn conn(&self) -> &Connection {
+        &self.conn
     }
 
     /// The latest commit, or `None` for a store without one.

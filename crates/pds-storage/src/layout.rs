@@ -16,6 +16,8 @@ pub struct DataLayout {
     pub sequencer_db: PathBuf,
     /// `did_cache.sqlite`.
     pub did_cache_db: PathBuf,
+    /// `ops.sqlite`, which only the Candidate keeps.
+    pub ops_db: PathBuf,
     /// The directory of the actor stores.
     pub actor_dir: PathBuf,
 }
@@ -27,6 +29,7 @@ impl DataLayout {
             account_db: data_dir.join("account.sqlite"),
             sequencer_db: data_dir.join("sequencer.sqlite"),
             did_cache_db: data_dir.join("did_cache.sqlite"),
+            ops_db: data_dir.join("ops.sqlite"),
             actor_dir: data_dir.join("actors"),
         }
     }
@@ -71,6 +74,18 @@ impl DataLayout {
 /// ignores a `-wal` file, and a copy of a live database can carry one.
 pub(crate) fn open_read_only(path: &Path) -> Result<Connection, StorageError> {
     let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+    let conn = Connection::open_with_flags(path, flags)?;
+    conn.busy_timeout(std::time::Duration::from_secs(5))?;
+    Ok(conn)
+}
+
+/// Opens a database that exists for reading and writing.
+///
+/// The Reference sets no pragma besides the journal mode, which the file
+/// keeps: `synchronous` stays at SQLite's default, so a commit is synced
+/// (SPEC §8.3). It handles a busy database itself; here SQLite waits.
+pub(crate) fn open_read_write(path: &Path) -> Result<Connection, StorageError> {
+    let flags = OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX;
     let conn = Connection::open_with_flags(path, flags)?;
     conn.busy_timeout(std::time::Duration::from_secs(5))?;
     Ok(conn)

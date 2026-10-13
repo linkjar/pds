@@ -5,7 +5,7 @@ use std::path::Path;
 use rusqlite::{Connection, OptionalExtension, Row, named_params};
 
 use crate::error::StorageError;
-use crate::layout::open_read_only;
+use crate::layout::{open_read_only, open_read_write};
 
 /// One row of `actor`: a hosted repository and its status.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -68,7 +68,7 @@ pub struct RepoListing {
     pub rev: String,
 }
 
-/// A read connection to `account.sqlite`.
+/// A connection to `account.sqlite`.
 #[derive(Debug)]
 pub struct AccountDb {
     conn: Connection,
@@ -93,6 +93,28 @@ impl AccountDb {
         Ok(Self {
             conn: open_read_only(path)?,
         })
+    }
+
+    /// Opens the database for reading and writing.
+    pub fn open_writable(path: &Path) -> Result<Self, StorageError> {
+        Ok(Self {
+            conn: open_read_write(path)?,
+        })
+    }
+
+    /// Records the latest commit of an account, which `listRepos` reads.
+    pub fn update_repo_root(
+        &self,
+        did: &str,
+        cid: &str,
+        rev: &str,
+        now: &str,
+    ) -> Result<(), StorageError> {
+        self.conn.execute(
+            r#"insert into "repo_root" ("did", "cid", "rev", "indexedAt") values (:did, :cid, :rev, :now) on conflict ("did") do update set "cid" = :cid, "rev" = :rev"#,
+            rusqlite::named_params! { ":did": did, ":cid": cid, ":rev": rev, ":now": now },
+        )?;
+        Ok(())
     }
 
     /// Runs the query the health route runs.

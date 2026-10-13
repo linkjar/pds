@@ -433,10 +433,27 @@ impl TidGenerator {
 
     /// The next TID, strictly greater than every TID this generator produced.
     pub fn next(&self) -> Tid {
+        self.next_from(0)
+    }
+
+    /// The next TID, strictly greater than `prev` and than every TID this
+    /// generator produced. A revision follows the revision before it even
+    /// when another server wrote that one with a clock ahead of this one
+    /// (SPEC §6.2).
+    pub fn next_after(&self, prev: &Tid) -> Tid {
+        self.next_from(prev.timestamp_micros())
+    }
+
+    fn next_from(&self, floor: u64) -> Tid {
         let now = (self.now_micros)();
         let mut prev = self.last.load(Ordering::SeqCst);
         loop {
-            let next = if now > prev { now } else { prev + 1 };
+            let prev_or_floor = prev.max(floor);
+            let next = if now > prev_or_floor {
+                now
+            } else {
+                prev_or_floor + 1
+            };
             match self
                 .last
                 .compare_exchange(prev, next, Ordering::SeqCst, Ordering::SeqCst)
