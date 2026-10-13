@@ -193,6 +193,20 @@ impl Server {
         (root.cid.to_string(), root.rev)
     }
 
+    /// The type and the revision of the last event of `did` in the log.
+    fn last_event(&self, did: &str) -> (String, String) {
+        common::open(&self.dir.root.join("sequencer.sqlite"))
+            .query_row(
+                "select eventType, event from repo_seq where did = ?1 order by seq desc limit 1",
+                [did],
+                |row| {
+                    let event: Vec<u8> = row.get(1)?;
+                    Ok((row.get(0)?, pds_sequencer::event_rev(&event).unwrap()))
+                },
+            )
+            .unwrap()
+    }
+
     fn assert_verifies(&self) {
         let report = verify(&self.dir.config).unwrap();
         assert!(report.findings.is_empty(), "{:#?}", report.findings);
@@ -721,19 +735,7 @@ async fn an_import_replaces_the_repository_and_checks_the_commit() {
     server.assert_verifies();
     // The account is active, so the import states the head (DD-19). The
     // event names the revision of the commit block.
-    let last_event = || -> (String, String) {
-        common::open(&server.dir.root.join("sequencer.sqlite"))
-            .query_row(
-                "select eventType, event from repo_seq where did = ?1 order by seq desc limit 1",
-                [ALICE],
-                |row| {
-                    let event: Vec<u8> = row.get(1)?;
-                    Ok((row.get(0)?, pds_sequencer::event_rev(&event).unwrap()))
-                },
-            )
-            .unwrap()
-    };
-    assert_eq!(last_event(), ("sync".to_owned(), rev.clone()));
+    assert_eq!(server.last_event(ALICE), ("sync".to_owned(), rev.clone()));
 
     // Another repository of the same account, signed with its key.
     assert_eq!(import(repository(ALICE, 0, &["a", "b"])).await.status, 200);
