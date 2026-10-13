@@ -901,3 +901,179 @@ async fn the_admin_makes_invite_codes_and_sees_who_used_them() {
         (400, "unknown sort method: other")
     );
 }
+
+#[tokio::test]
+async fn email_tokens_confirm_an_address_change_it_and_reset_a_password() {
+    let server = Server::start(&[]).await;
+    let (_, made) = server
+        .create(&json!({"handle": "karen.pds-users.org", "email": "karen@example.com", "password": PASSWORD}))
+        .await;
+    let (did, access) = (
+        text(&made, "did").to_owned(),
+        text(&made, "accessJwt").to_owned(),
+    );
+    let db = || common::open(&server.dir.root.join("account.sqlite"));
+    let token = |purpose: &str| -> String {
+        db().query_row(
+            r#"select "token" from "email_token" where "did" = ?1 and "purpose" = ?2"#,
+            [did.as_str(), purpose],
+            |row| row.get(0),
+        )
+        .unwrap()
+    };
+    let call = |nsid: &'static str, body: Value| {
+        let (server, access) = (&server, &access);
+        async move { server.post(nsid, Some(access), &body).await }
+    };
+    let refused = |answer: (u16, Value)| (answer.0, text(&answer.1, "error").to_owned());
+
+    // Confirm the address.
+    assert_eq!(
+        call("com.atproto.server.requestEmailConfirmation", Value::Null)
+            .await
+            .0,
+        200
+    );
+    let confirm = token("confirm_email");
+    assert_eq!(confirm.len(), 11);
+    assert_eq!(confirm, confirm.to_uppercase());
+    let confirm_email = "com.atproto.server.confirmEmail";
+    assert_eq!(
+        refused(
+            call(
+                confirm_email,
+                json!({"email": "other@example.com", "token": confirm})
+            )
+            .await
+        ),
+        (400, "InvalidEmail".to_owned())
+    );
+    assert_eq!(
+        refused(
+            call(
+                confirm_email,
+                json!({"email": "karen@example.com", "token": "AAAAA-BBBBB"})
+            )
+            .await
+        ),
+        (400, "InvalidToken".to_owned())
+    );
+    // A token is read in any case, once.
+    let (status, body) = call(
+        confirm_email,
+        json!({"email": "Karen@Example.com", "token": confirm.to_lowercase()}),
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(
+        refused(
+            call(
+                confirm_email,
+                json!({"email": "karen@example.com", "token": confirm})
+            )
+            .await
+        ),
+        (400, "InvalidToken".to_owned())
+    );
+
+    // Change the address: a confirmed one needs a token.
+    let update = "com.atproto.server.updateEmail";
+    let (_, asked) = call("com.atproto.server.requestEmailUpdate", Value::Null).await;
+    assert_eq!(asked, json!({"tokenRequired": true}));
+    assert_eq!(
+        refused(call(update, json!({"email": "karen2@example.com"})).await),
+        (400, "TokenRequired".to_owned())
+    );
+    let (status, body) = call(
+        update,
+        json!({"email": "alice@example.com", "token": token("update_email")}),
+    )
+    .await;
+    assert_eq!(status, 400, "{body}");
+    let (status, body) = call(
+        update,
+        json!({"email": "Karen2@example.com", "token": token("update_email")}),
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    let (_, asked) = call("com.atproto.server.requestEmailUpdate", Value::Null).await;
+    assert_eq!(asked, json!({"tokenRequired": false}));
+
+    // Reset the password: a token past 15 minutes is expired, a fresh one
+    // sets the password and ends the sessions.
+    let reset = "com.atproto.server.resetPassword";
+    let (status, body) = server
+        .post(
+            "com.atproto.server.requestPasswordReset",
+            None,
+            &json!({"email": "nobody@example.com"}),
+        )
+        .await;
+    assert_eq!(
+        (status, text(&body, "message")),
+        (400, "account does not have an email address")
+    );
+    assert_eq!(
+        server
+            .post(
+                "com.atproto.server.requestPasswordReset",
+                None,
+                &json!({"email": "KAREN2@example.com"})
+            )
+            .await
+            .0,
+        200
+    );
+    let first = token("reset_password");
+    db().execute(
+        r#"update "email_token" set "requestedAt" = '2000-01-01T00:00:00.000Z' where "purpose" = 'reset_password'"#,
+        [],
+    )
+    .unwrap();
+    assert_eq!(
+        refused(
+            server
+                .post(
+                    reset,
+                    None,
+                    &json!({"token": first, "password": "new-password"})
+                )
+                .await
+        ),
+        (400, "ExpiredToken".to_owned())
+    );
+    server
+        .post(
+            "com.atproto.server.requestPasswordReset",
+            None,
+            &json!({"email": "karen2@example.com"}),
+        )
+        .await;
+    let (status, body) = server
+        .post(
+            reset,
+            None,
+            &json!({"token": token("reset_password"), "password": "new-password"}),
+        )
+        .await;
+    assert_eq!(status, 200, "{body}");
+    let login = |password: &'static str| {
+        let body = json!({"identifier": did, "password": password});
+        let server = &server;
+        async move {
+            server
+                .post("com.atproto.server.createSession", None, &body)
+                .await
+        }
+    };
+    assert_eq!(login(PASSWORD).await.0, 401);
+    assert_eq!(login("new-password").await.0, 200);
+    let (status, body) = server
+        .post(
+            "com.atproto.server.refreshSession",
+            Some(text(&made, "refreshJwt")),
+            &Value::Null,
+        )
+        .await;
+    assert_eq!((status, text(&body, "error")), (400, "ExpiredToken"));
+}

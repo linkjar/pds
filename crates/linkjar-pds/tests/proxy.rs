@@ -254,7 +254,7 @@ async fn a_method_without_a_handler_goes_to_the_appview_with_a_service_token() {
     let (status, _, body) = server
         .send(
             server
-                .get("com.atproto.server.requestEmailUpdate")
+                .get("com.atproto.admin.sendEmail")
                 .bearer_auth(&access),
         )
         .await;

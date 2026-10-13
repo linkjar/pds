@@ -409,6 +409,96 @@ impl AccountDb {
         Ok(updated > 0)
     }
 
+    /// Stores the email token of `did` for `purpose`, in place of the one
+    /// before.
+    pub fn create_email_token(
+        &self,
+        did: &str,
+        purpose: &str,
+        token: &str,
+        now: &str,
+    ) -> Result<(), StorageError> {
+        self.conn.execute(
+            r#"insert into "email_token" ("purpose", "did", "token", "requestedAt") values (?1, ?2, ?3, ?4) on conflict ("purpose", "did") do update set "token" = excluded."token", "requestedAt" = excluded."requestedAt""#,
+            [purpose, did, token, now],
+        )?;
+        Ok(())
+    }
+
+    /// The account and the request time of an email token. With `did` the
+    /// token must be that account's.
+    pub fn email_token(
+        &self,
+        purpose: &str,
+        token: &str,
+        did: Option<&str>,
+    ) -> Result<Option<(String, String)>, StorageError> {
+        Ok(self
+            .conn
+            .query_row(
+                r#"select "did", "requestedAt" from "email_token" where "purpose" = ?1 and "token" = ?2 and (?3 is null or "did" = ?3)"#,
+                rusqlite::params![purpose, token, did],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?)
+    }
+
+    /// Marks the email address of `did` as confirmed at `now` and removes
+    /// the token that confirmed it.
+    pub fn confirm_email(&mut self, did: &str, now: &str) -> Result<(), StorageError> {
+        let txn = self.conn.transaction()?;
+        txn.execute(
+            r#"delete from "email_token" where "did" = ?1 and "purpose" = 'confirm_email'"#,
+            [did],
+        )?;
+        txn.execute(
+            r#"update "account" set "emailConfirmedAt" = ?2 where "did" = ?1"#,
+            [did, now],
+        )?;
+        txn.commit()?;
+        Ok(())
+    }
+
+    /// Gives an account another email address, not confirmed, and removes
+    /// its email tokens. Returns `false`, and changes nothing, when
+    /// another account has the address.
+    pub fn update_email(&mut self, did: &str, email: &str) -> Result<bool, StorageError> {
+        let email = email.to_lowercase();
+        let txn = self.conn.transaction()?;
+        let taken: bool = txn.query_row(
+            r#"select count(*) > 0 from "account" where lower("email") = ?1 and "did" != ?2"#,
+            [&email, did],
+            |row| row.get(0),
+        )?;
+        if taken {
+            return Ok(false);
+        }
+        txn.execute(
+            r#"update "account" set "email" = ?2, "emailConfirmedAt" = null where "did" = ?1"#,
+            [did, &email],
+        )?;
+        txn.execute(r#"delete from "email_token" where "did" = ?1"#, [did])?;
+        txn.commit()?;
+        Ok(true)
+    }
+
+    /// Gives an account another password. Its sessions end, and the token
+    /// that reset the password is removed.
+    pub fn update_password(&mut self, did: &str, hash: &str) -> Result<(), StorageError> {
+        let txn = self.conn.transaction()?;
+        txn.execute(
+            r#"update "account" set "passwordScrypt" = ?2 where "did" = ?1"#,
+            [did, hash],
+        )?;
+        txn.execute(
+            r#"delete from "email_token" where "did" = ?1 and "purpose" = 'reset_password'"#,
+            [did],
+        )?;
+        txn.execute(r#"delete from "refresh_token" where "did" = ?1"#, [did])?;
+        txn.commit()?;
+        Ok(())
+    }
+
     /// Stores invite codes: each code with the account it is for.
     pub fn create_invite_codes(
         &mut self,

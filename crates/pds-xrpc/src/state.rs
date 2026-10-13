@@ -48,6 +48,8 @@ pub struct ServerConfig {
     /// What the server needs to create an identity. Without it no account
     /// is created.
     pub identity: Option<IdentityConfig>,
+    /// How the server sends mail and what its mails look like.
+    pub mail: crate::mail::MailConfig,
 }
 
 /// What the server needs to create and change `did:plc` identities.
