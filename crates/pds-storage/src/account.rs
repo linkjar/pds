@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use rusqlite::{Connection, OptionalExtension, Row, named_params};
+use crate::sql::{Connection, OptionalExtension, Row, named_params, params};
 
 use crate::error::StorageError;
 use crate::layout::{open_read_only, open_read_write};
@@ -202,7 +202,7 @@ pub struct AccountDb {
 const ACTOR_COLUMNS: &str =
     r#"actor."did", actor."handle", actor."createdAt", actor."takedownRef", actor."deactivatedAt""#;
 
-fn actor_from_row(row: &Row<'_>) -> rusqlite::Result<Actor> {
+fn actor_from_row(row: &Row<'_>) -> crate::sql::Result<Actor> {
     Ok(Actor {
         did: row.get(0)?,
         handle: row.get(1)?,
@@ -212,7 +212,7 @@ fn actor_from_row(row: &Row<'_>) -> rusqlite::Result<Actor> {
     })
 }
 
-fn invite_available(conn: &rusqlite::Connection, code: &str) -> Result<bool, StorageError> {
+fn invite_available(conn: &Connection, code: &str) -> Result<bool, StorageError> {
     let invite: Option<(i64, Option<i64>)> = conn
         .query_row(
             r#"select invite_code."availableUses", invite_code."disabled" from "invite_code" left join "actor" on actor."did" = invite_code."forAccount" where actor."takedownRef" is null and invite_code."code" = ?1"#,
@@ -238,14 +238,14 @@ impl AccountDb {
     /// Opens the database for reading.
     pub fn open(path: &Path) -> Result<Self, StorageError> {
         Ok(Self {
-            conn: open_read_only(path)?,
+            conn: open_read_only(path)?.into(),
         })
     }
 
     /// Opens the database for reading and writing.
     pub fn open_writable(path: &Path) -> Result<Self, StorageError> {
         Ok(Self {
-            conn: open_read_write(path)?,
+            conn: open_read_write(path)?.into(),
         })
     }
 
@@ -259,7 +259,7 @@ impl AccountDb {
     ) -> Result<(), StorageError> {
         self.conn.execute(
             r#"insert into "repo_root" ("did", "cid", "rev", "indexedAt") values (:did, :cid, :rev, :now) on conflict ("did") do update set "cid" = :cid, "rev" = :rev"#,
-            rusqlite::named_params! { ":did": did, ":cid": cid, ":rev": rev, ":now": now },
+            named_params! { ":did": did, ":cid": cid, ":rev": rev, ":now": now },
         )?;
         Ok(())
     }
@@ -354,7 +354,7 @@ impl AccountDb {
                 |row| {
                     Ok(AppPassword {
                         name: row.get(0)?,
-                        privileged: row.get::<_, i64>(1)? == 1,
+                        privileged: row.get::<i64>(1)? == 1,
                     })
                 },
             )
@@ -367,7 +367,7 @@ impl AccountDb {
         let txn = self.conn.transaction()?;
         txn.execute(
             r#"update "actor" set "takedownRef" = ?2 where "did" = ?1"#,
-            rusqlite::params![did, takedown],
+            params![did, takedown],
         )?;
         txn.execute(r#"delete from "refresh_token" where "did" = ?1"#, [did])?;
         txn.commit()?;
@@ -382,7 +382,7 @@ impl AccountDb {
             .query_row(
                 r#"select "invitesDisabled" from "account" where "did" = ?1"#,
                 [did],
-                |row| row.get::<_, i64>(0).map(|value| value == 1),
+                |row| row.get::<i64>(0).map(|value| value == 1),
             )
             .optional()?)
     }
@@ -408,7 +408,7 @@ impl AccountDb {
     ) -> Result<bool, StorageError> {
         let updated = self.conn.execute(
             r#"update "actor" set "deactivatedAt" = ?2, "deleteAfter" = ?3 where "did" = ?1"#,
-            rusqlite::params![did, now, delete_after],
+            params![did, now, delete_after],
         )?;
         Ok(updated > 0)
     }
@@ -451,7 +451,7 @@ impl AccountDb {
             .conn
             .query_row(
                 r#"select "did", "requestedAt" from "email_token" where "purpose" = ?1 and "token" = ?2 and (?3 is null or "did" = ?3)"#,
-                rusqlite::params![purpose, token, did],
+                params![purpose, token, did],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .optional()?)
@@ -544,7 +544,7 @@ impl AccountDb {
         for (code, for_account) in codes {
             txn.execute(
                 r#"insert into "invite_code" ("code", "availableUses", "disabled", "forAccount", "createdBy", "createdAt") values (?1, ?2, 0, ?3, ?4, ?5)"#,
-                rusqlite::params![code, use_count, for_account, created_by, now],
+                params![code, use_count, for_account, created_by, now],
             )?;
         }
         txn.commit()?;
@@ -554,7 +554,7 @@ impl AccountDb {
     /// Invite codes with their uses.
     pub fn invite_codes(&self, which: Invites<'_>) -> Result<Vec<InviteCode>, StorageError> {
         const SELECT: &str = r#"select * from (select invite_code."code" as code, invite_code."availableUses" as available, invite_code."disabled" as disabled, invite_code."forAccount" as forAccount, invite_code."createdBy" as createdBy, invite_code."createdAt" as createdAt, (select count(*) from "invite_code_use" where invite_code_use."code" = invite_code."code") as uses from "invite_code") as codes"#;
-        let (tail, params): (String, Vec<rusqlite::types::Value>) = match which {
+        let (tail, params): (String, Vec<crate::sql::Value>) = match which {
             Invites::For(did) => (" where forAccount = ?1".to_owned(), vec![did.to_owned().into()]),
             Invites::UsedBy(did) => (
                 r#" where code in (select distinct "code" from "invite_code_use" where "usedBy" = ?1)"#.to_owned(),
@@ -582,11 +582,11 @@ impl AccountDb {
             },
         };
         let mut statement = self.conn.prepare(&format!("{SELECT}{tail}"))?;
-        let rows = statement.query_map(rusqlite::params_from_iter(params), |row| {
+        let rows = statement.query_map(crate::sql::params_from_iter(params), |row| {
             Ok(InviteCode {
                 code: row.get(0)?,
                 available: row.get(1)?,
-                disabled: row.get::<_, Option<i64>>(2)?.unwrap_or(0) == 1,
+                disabled: row.get::<Option<i64>>(2)?.unwrap_or(0) == 1,
                 for_account: row.get(3)?,
                 created_by: row.get(4)?,
                 created_at: row.get(5)?,
@@ -632,7 +632,7 @@ impl AccountDb {
     pub fn set_invites_disabled(&self, did: &str, disabled: bool) -> Result<(), StorageError> {
         self.conn.execute(
             r#"update "account" set "invitesDisabled" = ?2 where "did" = ?1"#,
-            rusqlite::params![did, i64::from(disabled)],
+            params![did, i64::from(disabled)],
         )?;
         Ok(())
     }
@@ -659,7 +659,7 @@ impl AccountDb {
         let deactivated_at = (new.deactivated || new.delete_after.is_some()).then_some(new.now);
         let actor = txn.execute(
             r#"insert into "actor" ("did", "handle", "createdAt", "deactivatedAt", "deleteAfter") values (?1, ?2, ?3, ?4, ?5) on conflict do nothing"#,
-            rusqlite::params![new.did, new.handle, new.now, deactivated_at, new.delete_after],
+            params![new.did, new.handle, new.now, deactivated_at, new.delete_after],
         )?;
         if actor == 0 {
             return Ok(Err(Refused::Exists));
@@ -731,11 +731,7 @@ impl AccountDb {
             "actor",
         ] {
             // A test directory may lack a table that nothing in it uses.
-            let exists: bool = txn.query_row(
-                "select count(*) > 0 from sqlite_master where type = 'table' and name = ?1",
-                [table],
-                |row| row.get(0),
-            )?;
+            let exists = txn.table_exists(table)?;
             if exists {
                 txn.execute(&format!(r#"delete from "{table}" where "did" = ?1"#), [did])?;
             }
@@ -756,7 +752,7 @@ impl AccountDb {
     ) -> Result<bool, StorageError> {
         let stored = self.conn.execute(
             r#"insert into "app_password" ("did", "name", "passwordScrypt", "createdAt", "privileged") values (?1, ?2, ?3, ?4, ?5) on conflict do nothing"#,
-            rusqlite::params![did, name, hash, created_at, i64::from(privileged)],
+            params![did, name, hash, created_at, i64::from(privileged)],
         )?;
         Ok(stored > 0)
     }
@@ -771,7 +767,7 @@ impl AccountDb {
             r#"select "name", "createdAt", "privileged" from "app_password" where "did" = ?1 order by "createdAt" desc"#,
         )?;
         let rows = statement.query_map([did], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get::<_, i64>(2)? == 1))
+            Ok((row.get(0)?, row.get(1)?, row.get::<i64>(2)? == 1))
         })?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
@@ -802,7 +798,7 @@ impl AccountDb {
     ) -> Result<(), StorageError> {
         self.conn.execute(
             r#"insert into "refresh_token" ("id", "did", "appPasswordName", "expiresAt") values (?1, ?2, ?3, ?4) on conflict do nothing"#,
-            rusqlite::params![id, did, app_password, expires_at],
+            params![id, did, app_password, expires_at],
         )?;
         Ok(())
     }

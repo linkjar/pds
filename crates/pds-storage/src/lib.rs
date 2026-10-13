@@ -25,9 +25,11 @@ pub mod layout;
 pub mod linkjar;
 pub mod oauth;
 pub mod ops;
+pub mod pg;
 pub mod schema;
 pub mod schema_shared;
 pub mod sequencer;
+pub mod sql;
 
 pub use account::{
     Account, AccountDb, Actor, AppPassword, Availability, InviteCode, Invites, NewAccount,

@@ -5,7 +5,7 @@
 //! Candidate applies the ones that a database lacks, under the same names,
 //! so each server opens a database that the other migrated.
 
-use rusqlite::{OptionalExtension, params};
+use crate::sql::{Connection, OptionalExtension, params};
 
 use crate::account::AccountDb;
 use crate::error::StorageError;
@@ -81,7 +81,7 @@ pub struct Identity {
 /// Stores an identity for an account. `false` means the identity has an
 /// account already: an identity is one account's.
 pub(crate) fn insert_identity(
-    conn: &rusqlite::Connection,
+    conn: &Connection,
     did: &str,
     identity: &NewIdentity<'_>,
     now: &str,
@@ -106,7 +106,7 @@ pub(crate) fn insert_identity(
 /// account of its own yet. `false` means it is not, and the account must
 /// not be created.
 pub(crate) fn register_signup(
-    conn: &rusqlite::Connection,
+    conn: &Connection,
     did: &str,
     request: &str,
     client: &str,
@@ -128,7 +128,7 @@ impl AccountDb {
             .query_row(
                 r#"select "signupDid" from "authorization_request" where "code" = ?1"#,
                 [code],
-                |row| row.get::<_, Option<String>>(0),
+                |row| row.get::<Option<String>>(0),
             )
             .optional()?
             .flatten())
@@ -347,7 +347,7 @@ impl AccountDb {
                 r#"select "provider", "subject" from "external_identity" where "did" = ?1"#,
             )?;
             let rows = statement.query_map([did], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                Ok((row.get::<String>(0)?, row.get::<String>(1)?))
             })?;
             let mut count = 0;
             for row in rows {
@@ -452,7 +452,7 @@ pub struct Notice {
 /// Enqueues a notice for the account's address of this moment. An account
 /// without an address gets none.
 pub(crate) fn enqueue_notice(
-    conn: &rusqlite::Connection,
+    conn: &Connection,
     id: &str,
     did: &str,
     action: &str,

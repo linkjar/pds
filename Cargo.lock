@@ -1667,6 +1667,7 @@ dependencies = [
  "cid",
  "data-encoding",
  "pds-repo",
+ "rand 0.9.5",
  "rusqlite",
  "sha2",
  "thiserror",
