@@ -35,6 +35,9 @@ socket2.workspace = true
 cid.workspace = true
 
 [dev-dependencies]
+tokio-tungstenite.workspace = true
+futures-util = { workspace = true, features = ["sink"] }
+pds-sequencer.workspace = true
 rusqlite.workspace = true
 hmac.workspace = true
 sha2.workspace = true

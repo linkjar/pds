@@ -17,7 +17,7 @@ const TIMEOUT: Duration = Duration::from_secs(30);
 /// The hosts to notify and when they were last notified.
 pub struct Crawlers {
     hostname: String,
-    crawlers: Vec<String>,
+    hosts: Vec<String>,
     http: reqwest::Client,
     last_notified_ms: Mutex<Option<i64>>,
 }
@@ -26,7 +26,7 @@ impl std::fmt::Debug for Crawlers {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Crawlers")
             .field("hostname", &self.hostname)
-            .field("crawlers", &self.crawlers)
+            .field("hosts", &self.hosts)
             .finish_non_exhaustive()
     }
 }
@@ -38,7 +38,7 @@ impl Crawlers {
     pub fn new(hostname: String, crawlers: Vec<String>, http: reqwest::Client) -> Self {
         Self {
             hostname,
-            crawlers,
+            hosts: crawlers,
             http,
             last_notified_ms: Mutex::new(None),
         }
@@ -64,13 +64,13 @@ impl Crawlers {
     ///
     /// Call it inside a Tokio runtime. Outside one it does nothing.
     pub fn notify_of_update(&self, now_ms: i64) {
-        if self.crawlers.is_empty() || !self.due(now_ms) {
+        if self.hosts.is_empty() || !self.due(now_ms) {
             return;
         }
         let Ok(runtime) = tokio::runtime::Handle::try_current() else {
             return;
         };
-        for crawler in &self.crawlers {
+        for crawler in &self.hosts {
             let url = format!("{crawler}/xrpc/com.atproto.sync.requestCrawl");
             let body = serde_json::json!({ "hostname": self.hostname }).to_string();
             let request = self

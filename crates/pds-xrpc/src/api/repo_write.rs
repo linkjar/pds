@@ -39,7 +39,7 @@ fn write_state(state: &AppState) -> Result<&WriteState, XrpcError> {
 
 /// The account a request names, as `findAccount` of the Reference finds
 /// it. This call blocks.
-fn find_account(
+pub(crate) fn find_account(
     state: &AppState,
     handle_or_did: &str,
     check_takedown: bool,

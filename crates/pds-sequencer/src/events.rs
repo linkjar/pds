@@ -285,7 +285,7 @@ mod tests {
             body.get("status"),
             Some(&Data::String("deactivated".to_owned()))
         );
-        assert!(reader.remaining().is_empty());
+        assert_eq!(reader.remaining(), [0_u8; 0]);
     }
 
     #[test]

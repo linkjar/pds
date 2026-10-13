@@ -1116,6 +1116,7 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "cid",
+ "futures-util",
  "hmac",
  "pds-blob",
  "pds-identity",
@@ -1131,6 +1132,7 @@ dependencies = [
  "socket2",
  "thiserror",
  "tokio",
+ "tokio-tungstenite",
  "tracing",
  "tracing-subscriber",
 ]

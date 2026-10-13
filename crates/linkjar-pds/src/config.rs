@@ -288,6 +288,47 @@ impl Env<'_> {
             .map_or(default, Duration::from_millis))
     }
 
+    /// The `PDS_*` variables that Appendix C does not name. A variable that
+    /// it refuses is an error.
+    fn unknown_variables(&self) -> Result<Vec<String>, ConfigError> {
+        let mut unknown = Vec::new();
+        for name in self.0.keys().filter(|name| name.starts_with("PDS_")) {
+            if let Some(reason) = refusal(name) {
+                // An empty value is an unset variable, as everywhere else.
+                if self.0.get(name).is_some_and(|value| !value.is_empty()) {
+                    return Err(ConfigError::Refused {
+                        name: name.clone(),
+                        reason,
+                    });
+                }
+            } else if !is_known(name) {
+                unknown.push(name.clone());
+            }
+        }
+        Ok(unknown)
+    }
+
+    /// A list of URLs separated by commas, each without its trailing slash.
+    fn urls(&self, name: &'static str) -> Result<Vec<String>, ConfigError> {
+        self.text(name)
+            .unwrap_or_default()
+            .split(',')
+            .map(str::trim)
+            .filter(|url| !url.is_empty())
+            .map(|url| {
+                if url.starts_with("http://") || url.starts_with("https://") {
+                    Ok(url.trim_end_matches('/').to_owned())
+                } else {
+                    Err(ConfigError::Invalid {
+                        name,
+                        value: url.to_owned(),
+                        reason: "expected http or https URLs separated by commas",
+                    })
+                }
+            })
+            .collect()
+    }
+
     fn url(&self, name: &'static str) -> Result<Option<String>, ConfigError> {
         self.text(name)
             .map(|value| {
@@ -309,20 +350,7 @@ impl Config {
     /// Reads the configuration from `vars`.
     pub fn from_vars(vars: &BTreeMap<String, String>) -> Result<Self, ConfigError> {
         let env = Env(vars);
-        let mut unknown_variables = Vec::new();
-        for name in vars.keys().filter(|name| name.starts_with("PDS_")) {
-            if let Some(reason) = refusal(name) {
-                // An empty value is an unset variable, as everywhere else.
-                if env.0.get(name).is_some_and(|value| !value.is_empty()) {
-                    return Err(ConfigError::Refused {
-                        name: name.clone(),
-                        reason,
-                    });
-                }
-            } else if !is_known(name) {
-                unknown_variables.push(name.clone());
-            }
-        }
+        let unknown_variables = env.unknown_variables()?;
         let hostname = env
             .text("PDS_HOSTNAME")
             .unwrap_or_else(|| "localhost".to_owned());
@@ -373,23 +401,6 @@ impl Config {
             ops_db: default_layout.ops_db,
             actor_dir: path("PDS_ACTOR_STORE_DIRECTORY", default_layout.actor_dir),
         };
-        let mut crawlers = Vec::new();
-        for crawler in env
-            .text("PDS_CRAWLERS")
-            .unwrap_or_default()
-            .split(',')
-            .map(str::trim)
-            .filter(|crawler| !crawler.is_empty())
-        {
-            if !crawler.starts_with("http://") && !crawler.starts_with("https://") {
-                return Err(ConfigError::Invalid {
-                    name: "PDS_CRAWLERS",
-                    value: crawler.to_owned(),
-                    reason: "expected http or https URLs separated by commas",
-                });
-            }
-            crawlers.push(crawler.trim_end_matches('/').to_owned());
-        }
         let dev_mode = env.boolean("PDS_DEV_MODE")?.unwrap_or(false);
         Ok(Self {
             port: env.number("PDS_PORT")?.unwrap_or(2583),
@@ -400,7 +411,7 @@ impl Config {
                 .map(PathBuf::from),
             accepting_imports: env.boolean("PDS_ACCEPTING_REPO_IMPORTS")?.unwrap_or(true),
             max_import_size: env.number("PDS_MAX_REPO_IMPORT_SIZE")?,
-            crawlers,
+            crawlers: env.urls("PDS_CRAWLERS")?,
             max_subscription_buffer: env.number("PDS_MAX_SUBSCRIPTION_BUFFER")?.unwrap_or(500),
             repo_backfill_limit: env
                 .millis("PDS_REPO_BACKFILL_LIMIT_MS", Duration::from_hours(24))?,

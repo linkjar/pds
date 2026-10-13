@@ -40,6 +40,7 @@ pub fn arm(name: &str, action: Action) {
     points
         .get_or_insert_with(HashMap::new)
         .insert(name.to_owned(), action);
+    drop(points);
     ARMED.store(true, Ordering::Release);
 }
 
@@ -47,6 +48,7 @@ pub fn arm(name: &str, action: Action) {
 pub fn disarm_all() {
     let mut points = POINTS.lock().unwrap_or_else(PoisonError::into_inner);
     *points = None;
+    drop(points);
     ARMED.store(false, Ordering::Release);
 }
 

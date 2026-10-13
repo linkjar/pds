@@ -11,7 +11,6 @@
 
 use cid::Cid;
 use pds_identity::{Algorithm, Keypair};
-use pds_lexicon::wording::stringify_str;
 use pds_lexicon::{Corpus, validate_data_model, validate_record_key};
 use pds_repo::{Repo, RepoError, Write};
 use pds_sequencer::{CommitOp, commit_event, sync_event};
@@ -47,7 +46,7 @@ pub struct BlobUse {
 }
 
 /// A record that is ready to be written.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RecordWrite {
     /// `at://<did>/<collection>/<rkey>`.
     pub uri: String,
@@ -72,7 +71,7 @@ pub struct RecordWrite {
 }
 
 /// One write of a commit.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Prepared {
     /// A record at a key that has none.
     Create(RecordWrite),
@@ -169,6 +168,44 @@ fn blob_uses(value: &Data, found: &mut Vec<BlobUse>) -> Result<(), XrpcError> {
         }
         _ => Ok(()),
     }
+}
+
+/// The CID of every blob a stored record references, in either form: the
+/// typed reference and the form of before 2023.
+pub fn blob_cids(value: &Data) -> Vec<String> {
+    fn walk(value: &Data, found: &mut Vec<String>) {
+        match value {
+            Data::Array(items) => {
+                for item in items {
+                    walk(item, found);
+                }
+            }
+            Data::Object(fields) => {
+                let text = |key: &str| match fields.get(key) {
+                    Some(Data::String(text)) => Some(text),
+                    _ => None,
+                };
+                if text("$type").is_some_and(|tag| tag == "blob")
+                    && let Some(Data::Link(link)) = fields.get("ref")
+                {
+                    found.push(link.0.to_string());
+                } else if fields.len() == 2
+                    && let (Some(cid), Some(_)) = (text("cid"), text("mimeType"))
+                    && cid.parse::<Cid>().is_ok()
+                {
+                    found.push(cid.clone());
+                } else {
+                    for field in fields.values() {
+                        walk(field, found);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut found = Vec::new();
+    walk(value, &mut found);
+    found
 }
 
 /// Prepares a record for a create or an update: the `$type`, the record
@@ -333,6 +370,21 @@ impl Session<'_> {
         self.txn
     }
 
+    /// The server state.
+    pub const fn state(&self) -> &AppState {
+        self.state
+    }
+
+    /// The write path.
+    pub const fn writes(&self) -> &WriteState {
+        self.writes
+    }
+
+    /// The time of this work, as the log writes it.
+    pub fn now(&self) -> &str {
+        &self.now
+    }
+
     /// The account.
     pub const fn did(&self) -> &str {
         self.did
@@ -349,20 +401,19 @@ impl Session<'_> {
             )
         };
         match (write, write.swap()) {
-            (_, Swap::Unset) => Ok(()),
             // A create has no record to replace; an update and a delete
             // have one.
             (Prepared::Create(_), Swap::Cid(_))
             | (Prepared::Update(_) | Prepared::Delete { .. }, Swap::Absent) => Err(refuse()),
             (_, Swap::Absent) if current.is_some() => Err(refuse()),
-            (_, Swap::Absent) => Ok(()),
-            (_, Swap::Cid(swap)) if current == Some(swap) => Ok(()),
-            (_, Swap::Cid(_)) => Err(refuse()),
+            (_, Swap::Cid(swap)) if current != Some(swap) => Err(refuse()),
+            (_, Swap::Unset | Swap::Absent | Swap::Cid(_)) => Ok(()),
         }
     }
 
     /// Builds the commit of `writes`, stores it in the transaction and
     /// keeps its event for the end of the work.
+    #[allow(clippy::too_many_lines)] // the steps of the Reference's `processWrites`, in order
     pub fn process_writes(
         &mut self,
         writes: &[Prepared],
@@ -654,9 +705,11 @@ pub struct Repaired {
 }
 
 /// Settles the commits that were in flight when the server last stopped
-/// (SPEC §7.4). For each note in `ops.sqlite`: when the repository's head is
-/// the noted revision and the log has no event of that revision, the server
-/// appends `#sync` with the head. The note is removed in every case.
+/// (SPEC §7.4).
+///
+/// For each note in `ops.sqlite`: when the repository's head is the noted
+/// revision and the log has no event of that revision, the server appends
+/// `#sync` with the head. The note is removed in every case.
 ///
 /// This call blocks. Run it before the server accepts requests.
 pub fn repair(state: &AppState) -> Result<Repaired, XrpcError> {
@@ -704,9 +757,52 @@ pub fn repair(state: &AppState) -> Result<Repaired, XrpcError> {
     Ok(repaired)
 }
 
-/// A string as an error message quotes it.
-pub fn quoted(text: &str) -> String {
-    stringify_str(text)
+/// How long an upload waits for a record before the server collects it:
+/// one hour (SPEC §6.4; §2.3, DD-10).
+pub const UPLOAD_GRACE_MS: i64 = 60 * 60 * 1000;
+
+/// Removes the uploads that arrived more than [`UPLOAD_GRACE_MS`] ago and
+/// that no record references: the index row and the staged file. Returns
+/// how many it removed.
+///
+/// This call blocks, and it opens every actor store.
+pub fn collect_uploads(state: &AppState) -> Result<usize, XrpcError> {
+    let Some(blobs) = state.blobs() else {
+        return Ok(0);
+    };
+    let before = pds_sequencer::iso_millis(state.now_ms().saturating_sub(UPLOAD_GRACE_MS));
+    let actors = pds_storage::AccountDb::open(&state.layout().account_db)?.all_actors()?;
+    let mut collected = 0;
+    for actor in actors {
+        let path = state.layout().actor_db(&actor.did);
+        // A read first: most stores have nothing to collect, and a read
+        // takes no write lock.
+        let waiting = match ActorDb::open(&path).and_then(|db| db.pending_uploads(&before)) {
+            Ok(waiting) => waiting,
+            Err(error) => {
+                tracing::warn!(did = %actor.did, %error, "uploads: the actor store is unreadable");
+                continue;
+            }
+        };
+        if waiting.is_empty() {
+            continue;
+        }
+        // Read again inside the transaction: a record may have referenced
+        // an upload since.
+        let gone = transact(state, &actor.did, |session| {
+            let waiting = session.txn().pending_uploads(&before)?;
+            let cids: Vec<String> = waiting.iter().map(|upload| upload.cid.clone()).collect();
+            session.txn().delete_blobs(&cids)?;
+            Ok(waiting)
+        })?;
+        for upload in &gone {
+            if let Err(error) = blobs.delete_staged(&actor.did, &upload.temp_key) {
+                tracing::error!(did = %actor.did, cid = %upload.cid, %error, "could not delete a staged upload");
+            }
+        }
+        collected += gone.len();
+    }
+    Ok(collected)
 }
 
 #[cfg(test)]
@@ -733,9 +829,9 @@ mod tests {
         );
         assert_eq!(backlinks("u", &like)[0].path, "subject.uri");
         let not_a_did = data(r#"{"$type":"app.bsky.graph.follow","subject":"nobody"}"#);
-        assert!(backlinks("u", &not_a_did).is_empty());
+        assert_eq!(backlinks("u", &not_a_did), []);
         let post = data(r#"{"$type":"app.bsky.feed.post","subject":"did:plc:abc"}"#);
-        assert!(backlinks("u", &post).is_empty());
+        assert_eq!(backlinks("u", &post), []);
     }
 
     #[test]
