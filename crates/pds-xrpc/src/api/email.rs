@@ -329,7 +329,15 @@ pub async fn reset_password(
             }
             let hash = password::hash_with_salt(&given, &HEXLOWER.encode(&salt))
                 .ok_or_else(|| XrpcError::internal("the password could not be hashed"))?;
-            writes.with_accounts(|db| db.update_password(&did, &hash))?;
+            let notice = state
+                .config()
+                .profile
+                .produces_notices()
+                .then(|| crate::oauth::new_id(pds_oauth::token::Id::Request));
+            let now_ms = state.now_ms();
+            writes.with_accounts(|db| {
+                db.update_password(&did, &hash, notice.as_deref().map(|id| (id, now_ms)))
+            })?;
             Ok(())
         })
         .await?;
