@@ -20,6 +20,7 @@
 - [../parity/README.md](../parity/README.md): how the harness is built and run, the oracles, the restore run and the writes run of the Candidate, the contract its page driver relies on, and the port of the legacy suites.
 - [../parity/verify-at-pin.md](../parity/verify-at-pin.md): the twelve "verify at pin" answers with source and scenario, the rate-limiter table, and what the scenarios corrected in the specification.
 - [../parity/differences/README.md](../parity/differences/README.md): how the stock build and the production build differ, by patch, and how the Reference and the Candidate differ, by deliberate difference.
+- [../parity/results/perf-writes.md](../parity/results/perf-writes.md): S1 to S3 on the Reference and on the Candidate.
 - [../parity/results/perf-reference.md](../parity/results/perf-reference.md): the Reference's baseline for the performance scenarios.
 
 ## Research

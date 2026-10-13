@@ -135,13 +135,18 @@ pnpm parity writes               # writes and the firehose on both servers
 
 ## Measurements
 
-Three files hold the numbers measured so far:
+Four files hold the numbers measured so far:
 
 - [parity/results/perf-reads.md](parity/results/perf-reads.md): the reads
   of both servers on one data directory with a repository of 100,000
   records. The median `sync.getRepo` export of five runs took 1,385 ms on
   the reference server and 167 ms on the Rust server, for the same bytes.
   Memory before the first request was 280.4 MiB and 5.4 MiB.
+- [parity/results/perf-writes.md](parity/results/perf-writes.md): writes
+  on each server. With 1,000 records in the repository, one `createRecord`
+  took 14.4 ms on the reference server and 4.9 ms on the Rust server at
+  p50; a batch of 200 took 190.3 ms and 14.3 ms. With 100,000 records the
+  single write took 14.5 ms and 11.5 ms.
 - [parity/results/perf-reference.md](parity/results/perf-reference.md): the
   reference server's baseline for scenarios S1 to S5, S8 and S9 of SPEC
   §16.1.
@@ -149,7 +154,7 @@ Three files hold the numbers measured so far:
   `rsky-repo` on the same vectors and workload, the evidence for decision
   D2.
 
-Each of the two result files is one run on one host, an Apple M1 Pro under
+Each of the three result files is one run on one host, an Apple M1 Pro under
 Docker, and says of itself that it is not a benchmark. The requests in the
 read measurements are sequential, so they say nothing about throughput
 under load.
