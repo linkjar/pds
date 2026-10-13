@@ -94,19 +94,26 @@ pub async fn forward(
     // one cannot go to another server. The Reference refuses it the same
     // way.
     if crate::oauth::resource::is_dpop(headers) {
-        return Err(XrpcError::invalid_request("DPoP requests cannot be proxied"));
+        return Err(XrpcError::invalid_request(
+            "DPoP requests cannot be proxied",
+        ));
     }
     let url = match raw_query {
         Some(query) => format!("{}/xrpc/{nsid}?{query}", entryway.url),
         None => format!("{}/xrpc/{nsid}", entryway.url),
     };
+    let as_admin = FORWARDED_ADMIN.contains(&nsid);
     let mut request = state.http().request(method.clone(), url);
     for name in PASSED_ON {
+        // The admin credential of this host stays here.
+        if as_admin && name == header::AUTHORIZATION {
+            continue;
+        }
         if let Some(value) = headers.get(name) {
             request = request.header(name, value);
         }
     }
-    if FORWARDED_ADMIN.contains(&nsid) {
+    if as_admin {
         // The caller is the admin of this host. The entryway has its own.
         use crate::auth::{Credentials, optional_credentials};
         let admin = optional_credentials(headers, &state.config().auth, &[], state.now_s());

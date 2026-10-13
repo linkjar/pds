@@ -386,7 +386,7 @@ pub async fn entry(State(state): State<AppState>, request: axum::extract::Reques
             .await
             .unwrap_or_else(|| root::not_found(&method, path))
         };
-        return crate::ratelimit::scope(&state, &parts.headers, peer, oauth).await;
+        return Box::pin(crate::ratelimit::scope(&state, &parts.headers, peer, oauth)).await;
     }
     let Some(nsid) = path_nsid(path) else {
         return XrpcError::invalid_request("invalid xrpc path").into_response();
