@@ -233,7 +233,8 @@ fn rule(nsid: &str) -> Option<Rule> {
         | "com.atproto.repo.getRecord"
         | "com.atproto.repo.listRecords"
         | "com.atproto.repo.listMissingBlobs"
-        | "com.atproto.server.checkAccountStatus" => Rule::Any,
+        | "com.atproto.server.checkAccountStatus"
+        | "com.atproto.server.reserveSigningKey" => Rule::Any,
         "com.atproto.repo.createRecord"
         | "com.atproto.repo.putRecord"
         | "com.atproto.repo.deleteRecord"

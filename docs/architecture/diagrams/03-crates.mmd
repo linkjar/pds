@@ -24,10 +24,11 @@ flowchart BT
   identity --> types
   sequencer --> types & repo & storage
   account -.-> storage & identity & ext & audit
+  oauth --> identity
   oauth -.-> account & lexicon & ext
   audit -.-> storage & repo
-  xrpc --> types & repo & storage & identity & blob & lexicon & sequencer
-  xrpc -.-> account & oauth
+  xrpc --> types & repo & storage & identity & blob & lexicon & sequencer & oauth
+  xrpc -.-> account
   ext -.-> types & storage
   linkjar -.-> ext
   sim --> bin & xrpc & storage & sequencer & repo & identity & blob

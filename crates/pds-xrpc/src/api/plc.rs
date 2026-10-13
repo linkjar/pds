@@ -284,3 +284,59 @@ pub async fn submit_plc_operation(
     }
     Ok(StatusCode::OK.into_response())
 }
+
+/// `com.atproto.server.reserveSigningKey`: a signing key for an account
+/// that will come here. A DID gets the same key each time.
+pub async fn reserve_signing_key(
+    state: &AppState,
+    headers: &HeaderMap,
+    body: &mut Option<Body>,
+) -> Result<Response, XrpcError> {
+    let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
+    let did = body::string(&input, "did", false, crate::params::Format::Did, None, "$")?
+        .map(str::to_owned);
+    // The DID names a file. A DID has no path separator, and this one is
+    // not taken on trust.
+    if did
+        .as_deref()
+        .is_some_and(|did| did.starts_with('.') || did.contains(['/', '\\']))
+    {
+        return Err(XrpcError::invalid_request("unsafe path part"));
+    }
+    let writes = state
+        .writes()
+        .ok_or_else(|| XrpcError::internal("a read-only server reserves no key"))?;
+    let keypair = {
+        let mut draws = std::iter::repeat_with(|| writes.random());
+        Keypair::generate(Algorithm::Secp256k1, |bytes| {
+            for chunk in bytes.chunks_mut(8) {
+                let draw = draws.next().unwrap_or_default().to_be_bytes();
+                chunk.copy_from_slice(&draw[..chunk.len()]);
+            }
+        })
+    };
+    let signing_key = state
+        .blocking(move |state| {
+            let layout = state.layout();
+            if let Some(did) = &did
+                && let Ok(stored) = std::fs::read(layout.reserved_key(did))
+            {
+                return Ok(Keypair::from_secret_bytes(Algorithm::Secp256k1, &stored)
+                    .map_err(XrpcError::internal)?
+                    .did_key());
+            }
+            let key = keypair.did_key();
+            let path = layout.reserved_key(did.as_deref().unwrap_or(&key));
+            if let Some(dir) = path.parent() {
+                std::fs::create_dir_all(dir).map_err(XrpcError::internal)?;
+            }
+            std::fs::write(&path, keypair.secret_bytes().as_slice())
+                .map_err(XrpcError::internal)?;
+            Ok(key)
+        })
+        .await?;
+    Ok(json_response(
+        StatusCode::OK,
+        &json!({ "signingKey": signing_key }),
+    ))
+}

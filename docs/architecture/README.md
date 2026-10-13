@@ -60,9 +60,10 @@ SPEC §3.1. Arrows point from a crate to the crates it depends on; the binary
 wires everything and extension crates depend only on the trait crate. The
 graph is the target of SPEC §3.1. A solid arrow is a dependency in a crate
 manifest today. A dashed arrow is planned: every arrow to or from a crate
-that is still a stub (`pds-account`, `pds-oauth`, `pds-audit`, `pds-ext`,
-`pds-ext-linkjar`), and the arrows from `pds-storage` to `pds-types` and
-from `pds-blob` to `pds-storage`. `pds-sim` depends on the binary's
+that is still a stub (`pds-account`, `pds-audit`, `pds-ext`,
+`pds-ext-linkjar`), the arrows from `pds-oauth` to them and to
+`pds-lexicon`, and the arrows from `pds-storage` to `pds-types` and from
+`pds-blob` to `pds-storage`. `pds-sim` depends on the binary's
 library, for `verify`. Source:
 [`03-crates.mmd`](diagrams/03-crates.mmd).
 

@@ -1,6 +1,6 @@
 # LinkJar PDS Specification
 
-Status: Draft, revision 8, 2026-10-13
+Status: Draft, revision 9, 2026-10-13
 Normative keywords: **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, **MAY** ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119))
 
 LinkJar PDS is an AT Protocol Personal Data Server written in Rust. It is
@@ -66,6 +66,15 @@ run showed on that store. It also applies the owner's decisions of
 [unit record](research/2026-10-13-s3-blob-store.md); the changes are listed
 in Appendix L.
 
+Revision 9 follows the ninth part of unit 5: the OAuth authorization
+server, OAuth access tokens on the XRPC routes and read-after-write. It
+states what the Candidate built of §11 and what it did not, and it changes
+two rules to what the Reference does at the pin: a handle under `.test`,
+and the signing algorithms that the metadata lists. Both changes await the
+owner's word. The evidence is in the
+[unit record](research/2026-10-13-oauth.md); the changes are listed in
+Appendix M.
+
 ## Table of Contents
 
 - [0. Conventions and Terminology](#0-conventions-and-terminology)
@@ -103,6 +112,7 @@ in Appendix L.
 - [Appendix J. Changes in Revision 6](#appendix-j-changes-in-revision-6)
 - [Appendix K. Changes in Revision 7](#appendix-k-changes-in-revision-7)
 - [Appendix L. Changes in Revision 8](#appendix-l-changes-in-revision-8)
+- [Appendix M. Changes in Revision 9](#appendix-m-changes-in-revision-9)
 
 ## 0. Conventions and Terminology
 
@@ -1009,8 +1019,11 @@ Rules:
 - Syntax per the handle specification; at most 253 characters, effectively
   244 because of the `_atproto.` prefix. The TLDs `.alt`, `.arpa`,
   `.example`, `.internal`, `.invalid`, `.local`, `.localhost` and `.onion`
-  are refused; `.test` is accepted only with `PDS_DEV_MODE`;
-  `handle.invalid` is the only `.invalid` value and only as a marker.
+  are refused; `.test` is accepted, as at the pin, where
+  `default/11-identity` verifies a custom domain under it (revisions 1 to 8
+  accepted it only with `PDS_DEV_MODE`; the owner has not confirmed the
+  change); `handle.invalid` is the only `.invalid` value and only as a
+  marker.
 - The Reference's reserved and explicit-slur lists are vendored.
   `PDS_SERVICE_HANDLE_DOMAINS` defines hosted suffixes.
 - Custom domains verify through DNS TXT at `_atproto.<handle>` with a value
@@ -1126,7 +1139,7 @@ emitting `#identity`.
   and values at the pin, including `issuer` equal to the public origin with
   no path and no default port, `require_pushed_authorization_requests: true`,
   `require_request_uri_registration` not `false`,
-  `dpop_signing_alg_values_supported: ["ES256"]`,
+  `dpop_signing_alg_values_supported` containing `ES256`,
   `code_challenge_methods_supported: ["S256"]`,
   `client_id_metadata_document_supported: true`,
   `authorization_response_iss_parameter_supported: true`,
@@ -1138,7 +1151,17 @@ emitting `#identity`.
 - `GET /.well-known/oauth-protected-resource` lists exactly one
   authorization server: this origin, or the entryway's in entryway mode
   (§21.3).
-- Both documents, PAR and the token endpoint support CORS.
+- Both documents, PAR and the token endpoint support CORS. On the
+  authorization-server document, `/oauth/jwks`, `/oauth/par`,
+  `/oauth/token` and `/oauth/revoke` a preflight answers 200, and every
+  answer carries `Access-Control-Allow-Methods: *`,
+  `Access-Control-Allow-Headers: Content-Type,DPoP` and
+  `Access-Control-Max-Age: 86400`, as the Reference's OAuth router sets
+  them.
+- The Candidate lists the signing algorithms it verifies, `ES256` and
+  `ES256K`, for DPoP proofs and for client assertions. The Reference lists
+  ten. The Candidate says `request_parameter_supported: false`, because it
+  takes no request object (§11.5).
 
 ### 11.2 Clients
 
@@ -1234,6 +1257,34 @@ emitting `#identity`.
   keyboard operation.
 - The UI's JSON routes keep the Reference's CSRF, `Origin`, fetch-metadata,
   ephemeral-token and device checks.
+
+### 11.5 State after unit 5
+
+The Candidate serves §11.1 to §11.4 with the differences below. The
+[unit record](research/2026-10-13-oauth.md) gives the evidence.
+
+- **Pages.** Every page is one HTML document that works without scripts.
+  A form carries a token that the server computes from the device cookie
+  and the request, and the server checks `Origin` and `Sec-Fetch-Site`. A
+  sign-in that the device does not remember travels as a signed proof in
+  the consent form; the proof names the account, the device and the
+  request and ends after 15 minutes.
+- **Access tokens** carry no scope. The server reads the scope from the
+  token's row on every request, as the Reference does in its stateful
+  mode, so revocation ends an access token at once.
+- **Scope checks.** A method that an OAuth token may call is on an allow
+  list. A method with a handler that is not on the list answers 403
+  `Forbidden`. A call outside the token's scope answers 403
+  `ScopeMissingError`.
+- **Account pages.** `/account` shows the applications that have a
+  session and the devices that remember the account, and ends each. The
+  settings of the Reference's account page and the §12.5 sign-in methods
+  are not built.
+- **Not built:** request objects (JAR); permission sets, so an `include:`
+  scope grants nothing; the reactivation step for a deactivated account,
+  which gets `access_denied`; hCaptcha on sign-up and the password reset
+  from the sign-in page; address pinning in safe fetch; the periodic
+  re-fetch of a confidential client's keys.
 
 ## 12. Extension Points
 
@@ -2278,3 +2329,21 @@ Revision 8 follows the first part of unit 4b, the S3-compatible blob store.
   sessions and app passwords (§5.1, §5.2) are built as specified.
 - Appendix C lists the `PDS_BLOBSTORE_S3_*` variables, what the Candidate
   needs at the start, and which sources of credentials it reads.
+
+## Appendix M. Changes in Revision 9
+
+Revision 9 follows the ninth part of unit 5: OAuth and read-after-write.
+
+- §9.2: a handle under `.test` is accepted in every mode, as at the pin.
+  Revisions 1 to 8 accepted it only with `PDS_DEV_MODE`. The owner has not
+  confirmed the change.
+- §11.1: `dpop_signing_alg_values_supported` contains `ES256`; the
+  Candidate lists `ES256` and `ES256K`. The CORS answers of the OAuth
+  routes are stated.
+- §11.5 is new: how the Candidate's authorization server differs from the
+  Reference's, and what of §11 is not built.
+- §4.5 is built as specified, for the six methods of the Reference, and
+  `registerPush` goes to the service that the request names.
+- Of the variables of Appendix C the Candidate now reads
+  `PDS_DPOP_SECRET`, `PDS_OAUTH_TRUSTED_CLIENTS`,
+  `PDS_DISABLE_SSRF_PROTECTION` and `PDS_BSKY_APP_VIEW_CDN_URL_PATTERN`.

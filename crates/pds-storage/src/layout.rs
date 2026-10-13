@@ -51,6 +51,13 @@ impl DataLayout {
         self.actor_store_dir(did).join("key")
     }
 
+    /// The file of a signing key that is reserved for an account that
+    /// will come: `reserved_keys/<name>`, where the name is the DID of the
+    /// account, or the `did:key` of the key when no DID was given.
+    pub fn reserved_key(&self, name: &str) -> PathBuf {
+        self.actor_dir.join("reserved_keys").join(name)
+    }
+
     /// The 32 bytes of the actor's secp256k1 signing key, as the Reference
     /// wrote them.
     pub fn read_actor_key(&self, did: &str) -> Result<Vec<u8>, StorageError> {
