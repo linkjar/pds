@@ -94,11 +94,25 @@ impl AuditLog {
     /// one of the last checkpoint is itself logged first. This call
     /// blocks.
     pub fn checkpoint(&self, time: &str) -> Result<Option<Checkpoint>, StorageError> {
+        Ok(self
+            .checkpoint_after(time)?
+            .map(|(checkpoint, _)| checkpoint))
+    }
+
+    /// [`AuditLog::checkpoint`], with the root of the checkpoint before
+    /// it: 32 zero bytes before the first.
+    pub fn checkpoint_after(
+        &self,
+        time: &str,
+    ) -> Result<Option<(Checkpoint, Vec<u8>)>, StorageError> {
         let Some(signer) = &self.signer else {
             return Ok(None);
         };
         let last = self.db().last_checkpoint()?;
         let covered = last.as_ref().map_or(0, |row| row.last);
+        let previous_root = last
+            .as_ref()
+            .map_or_else(|| vec![0; 32], |row| row.root.clone());
         if self.db().last_seq()? == covered {
             return Ok(None);
         }
@@ -129,7 +143,12 @@ impl AuditLog {
         };
         db.insert_checkpoint(&to_row(&checkpoint))?;
         drop(db);
-        Ok(Some(checkpoint))
+        Ok(Some((checkpoint, previous_root)))
+    }
+
+    /// Whether the log has no entry yet.
+    pub fn is_empty(&self) -> Result<bool, StorageError> {
+        Ok(self.db().last_seq()? == 0)
     }
 
     /// The export bundle of the entries from `from` to `to` (SPEC §20.4):
@@ -300,10 +319,11 @@ pub async fn checkpoint(state: &AppState) {
     let time = pds_sequencer::iso_millis(state.now_ms());
     let made = {
         let state = state.clone();
-        tokio::task::spawn_blocking(move || state.audit().map(|log| log.checkpoint(&time))).await
+        tokio::task::spawn_blocking(move || state.audit().map(|log| log.checkpoint_after(&time)))
+            .await
     };
-    let checkpoint = match made {
-        Ok(Some(Ok(Some(checkpoint)))) => checkpoint,
+    let (checkpoint, previous_root) = match made {
+        Ok(Some(Ok(Some(made)))) => made,
         Ok(Some(Ok(None)) | None) => return,
         _ => {
             tracing::error!("an audit checkpoint was not written");
@@ -313,15 +333,22 @@ pub async fn checkpoint(state: &AppState) {
     let Some(repo) = state.config().audit_repo.clone() else {
         return;
     };
+    // The record of `lexicons/io/linkjar/pds/audit/checkpoint.json`. The
+    // signature covers the range, the root, the chain hash, the time and
+    // the key id.
+    let bytes = |value: &[u8]| json!({ "$bytes": data_encoding::BASE64_NOPAD.encode(value) });
     let record = json!({
         "$type": CHECKPOINT_COLLECTION,
-        "first": checkpoint.first,
-        "last": checkpoint.last,
-        "root": encode(&checkpoint.root),
-        "head": encode(&checkpoint.head),
-        "time": checkpoint.time,
+        "server": state.config().auth.service_did,
+        "firstSeq": checkpoint.first,
+        "lastSeq": checkpoint.last,
+        "treeSize": checkpoint.last,
+        "root": bytes(&checkpoint.root),
+        "previousRoot": bytes(&previous_root),
+        "chainHash": bytes(&checkpoint.head),
         "keyId": checkpoint.key_id,
-        "signature": encode(&checkpoint.signature),
+        "signature": bytes(&checkpoint.signature),
+        "createdAt": checkpoint.time,
     });
     let published = {
         let state = state.clone();

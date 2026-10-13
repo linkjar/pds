@@ -37,7 +37,7 @@ pub enum ServeError {
 }
 
 /// The wall clock in milliseconds since the Unix epoch.
-fn now_ms() -> i64 {
+pub fn now_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |elapsed| {
