@@ -120,7 +120,8 @@ async fn head_answers_as_get_without_a_body() {
         ("/nope", 404, "HEAD".len() - "GET".len()),
         ("/xrpc/com.atproto.server.describeServer", 200, 0),
         ("/xrpc/com.atproto.sync.getRepo", 400, 0),
-        ("/xrpc/com.atproto.server.createSession", 401, 0),
+        // No handler in a read-only server, and no service to proxy to.
+        ("/xrpc/com.atproto.server.createSession", 400, 0),
     ] {
         let (get, head) = tokio::task::spawn_blocking(move || {
             (
