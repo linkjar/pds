@@ -7,14 +7,18 @@ accounts, and a member host that keeps the repositories. The old server
 becomes the member host and keeps its address, so no DID document
 changes.
 
-**Do not run this on a production with OAuth clients.** A member host
-takes no OAuth token yet. The LinkJar apps sign in with OAuth, so they
-stop working behind an entryway. Use this runbook on staging until that
-part is built.
+Rehearse this on staging first. An OAuth client must be authorized
+again after the split: the member host is no authorization server, and a
+session of the old server has no token of the entryway. Tell the people
+who use the apps before the day.
 
 ## 1. What to know first
 
 - The entryway serves one member host.
+- `PDS_ENTRYWAY_URL` of the member host is the public address of the
+  entryway: OAuth clients read it, and tokens name it as their issuer.
+- An OAuth session that the entryway ends is refused at the member host
+  when its access token ends, at most 60 minutes later.
 - Sessions with a password and with an app password go on: the client
   refreshes once and gets tokens of the entryway.
 - A client uploads blobs and reads the firehose at the member host. The

@@ -11,7 +11,7 @@ use pds_oauth::pkce::verify_s256;
 use pds_oauth::scope::is_scope;
 use pds_oauth::token::{
     ASSERTION_TYPE, AccessClaims, CODE_CHALLENGE_REPLAY_MS, Id, PAR_EXPIRES_IN_MS,
-    REQUEST_URI_PREFIX, TOKEN_MAX_AGE_MS, check_assertion, mint_access, verify_access,
+    REQUEST_URI_PREFIX, TOKEN_MAX_AGE_MS, check_assertion, mint_access,
 };
 use pds_storage::oauth::{RequestRow, Rotation, TokenRow};
 use pds_storage::{Availability, StorageError};
@@ -383,19 +383,40 @@ fn token_response(state: &AppState, row: &TokenRow, now_ms: i64) -> Response {
         .map(str::to_owned);
     let expires_ms = millis(&row.expires_at);
     let token_type = if jkt.is_some() { "DPoP" } else { "Bearer" };
-    let access = mint_access(
-        &config.jwt_secret,
-        &issuer(state),
-        &config.service_did,
-        &AccessClaims {
-            jti: row.token_id.clone(),
-            sub: row.did.clone(),
-            iat: now_ms / 1000,
-            exp: expires_ms / 1000,
-            jkt,
-            client_id: row.client_id.clone(),
-        },
-    );
+    let claims = AccessClaims {
+        jti: row.token_id.clone(),
+        sub: row.did.clone(),
+        iat: now_ms / 1000,
+        exp: expires_ms / 1000,
+        jkt,
+        client_id: row.client_id.clone(),
+    };
+    let access = match &config.signer {
+        // An entryway signs with its key and puts the scope in the token:
+        // a member host has no row to read it from.
+        Some(signer) => {
+            let scope = row.scope.clone().unwrap_or_else(|| {
+                parameters
+                    .get("scope")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_owned()
+            });
+            pds_oauth::token::mint_access_es256k(
+                &signer.key,
+                &issuer(state),
+                &config.service_did,
+                &claims,
+                &scope,
+            )
+        }
+        None => mint_access(
+            &config.jwt_secret,
+            &issuer(state),
+            &config.service_did,
+            &claims,
+        ),
+    };
     let mut body = json!({
         "access_token": access,
         "token_type": token_type,
@@ -734,8 +755,7 @@ pub async fn revoke(
         .ok_or_else(|| OAuthError::invalid_request("token is required"))?
         .clone();
     let jti = if token.split('.').count() == 3 {
-        let config = &state.config().auth;
-        verify_access(&config.jwt_secret, &issuer(state), &token).map(|claims| claims.jti)
+        super::read_access_token(state, &token).map(|(claims, _)| claims.jti)
     } else {
         None
     };
