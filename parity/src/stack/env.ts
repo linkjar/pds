@@ -179,6 +179,11 @@ export function pdsEnv(spec: TargetSpec, profile: Profile, secrets: Secrets): Re
   // The Candidate stands in for the production build, so it runs the linkjar
   // profile (SPEC 12.1). The Reference does not read the variable.
   if (spec.name === 'candidate') env.PDS_PROFILE = 'linkjar'
+  // The shared tier of the Candidate on Postgres (SPEC 21.2): the schemas
+  // go beside the tables of the directory, in its disposable database.
+  if (spec.name === 'candidate' && process.env.PARITY_CANDIDATE_POSTGRES === '1') {
+    env.PDS_POSTGRES_URL = 'postgres://plc:plc@plc-db:5432/plc'
+  }
   return env
 }
 
