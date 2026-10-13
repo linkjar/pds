@@ -182,7 +182,7 @@ pub struct RepoListing {
 /// A connection to `account.sqlite`.
 #[derive(Debug)]
 pub struct AccountDb {
-    conn: Connection,
+    pub(crate) conn: Connection,
 }
 
 const ACTOR_COLUMNS: &str =
@@ -645,6 +645,9 @@ impl AccountDb {
             "repo_root",
             "email_token",
             "refresh_token",
+            "token",
+            "account_device",
+            "authorized_client",
             "account",
             "actor",
         ] {

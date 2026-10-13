@@ -59,7 +59,7 @@ pub fn jwk_thumbprint(jwk: &Value) -> Option<String> {
 
 /// The public key of a JWK and the algorithm it signs with. A JWK with a
 /// private part is refused.
-fn key_of(jwk: &Value) -> Option<(PublicKey, &'static str)> {
+pub(crate) fn key_of(jwk: &Value) -> Option<(PublicKey, &'static str)> {
     if jwk.get("d").is_some() || jwk.get("kty")?.as_str()? != "EC" {
         return None;
     }
