@@ -143,6 +143,13 @@ pub trait Profile: Send + Sync + Debug {
         false
     }
 
+    /// Whether a configured CAPTCHA closes the legacy `createAccount` to
+    /// new accounts, which cannot carry its proof (§12.2). A partial
+    /// CAPTCHA configuration then stops the start.
+    fn guards_signup(&self) -> bool {
+        false
+    }
+
     /// Whether changes of sign-in methods produce notices that the
     /// server mails (§12.6).
     fn produces_notices(&self) -> bool {

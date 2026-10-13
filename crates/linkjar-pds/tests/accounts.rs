@@ -1598,3 +1598,30 @@ async fn a_handle_host_serves_the_did_and_a_redirect_and_nothing_else() {
     assert!(body.contains("AT Protocol Personal Data Server"));
     assert_eq!(get("pds.test", "/.well-known/linkjar-profile").await.0, 404);
 }
+
+#[tokio::test]
+async fn a_configured_captcha_closes_the_legacy_sign_up_in_the_linkjar_profile() {
+    let captcha = [
+        ("PDS_HCAPTCHA_SITE_KEY", "site"),
+        ("PDS_HCAPTCHA_SECRET_KEY", "secret"),
+        ("PDS_HCAPTCHA_TOKEN_SALT", "salt"),
+    ];
+    let account = json!({"handle": "fresh.linkjar.social", "email": "fresh@example.com", "password": PASSWORD});
+    let mut vars = LINKJAR.to_vec();
+    vars.extend_from_slice(&captcha);
+    let server = Server::start(&vars).await;
+    let (status, body) = server.create(&account).await;
+    assert_eq!(
+        (status, text(&body, "error"), text(&body, "message")),
+        (
+            400,
+            "InvalidRequest",
+            "Create an account through the OAuth signup page"
+        )
+    );
+    // The stock profile keeps the method open, as upstream does.
+    let mut vars = vec![("PDS_SERVICE_HANDLE_DOMAINS", ".linkjar.social")];
+    vars.extend_from_slice(&captcha);
+    let stock = Server::start(&vars).await;
+    assert_eq!(stock.create(&account).await.0, 200);
+}

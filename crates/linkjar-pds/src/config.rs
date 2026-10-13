@@ -20,6 +20,9 @@ pub enum ConfigError {
     /// A required variable is not set.
     #[error("{0} is required")]
     Missing(&'static str),
+    /// One or two of the three hCaptcha variables are set.
+    #[error("Partial hCaptcha config, must set site key, secret key and token salt")]
+    PartialCaptcha,
     /// A variable does not parse.
     #[error("{name}={value:?}: {reason}")]
     Invalid {
@@ -489,6 +492,29 @@ impl Env<'_> {
         }
     }
 
+    /// The hCaptcha settings: all three variables, or none. The stock
+    /// profile reads one or two as none, as upstream does. The `linkjar`
+    /// profile stops the start (patch 099c).
+    fn hcaptcha(&self) -> Result<Option<pds_xrpc::oauth::captcha::Hcaptcha>, ConfigError> {
+        let settings = (
+            self.text("PDS_HCAPTCHA_SITE_KEY"),
+            self.text("PDS_HCAPTCHA_SECRET_KEY"),
+            self.text("PDS_HCAPTCHA_TOKEN_SALT"),
+        );
+        match settings {
+            (Some(site_key), Some(secret_key), Some(token_salt)) => {
+                Ok(Some(pds_xrpc::oauth::captcha::Hcaptcha {
+                    site_key,
+                    secret_key,
+                    token_salt,
+                }))
+            }
+            (None, None, None) => Ok(None),
+            _ if self.profile()? == ProfileName::Linkjar => Err(ConfigError::PartialCaptcha),
+            _ => Ok(None),
+        }
+    }
+
     /// The OAuth settings.
     fn oauth(&self) -> Result<pds_xrpc::oauth::OAuthConfig, ConfigError> {
         Ok(pds_xrpc::oauth::OAuthConfig {
@@ -505,6 +531,7 @@ impl Env<'_> {
             disable_ssrf_protection: self
                 .boolean("PDS_DISABLE_SSRF_PROTECTION")?
                 .unwrap_or(false),
+            hcaptcha: self.hcaptcha()?,
         })
     }
 
@@ -918,5 +945,38 @@ mod tests {
         let shown = format!("{config:?}");
         assert!(!shown.contains("hunter"));
         assert!(config.serve_secrets().is_ok());
+    }
+
+    #[test]
+    fn a_partial_captcha_stops_the_linkjar_profile_and_not_the_stock_one() {
+        let base = [
+            ("PDS_HCAPTCHA_SITE_KEY", "site"),
+            ("PDS_HCAPTCHA_SECRET_KEY", "secret-value"),
+        ];
+        let stock = Config::from_vars(&vars(&base)).unwrap();
+        assert!(stock.oauth.hcaptcha.is_none());
+        let mut linkjar = base.to_vec();
+        linkjar.push(("PDS_PROFILE", "linkjar"));
+        let refused = Config::from_vars(&vars(&linkjar))
+            .err()
+            .unwrap()
+            .to_string();
+        assert!(refused.starts_with("Partial hCaptcha config"), "{refused}");
+        assert!(!refused.contains("secret-value"));
+        linkjar.push(("PDS_HCAPTCHA_TOKEN_SALT", "salt"));
+        assert!(
+            Config::from_vars(&vars(&linkjar))
+                .unwrap()
+                .oauth
+                .hcaptcha
+                .is_some()
+        );
+        // A provider with one of its two variables stops the start too.
+        let half = [
+            ("PDS_PROFILE", "linkjar"),
+            ("PDS_EXTERNAL_GOOGLE_CLIENT_ID", "x"),
+        ];
+        assert!(Config::from_vars(&vars(&half)).is_err());
+        assert!(Config::from_vars(&vars(&[("PDS_PROFILE", "other")])).is_err());
     }
 }

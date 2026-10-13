@@ -312,6 +312,15 @@ pub async fn create_account(
             1,
         )],
     )?;
+    // The legacy method cannot carry the proof of a CAPTCHA. With one
+    // configured, a new account comes through the sign-up page (SPEC
+    // §12.2, patch 099c). A migration with service auth for its own DID
+    // will pass here once service auth names the caller (unit 8).
+    if state.config().profile.guards_signup() && state.config().oauth.hcaptcha.is_some() {
+        return Err(XrpcError::invalid_request(
+            "Create an account through the OAuth signup page",
+        ));
+    }
     let (request, brought_did) = {
         let input = input.clone();
         state.blocking(move |state| validate(state, &input)).await?

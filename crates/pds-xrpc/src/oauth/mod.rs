@@ -7,6 +7,7 @@
 
 pub mod account;
 pub mod authorize;
+pub mod captcha;
 pub mod clients;
 pub mod endpoints;
 pub mod external;
@@ -39,6 +40,9 @@ pub struct OAuthConfig {
     /// `PDS_DISABLE_SSRF_PROTECTION`: a client document may come from a
     /// private address.
     pub disable_ssrf_protection: bool,
+    /// `PDS_HCAPTCHA_SITE_KEY`, `_SECRET_KEY` and `_TOKEN_SALT`, when all
+    /// three are set.
+    pub hcaptcha: Option<captcha::Hcaptcha>,
 }
 
 impl std::fmt::Debug for OAuthConfig {

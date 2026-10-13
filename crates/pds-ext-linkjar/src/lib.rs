@@ -85,6 +85,10 @@ impl Profile for Linkjar {
         true
     }
 
+    fn guards_signup(&self) -> bool {
+        true
+    }
+
     fn produces_notices(&self) -> bool {
         true
     }
