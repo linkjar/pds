@@ -7,7 +7,7 @@ flowchart LR
     dc[DidCache]
     au[AuditStore]
     bs[BlobStore]
-    io[StorageIo<br/>OS files, or the fault VFS in tests]
+    io[pds_storage::io<br/>OS files, or the power-loss VFS in pds-sim]
   end
   subgraph dir [PDS_DATA_DIRECTORY, reference layout]
     direction TB

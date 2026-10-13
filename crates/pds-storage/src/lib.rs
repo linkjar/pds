@@ -19,6 +19,7 @@ pub mod actor_txn;
 pub mod did_cache;
 pub mod error;
 pub mod fail;
+pub mod io;
 pub mod layout;
 pub mod ops;
 pub mod schema;

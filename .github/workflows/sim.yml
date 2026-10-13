@@ -64,6 +64,6 @@ jobs:
             { echo "pds-sim --from $from --seeds $SEEDS $*"; grep -E 'FAILED|seeds from|failed seeds' sim.log; echo; } >> "$GITHUB_STEP_SUMMARY"
           }
           run --steps 200
-          run --steps 250 --accounts 5 --faults 30
+          run --steps 250 --accounts 5 --faults 30 --power-loss 25
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           exit "$status"

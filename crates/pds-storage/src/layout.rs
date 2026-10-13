@@ -74,7 +74,7 @@ impl DataLayout {
 /// ignores a `-wal` file, and a copy of a live database can carry one.
 pub(crate) fn open_read_only(path: &Path) -> Result<Connection, StorageError> {
     let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
-    let conn = Connection::open_with_flags(path, flags)?;
+    let conn = crate::io::open(path, flags)?;
     conn.busy_timeout(std::time::Duration::from_secs(5))?;
     Ok(conn)
 }
@@ -86,7 +86,7 @@ pub(crate) fn open_read_only(path: &Path) -> Result<Connection, StorageError> {
 /// (SPEC §8.3). It handles a busy database itself; here SQLite waits.
 pub(crate) fn open_read_write(path: &Path) -> Result<Connection, StorageError> {
     let flags = OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX;
-    let conn = Connection::open_with_flags(path, flags)?;
+    let conn = crate::io::open(path, flags)?;
     conn.busy_timeout(std::time::Duration::from_secs(5))?;
     Ok(conn)
 }

@@ -45,6 +45,9 @@ fn parse() -> Result<Args, String> {
                     .clamp(1, 26);
             }
             "--faults" => args.options.fault_percent = number("--faults")?.min(100),
+            "--power-loss" => {
+                args.options.power_loss_percent = number("--power-loss")?.min(100);
+            }
             "--trace" => args.trace = true,
             other => return Err(format!("unknown argument: {other}")),
         }
@@ -57,20 +60,23 @@ fn main() -> ExitCode {
         Ok(args) => args,
         Err(message) => {
             eprintln!(
-                "{message}\nusage: pds-sim [--seeds N] [--from S] [--steps N] [--accounts N] [--faults PERCENT] [--trace]"
+                "{message}\nusage: pds-sim [--seeds N] [--from S] [--steps N] [--accounts N] [--faults PERCENT] [--power-loss PERCENT] [--trace]"
             );
             return ExitCode::from(2);
         }
     };
     let mut failed = Vec::new();
-    let (mut commits, mut crashes, mut events) = (0_u64, 0_u64, 0_i64);
+    let (mut commits, mut crashes, mut power, mut events) = (0_u64, 0_u64, 0_u64, 0_i64);
     for seed in args.from..args.from.saturating_add(args.seeds) {
         match run_seed_blocking(seed, args.options) {
             Ok(outcome) => {
                 println!(
-                    "seed {seed}: ok, {} commits, {} stops, {} starts, {} events, {} repairs with #sync",
+                    "seed {seed}: ok, {} commits, {} stops, {} power losses ({} writes lost, {} interrupted commits stored), {} starts, {} events, {} repairs with #sync",
                     outcome.commits,
                     outcome.crashes,
+                    outcome.power_losses,
+                    outcome.writes_lost,
+                    outcome.interrupted_stored,
                     outcome.starts,
                     outcome.events,
                     outcome.relay_resyncs
@@ -82,6 +88,7 @@ fn main() -> ExitCode {
                 }
                 commits += u64::from(outcome.commits);
                 crashes += u64::from(outcome.crashes);
+                power += u64::from(outcome.power_losses);
                 events += outcome.events;
             }
             Err(failure) => {
@@ -91,7 +98,7 @@ fn main() -> ExitCode {
         }
     }
     println!(
-        "{} seeds from {}, {} steps each: {} failed; {commits} commits, {crashes} stops, {events} events",
+        "{} seeds from {}, {} steps each: {} failed; {commits} commits, {crashes} stops, {power} power losses, {events} events",
         args.seeds,
         args.from,
         args.options.steps,

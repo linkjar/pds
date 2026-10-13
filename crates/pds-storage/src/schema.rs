@@ -58,7 +58,7 @@ pub fn create(path: &Path, schema: &str) -> Result<Connection, StorageError> {
             std::io::Error::new(std::io::ErrorKind::AlreadyExists, "the database exists"),
         ));
     }
-    let conn = Connection::open(path)?;
+    let conn = crate::io::open(path, rusqlite::OpenFlags::default())?;
     conn.pragma_update(None, "journal_mode", "wal")?;
     conn.execute_batch(schema)?;
     Ok(conn)
