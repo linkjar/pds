@@ -104,7 +104,7 @@ fn written_json(write: &RecordWrite, commit: Option<&Committed>) -> Value {
 pub async fn create_record(
     state: &AppState,
     headers: &HeaderMap,
-    body: Body,
+    body: &mut Option<Body>,
 ) -> Result<Response, XrpcError> {
     let caller = session(state, headers, None)?;
     let input = body::read_json(headers, body, JSON_LIMIT).await?;
@@ -178,7 +178,7 @@ fn swap_record(input: &Map<String, Value>) -> Result<Swap, XrpcError> {
 pub async fn put_record(
     state: &AppState,
     headers: &HeaderMap,
-    body: Body,
+    body: &mut Option<Body>,
 ) -> Result<Response, XrpcError> {
     let caller = session(state, headers, None)?;
     let input = body::read_json(headers, body, JSON_LIMIT).await?;
@@ -237,7 +237,7 @@ pub async fn put_record(
 pub async fn delete_record(
     state: &AppState,
     headers: &HeaderMap,
-    body: Body,
+    body: &mut Option<Body>,
 ) -> Result<Response, XrpcError> {
     let caller = session(state, headers, None)?;
     let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
@@ -356,7 +356,7 @@ fn batch_write(entry: &Value, at: &str) -> Result<BatchWrite, XrpcError> {
 pub async fn apply_writes(
     state: &AppState,
     headers: &HeaderMap,
-    body: Body,
+    body: &mut Option<Body>,
 ) -> Result<Response, XrpcError> {
     let caller = session(state, headers, None)?;
     let input = body::read_json(headers, body, JSON_LIMIT).await?;
@@ -477,7 +477,7 @@ fn staging_key(writes: &WriteState) -> String {
 pub async fn upload_blob(
     state: &AppState,
     headers: &HeaderMap,
-    body: Body,
+    body: &mut Option<Body>,
 ) -> Result<Response, XrpcError> {
     let caller = session(state, headers, None)?;
     {
@@ -509,7 +509,7 @@ pub async fn upload_blob(
         }
         Ok::<_, XrpcError>(staging)
     });
-    let mut stream = body.into_data_stream();
+    let mut stream = body.take().unwrap_or_default().into_data_stream();
     let mut received = 0_u64;
     let mut failure = None;
     while let Some(chunk) = stream.next().await {
@@ -519,8 +519,13 @@ pub async fn upload_blob(
         };
         received += chunk.len() as u64;
         if received > limit {
-            failure = Some(body::payload_too_large());
-            break;
+            // The rest is read and discarded, so that the client receives
+            // the refusal and not a closed connection.
+            failure.get_or_insert_with(body::payload_too_large);
+            if received > limit.saturating_add(body::DRAIN_CAP as u64) {
+                break;
+            }
+            continue;
         }
         if chunks.send(chunk).await.is_err() {
             break;

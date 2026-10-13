@@ -81,6 +81,10 @@ version = "2.13.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.block-buffer]]
+version = "0.10.4"
+criteria = "safe-to-deploy"
+
+[[exemptions.block-buffer]]
 version = "0.12.1"
 criteria = "safe-to-deploy"
 
@@ -153,11 +157,19 @@ version = "0.1.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.cpufeatures]]
+version = "0.2.17"
+criteria = "safe-to-deploy"
+
+[[exemptions.cpufeatures]]
 version = "0.3.1"
 criteria = "safe-to-deploy"
 
 [[exemptions.crypto-bigint]]
 version = "0.7.5"
+criteria = "safe-to-deploy"
+
+[[exemptions.crypto-common]]
+version = "0.1.7"
 criteria = "safe-to-deploy"
 
 [[exemptions.crypto-common]]
@@ -182,6 +194,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.der]]
 version = "0.8.2"
+criteria = "safe-to-deploy"
+
+[[exemptions.digest]]
+version = "0.10.7"
 criteria = "safe-to-deploy"
 
 [[exemptions.digest]]
@@ -256,12 +272,20 @@ criteria = "safe-to-deploy"
 version = "0.3.34"
 criteria = "safe-to-deploy"
 
+[[exemptions.futures-sink]]
+version = "0.3.34"
+criteria = "safe-to-deploy"
+
 [[exemptions.futures-task]]
 version = "0.3.34"
 criteria = "safe-to-deploy"
 
 [[exemptions.futures-util]]
 version = "0.3.34"
+criteria = "safe-to-deploy"
+
+[[exemptions.generic-array]]
+version = "0.14.7"
 criteria = "safe-to-deploy"
 
 [[exemptions.getrandom]]
@@ -740,6 +764,10 @@ criteria = "safe-to-deploy"
 version = "0.4.3"
 criteria = "safe-to-deploy"
 
+[[exemptions.sha1]]
+version = "0.10.7"
+criteria = "safe-to-deploy"
+
 [[exemptions.sha2]]
 version = "0.11.0"
 criteria = "safe-to-deploy"
@@ -848,6 +876,10 @@ criteria = "safe-to-deploy"
 version = "0.26.6"
 criteria = "safe-to-deploy"
 
+[[exemptions.tokio-tungstenite]]
+version = "0.29.0"
+criteria = "safe-to-deploy"
+
 [[exemptions.tower]]
 version = "0.5.3"
 criteria = "safe-to-deploy"
@@ -888,6 +920,10 @@ criteria = "safe-to-deploy"
 version = "0.2.5"
 criteria = "safe-to-deploy"
 
+[[exemptions.tungstenite]]
+version = "0.29.0"
+criteria = "safe-to-deploy"
+
 [[exemptions.typenum]]
 version = "1.20.1"
 criteria = "safe-to-deploy"
@@ -926,6 +962,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.vcpkg]]
 version = "0.2.15"
+criteria = "safe-to-deploy"
+
+[[exemptions.version_check]]
+version = "0.9.5"
 criteria = "safe-to-deploy"
 
 [[exemptions.wait-timeout]]

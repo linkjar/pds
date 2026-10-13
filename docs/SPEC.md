@@ -1,6 +1,6 @@
 # LinkJar PDS Specification
 
-Status: Draft, revision 6, 2026-10-13
+Status: Draft, revision 7, 2026-10-13
 Normative keywords: **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, **MAY** ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119))
 
 LinkJar PDS is an AT Protocol Personal Data Server written in Rust. It is
@@ -50,6 +50,14 @@ evidence is in the
 [unit record](research/2026-10-13-read-only-server.md); the changes are
 listed in Appendix J.
 
+Revision 7 follows unit 4: writes, the event log, the firehose, blobs and
+the simulation. It applies the owner's decisions of 2026-10-13 and states
+what the writes run showed: what the Reference answers to data from
+elsewhere, that it emits no event for an import, and how the Candidate
+orders a commit and its event. The evidence is in the
+[unit record](research/2026-10-13-writes-and-firehose.md); the changes are
+listed in Appendix K.
+
 ## Table of Contents
 
 - [0. Conventions and Terminology](#0-conventions-and-terminology)
@@ -85,6 +93,7 @@ listed in Appendix J.
 - [Appendix H. Changes in Revision 4](#appendix-h-changes-in-revision-4)
 - [Appendix I. Changes in Revision 5](#appendix-i-changes-in-revision-5)
 - [Appendix J. Changes in Revision 6](#appendix-j-changes-in-revision-6)
+- [Appendix K. Changes in Revision 7](#appendix-k-changes-in-revision-7)
 
 ## 0. Conventions and Terminology
 
@@ -214,23 +223,42 @@ appears.
 | DD-4 | A proxied request whose `atproto-proxy` value does not start with a DID (§4.4) | 500 `InternalServerError` | 400 `InvalidRequest` | 2026-10-09, D15 |
 | DD-5 | A service token that an earlier successful request has spent (§5.4) | accepted again | 401 `BadJwt` | 2026-10-09, D16 |
 | DD-6 | `importRepo` with a CAR whose tree references a node more than once (§6.1) | Stock Reference: 200, and the imported tree replaces the repository. Production Reference, with patch 104: 400 `InvalidRequest` | 400 `InvalidRequest`; nothing is written | 2026-10-12, D17 |
+| DD-7 | `importRepo` with a CAR whose tree has a key at the wrong layer, keys out of order across nodes, or an empty node below the root (§6.1) | The first two: 200, and the imported tree replaces the repository. The third: 500 `InternalServerError` | 400 `InvalidRequest`; nothing is written | 2026-10-12, D17 |
+| DD-8 | `importRepo` with a record block that is not canonical DAG-CBOR: map keys out of order, a float with a whole value, or `undefined` (§6.1) | 200, and the imported tree replaces the repository | 400 `InvalidRequest`; nothing is written | 2026-10-12, D17 |
+| DD-9 | A record that references a blob with `size` zero or an empty `mimeType` (§6.3) | 200 | 400 `InvalidRequest` | 2026-10-12, D17 |
+| DD-10 | An upload that no record references one hour after it arrived (§6.4) | kept without limit: the Reference has no collection | collected | 2026-10-12, D16 |
+| DD-14 | `importRepo` with a commit that the account's key did not sign, or a commit for another account (§6.5) | 200, and the imported tree replaces the repository | 400 `InvalidRequest`; nothing is written | 2026-10-13 |
+| DD-15 | `importRepo` with bytes that are not a CAR (§6.5) | 500 `InternalServerError` | 400 `InvalidRequest` | 2026-10-13, D15 |
 
 A difference that is not in this table is a defect of the Candidate.
 
-The owner decided the differences below on 2026-10-12 (D16, D17). No
-scenario has yet recorded what the Reference answers in these states. The
-unit named writes that scenario and moves the row into the table above with
-the Reference's answer. Until then the Harness does not count the row.
+The writes run of the Harness (§17.1) records DD-1, DD-2, DD-7 to DD-9,
+DD-14 and DD-15 on every run
+([`writes/22-elsewhere`](../parity/scenarios/writes/22-elsewhere.scenario.ts),
+`default/03-repo-writes`, `default/15-import`). DD-10 cannot be observed in
+a run that does not last an hour; a test of the server holds it
+(`crates/linkjar-pds/tests/writes.rs`), and the Reference's side is read from
+its source, which has no collection of uploads
+(`actor-store/blob/transactor.ts` at the pin). DD-3 to DD-5 are observed
+from unit 5.
+
+Where both servers refuse, the message may differ: the Candidate names the
+first defect it finds in a tree, and a tree can have several. The tree of
+`default/15-import` shares nodes and also hangs a subtree below layer zero;
+the Reference names the first and the Candidate the second.
+
+The owner decided the differences below (D15, D17). No scenario has yet
+recorded what the Reference answers in these states. The unit named writes
+that scenario and moves the row into the table above with the Reference's
+answer. Until then the Harness does not count the row.
 
 | Id | Request and state | Candidate | Scenario in unit |
 |---|---|---|---|
-| DD-7 | `importRepo` with a CAR whose tree has a key at the wrong layer, keys out of order across nodes, or an empty node below the root (§6.1) | 400 `InvalidRequest`; nothing is written | 4 |
-| DD-8 | `importRepo` with a record block that is not canonical DAG-CBOR: map keys out of order, a float with a whole value, or `undefined` (§6.1) | refused | 4 |
-| DD-9 | A record that references a blob with `size` zero or an empty `mimeType` (§6.3) | refused | 4 |
-| DD-10 | An upload that no record references one hour after it arrived (§6.4) | collected | 4 |
 | DD-11 | Handle verification: two TXT records that name the same DID, and an HTTPS body of more than one line (§9.2) | the two records are one answer; the whole trimmed body is read | 5 |
 | DD-12 | A DID document whose signing key has another `controller`, or whose PDS endpoint is more than scheme, host and port (§9.3) | refused | 5 |
 | DD-13 | A commit of version 2 in a repository from elsewhere (§6.1) | refused | 8 |
+| DD-16 | `createAccount` with the handle of a deactivated or taken-down account (§10.1). The pin answers 500 | 400 `InvalidRequest` | 5 |
+| DD-17 | `createAccount` with the email of a deactivated or taken-down account (§10.1). The pin answers 500 | 400 `InvalidRequest` | 5 |
 
 DD-11 and DD-12 cannot be observed before the server verifies a handle and
 reads a signing key itself, which it first does in unit 5.
@@ -252,17 +280,17 @@ are provisional.
 | `pds-types` | DID, handle, NSID, TID, record key, CID, AT URI syntax and validation with the limits of §6.1 and §9; the data model with a strict DAG-CBOR reader and writer that apply the decode limits; lexicon-generated request and response types. |
 | `pds-lexicon` | Lexicon loading, record validation in the three modes of §6.3, data-model rules, permission-set resolution and cache (§5.5). |
 | `pds-repo` | The repository engine, written in this repository (Appendix D, D2): MST, commit blocks, CAR read and write, commits from writes with the blocks a consumer needs to invert them, export, and the checks on a repository from elsewhere. It does no I/O and holds no key: blocks come from a block store, the signature from the caller's key, the revision from the caller's clock. |
-| `pds-storage` | The domain-level storage seams of §8.4 (`ActorStore`, `AccountStore`, `SequencerStore`, `BlobStore`, `DidCache`, `AuditStore`), the SQLite implementations over the Reference schema, migrations, the actor LRU, and the `StorageIo` seam of §19. |
+| `pds-storage` | The domain-level storage seams of §8.4 (`ActorStore`, `AccountStore`, `SequencerStore`, `BlobStore`, `DidCache`, `AuditStore`), the SQLite implementations over the Reference schema, migrations, the actor LRU, the notes of commits in flight (`ops.sqlite`, §7.4), the fail points and the `StorageIo` seam of §19. |
 | `pds-blob` | Blob stores: disk and S3-compatible; upload staging, hashing, quarantine; the rules of §6.4. |
 | `pds-identity` | Keys and signatures on both curves, `did:key`, the DID-document contract of §9; DID resolution with cache, PLC client, handle resolution and verification, signing-key custody. |
-| `pds-xrpc` | axum routing, XRPC request parsing, error mapping, rate limiting, proxying, read-after-write, CORS. |
+| `pds-xrpc` | axum routing, XRPC request parsing, error mapping, rate limiting, proxying, read-after-write, CORS; the write path from a request to a stored and sequenced commit (§6.3), and the repair of §7.4. |
 | `pds-sequencer` | The event log, firehose subscriptions, backfill, crawler notification, the lifecycle event sequences of §10.4. |
 | `pds-account` | Account lifecycle, sessions, app passwords, email tokens, invites, admin, mail. Designed to run embedded or as an entryway (§21.3). |
 | `pds-oauth` | The authorization server and the resource-server verifier: metadata, PAR, authorize, token, DPoP, client metadata, device sessions, server-rendered UI, account pages. Same two-mode design as `pds-account`. |
 | `pds-audit` | The audit log of §20: entries, hash chain, checkpoints, proofs, the checkpoint record publisher, and the standalone verifier binary. |
 | `pds-ext` | The extension traits of §12 and the `stock` implementations. |
 | `pds-ext-linkjar` | The `linkjar` profile (§13). Compiled in behind the Cargo feature `linkjar`. |
-| `pds-sim` | The simulation harness of §19: fault-injecting VFS, fail points, turmoil scenarios, seed runner, determinism meta-test. |
+| `pds-sim` | The simulation harness of §19: seeded plans, stops at the fail points, the oracles, the seed runner and the determinism meta-test. The fault-injecting VFS and the turmoil scenarios are not written yet (§19.2). |
 | `linkjar-pds` | The binary: configuration, wiring, CLI (§14.2), telemetry, the ops listener (§22.1). |
 | `parity/` | The Harness (§17), a TypeScript project driven by the official SDK. |
 
@@ -274,7 +302,9 @@ are provisional.
   dedicated blocking pool, opened through the `StorageIo` seam so tests can
   substitute a fault-injecting VFS (§19). Each actor database has one writer
   at a time.
-- Cryptography from RustCrypto: `k256`, `p256`, `sha2`; DAG-CBOR through the
+- Cryptography of the protocol from RustCrypto: `k256`, `p256`, `sha2`.
+  Outbound TLS uses `rustls` with `aws-lc-rs` (decision of 2026-10-13).
+  DAG-CBOR through the
   reader and writer of `pds-types`, which accept and produce canonical
   encoding only and enforce the decode limits of §6.1; `cid` and
   `multihash`.
@@ -625,7 +655,13 @@ the DPoP proof, nonce, scope.
   such an operation, answer 500 `InternalServerError`. The Candidate answers
   400 `InvalidRequest` (§2.3, DD-1 and DD-2). In both servers nothing is
   written: no commit, no firehose event, and no other operation of the
-  batch.
+  batch. A batch that updates or deletes a key with no record is 500 in
+  both servers: the owner's decision names the create only.
+- A refused write carries the Reference's message: the JSON path and the
+  wording of `@atproto/lex-schema` at the pin. Where a value breaks several
+  rules the Candidate may name another of them than the Reference, because
+  it checks the properties of an object in sorted order. A body that is not
+  JSON gets the Candidate's own message.
 - Writes are refused for deactivated, taken-down and deleted repositories with
   the Reference's errors. A profile MAY refuse writes when the account's
   handle no longer verifies (§12.4).
@@ -652,6 +688,15 @@ the DPoP proof, nonce, scope.
   at the pin; the Candidate MUST collect it one hour after it arrived
   (decision of 2026-10-12, D16; §2.3, DD-10). Account deletion deletes all
   blobs within the scheduled purge. `listMissingBlobs` reports referenced blobs the store lacks.
+- The stored type follows the content for the formats the Candidate
+  recognises: the image, video and audio types the vendored lexicons accept
+  and a few containers. The Reference asks the `file-type` package, which
+  knows more formats; for any other content the declared type stands in the
+  Candidate.
+- The Candidate serves a blob only when its index row is permanent. A commit
+  that stops after it moved an upload into place and before it stored the
+  reference leaves the file in place and the row waiting; no record
+  references such a blob, and it is collected with the other uploads.
 - `getBlob` serves by CID with `Content-Type`, `Content-Length`,
   `Content-Security-Policy: default-src 'none'; sandbox` and
   `X-Content-Type-Options: nosniff`. A blob the account does not hold is 400
@@ -668,11 +713,19 @@ the DPoP proof, nonce, scope.
   OAuth scopes.
 - `importRepo` accepts a CAR up to `PDS_MAX_REPO_IMPORT_SIZE` when
   `PDS_ACCEPTING_REPO_IMPORTS` is set and the caller's permissions allow it.
-  The import verifies structural completeness and the commit signature
-  against the account's own key, ignores unreferenced and duplicate blocks,
-  tolerates any block order, and never lets a CAR from another account
-  resurrect deleted records. Repeated imports are idempotent. After a
-  successful import the server emits `#sync` (§10.4).
+  The import verifies structural completeness, that the commit names the
+  account, and the commit signature against the account's own key. It
+  ignores unreferenced and duplicate blocks and tolerates any block order.
+  Repeated imports are idempotent. The Reference at the pin checks neither
+  the account nor the signature: it accepts a commit that any key signed
+  and a commit for another account, and replaces the repository with it
+  (§2.3, DD-14).
+- As at the pin, the stored revision of an imported repository is a new
+  one, whatever the commit says; an import appends no event to the log and
+  does not write the root that the account database holds. An account that
+  moves in is deactivated while it imports, and its activation emits
+  `#sync` (§10.4). Whether an import into an active account emits `#sync`
+  is an open question for the owner ([plan.md](plan.md)).
 
 ### 6.6 Determinism
 
@@ -722,7 +775,8 @@ Each message is two DAG-CBOR objects: a header `{"op": 1, "t": "#<type>"}`
 and the body. Errors are `{"op": -1, "error": "<Name>", "message": "<text>"}`
 followed by close. Frames never exceed 5 MB.
 
-An error frame is followed by a close with code 1008. At the pin
+An error frame is followed by a close with code 1008. The server sends no
+ping: at the pin a ping is the client's to send. At the pin
 `subscribeRepos` has no HTTP route: a request without an upgrade, with any
 method, falls to the catch-all proxy and is 401 `AuthMissing`. Frames the
 client sends are ignored. The public listener serves `wss://` behind the
@@ -757,6 +811,17 @@ nothing.
   can lose an event at this boundary; the Harness injects a crash here and
   requires the relay to converge. Sync 1.1 defines `#sync` as the repair for
   exactly this state.
+- The Candidate takes the second way. A commit and its event are in two
+  files, so no transaction covers both. Before it commits the actor
+  transaction, the server notes the account and the revision in
+  `ops.sqlite`; it appends the event after the commit is durable, and then
+  removes the note. At startup, before the first request, it reads the
+  notes: where the repository's head is the noted revision and the log has
+  no event of that revision, it appends `#sync` with the head. The
+  Reference appends the event first and commits second, so its failure at
+  this boundary is an event for a commit that does not exist. The note
+  names a commit that stopped in this process; a log or a store that lost
+  its tail to a power failure is not found this way (§19.2).
 - Account status changes, handle changes and deletions emit their events in
   the same transaction as the state change.
 - Frames are served only from the durable log in `seq` order. The in-process
@@ -772,7 +837,13 @@ nothing.
 
 - Each event is encoded once and shared across subscribers by reference.
 - Each subscriber has a bounded queue. Backfill reads the log in pages; it
-  never materialises the whole range in memory.
+  never materialises the whole range in memory. A page ends after 500
+  events or 4 MiB of event bodies.
+- A subscriber is too slow (§7.3) when it was at the head of the log and
+  more events than `PDS_MAX_SUBSCRIPTION_BUFFER` were appended while it took
+  the frames of its last read. A subscriber that waited at the head is idle,
+  and a backfill is not held to the buffer; the Reference's buffer has the
+  same two exceptions.
 - Keepalive pings and idle timeouts match the Reference.
 - The ops listener (§22.1) reports every subscriber's cursor, lag and queue
   depth and can disconnect one.
@@ -798,7 +869,7 @@ and monitoring tooling in `linkjar/infra` keeps working:
 | `$PDS_DATA_DIRECTORY/sequencer.sqlite` | `repo_seq` |
 | `$PDS_DATA_DIRECTORY/did_cache.sqlite` | DID document cache |
 | `$PDS_DATA_DIRECTORY/audit.sqlite` | the audit log (§20), Candidate-only |
-| `$PDS_DATA_DIRECTORY/ops.sqlite` | operator state the console writes (§22.1): abuse lists, rate multipliers, job state, Candidate-only |
+| `$PDS_DATA_DIRECTORY/ops.sqlite` | the notes of commits in flight (§7.4), and operator state the console writes (§22.1): abuse lists, rate multipliers, job state. Candidate-only |
 | `$PDS_ACTOR_STORE_DIRECTORY/<first two hex of sha256(did)>/<did>/store.sqlite` | the actor's repository, records, blob index, preferences |
 | the sibling `key` file | the actor's signing key, byte-identical to the Reference's format |
 | `$PDS_ACTOR_STORE_DIRECTORY/reserved_keys/<did>` | reserved signing keys |
@@ -979,11 +1050,13 @@ The Candidate emits events in these orders:
 | takedown reversed | `#account` (active) |
 | reactivated by the account | `#account` (active), `#identity`, then `#sync`; no commit |
 | migrated in and activated | `#account`, then `#sync`, then an empty `#commit` signed with the new key at a higher `rev` |
-| CAR imported | `#sync` |
+| CAR imported | none, as at the pin (§6.5) |
 | repair after a crash boundary (§7.4) | `#sync` |
 
 The first six rows are the Reference's sequences at the pin, as the Harness
-records them. The server MAY wait until a new handle resolves before
+records them. Unit 4 holds the encoding of each event and the two rows that
+need no account endpoint: the import and the repair. The other rows are
+observed from unit 5. The server MAY wait until a new handle resolves before
 emitting `#identity`.
 
 ## 11. OAuth Authorization Server
@@ -1419,6 +1492,19 @@ Parity scenarios run without fault injection; fault scenarios (§19)
 run against the Candidate alone. [parity/README.md](../parity/README.md)
 describes the harness and the contract its page driver relies on.
 
+The writes run, `pnpm parity writes`, holds the Candidate to the Reference
+on writes and the firehose before the Candidate has an account endpoint.
+Every pass starts on the Reference, which creates a pool of accounts. In the
+Candidate's pass the Candidate then takes over the data directory, and the
+same scenarios run on each server: record writes, reads, blobs, imports,
+the firehose with its cursors, a relay in strict mode, and data from
+elsewhere. The differences that show are the deliberate ones of §2.3,
+recorded in `parity/differences/reference-vs-candidate.json`; a difference
+that is not recorded fails the run, and so does a recorded one that no
+longer shows. After the Candidate's pass `verify` checks the directory. A
+last pass stops the Candidate between a commit and its event and requires
+the repair of §7.4 and a relay that converges.
+
 ### 17.2 Interop vectors
 
 The upstream `atproto-interop-tests` (CC0: crypto, data model, firehose,
@@ -1505,6 +1591,12 @@ directories. For every actor it:
 - checks that every blob a record references has a row in the blob index
   and, unless it is taken down, a file in the blob store.
 
+A root in the account database that is behind the actor store, or absent,
+is counted and is not a difference (`stale account roots`;
+`staleAccountRoots` with `--json`): the Reference writes that root after a
+commit and logs a failure, and it does not write it on an import. A root
+that is ahead of the store is a difference.
+
 It then reads `repo_seq` and reports the breaks in its sequence numbers. A
 break is not a difference: the Reference deletes an account's earlier
 events when the account is deleted. `verify` prints a report, as text or
@@ -1568,6 +1660,22 @@ together with the write path (decision of 2026-10-08).
   TRACE logs byte for byte. Any dependency that reads the clock, randomness
   or a hash seed outside the providers of §3.2 fails that test and is
   wrapped or replaced.
+
+As of unit 4 the crate has the fail points of the commit path, the seeded
+plans, the oracles of §19.4, the seed runner and the determinism meta-test,
+which compares the traces of two runs of a seed. Three things of this
+section are not written yet, and the crate's documentation says so:
+
+- the `StorageIo` trait and the fault-injecting VFS, so no run loses or
+  tears a write below SQLite: a stop is a process stop between two steps;
+- the `turmoil` network, so no run has a socket, a partition or a slow
+  consumer: requests enter the router in process;
+- concurrent operations: a plan runs one operation after the other.
+
+`PDS_FAIL_POINTS` arms fail points in a running server, in dev mode only
+(§3.3): `name=action` pairs, where an action is `abort`,
+`abort-once:<marker file>` or `error`. The points of the commit path are
+`commit.before-store`, `commit.stored` and `commit.sequenced`.
 
 ### 19.3 Scenarios
 
@@ -1817,6 +1925,7 @@ Accepted with the Reference's defaults and meaning:
 
 New in the Candidate:
 
+- `PDS_FAIL_POINTS`: fail points to arm (§19.2). Read in dev mode only.
 - `PDS_PROFILE`: `stock` (default) or `linkjar`.
 - `PDS_METRICS_ADDRESS`: the private metrics listener; unset disables it.
 - `PDS_OPS_ADDRESS`: the private ops listener (§22.1); unset disables it.
@@ -1842,9 +1951,9 @@ New in the Candidate:
 | D12 | Resolved 2026-10-08: entryway mode is a post-cutover unit (§21.3). | post-cutover |
 | D13 | Atproto Spaces: out of scope for version 1; the `ActorStore` seam reserves room for per-space tables so the upstream per-actor design can be adopted when schemas stabilise. | post-cutover |
 | D14 | OAuth lifetimes where the Reference at the pin exceeds the specification's bounds: follow the pin through the rollback window, tighten afterwards. | 5 |
-| D15 | Resolved 2026-10-09: where the Reference answers 500 to a client error, the Candidate answers 400 `InvalidRequest`. Four cases: `createRecord` and `applyWrites` on a key that exists, `createAppPassword` with a name in use, an `atproto-proxy` value that does not start with a DID (§2.3, DD-1 to DD-4). | 4, 5 |
+| D15 | Resolved 2026-10-09: where the Reference answers 500 to a client error, the Candidate answers 400 `InvalidRequest`. Four cases: `createRecord` and `applyWrites` on a key that exists, `createAppPassword` with a name in use, an `atproto-proxy` value that does not start with a DID (§2.3, DD-1 to DD-4). 2026-10-13: three more, `importRepo` with bytes that are not a CAR and `createAccount` with the handle or the email of a deactivated or taken-down account (DD-15 to DD-17). | 4, 5 |
 | D16 | Resolved. Hardenings that the pin does not have and a client could observe. 2026-10-09: the Candidate refuses a replayed service token (§5.4; §2.3, DD-5). 2026-10-12: the Candidate collects an upload that no record references after one hour (§6.4; §2.3, DD-10), and it keeps no grace period before a dereferenced blob is deleted, as the pin. | 4 |
-| D17 | Resolved 2026-10-12: where the Candidate is stricter than the Reference at the pin on data from elsewhere, it keeps its check, and each case is a deliberate difference with a scenario that records what the pin does (§2.3, DD-6 to DD-9 and DD-11 to DD-13). The pin stays at 0.5.34 and the legacy build carries upstream's shared-node refusal of 0.5.37 as a ninth patch (§13). | 4, 5, 8 |
+| D17 | Resolved 2026-10-12: where the Candidate is stricter than the Reference at the pin on data from elsewhere, it keeps its check, and each case is a deliberate difference with a scenario that records what the pin does (§2.3, DD-6 to DD-9 and DD-11 to DD-13). 2026-10-13: the import also checks that the commit names the account and that the account's key signed it (DD-14). The pin stays at 0.5.34 and the legacy build carries upstream's shared-node refusal of 0.5.37 as a ninth patch (§13). | 4, 5, 8 |
 
 ## Appendix E. Changes in Revision 1
 
@@ -1988,3 +2097,36 @@ Revision 6 follows unit 3, the read-only server.
   rustfmt and clippy hooks and does not install them. O7 in §17.3 names
   `legacy/tests/*.mjs`. §17.4 names plan.md as the place of the delivery
   units. D17 in Appendix D has the owner units 4, 5 and 8.
+
+## Appendix K. Changes in Revision 7
+
+Revision 7 follows unit 4 and applies the owner's decisions of 2026-10-13.
+
+- §2.3: DD-7 to DD-10 move into the table of observed differences, with
+  what the Reference answers. DD-14 and DD-15 are new and observed; DD-16
+  and DD-17 are new and wait for unit 5. The section names the scenarios
+  that record each difference, and states that two refusals of one tree
+  may carry different messages.
+- §3.1 and §3.2: the crates that own the write path, the notes of commits
+  in flight and the fail points; what `pds-sim` holds; `aws-lc-rs` for
+  outbound TLS.
+- §6.3: a batch that updates or deletes a missing key is 500 in both
+  servers. A refused write carries the Reference's message.
+- §6.4: the content types the Candidate recognises; a blob is served only
+  when its row is permanent.
+- §6.5: the import checks the account and the signature. As at the pin it
+  stores a new revision, appends no event, and does not write the account
+  database's root. The earlier text required `#sync` after an import.
+- §7.2: the server sends no ping.
+- §7.4: how the Candidate orders a commit and its event, the note in
+  `ops.sqlite`, and the repair at startup.
+- §7.5: a page of the log ends after 500 events or 4 MiB; when a subscriber
+  is too slow.
+- §8.1: what `ops.sqlite` holds.
+- §10.4: an import emits nothing; which rows unit 4 holds.
+- §17.1 describes the writes run.
+- §18.2: a root in the account database that is behind the store is counted
+  and is not a difference.
+- §19.2 states what of the simulation is written and what is not, and
+  defines `PDS_FAIL_POINTS`. Appendix C lists the variable.
+- Appendix D: D15 and D17 carry the decisions of 2026-10-13.

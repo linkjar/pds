@@ -72,11 +72,60 @@ pub fn expect_body(headers: &HeaderMap) -> Result<(), XrpcError> {
     }
 }
 
-/// Reads the JSON object of a procedure's input. `limit` is the most bytes
-/// the method reads.
+/// The most bytes the server reads and discards of a body it has refused.
+/// A longer body ends with the connection.
+pub const DRAIN_CAP: usize = 16 * 1024 * 1024;
+
+/// Reads and discards what is left of a request body, up to [`DRAIN_CAP`].
+///
+/// A refusal that is sent while the client still writes its body makes the
+/// server close the connection, and a proxy in front then reports 502 in
+/// place of the refusal. The Reference's HTTP server discards an unread
+/// body in the same way.
+pub async fn drain(body: Body) {
+    use futures_util::StreamExt as _;
+    let mut stream = body.into_data_stream();
+    let mut discarded = 0_usize;
+    while let Some(Ok(chunk)) = stream.next().await {
+        discarded = discarded.saturating_add(chunk.len());
+        if discarded > DRAIN_CAP {
+            return;
+        }
+    }
+}
+
+/// Reads a whole body of at most `limit` bytes. A longer one is 413, and
+/// the rest of it is discarded first.
+pub async fn collect(body: Body, limit: usize) -> Result<Vec<u8>, XrpcError> {
+    use futures_util::StreamExt as _;
+    let mut stream = body.into_data_stream();
+    let mut bytes = Vec::new();
+    while let Some(chunk) = stream.next().await {
+        let chunk =
+            chunk.map_err(|_| XrpcError::invalid_request("The request body ended early"))?;
+        if bytes.len().saturating_add(chunk.len()) > limit {
+            let mut discarded = chunk.len();
+            while let Some(Ok(more)) = stream.next().await {
+                discarded = discarded.saturating_add(more.len());
+                if discarded > DRAIN_CAP {
+                    break;
+                }
+            }
+            return Err(payload_too_large());
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    Ok(bytes)
+}
+
+/// Reads the JSON object of a procedure's input.
+///
+/// `limit` is the most bytes the method reads. The body is taken out of
+/// `body` when the request may send one; a request that is refused before
+/// that leaves it there.
 pub async fn read_json(
     headers: &HeaderMap,
-    body: Body,
+    body: &mut Option<Body>,
     limit: usize,
 ) -> Result<Map<String, Value>, XrpcError> {
     expect_body(headers)?;
@@ -89,9 +138,7 @@ pub async fn read_json(
     if content_length(headers)?.is_some_and(|length| length > limit as u64) {
         return Err(payload_too_large());
     }
-    let bytes = axum::body::to_bytes(body, limit)
-        .await
-        .map_err(|_| payload_too_large())?;
+    let bytes = collect(body.take().unwrap_or_default(), limit).await?;
     if bytes.is_empty() {
         // Express gives an empty body as an empty object.
         return Ok(Map::new());

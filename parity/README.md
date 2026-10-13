@@ -41,6 +41,7 @@ pnpm parity compare stock official      # must show no difference
 ```sh
 pnpm parity images build-candidate      # ../Dockerfile, tagged linkjar-pds:candidate
 pnpm parity restore                     # must show no difference
+pnpm parity writes                      # must show the recorded differences only
 ```
 
 Each `run` builds a fresh stack, runs the scenarios of one profile in file
@@ -131,6 +132,52 @@ reference image, the binary's own `health` command in the Candidate.
 [read measurements](#read-measurements) instead of the read scenarios. The
 command refuses `--update`: a restore run allows no difference.
 
+### The writes run
+
+`pnpm parity writes` holds the Candidate to the Reference on writes and the
+firehose ([`src/writes.ts`](src/writes.ts), SPEC §17.1). The Candidate
+cannot create an account before unit 5, so every pass starts on the
+Reference. A pass is one fresh stack, named `candidate`:
+
+1. The reference image starts and `scenarios/writes/00-pool` creates 24
+   accounts. They go to `.run/candidate/account-pool.json`.
+2. In the Candidate's pass, the PDS container is replaced by the Candidate
+   image on the same volume.
+3. The scenarios of the stage run with `PARITY_ACCOUNT_POOL=1`: a call to
+   `s.createAccount` takes the next account of the pool and records no
+   exchange ([`src/lib/pool.ts`](src/lib/pool.ts)). Both passes take the
+   accounts in the same order, so their transcripts name the same handles.
+
+| Stage | Profile | Scenarios |
+|---|---|---|
+| `records` | `writes`: the production configuration | `default/03-repo-writes`, `04-repo-reads`, `05-blobs`, `15-import`, and `writes/20-firehose`, `21-relay`, `22-elsewhere` |
+| `cursor-limits` | `writes-firehose`: a five-second backfill window and a buffer of five events | `firehose/01-cursor-limits` |
+| `crash` | `writes-crash`: dev mode, and the fail point `commit.stored` armed to abort once | `writes-crash/30-crash`, on the Candidate only |
+
+Each of the first two stages runs one pass on the Reference and one on the
+Candidate. The transcripts go to `transcripts/writes-reference/` and
+`transcripts/writes-candidate/`, and the two groups are compared. The
+differences that may show are in
+[differences/reference-vs-candidate.json](differences/reference-vs-candidate.json):
+the deliberate differences of SPEC §2.3. `--update` rewrites that file;
+review the result like code. After every pass on the Candidate,
+`linkjar-pds verify --json` must report zero differences.
+
+`writes/20-firehose` and `21-relay` are `default/06` and `07` without the
+account events, which need the endpoints of unit 5. `22-elsewhere` records
+what each server answers to data from elsewhere: a tree that is not a
+Merkle search tree, a record block that is not canonical, a commit that
+another key signed. It signs with the account's own key, read from its
+actor store, unless the case is about the signature.
+
+The crash stage has no pass on the Reference. The Candidate stops after it
+stored a commit and before it appended the event. The scenario restarts
+it and requires `#sync` for the head, no `#commit` for that revision, a
+next write that succeeds, and a relay that holds the new head (SPEC §7.4).
+
+`--only=<stage>` runs one stage. `--keep` leaves the last stack up.
+`--perf` runs the [write measurements](#write-measurements) instead.
+
 ### Scenarios and transcripts
 
 A scenario gets a `Scenario` object. `s.http`, `s.query` and `s.procedure`
@@ -207,6 +254,7 @@ these names:
 | `perf` | Rate limits off, no crawler. | SPEC §16.1, S1 to S5, S8 and S9. See below. |
 | `restore` | Nothing: the production configuration. | The seed and the read scenarios of the [restore run](#the-restore-run). Run through `pnpm parity restore`, not `run`. |
 | `restore-perf` | Nothing: the production configuration. | The read measurements: one repository of 100,000 records, and the same reads timed on both servers. Run through `pnpm parity restore --perf`. See below. |
+| `writes`, `writes-firehose`, `writes-crash`, `writes-perf` | See [the writes run](#the-writes-run). | Run through `pnpm parity writes`, not `run`. |
 
 ## Performance scenarios
 
@@ -236,6 +284,16 @@ every restore run, so both servers must return the same export, byte for
 byte. When the run passes, it prints the table and writes it to
 [results/perf-reads.md](results/perf-reads.md). The table is one run on one
 host, not a benchmark and not a run against the targets of SPEC §16.2.
+
+### Write measurements
+
+`pnpm parity writes --perf` runs `perf/01-repository`, SPEC §16.1 S1 to S3,
+on each server with the profile `writes-perf`: rate limits off and no
+crawler. The Reference creates the account; in the Candidate's pass the
+Candidate then takes over the data directory and does every write. When
+the run passes, it prints the table and writes it to
+[results/perf-writes.md](results/perf-writes.md). The table is one run on
+one host, not a benchmark and not a run against the targets of SPEC §16.2.
 
 ## The port of `legacy/tests`
 

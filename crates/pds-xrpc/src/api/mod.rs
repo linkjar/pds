@@ -240,9 +240,22 @@ pub async fn entry(State(state): State<AppState>, request: axum::extract::Reques
         return XrpcError::invalid_request("XRPC requests only supports GET and POST")
             .into_response();
     }
-    xrpc(&state, nsid, &method, uri.query(), &parts.headers, body)
-        .await
-        .unwrap_or_else(IntoResponse::into_response)
+    let mut body = Some(body);
+    let response = xrpc(
+        &state,
+        nsid,
+        &method,
+        uri.query(),
+        &parts.headers,
+        &mut body,
+    )
+    .await
+    .unwrap_or_else(IntoResponse::into_response);
+    // A handler that answered without reading the body left it here.
+    if let Some(unread) = body {
+        crate::body::drain(unread).await;
+    }
+    response
 }
 
 async fn xrpc(
@@ -251,7 +264,7 @@ async fn xrpc(
     method: &Method,
     raw_query: Option<&str>,
     headers: &HeaderMap,
-    body: Body,
+    body: &mut Option<Body>,
 ) -> Result<Response, XrpcError> {
     // A read-only server has no handler for a write.
     if state.writes().is_some()

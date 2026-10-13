@@ -1,0 +1,69 @@
+name: Simulation
+
+# Nightly seed runs of the simulation harness (crates/pds-sim, docs/SPEC.md
+# section 19). Each night runs seeds it has not run before, in two shapes:
+# the default plan, and a plan with more accounts and many more stops at
+# the fail points. A failing seed is the whole report of a failure: the
+# summary names it, and `cargo run -p pds-sim -- --from <seed> --seeds 1
+# --trace` repeats it on any machine.
+#
+# Actions are pinned by commit SHA.
+
+on:
+  schedule:
+    - cron: '41 2 * * *'
+  workflow_dispatch:
+    inputs:
+      from:
+        description: First seed. Default: the run number times 1,000.
+        required: false
+      seeds:
+        description: Seeds for each shape.
+        required: false
+        default: '500'
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  seeds:
+    name: seeds
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - run: cargo build --release --locked -p pds-sim
+      - name: Run the seeds
+        env:
+          FROM: ${{ inputs.from }}
+          SEEDS: ${{ inputs.seeds || '500' }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          from="${FROM:-$((RUN_NUMBER * 1000))}"
+          status=0
+          {
+            echo "## Simulation seeds"
+            echo
+            echo "Commit \`${GITHUB_SHA}\`. Seeds ${from} to $((from + SEEDS - 1)) in each shape."
+            echo
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          run() {
+            # The summary takes the last lines: the totals and the failed seeds.
+            ./target/release/pds-sim --from "$from" --seeds "$SEEDS" "$@" | tee sim.log || status=1
+            { echo "pds-sim --from $from --seeds $SEEDS $*"; grep -E 'FAILED|seeds from|failed seeds' sim.log; echo; } >> "$GITHUB_STEP_SUMMARY"
+          }
+          run --steps 200
+          run --steps 250 --accounts 5 --faults 30
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
