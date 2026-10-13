@@ -71,6 +71,7 @@ pub struct WriteState {
     tids: TidGenerator,
     locks: Mutex<HashMap<String, Arc<Mutex<()>>>>,
     settings: WriteSettings,
+    random: Box<dyn Fn() -> u64 + Send + Sync>,
 }
 
 impl std::fmt::Debug for WriteState {
@@ -98,7 +99,21 @@ impl WriteState {
             tids,
             locks: Mutex::new(HashMap::new()),
             settings,
+            random: Box::new(rand::random::<u64>),
         })
+    }
+
+    /// The same state with another source of random numbers (SPEC §3.2).
+    /// The simulation passes one that its seed drives.
+    #[must_use]
+    pub fn with_random(mut self, random: impl Fn() -> u64 + Send + Sync + 'static) -> Self {
+        self.random = Box::new(random);
+        self
+    }
+
+    /// A random number. The names of staged uploads come from here.
+    pub fn random(&self) -> u64 {
+        (self.random)()
     }
 
     /// The event log.

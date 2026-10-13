@@ -1360,6 +1360,27 @@ dependencies = [
 [[package]]
 name = "pds-sim"
 version = "0.0.1"
+dependencies = [
+ "axum",
+ "base64 0.22.1",
+ "cid",
+ "hmac",
+ "linkjar-pds",
+ "pds-blob",
+ "pds-identity",
+ "pds-repo",
+ "pds-sequencer",
+ "pds-storage",
+ "pds-types",
+ "pds-xrpc",
+ "reqwest",
+ "rusqlite",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "tokio",
+ "tower",
+]
 
 [[package]]
 name = "pds-storage"

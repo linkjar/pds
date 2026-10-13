@@ -133,11 +133,16 @@ function ensurePlcImage(target: TargetName): void {
  * Replaces the PDS of a running stack by another image on the same data
  * directory, and waits until it serves. The other services stay up.
  */
-export function swapPds(target: TargetName, image: string): StackState {
+export function swapPds(target: TargetName, image: string, profile?: Profile): StackState {
   const state = readState(target)
   compose(target, ['stop', 'pds'], { image: state.image })
+  // A profile changes the environment of the server that takes over.
+  if (profile) {
+    const spec = targetSpec(target)
+    writePdsEnv(spec, pdsEnv(spec, profile, ensureSecrets(spec.runDir)))
+  }
   compose(target, ['up', '--detach', '--wait', '--wait-timeout', '120', '--force-recreate', '--no-deps', 'pds-init', 'pds'], { inherit: true, image })
-  const next = { ...state, image }
+  const next = { ...state, image, profile: profile ?? state.profile }
   writeFileSync(stateFile(target), JSON.stringify(next, null, 2) + '\n', { mode: 0o600 })
   return next
 }

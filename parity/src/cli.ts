@@ -8,6 +8,7 @@
 //   pnpm parity compare <left> <right> [--update]
 //   pnpm parity images build-candidate
 //   pnpm parity restore [--keep] [--perf]
+//   pnpm parity writes [--keep] [--update] [--only=<stage>]
 //   pnpm parity perf report <target>
 
 import { spawnSync } from 'node:child_process'
@@ -16,6 +17,7 @@ import type { Profile } from './stack/env.ts'
 import { compare } from './compare.ts'
 import { perfReport } from './perf-report.ts'
 import { restore } from './restore.ts'
+import { writes } from './writes.ts'
 import { runScenarios } from './run.ts'
 import { down, logs, up } from './stack/compose.ts'
 import { CANDIDATE_TAG, REPO_DIR, TARGET_NAMES, images, isTargetName, targetSpec, upstream } from './stack/targets.ts'
@@ -128,10 +130,15 @@ async function main(): Promise<void> {
     if (args.includes('--update')) fail('restore does not take --update: no difference is allowed between the Reference and the Candidate on one data directory (differences/README.md).')
     process.exit(await restore({ keep: args.includes('--keep'), perf: args.includes('--perf') }))
   }
+  if (group === 'writes') {
+    const args = [command ?? '', ...rest]
+    const only = args.find((arg) => arg.startsWith('--only='))?.slice('--only='.length)
+    process.exit(await writes({ keep: args.includes('--keep'), update: args.includes('--update'), only }))
+  }
   if (group === 'compare') {
     process.exit(compare(target(command), target(rest[0]), { update: rest.includes('--update') }))
   }
-  fail('Usage: pnpm parity <images verify|images build-stock|images build-candidate|stack up|stack down|stack logs|run|restore|compare|perf report> ...')
+  fail('Usage: pnpm parity <images verify|images build-stock|images build-candidate|stack up|stack down|stack logs|run|restore|writes|compare|perf report> ...')
 }
 
 await main()

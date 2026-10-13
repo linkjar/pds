@@ -102,7 +102,7 @@ fn decode(bytes: &[u8]) -> Frame {
     let mut reader = Reader::new(bytes, Limits::FRAME).unwrap();
     let head = reader.data(0).unwrap();
     let body = reader.data(0).unwrap();
-    assert!(reader.remaining().is_empty());
+    assert_eq!(reader.remaining(), [0_u8; 0]);
     let kind = match (head.get("op"), head.get("t")) {
         (Some(Data::Integer(1)), Some(Data::String(kind))) => kind.clone(),
         (Some(Data::Integer(-1)), _) => "error".to_owned(),
@@ -182,7 +182,7 @@ impl Server {
             self.origin.replace("http://", "ws://")
         );
         if let Some(cursor) = cursor {
-            url.push_str(&format!("?cursor={cursor}"));
+            url = format!("{url}?cursor={cursor}");
         }
         tokio_tungstenite::connect_async(url).await.unwrap().0
     }
@@ -353,6 +353,7 @@ async fn a_write_is_refused_as_the_reference_refuses_it() {
 }
 
 #[tokio::test]
+#[allow(clippy::too_many_lines)] // one repository carried through every kind of write
 async fn put_delete_and_a_batch_write_what_they_say() {
     let server = Server::start(2).await;
     let put = |rkey: &'static str, record: Value, extra: Value| {
@@ -531,9 +532,9 @@ async fn an_upload_waits_for_a_record_and_goes_with_its_last_reference() {
         .create(NOTE, "pic", json!({"$type": NOTE, "file": blob}))
         .await
         .ok();
-    let served = server.get(&get_blob).await;
-    assert_eq!(served.status, 200);
-    assert_eq!(served.body, bytes);
+    let answer = server.get(&get_blob).await;
+    assert_eq!(answer.status, 200);
+    assert_eq!(answer.body, bytes);
     // The same bytes again: the store keeps the blob it has.
     assert_eq!(upload(bytes.clone()).await.ok()["blob"], blob);
     assert_eq!(server.get(&get_blob).await.status, 200);

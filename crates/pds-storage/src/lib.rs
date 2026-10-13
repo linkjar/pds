@@ -21,6 +21,7 @@ pub mod error;
 pub mod fail;
 pub mod layout;
 pub mod ops;
+pub mod schema;
 pub mod sequencer;
 
 pub use account::{AccountDb, Actor, Availability, RepoListing};

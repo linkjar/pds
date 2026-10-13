@@ -1,0 +1,131 @@
+// The writes run: the Candidate takes over a data directory that the
+// Reference started, and must answer every write and serve the firehose as
+// the Reference does on a directory of its own (SPEC 17.3, O1 to O3).
+//
+// The Candidate has no account endpoint yet, so every pass starts on the
+// Reference, which creates a pool of accounts (scenarios/writes/00-pool).
+// A pass is one fresh stack:
+//
+//   1. The Reference image starts and creates the pool.
+//   2. In the Candidate's pass, the PDS container is replaced by the
+//      Candidate image on the same data directory.
+//   3. The scenarios of the stage run. They take their accounts from the
+//      pool.
+//
+// Each stage runs one pass on each server, and the two sets of transcripts
+// are compared. The differences that may show are the deliberate ones of
+// SPEC 2.3, recorded in differences/reference-vs-candidate.json. After the
+// Candidate's pass its `verify` command checks the data directory.
+//
+// A last pass has no counterpart on the Reference: the Candidate stops
+// between a commit and its event, and repairs the log at the next start
+// (SPEC 7.4).
+
+import { rmSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { compareGroups } from './compare.ts'
+import { runFiles, saveLogs } from './run.ts'
+import { down, execPds, swapPds, up } from './stack/compose.ts'
+import type { Profile } from './stack/env.ts'
+import { PARITY_DIR, targetSpec } from './stack/targets.ts'
+
+export type WritesOptions = {
+  /** Rewrite the recorded difference list instead of checking against it. */
+  update?: boolean
+  /** Leave the last stack running afterwards. */
+  keep?: boolean
+  /** Run only the stages whose name contains this text. */
+  only?: string
+}
+
+const scenario = (path: string) => join(PARITY_DIR, 'scenarios', `${path}.scenario.ts`)
+const POOL = scenario('writes/00-pool')
+
+type Stage = { name: string; profile: Profile; files: string[] }
+
+const STAGES: Stage[] = [
+  {
+    name: 'records',
+    profile: 'writes',
+    files: ['default/03-repo-writes', 'default/04-repo-reads', 'default/05-blobs', 'default/15-import', 'writes/20-firehose', 'writes/21-relay', 'writes/22-elsewhere'].map(scenario),
+  },
+  // The two rows of SPEC 7.3 that depend on configured limits.
+  { name: 'cursor-limits', profile: 'writes-firehose', files: [scenario('firehose/01-cursor-limits')] },
+]
+
+const REFERENCE = 'writes-reference'
+const CANDIDATE = 'writes-candidate'
+const CRASH = 'writes-crash'
+
+/** Returns the process exit status. */
+export async function writes(options: WritesOptions = {}): Promise<number> {
+  const target = 'candidate' as const
+  const spec = targetSpec(target)
+  const reference = targetSpec('reference').image
+  const stages = STAGES.filter((stage) => !options.only || stage.name.includes(options.only))
+  const crash = !options.only || 'crash'.includes(options.only)
+  if (!options.only) {
+    for (const group of [REFERENCE, CANDIDATE, CRASH]) rmSync(join(spec.runDir, 'transcripts', group), { recursive: true, force: true })
+  }
+
+  /** One fresh stack: the pool on the Reference, then the scenarios on one of the two servers. */
+  const pass = async (label: string, profile: Profile, files: string[], group: string, takeover?: Profile): Promise<number> => {
+    console.log(`\n── writes: ${label}`)
+    await up(target, profile, { fresh: true, image: reference })
+    let status = await runFiles(target, [POOL], { PARITY_TRANSCRIPTS: `${group}-pool` })
+    if (status !== 0) return status
+    if (takeover) swapPds(target, spec.image, takeover)
+    status = await runFiles(target, files, { PARITY_TRANSCRIPTS: group, PARITY_ACCOUNT_POOL: '1' })
+    if (status === 0 && takeover) status = verify(spec.runDir, label)
+    return status
+  }
+
+  let status = 0
+  try {
+    for (const stage of stages) {
+      status = await pass(`${stage.name}, on the Reference`, stage.profile, stage.files, REFERENCE)
+      if (status === 0) status = await pass(`${stage.name}, on the Candidate`, stage.profile, stage.files, CANDIDATE, stage.profile)
+      if (status !== 0) {
+        console.error(`writes: stage "${stage.name}" failed`)
+        break
+      }
+    }
+    if (status === 0 && crash) {
+      status = await pass('the crash boundary, on the Candidate', 'writes', [scenario('writes-crash/30-crash')], CRASH, 'writes-crash')
+      if (status !== 0) console.error('writes: the crash boundary failed')
+    }
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error)
+    console.error(`writes: a step threw. Service logs are in ${saveLogs(target)}`)
+    status = 1
+  } finally {
+    if (!options.keep) down(target)
+  }
+  if (status !== 0) return status
+  console.log('\n── writes: compare')
+  return compareGroups(target, REFERENCE, CANDIDATE, {
+    update: options.update,
+    label: 'writes',
+    hint: 'pnpm parity writes',
+    names: ['reference', 'candidate'],
+  })
+}
+
+/** Runs the Candidate's `verify` on the data directory it serves. Zero differences are required (SPEC 18.2). */
+function verify(runDir: string, label: string): number {
+  const run = execPds('candidate', ['linkjar-pds', 'verify', '--json'])
+  writeFileSync(join(runDir, `verify-${label.replace(/\W+/g, '-')}.json`), run.stdout)
+  let report: { differences?: number; findings?: unknown[] }
+  try {
+    report = JSON.parse(run.stdout)
+  } catch {
+    console.error(`verify did not report:\n${run.stdout}${run.stderr}`)
+    return 1
+  }
+  console.log(JSON.stringify({ ...report, findings: undefined }))
+  if (report.differences !== 0) {
+    console.error(JSON.stringify(report.findings, null, 2))
+    return 1
+  }
+  return run.status
+}

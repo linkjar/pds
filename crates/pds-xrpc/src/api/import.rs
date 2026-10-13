@@ -59,10 +59,25 @@ impl Session<'_> {
         let public = Keypair::from_secret_bytes(Algorithm::Secp256k1, &key)
             .map_err(XrpcError::internal)?
             .public_key();
-        let verify = |bytes: &[u8], signature: &[u8]| public.verify(bytes, signature).is_ok();
+        // The tree is checked first and the commit second, so that a tree
+        // the Reference also refuses gets the Reference's answer.
         let expect = Expect {
-            did: Some(&did),
-            verify: Some(&verify),
+            did: None,
+            verify: None,
+        };
+        let check_commit = |commit: &pds_repo::Commit| -> Result<(), XrpcError> {
+            if commit.did != did {
+                return Err(XrpcError::invalid_request(
+                    "invalid repository: the commit is for another account",
+                ));
+            }
+            commit
+                .verify(|bytes, signature| public.verify(bytes, signature).is_ok())
+                .map_err(|_| {
+                    XrpcError::invalid_request(
+                        "invalid repository: the commit signature does not verify",
+                    )
+                })
         };
         let invalid = |error: RepoError| {
             if error.is_invalid_input() {
@@ -83,10 +98,12 @@ impl Session<'_> {
             let repo = Repo::load(actor, root.cid).map_err(XrpcError::internal)?;
             let stored = usize::try_from(txn.block_count()?).unwrap_or(usize::MAX);
             let diff = verify_diff_car(&repo, car, &expect, stored).map_err(invalid)?;
+            check_commit(&diff.commit)?;
             let removed: Vec<_> = diff.removed_cids.into_iter().collect();
             (diff.cid, diff.changes, diff.new_blocks, removed)
         } else {
             let repo = verify_repo_car(car, &expect, false).map_err(invalid)?;
+            check_commit(&repo.commit)?;
             let mut blocks = BlockMap::new();
             let reached = repo
                 .nodes
