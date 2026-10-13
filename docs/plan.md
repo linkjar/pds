@@ -138,6 +138,7 @@ upstream bumps, which nothing does today beyond the image smoke gate.
 
 | Date | Event |
 |---|---|
+| 2026-10-13 | Unit 5, ninth part, on `feat/unit-5i-oauth-metadata`. **The Candidate is an OAuth authorization server, serves OAuth sessions on its XRPC routes, and adds an account's own writes to the AppView's reads** ([unit record](research/2026-10-13-oauth.md)). Pushed requests, the authorization pages rendered on the server, the token endpoint with rotation and replay detection, revocation, DPoP with nonces, scope checks, the three metadata documents with the Reference's CORS answers, and `/account` with its lists of sessions and devices. The rows are the Reference's, so a session from before the cutover goes on after it. Read-after-write covers the six methods of the Reference, and `registerPush` goes to the service that the request names. `reserveSigningKey` is built. **18 of 22 default scenarios pass against the Candidate alone**: `01-server`, `11-identity`, `13-admin`, `14-appview-local` and `20` to `22` joined. The four that fail are the LinkJar profile, `30` to `33` (unit 6). SPEC revision 9. Two rules now follow the Reference and await the owner's word ([below](#open-questions-for-the-owner)): a handle under `.test`, and the signing algorithms in the metadata. Not built: request objects, permission sets, the settings of the account page, hCaptcha on sign-up, the reactivation step, and address pinning in safe fetch. Next: unit 6. |
 | 2026-10-13 | Unit 5, fifth to eighth parts (pull requests #38 to #40, and `feat/unit-5h-rate-limits`). Preferences, invite codes and `getAccountInfos`; mail with the Reference's templates over SMTP, the six email-token methods, account deletion by the owner and by the admin, and the admin's email, handle and password changes; service tokens on `uploadBlob` and the four PLC operation methods; the rate limits of the pin and the admin's `sendEmail`. **11 of 22 default scenarios pass against the Candidate alone**: `08-proxy`, `09-rate-limits` and `10-email` joined. Still failing: `01-server` and `20` to `22` (OAuth), `11-identity` (a handle under `.test`, which SPEC §9 refuses outside dev mode and the Reference accepts), `13-admin` (not run since `sendEmail` was built), `14-appview-local` (read-after-write for AppView reads), and `30` to `33` (unit 6). |
 | 2026-10-13 | Unit 5, third and fourth parts, on `feat/unit-5c-server` and `feat/unit-5d-service-auth`. `updateHandle` with its PLC operation, the admin status methods (`getAccountInfo`, `getSubjectStatus`, `updateSubjectStatus`) with blob quarantine in both stores, the proxy to the AppView, the moderation service and the report service, and `getServiceAuth`. A proxied request carries a token that the account's key signs. **8 of 22 default scenarios pass against the Candidate alone**: `06-firehose` and `12-lifecycle` joined the six. Still failing: `01-server` (OAuth metadata), `08-proxy`, `09-rate-limits`, `10-email`, `11-identity`, `13-admin`, `14-appview-local`, the three OAuth scenarios and the four of the LinkJar profile. The third part merged as pull request #36. |
 | 2026-10-13 | Unit 5, second part, on `feat/unit-5b-lifecycle`. **The Candidate starts on an empty data directory.** `serve` creates the shared databases that a directory lacks, with the tables, indexes and migration records of the Reference at the pin, read from the stock build of the parity stack; a new actor store records its migration too. `deactivateAccount`, `activateAccount` and `checkAccountStatus` are built. `pnpm parity run candidate` now runs the default scenarios against the Candidate alone: 6 of 22 pass (`02-sessions`, `03-repo-writes`, `04-repo-reads`, `05-blobs`, `07-relay`, `15-import`). The 16 that fail name what unit 5 still owes: `describeServer` details and `getServiceAuth` (01, 06), the proxy and preferences (08, 14), rate limits (09), mail and email tokens (10), handle and PLC changes (11), deletion and the rest of the lifecycle (12), admin and invites (13), OAuth (20 to 22), and the LinkJar profile of unit 6 (30 to 33). The first part merged as pull request #34. |
@@ -226,8 +227,23 @@ question. Revision 7 of the SPEC applies them.
 
 ## Open questions for the owner
 
-Four, each an action on a system that is the owner's. Unit 5 needs none
-of them.
+Four are actions on a system that is the owner's. Two are rules that
+unit 5 changed to what the Reference does; each has a recommendation and
+stays as built unless the owner says otherwise.
+
+- **A handle under `.test`.** SPEC §9.2 accepted one only with
+  `PDS_DEV_MODE`. The Reference at the pin accepts one in every mode, and
+  `default/11-identity` verifies a custom domain under `.test`. The
+  Candidate now accepts it, and SPEC revision 9 says so. Recommendation:
+  keep it. A handle under `.test` cannot verify on the public internet, so
+  the rule protected nothing. To keep the stricter rule instead, it becomes
+  a deliberate difference of §2.3 and the scenario runs in dev mode.
+
+- **The signing algorithms in the OAuth metadata.** SPEC §11.1 named
+  `ES256` only. The Reference lists ten algorithms. The Candidate lists the
+  two it verifies, `ES256` and `ES256K`. Recommendation: keep the two. Every
+  atproto client signs DPoP proofs with `ES256`; RSA and the other curves
+  are code to audit for no known client.
 
 - **`verify` on a staging restore.** Unit 3's gate asks for zero
   differences on a staging restore of production data. The unit had no such
