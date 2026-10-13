@@ -102,6 +102,16 @@ pub fn create_missing_databases(config: &Config) -> Result<(), ServeError> {
 
 /// The settings of the HTTP surface, from the configuration.
 fn server_config(config: &Config, jwt_secret: &str, admin_password: &str) -> ServerConfig {
+    // The key of an entryway. The configuration refused a value that is
+    // not a key.
+    let entryway_key = config.member_host.as_ref().and_then(|host| {
+        pds_identity::Keypair::from_secret_bytes(
+            pds_identity::Algorithm::Secp256k1,
+            &host.signing_key,
+        )
+        .ok()
+        .map(Arc::new)
+    });
     ServerConfig {
         hostname: config.hostname.clone(),
         version: config.version.clone(),
@@ -126,6 +136,23 @@ fn server_config(config: &Config, jwt_secret: &str, admin_password: &str) -> Ser
                 .map(|entryway| pds_xrpc::auth::EntrywayAuth {
                     did: entryway.did.clone(),
                     key: entryway.jwt_key,
+                })
+                // An entryway takes its own tokens as its member hosts do.
+                .or_else(|| {
+                    entryway_key
+                        .as_ref()
+                        .map(|key| pds_xrpc::auth::EntrywayAuth {
+                            did: config.service_did.clone(),
+                            key: key.public_key(),
+                        })
+                }),
+            signer: config
+                .member_host
+                .as_ref()
+                .zip(entryway_key)
+                .map(|(host, key)| pds_xrpc::auth::EntrywaySigner {
+                    key,
+                    legacy_audience: Some(host.did.clone()),
                 }),
         },
         mail: config.mail.clone(),
@@ -133,6 +160,14 @@ fn server_config(config: &Config, jwt_secret: &str, admin_password: &str) -> Ser
         oauth: config.oauth.clone(),
         ops_client_ids: config.ops_client_ids.clone(),
         mcp_client_ids: config.mcp_client_ids.clone(),
+        member_host: config
+            .member_host
+            .as_ref()
+            .map(|host| pds_xrpc::state::MemberHost {
+                url: host.url.clone(),
+                internal_url: host.internal_url.clone(),
+                admin_password: host.admin_password.clone(),
+            }),
         entryway: config
             .entryway
             .as_ref()

@@ -705,6 +705,14 @@ async fn xrpc(
     {
         return entryway::forward(state, entryway, nsid, method, raw_query, headers, body).await;
     }
+    // An entryway keeps no repository: what is not its own method goes to
+    // its member host.
+    if let Some(host) = &state.config().member_host
+        && !entryway::is_entryway_method(nsid)
+    {
+        return entryway::forward_to_member(state, host, nsid, method, raw_query, headers, body)
+            .await;
+    }
     // The methods of the profile exist in that profile only (EX-7).
     if state.writes().is_some()
         && let Some(response) = linkjar::serve(state, nsid, method, headers).await

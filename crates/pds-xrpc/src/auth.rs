@@ -39,6 +39,20 @@ pub struct AuthConfig {
     /// The entryway whose tokens the server takes (SPEC §21.3). With one,
     /// the server mints no token and takes none that `jwt_secret` signed.
     pub entryway: Option<EntrywayAuth>,
+    /// The key of an entryway (SPEC §21.3). With one, the server signs
+    /// its tokens with it, and member hosts verify them.
+    pub signer: Option<EntrywaySigner>,
+}
+
+/// What an entryway signs its tokens with.
+#[derive(Clone)]
+pub struct EntrywaySigner {
+    /// The secp256k1 key.
+    pub key: std::sync::Arc<pds_identity::Keypair>,
+    /// The audience of the refresh tokens from before the entryway: the
+    /// DID of the server that signed them with `jwt_secret`. The entryway
+    /// takes such a token once and answers with its own.
+    pub legacy_audience: Option<String>,
 }
 
 /// What a member host knows of its entryway to check a token.
@@ -210,6 +224,7 @@ fn verify(
     let signature = URL_SAFE_NO_PAD
         .decode(signature)
         .map_err(|_| unverified())?;
+    let mut legacy = false;
     if let Some(entryway) = &config.entryway {
         // A member host takes the tokens of its entryway and no other. A
         // token from before the entryway, which this server signed with
@@ -220,17 +235,22 @@ fn verify(
                 mac.update(format!("{head}.{body}").as_bytes());
                 mac.verify_slice(&signature).is_ok()
             });
-            if own {
+            // The entryway itself takes such a refresh token, so that a
+            // session from before it goes on.
+            legacy = own && config.signer.is_some() && typ == "refresh+jwt";
+            if own && !legacy {
                 return Err(XrpcError::bad_request("ExpiredToken", "Token has expired"));
             }
         }
-        if alg != Some("ES256K") {
-            return Err(unverified());
+        if !legacy {
+            if alg != Some("ES256K") {
+                return Err(unverified());
+            }
+            entryway
+                .key
+                .verify_any_s(format!("{head}.{body}").as_bytes(), &signature)
+                .map_err(|_| unverified())?;
         }
-        entryway
-            .key
-            .verify_any_s(format!("{head}.{body}").as_bytes(), &signature)
-            .map_err(|_| unverified())?;
     } else {
         if alg != Some("HS256") {
             return Err(unverified());
@@ -254,7 +274,13 @@ fn verify(
         .entryway
         .as_ref()
         .is_some_and(|entryway| aud == Some(entryway.did.as_str()));
-    if aud != Some(config.service_did.as_str()) && !for_entryway {
+    let from_before = legacy
+        && config
+            .signer
+            .as_ref()
+            .and_then(|signer| signer.legacy_audience.as_deref())
+            == aud;
+    if aud != Some(config.service_did.as_str()) && !for_entryway && !from_before {
         return Err(unverified());
     }
     match (claims.get("exp"), now_s) {
@@ -358,17 +384,29 @@ pub fn refresh(
     Ok((verified.did, id))
 }
 
-fn sign(config: &AuthConfig, header: &serde_json::Value, claims: &serde_json::Value) -> String {
-    let head = URL_SAFE_NO_PAD.encode(header.to_string());
+fn sign(config: &AuthConfig, typ: &str, claims: &serde_json::Value) -> String {
+    let alg = if config.signer.is_some() {
+        "ES256K"
+    } else {
+        "HS256"
+    };
+    let head = URL_SAFE_NO_PAD.encode(serde_json::json!({"typ": typ, "alg": alg}).to_string());
     let body = URL_SAFE_NO_PAD.encode(claims.to_string());
-    // HMAC takes a key of any length, so there is no other arm.
-    let signature = Hmac::<Sha256>::new_from_slice(&config.jwt_secret).map_or_else(
-        |_| Vec::new(),
-        |mut mac| {
-            mac.update(format!("{head}.{body}").as_bytes());
-            mac.finalize().into_bytes().to_vec()
-        },
-    );
+    let signature = match &config.signer {
+        // An entryway signs with its key, which its member hosts know.
+        Some(signer) => signer
+            .key
+            .sign(format!("{head}.{body}").as_bytes())
+            .to_vec(),
+        // HMAC takes a key of any length, so there is no other arm.
+        None => Hmac::<Sha256>::new_from_slice(&config.jwt_secret).map_or_else(
+            |_| Vec::new(),
+            |mut mac| {
+                mac.update(format!("{head}.{body}").as_bytes());
+                mac.finalize().into_bytes().to_vec()
+            },
+        ),
+    };
     format!("{head}.{body}.{}", URL_SAFE_NO_PAD.encode(signature))
 }
 
@@ -377,7 +415,7 @@ fn sign(config: &AuthConfig, header: &serde_json::Value, claims: &serde_json::Va
 pub fn mint_access(config: &AuthConfig, did: &str, scope: &str, now_s: i64) -> String {
     sign(
         config,
-        &serde_json::json!({"typ": "at+jwt", "alg": "HS256"}),
+        "at+jwt",
         &serde_json::json!({
             "scope": scope, "aud": config.service_did, "sub": did,
             "iat": now_s, "exp": now_s + ACCESS_LIFETIME_S,
@@ -391,7 +429,7 @@ pub fn mint_refresh(config: &AuthConfig, did: &str, jti: &str, now_s: i64) -> (S
     let exp = now_s + REFRESH_LIFETIME_S;
     let token = sign(
         config,
-        &serde_json::json!({"typ": "refresh+jwt", "alg": "HS256"}),
+        "refresh+jwt",
         &serde_json::json!({
             "scope": SCOPE_REFRESH, "aud": config.service_did, "sub": did,
             "jti": jti, "iat": now_s, "exp": exp,
@@ -479,6 +517,7 @@ mod tests {
             admin_password: "pa:ss".to_owned(),
             service_did: "did:web:pds.test".to_owned(),
             entryway: None,
+            signer: None,
         }
     }
 

@@ -76,9 +76,21 @@ struct Server {
 
 impl Server {
     async fn start(extra: &[(&str, &str)]) -> Self {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let (plc, ops) = plc().await;
+        Self::start_on(listener, &plc, ops, extra).await
+    }
+
+    /// A server on a listener that exists, with a PLC directory that
+    /// another server may share.
+    async fn start_on(
+        listener: tokio::net::TcpListener,
+        plc: &str,
+        ops: Ops,
+        extra: &[(&str, &str)],
+    ) -> Self {
         let mut vars = vec![
-            ("PDS_DID_PLC_URL", plc.as_str()),
+            ("PDS_DID_PLC_URL", plc),
             ("PDS_SERVICE_HANDLE_DOMAINS", ".pds-users.org"),
             (
                 "PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX",
@@ -87,7 +99,6 @@ impl Server {
         ];
         vars.extend_from_slice(extra);
         let dir = DataDir::new_with(1, &vars);
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let origin = format!("http://{}", listener.local_addr().unwrap());
         // The start of the server applies the migrations of the profile.
         linkjar_pds::serve::create_missing_databases(&dir.config).unwrap();
@@ -2762,4 +2773,241 @@ async fn a_member_host_keeps_repositories_and_leaves_accounts_to_its_entryway() 
     let resource = get("/.well-known/oauth-protected-resource").await;
     let resource: Value = serde_json::from_slice(&resource.bytes().await.unwrap()).unwrap();
     assert_eq!(resource["authorization_servers"], json!([entryway_url]));
+}
+
+#[tokio::test]
+async fn an_entryway_keeps_the_accounts_of_a_member_host() {
+    use pds_identity::{Algorithm, Keypair};
+    let (plc_url, ops) = plc().await;
+    let member_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let entryway_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let member_origin = format!("http://{}", member_listener.local_addr().unwrap());
+    let entryway_origin = format!("http://{}", entryway_listener.local_addr().unwrap());
+    let rotation_hex = "0707070707070707070707070707070707070707070707070707070707070707";
+    let rotation = Keypair::from_secret_bytes(
+        Algorithm::Secp256k1,
+        &data_encoding::HEXLOWER
+            .decode(rotation_hex.as_bytes())
+            .unwrap(),
+    )
+    .unwrap();
+    let signing_hex = "0808080808080808080808080808080808080808080808080808080808080808";
+    let signing = Keypair::from_secret_bytes(
+        Algorithm::Secp256k1,
+        &data_encoding::HEXLOWER
+            .decode(signing_hex.as_bytes())
+            .unwrap(),
+    )
+    .unwrap();
+    let signing_public = data_encoding::HEXLOWER.encode(&signing.public_key().to_compressed());
+
+    // The member host is `pds.test`. The entryway is `entryway.test`.
+    let member = Server::start_on(
+        member_listener,
+        &plc_url,
+        Arc::clone(&ops),
+        &[
+            ("PDS_ADMIN_PASSWORD", "member-admin"),
+            ("PDS_ENTRYWAY_URL", &entryway_origin),
+            ("PDS_ENTRYWAY_DID", "did:web:entryway.test"),
+            (
+                "PDS_ENTRYWAY_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX",
+                &signing_public,
+            ),
+            ("PDS_ENTRYWAY_PLC_ROTATION_KEY", &rotation.did_key()),
+            ("PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX", ""),
+        ],
+    )
+    .await;
+    let entryway = Server::start_on(
+        entryway_listener,
+        &plc_url,
+        Arc::clone(&ops),
+        &[
+            ("PDS_HOSTNAME", "entryway.test"),
+            ("PDS_ADMIN_PASSWORD", common::ADMIN_PASSWORD),
+            ("PDS_MEMBER_URL", "https://pds.test"),
+            ("PDS_MEMBER_INTERNAL_URL", &member_origin),
+            ("PDS_MEMBER_ADMIN_PASSWORD", "member-admin"),
+            (
+                "PDS_ENTRYWAY_JWT_SIGNING_KEY_K256_PRIVATE_KEY_HEX",
+                signing_hex,
+            ),
+            ("PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX", rotation_hex),
+        ],
+    )
+    .await;
+
+    // A sign-up at the entryway: the credentials stay there, the
+    // repository is on the member host, and the directory hears once.
+    let before = ops.lock().unwrap().len();
+    let account =
+        json!({"handle": "nora.pds-users.org", "email": "nora@example.com", "password": PASSWORD});
+    let (status, made) = entryway.create(&account).await;
+    assert_eq!(status, 200, "{made}");
+    let did = text(&made, "did").to_owned();
+    let access = text(&made, "accessJwt").to_owned();
+    assert_eq!(ops.lock().unwrap().len(), before + 1);
+    let operation = ops.lock().unwrap().last().unwrap().1.clone();
+    assert_eq!(
+        operation["services"]["atproto_pds"]["endpoint"],
+        "https://pds.test"
+    );
+    let rows = |server: &Server, table: &str| -> i64 {
+        common::open(&server.dir.config.layout.account_db)
+            .query_row(
+                &format!(r#"select count(*) from "{table}" where "did" = ?1"#),
+                [&did],
+                |row| row.get(0),
+            )
+            .unwrap()
+    };
+    assert_eq!(
+        (rows(&entryway, "account"), rows(&entryway, "repo_root")),
+        (1, 0)
+    );
+    assert_eq!(
+        (rows(&member, "account"), rows(&member, "repo_root")),
+        (0, 1)
+    );
+    assert!(member.dir.config.layout.actor_db(&did).exists());
+    assert!(!entryway.dir.config.layout.actor_db(&did).exists());
+
+    // The token of the entryway writes at the member host, and at the
+    // entryway, which passes the request on.
+    let record = |n: u8| json!({"repo": did, "collection": "com.example.note", "record": {"$type": "com.example.note", "n": n}});
+    let (status, body) = member
+        .post("com.atproto.repo.createRecord", Some(&access), &record(1))
+        .await;
+    assert_eq!(status, 200, "{body}");
+    let (status, body) = entryway
+        .post("com.atproto.repo.createRecord", Some(&access), &record(2))
+        .await;
+    assert_eq!(status, 200, "{body}");
+    let store = pds_storage::ActorDb::open(&member.dir.config.layout.actor_db(&did)).unwrap();
+    assert_eq!(store.counts().unwrap().0, 2);
+
+    // A client of the member host signs in and refreshes there: the
+    // entryway answers.
+    let login = json!({"identifier": "nora.pds-users.org", "password": PASSWORD});
+    let (status, session) = member
+        .post("com.atproto.server.createSession", None, &login)
+        .await;
+    assert_eq!(status, 200, "{session}");
+    assert_eq!(text(&session, "did"), did);
+    let wrong = json!({"identifier": "nora.pds-users.org", "password": "not-the-password"});
+    assert_eq!(
+        member
+            .post("com.atproto.server.createSession", None, &wrong)
+            .await
+            .0,
+        401
+    );
+    let (status, refreshed) = member
+        .post(
+            "com.atproto.server.refreshSession",
+            Some(text(&session, "refreshJwt")),
+            &json!({}),
+        )
+        .await;
+    assert_eq!(status, 200, "{refreshed}");
+    let access = text(&refreshed, "accessJwt").to_owned();
+    let (status, body) = member
+        .post("com.atproto.repo.createRecord", Some(&access), &record(3))
+        .await;
+    assert_eq!(status, 200, "{body}");
+
+    // A handle change goes to the entryway, which writes the directory
+    // and tells the member host.
+    let rename = json!({"handle": "nora2.pds-users.org"});
+    let (status, body) = member
+        .post("com.atproto.identity.updateHandle", Some(&access), &rename)
+        .await;
+    assert_eq!(status, 200, "{body}");
+    let handle = |server: &Server| -> Option<String> {
+        common::open(&server.dir.config.layout.account_db)
+            .query_row(
+                r#"select "handle" from "actor" where "did" = ?1"#,
+                [&did],
+                |row| row.get(0),
+            )
+            .unwrap()
+    };
+    assert_eq!(handle(&entryway).as_deref(), Some("nora2.pds-users.org"));
+    assert_eq!(handle(&member).as_deref(), Some("nora2.pds-users.org"));
+    assert_eq!(
+        ops.lock().unwrap().last().unwrap().1["alsoKnownAs"],
+        json!(["at://nora2.pds-users.org"])
+    );
+
+    // A session from before the entryway: its refresh token, signed with
+    // the secret of the old server for the old server, is taken once.
+    let old = pds_xrpc::auth::AuthConfig {
+        jwt_secret: common::JWT_SECRET.as_bytes().to_vec(),
+        admin_password: String::new(),
+        service_did: "did:web:pds.test".to_owned(),
+        entryway: None,
+        signer: None,
+    };
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let now = i64::try_from(now).unwrap();
+    let (legacy, expires) = pds_xrpc::auth::mint_refresh(&old, &did, "legacy-session", now);
+    common::open(&entryway.dir.config.layout.account_db)
+        .execute(
+            r#"insert into "refresh_token" ("id", "did", "expiresAt") values ('legacy-session', ?1, ?2)"#,
+            [&did, &pds_sequencer::iso_millis(expires * 1000)],
+        )
+        .unwrap();
+    let old_access = pds_xrpc::auth::mint_access(&old, &did, "com.atproto.access", now);
+    let (status, ended) = member
+        .post(
+            "com.atproto.repo.createRecord",
+            Some(&old_access),
+            &record(4),
+        )
+        .await;
+    assert_eq!(
+        (status, text(&ended, "error")),
+        (400, "ExpiredToken"),
+        "{ended}"
+    );
+    let (status, renewed) = member
+        .post(
+            "com.atproto.server.refreshSession",
+            Some(&legacy),
+            &json!({}),
+        )
+        .await;
+    assert_eq!(status, 200, "{renewed}");
+    let (status, body) = member
+        .post(
+            "com.atproto.repo.createRecord",
+            Some(text(&renewed, "accessJwt")),
+            &record(4),
+        )
+        .await;
+    assert_eq!(status, 200, "{body}");
+
+    // The admin of the entryway deletes the account on both servers.
+    let gone = entryway
+        .http
+        .post(format!(
+            "{}/xrpc/com.atproto.admin.deleteAccount",
+            entryway.origin
+        ))
+        .basic_auth("admin", Some(common::ADMIN_PASSWORD))
+        .header("content-type", "application/json")
+        .body(json!({"did": did}).to_string())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(gone.status(), 200);
+    assert_eq!(
+        (rows(&entryway, "account"), rows(&member, "repo_root")),
+        (0, 0)
+    );
+    assert!(!member.dir.config.layout.actor_db(&did).exists());
 }

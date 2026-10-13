@@ -80,6 +80,99 @@ fn unavailable(message: &str) -> XrpcError {
     }
 }
 
+/// Whether an entryway answers the method itself.
+///
+/// These are the methods a member host passes on to it, the creation of
+/// an account, and what reads the accounts, the handles and the invites.
+/// Every other method goes to the member host, which keeps the
+/// repositories.
+pub fn is_entryway_method(nsid: &str) -> bool {
+    is_forwarded(nsid)
+        || nsid.starts_with("io.linkjar.account.")
+        || matches!(
+            nsid,
+            "com.atproto.server.createAccount"
+                | "com.atproto.server.describeServer"
+                | "com.atproto.server.createInviteCode"
+                | "com.atproto.server.createInviteCodes"
+                | "com.atproto.identity.resolveHandle"
+                | "com.atproto.admin.getInviteCodes"
+                | "com.atproto.admin.disableInviteCodes"
+                | "com.atproto.admin.disableAccountInvites"
+                | "com.atproto.admin.enableAccountInvites"
+                | "com.atproto.admin.getAccountInfo"
+                | "com.atproto.admin.getAccountInfos"
+                | "com.atproto.admin.searchAccounts"
+                | "com.atproto.admin.updateAccountHandle"
+                | "com.atproto.admin.deleteAccount"
+        )
+}
+
+/// Calls a method of the member host as its admin, and gives the answer.
+/// The entryway uses it for what both servers must know.
+pub async fn ask_member(
+    state: &AppState,
+    host: &crate::state::MemberHost,
+    nsid: &str,
+    input: &serde_json::Value,
+) -> Result<serde_json::Value, XrpcError> {
+    let answer = state
+        .http()
+        .post(format!("{}/xrpc/{nsid}", host.internal_url))
+        .basic_auth("admin", Some(&host.admin_password))
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(input.to_string())
+        .timeout(state.config().proxy_timeout)
+        .send()
+        .await
+        .map_err(|_| unavailable("the member host did not answer"))?;
+    let status = answer.status().as_u16();
+    let bytes = answer
+        .bytes()
+        .await
+        .map_err(|_| unavailable("the member host did not finish its answer"))?;
+    let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or_default();
+    if (200..300).contains(&status) {
+        return Ok(body);
+    }
+    let text = |key: &str| body.get(key).and_then(serde_json::Value::as_str);
+    // What the host refuses for the caller's input is the caller's error.
+    Err(XrpcError {
+        status: if status < 500 {
+            StatusCode::BAD_REQUEST
+        } else {
+            StatusCode::BAD_GATEWAY
+        },
+        error: text("error").unwrap_or("UpstreamFailure").to_owned(),
+        message: text("message")
+            .unwrap_or("the member host refused the request")
+            .to_owned(),
+    })
+}
+
+/// Passes a request on to the member host, with the credential of the
+/// client, and gives its answer.
+pub async fn forward_to_member(
+    state: &AppState,
+    host: &crate::state::MemberHost,
+    nsid: &str,
+    method: &Method,
+    raw_query: Option<&str>,
+    headers: &HeaderMap,
+    body: &mut Option<Body>,
+) -> Result<Response, XrpcError> {
+    let target = Entryway {
+        url: host.internal_url.clone(),
+        did: String::new(),
+        plc_rotation_key: String::new(),
+        admin_token: None,
+    };
+    pass_on(
+        state, &target, nsid, method, raw_query, headers, body, false,
+    )
+    .await
+}
+
 /// Passes a request on to the entryway and gives its answer.
 pub async fn forward(
     state: &AppState,
@@ -89,6 +182,24 @@ pub async fn forward(
     raw_query: Option<&str>,
     headers: &HeaderMap,
     body: &mut Option<Body>,
+) -> Result<Response, XrpcError> {
+    let as_admin = FORWARDED_ADMIN.contains(&nsid);
+    pass_on(
+        state, entryway, nsid, method, raw_query, headers, body, as_admin,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn pass_on(
+    state: &AppState,
+    entryway: &Entryway,
+    nsid: &str,
+    method: &Method,
+    raw_query: Option<&str>,
+    headers: &HeaderMap,
+    body: &mut Option<Body>,
+    as_admin: bool,
 ) -> Result<Response, XrpcError> {
     // A DPoP proof names the address it was made for, so a request with
     // one cannot go to another server. The Reference refuses it the same
@@ -102,7 +213,6 @@ pub async fn forward(
         Some(query) => format!("{}/xrpc/{nsid}?{query}", entryway.url),
         None => format!("{}/xrpc/{nsid}", entryway.url),
     };
-    let as_admin = FORWARDED_ADMIN.contains(&nsid);
     let mut request = state.http().request(method.clone(), url);
     for name in PASSED_ON {
         // The admin credential of this host stays here.

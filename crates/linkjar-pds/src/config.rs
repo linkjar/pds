@@ -150,7 +150,41 @@ const ENTRYWAY: &[&str] = &[
     "PDS_ENTRYWAY_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX",
     "PDS_ENTRYWAY_PLC_ROTATION_KEY",
     "PDS_ENTRYWAY_ADMIN_TOKEN",
+    // An entryway: its member host, and the key of its tokens.
+    "PDS_MEMBER_URL",
+    "PDS_MEMBER_INTERNAL_URL",
+    "PDS_MEMBER_ADMIN_PASSWORD",
+    "PDS_MEMBER_DID",
+    "PDS_ENTRYWAY_JWT_SIGNING_KEY_K256_PRIVATE_KEY_HEX",
 ];
+
+/// What makes a server an entryway (SPEC §21.3): the member host that
+/// keeps the repositories, and the key that signs the tokens.
+#[derive(Clone)]
+pub struct MemberHostConfig {
+    /// `PDS_MEMBER_URL`: the public address of the host.
+    pub url: String,
+    /// `PDS_MEMBER_INTERNAL_URL`: where this server reaches it. Default:
+    /// the public address.
+    pub internal_url: String,
+    /// `PDS_MEMBER_ADMIN_PASSWORD`.
+    pub admin_password: String,
+    /// `PDS_MEMBER_DID`: the DID of the host, which signed the sessions
+    /// from before the entryway. Default: `did:web:` and the host name of
+    /// `PDS_MEMBER_URL`.
+    pub did: String,
+    /// `PDS_ENTRYWAY_JWT_SIGNING_KEY_K256_PRIVATE_KEY_HEX`: 32 bytes.
+    pub signing_key: Vec<u8>,
+}
+
+impl std::fmt::Debug for MemberHostConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MemberHostConfig")
+            .field("url", &self.url)
+            .field("did", &self.did)
+            .finish_non_exhaustive()
+    }
+}
 
 /// The entryway of a member host.
 #[derive(Clone)]
@@ -291,6 +325,8 @@ pub struct Config {
     pub mcp_client_ids: Vec<String>,
     /// The entryway, when the server is a member host (SPEC §21.3).
     pub entryway: Option<EntrywayConfig>,
+    /// The member host, when the server is an entryway (SPEC §21.3).
+    pub member_host: Option<MemberHostConfig>,
     /// `PDS_PROFILE` (SPEC §12.1).
     pub profile: ProfileName,
     /// `PDS_EXTERNAL_<PROVIDER>_CLIENT_ID` and `_CLIENT_SECRET`, for the
@@ -631,6 +667,77 @@ impl Env<'_> {
         Ok(Some(pds_storage::SharedTier::new(target, &prefix)))
     }
 
+    /// The member host of an entryway. `PDS_MEMBER_URL` needs the admin
+    /// password of the host and the signing key of the entryway. A server
+    /// is an entryway or a member host, not both.
+    fn member_host(&self) -> Result<Option<MemberHostConfig>, ConfigError> {
+        const URL: &str = "PDS_MEMBER_URL";
+        const KEY: &str = "PDS_ENTRYWAY_JWT_SIGNING_KEY_K256_PRIVATE_KEY_HEX";
+        let Some(url) = self.text(URL) else {
+            return Ok(None);
+        };
+        let refused = |reason| ConfigError::Refused {
+            name: URL.to_owned(),
+            reason,
+        };
+        if self.text("PDS_ENTRYWAY_URL").is_some() {
+            return Err(refused(
+                "a server is an entryway or a member host, not both",
+            ));
+        }
+        if self
+            .text("PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX")
+            .is_none()
+        {
+            return Err(refused(
+                "an entryway signs PLC operations: set PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX",
+            ));
+        }
+        let (Some(admin_password), Some(signing_key)) = (
+            self.text("PDS_MEMBER_ADMIN_PASSWORD"),
+            self.secret_bytes(KEY)?,
+        ) else {
+            return Err(refused(
+                "an entryway needs PDS_MEMBER_ADMIN_PASSWORD and PDS_ENTRYWAY_JWT_SIGNING_KEY_K256_PRIVATE_KEY_HEX",
+            ));
+        };
+        if pds_identity::Keypair::from_secret_bytes(
+            pds_identity::Algorithm::Secp256k1,
+            &signing_key,
+        )
+        .is_err()
+        {
+            return Err(ConfigError::Invalid {
+                name: KEY,
+                value: "(hidden)".to_owned(),
+                reason: "expected a secp256k1 private key",
+            });
+        }
+        let url = url.trim_end_matches('/').to_owned();
+        let host = url
+            .strip_prefix("https://")
+            .or_else(|| url.strip_prefix("http://"))
+            .filter(|host| !host.is_empty() && !host.contains('/'))
+            .ok_or_else(|| ConfigError::Invalid {
+                name: URL,
+                value: url.clone(),
+                reason: "expected an http or https origin without a path",
+            })?;
+        let did = self
+            .text("PDS_MEMBER_DID")
+            .unwrap_or_else(|| format!("did:web:{}", host.replace(':', "%3A")));
+        Ok(Some(MemberHostConfig {
+            internal_url: self.text("PDS_MEMBER_INTERNAL_URL").map_or_else(
+                || url.clone(),
+                |internal| internal.trim_end_matches('/').to_owned(),
+            ),
+            url,
+            admin_password,
+            did,
+            signing_key,
+        }))
+    }
+
     /// The entryway of a member host. With `PDS_ENTRYWAY_URL` the DID, the
     /// key of the tokens and the PLC rotation key are required, as in the
     /// Reference.
@@ -924,6 +1031,7 @@ impl Config {
             ops_client_ids: env.list("PDS_OPS_CLIENT_IDS"),
             mcp_client_ids: env.list("PDS_MCP_CLIENT_IDS"),
             entryway: env.entryway()?,
+            member_host: env.member_host()?,
             profile: env.profile()?,
             external_providers: env.external_providers()?,
             oauth: env.oauth()?,

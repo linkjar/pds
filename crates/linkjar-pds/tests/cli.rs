@@ -51,6 +51,10 @@ fn borrowed<'a>(vars: &'a [(&'static str, String)]) -> Vec<(&'a str, &'a str)> {
     vars.iter().map(|(k, v)| (*k, v.as_str())).collect()
 }
 
+/// Held by a test while its server child starts. Two children that ask
+/// for a free port at the same moment can get the same one.
+static SERVE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// A port that nothing listens on now.
 fn free_port() -> u16 {
     std::net::TcpListener::bind("127.0.0.1:0")
@@ -188,6 +192,9 @@ fn health_exits_1_when_nothing_answers_and_when_the_configuration_is_invalid() {
 #[cfg(unix)]
 #[test]
 fn serve_answers_health_and_stops_on_sigterm() {
+    let _serving = SERVE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let dir = DataDir::new(3);
     let port = free_port().to_string();
     let mut vars = data_vars(&dir);
@@ -350,6 +357,9 @@ fn stdout(output: &Output) -> String {
 
 #[test]
 fn migrate_storage_copies_the_files_to_postgres_once_and_a_server_takes_the_lease() {
+    let _serving = SERVE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let dir = DataDir::new(2);
     let vars = data_vars(&dir);
     // Without the Postgres side there is nothing to copy to.
