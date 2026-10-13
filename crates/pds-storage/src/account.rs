@@ -128,6 +128,9 @@ pub struct NewAccount<'a> {
     pub external_identity: Option<crate::linkjar::NewIdentity<'a>>,
     /// Whether the account gets a handle policy row.
     pub handle_policy: bool,
+    /// The authorization the account is created in, which then holds the
+    /// creation receipt: the request, its client and its device.
+    pub signup: Option<(&'a str, &'a str, &'a str)>,
     /// The invite code the account used.
     pub invite_code: Option<&'a str>,
     /// The id of the first refresh token and when it ends.
@@ -147,6 +150,9 @@ pub enum Refused {
     /// The invite code is unknown, disabled, used up, or its owner is
     /// taken down.
     Invite,
+    /// The authorization that the account was to be created in is over,
+    /// or it created an account already.
+    Authorization,
     /// An actor has the DID, or an account has it.
     Exists,
 }
@@ -630,6 +636,11 @@ impl AccountDb {
                 r#"update "account" set "emailConfirmedAt" = ?2 where "did" = ?1"#,
                 [new.did, new.now],
             )?;
+        }
+        if let Some((request, client, device)) = new.signup
+            && !crate::linkjar::register_signup(&txn, new.did, request, client, device, new.now)?
+        {
+            return Ok(Err(Refused::Authorization));
         }
         if new.handle_policy {
             txn.execute(

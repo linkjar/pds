@@ -136,6 +136,13 @@ pub trait Profile: Send + Sync + Debug {
         Rename::Free
     }
 
+    /// Whether the profile records which session created an account
+    /// (§12.8), and serves `io.linkjar.account.getSignupReceipt` and
+    /// `acknowledgeSignupReceipt`.
+    fn keeps_signup_receipts(&self) -> bool {
+        false
+    }
+
     /// The identity providers a person can sign in with (§12.3).
     fn providers(&self) -> Vec<ProviderInfo> {
         Vec::new()

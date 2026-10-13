@@ -144,6 +144,10 @@ pub(crate) struct Request {
     /// Whether the creation opens a legacy session. A sign-up on the
     /// authorization pages opens none.
     pub(crate) legacy_session: bool,
+    /// The authorization the account is created in: the pushed request,
+    /// its client and the device. The server passes it; no request field
+    /// sets it (EX-3).
+    pub(crate) signup: Option<(String, String, String)>,
 }
 
 /// A new account.
@@ -235,6 +239,7 @@ pub(crate) fn validate(
             recovery_key,
             external: None,
             legacy_session: true,
+            signup: None,
         },
         did,
     ))
@@ -422,6 +427,11 @@ fn store_rows(
             display_name: external.display_name.as_deref(),
         }),
         handle_policy: external.is_some() && state.config().profile.keeps_handle_policy(),
+        signup: request
+            .signup
+            .as_ref()
+            .filter(|_| state.config().profile.keeps_signup_receipts())
+            .map(|(request, client, device)| (request.as_str(), client.as_str(), device.as_str())),
         invite_code: request.invite_code.as_deref(),
         refresh_token: request
             .legacy_session
@@ -494,6 +504,11 @@ async fn finish(
             ));
         }
         Err(Refused::Exists) => return Err(XrpcError::invalid_request("User already exists")),
+        Err(Refused::Authorization) => {
+            return Err(XrpcError::invalid_request(
+                "Account creation authorization is no longer available",
+            ));
+        }
     }
 
     let block = commit

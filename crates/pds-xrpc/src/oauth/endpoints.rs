@@ -487,10 +487,20 @@ async fn code_grant(
         .ok_or_else(|| grant("Invalid code"))?
         .clone();
     let now_ms = state.now_ms();
+    let receipts = state.config().profile.keeps_signup_receipts();
     let taken = {
         let code = code.clone();
         accounts(state, move |db| {
-            let request = db.consume_request_code(&code)?;
+            // The receipt of an account that was created in this
+            // authorization goes with the code into the session.
+            let signup = if receipts {
+                db.signup_of_code(&code)?
+            } else {
+                None
+            };
+            let request = db
+                .consume_request_code(&code)?
+                .map(|request| (request, signup));
             if request.is_none() {
                 // A code that comes twice ends the session it opened the first time.
                 if let Some(token) = db.token_by_code(&code)? {
@@ -504,7 +514,7 @@ async fn code_grant(
         })
         .await?
     };
-    let request = taken.ok_or_else(|| grant("Invalid code"))?;
+    let (request, signup) = taken.ok_or_else(|| grant("Invalid code"))?;
     let (Some(did), Some(device_id)) = (request.did.clone(), request.device_id.clone()) else {
         return Err(OAuthError::server("a request with a code has no account"));
     };
@@ -546,6 +556,10 @@ async fn code_grant(
         )?;
         if account.is_some() {
             db.create_token(&stored)?;
+            // Only the session of the account that was created holds its receipt.
+            if signup.as_deref() == Some(stored.did.as_str()) {
+                db.set_token_signup(&stored.token_id, &stored.did)?;
+            }
         }
         Ok(account.is_some())
     })

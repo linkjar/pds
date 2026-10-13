@@ -378,7 +378,11 @@ async fn callback(
 
 /// The account of an identity that has none yet: a hosted handle that
 /// the profile suggests, the provider's verified address, no password.
-async fn create_account(state: &AppState, identity: &VerifiedIdentity) -> Result<String, Stop> {
+async fn create_account(
+    state: &AppState,
+    identity: &VerifiedIdentity,
+    signup: Option<&(String, String, String)>,
+) -> Result<String, Stop> {
     let email = identity
         .email
         .clone()
@@ -431,6 +435,7 @@ async fn create_account(state: &AppState, identity: &VerifiedIdentity) -> Result
                 display_name: identity.display_name.clone(),
             }),
             legacy_session: false,
+            signup: signup.cloned(),
         };
         match crate::api::account::create(state, request).await {
             Ok(created) => return Ok(created.did),
@@ -520,9 +525,19 @@ async fn finish(
     if created && state.config().invite_required {
         return Err("External account creation is disabled while invites are required");
     }
-    let did = match known {
-        Some(did) => did,
-        None => create_account(state, identity).await?,
+    let did = if let Some(did) = known {
+        did
+    } else {
+        // An account that is created in an authorization leaves its
+        // receipt there. A sign-in on the account page leaves none.
+        let signup = pending.as_ref().map(|pending| {
+            (
+                pending.row.id.clone(),
+                pending.row.client_id.clone(),
+                device.id.clone(),
+            )
+        });
+        create_account(state, identity, signup.as_ref()).await?
     };
     let actor = {
         let did = did.clone();

@@ -81,6 +81,10 @@ impl Profile for Linkjar {
         handle::rename(policy, previous, handle, now_ms)
     }
 
+    fn keeps_signup_receipts(&self) -> bool {
+        true
+    }
+
     fn providers(&self) -> Vec<ProviderInfo> {
         self.providers
             .iter()
