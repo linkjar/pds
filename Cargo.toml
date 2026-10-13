@@ -66,6 +66,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = ["f
 
 # syntax and time
 regex = "1"
+ring = "0.17"
 icu_normalizer = { version = "2", default-features = false, features = ["compiled_data"] }
 icu_properties = { version = "2", default-features = false, features = ["compiled_data"] }
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
