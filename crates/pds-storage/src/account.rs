@@ -123,6 +123,11 @@ pub struct NewAccount<'a> {
     /// The email address and the stored hash of the password. An account
     /// without them has an actor row only.
     pub credentials: Option<(&'a str, &'a str)>,
+    /// The identity at an identity provider that the account is created
+    /// for. Its email address is then confirmed at creation.
+    pub external_identity: Option<crate::linkjar::NewIdentity<'a>>,
+    /// Whether the account gets a handle policy row.
+    pub handle_policy: bool,
     /// The invite code the account used.
     pub invite_code: Option<&'a str>,
     /// The id of the first refresh token and when it ends.
@@ -616,6 +621,21 @@ impl AccountDb {
             if account == 0 {
                 return Ok(Err(Refused::Exists));
             }
+        }
+        if let Some(identity) = &new.external_identity {
+            if !crate::linkjar::insert_identity(&txn, new.did, identity, new.now)? {
+                return Ok(Err(Refused::Exists));
+            }
+            txn.execute(
+                r#"update "account" set "emailConfirmedAt" = ?2 where "did" = ?1"#,
+                [new.did, new.now],
+            )?;
+        }
+        if new.handle_policy {
+            txn.execute(
+                r#"insert into "linkjar_handle_policy" ("did", "createdAt", "renameHandle") values (?1, ?2, null)"#,
+                [new.did, new.now],
+            )?;
         }
         if let Some(code) = new.invite_code {
             txn.execute(

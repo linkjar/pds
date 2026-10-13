@@ -120,17 +120,44 @@ fn random_bytes<const N: usize>(writes: &WriteState) -> [u8; N] {
     bytes
 }
 
+/// An identity at an identity provider that a new account is created for
+/// (SPEC §12.3).
+#[derive(Debug, Clone)]
+pub(crate) struct External {
+    pub(crate) provider: String,
+    pub(crate) subject: String,
+    pub(crate) display_name: Option<String>,
+}
+
 /// What a request asked for, after the checks that need no write.
-struct Request {
-    handle: String,
-    email: String,
-    password: Option<String>,
-    invite_code: Option<String>,
-    recovery_key: Option<String>,
+#[derive(Debug, Clone)]
+pub(crate) struct Request {
+    pub(crate) handle: String,
+    pub(crate) email: String,
+    pub(crate) password: Option<String>,
+    pub(crate) invite_code: Option<String>,
+    pub(crate) recovery_key: Option<String>,
+    /// The identity that proved the email address. The account then has
+    /// no password, a confirmed address and, in a profile that keeps one,
+    /// a handle policy row. No request field sets this (EX-3).
+    pub(crate) external: Option<External>,
+    /// Whether the creation opens a legacy session. A sign-up on the
+    /// authorization pages opens none.
+    pub(crate) legacy_session: bool,
+}
+
+/// A new account.
+#[derive(Debug, Clone)]
+pub(crate) struct Created {
+    pub(crate) did: String,
+    pub(crate) handle: String,
+    pub(crate) did_doc: Option<Value>,
+    /// The access and the refresh token of the legacy session.
+    pub(crate) session: Option<(String, String)>,
 }
 
 /// The checks of `validateInputsForLocalPds`, in its order.
-fn validate(
+pub(crate) fn validate(
     state: &AppState,
     input: &Map<String, Value>,
 ) -> Result<(Request, Option<String>), XrpcError> {
@@ -206,6 +233,8 @@ fn validate(
             password: given,
             invite_code: invite_code.filter(|_| required),
             recovery_key,
+            external: None,
+            legacy_session: true,
         },
         did,
     ))
@@ -290,6 +319,23 @@ pub async fn create_account(
             message: format!("Missing auth to create account with did: {did}"),
         });
     }
+    let created = create(state, request).await?;
+    let mut out = Map::new();
+    out.insert("handle".to_owned(), created.handle.into());
+    out.insert("did".to_owned(), created.did.into());
+    if let Some(doc) = created.did_doc {
+        out.insert("didDoc".to_owned(), doc);
+    }
+    if let Some((access, refresh)) = created.session {
+        out.insert("accessJwt".to_owned(), access.into());
+        out.insert("refreshJwt".to_owned(), refresh.into());
+    }
+    Ok(json_response(StatusCode::OK, &out.into()))
+}
+
+/// Creates the account of a checked request: the identity, the store, the
+/// rows and the events.
+pub(crate) async fn create(state: &AppState, request: Request) -> Result<Created, XrpcError> {
     let identity = identity(state)?.clone();
     let writes = writes(state)?;
     let signer = Keypair::from_secret_bytes(Algorithm::Secp256k1, &identity.rotation_key)
@@ -341,6 +387,52 @@ pub async fn create_account(
     created
 }
 
+/// Writes the rows of a new account in one transaction. `root` is the CID
+/// and the revision of the first commit; `session` is the id of the first
+/// refresh token and when it ends.
+fn store_rows(
+    state: &AppState,
+    request: &Request,
+    did: &str,
+    now: &str,
+    root: &(String, String),
+    session: &(String, String),
+    salt: &str,
+) -> Result<Result<(), Refused>, XrpcError> {
+    let external = request.external.as_ref();
+    // An account that an identity created has no password to match.
+    let hash = match (&request.password, external) {
+        (_, Some(_)) => Some(password::EXTERNAL_IDENTITY.to_owned()),
+        (Some(given), None) => Some(
+            password::hash_with_salt(given, salt)
+                .ok_or_else(|| XrpcError::internal("the password could not be hashed"))?,
+        ),
+        (None, None) => None,
+    };
+    let email = request.email.as_str();
+    let new = NewAccount {
+        did,
+        handle: &request.handle,
+        credentials: hash.as_deref().map(|hash| (email, hash)),
+        external_identity: external.map(|external| pds_storage::linkjar::NewIdentity {
+            provider: &external.provider,
+            subject: &external.subject,
+            email: Some(email),
+            email_verified: true,
+            display_name: external.display_name.as_deref(),
+        }),
+        handle_policy: external.is_some() && state.config().profile.keeps_handle_policy(),
+        invite_code: request.invite_code.as_deref(),
+        refresh_token: request
+            .legacy_session
+            .then_some((session.0.as_str(), session.1.as_str())),
+        repo_root: (&root.0, &root.1),
+        now,
+        delete_after: None,
+    };
+    Ok(writes(state)?.with_accounts(|accounts| accounts.create_account(&new))?)
+}
+
 /// The steps after the actor store exists: the DID, the account rows, the
 /// events and the answer.
 async fn finish(
@@ -350,7 +442,7 @@ async fn finish(
     genesis: &plc::Genesis,
     commit: &pds_repo::CommitData,
     now: &str,
-) -> Result<Response, XrpcError> {
+) -> Result<Created, XrpcError> {
     let did = genesis.did.as_str();
     let sent = state
         .http()
@@ -385,32 +477,12 @@ async fn finish(
     let salt = HEXLOWER.encode(&random_bytes::<16>(writes));
 
     let stored = {
-        let (did, now, handle) = (did.to_owned(), now.to_owned(), request.handle.clone());
-        let (email, given) = (request.email.clone(), request.password.clone());
-        let invite_code = request.invite_code.clone();
-        let (cid, rev) = (commit.cid.to_string(), commit.rev.as_str().to_owned());
+        let request = request.clone();
+        let (did, now) = (did.to_owned(), now.to_owned());
+        let root = (commit.cid.to_string(), commit.rev.as_str().to_owned());
+        let session = (id, expires_at);
         state
-            .blocking(move |state| {
-                let hash = match &given {
-                    Some(given) => {
-                        Some(password::hash_with_salt(given, &salt).ok_or_else(|| {
-                            XrpcError::internal("the password could not be hashed")
-                        })?)
-                    }
-                    None => None,
-                };
-                let new = NewAccount {
-                    did: &did,
-                    handle: &handle,
-                    credentials: hash.as_deref().map(|hash| (email.as_str(), hash)),
-                    invite_code: invite_code.as_deref(),
-                    refresh_token: Some((&id, &expires_at)),
-                    repo_root: (&cid, &rev),
-                    now: &now,
-                    delete_after: None,
-                };
-                Ok(self::writes(state)?.with_accounts(|accounts| accounts.create_account(&new))?)
-            })
+            .blocking(move |state| store_rows(state, &request, &did, &now, &root, &session, &salt))
             .await?
     };
     match stored {
@@ -444,15 +516,12 @@ async fn finish(
         return Err(error.into());
     }
 
-    let mut out = Map::new();
-    out.insert("handle".to_owned(), request.handle.clone().into());
-    out.insert("did".to_owned(), did.into());
-    if let Some(doc) = did_doc {
-        out.insert("didDoc".to_owned(), doc);
-    }
-    out.insert("accessJwt".to_owned(), access.into());
-    out.insert("refreshJwt".to_owned(), refresh.into());
-    Ok(json_response(StatusCode::OK, &out.into()))
+    Ok(Created {
+        did: did.to_owned(),
+        handle: request.handle.clone(),
+        did_doc,
+        session: request.legacy_session.then_some((access, refresh)),
+    })
 }
 
 #[cfg(test)]
