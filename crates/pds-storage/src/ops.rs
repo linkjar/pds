@@ -53,10 +53,21 @@ impl OpsDb {
     }
 
     /// Removes the note of `did` when it is about `rev`.
+    ///
+    /// The removal is not synced. A note that outlives its commit costs one
+    /// look at the log at the next start; a note that is lost before its
+    /// commit is stored would cost the repair, so [`OpsDb::note_commit`]
+    /// is synced.
     pub fn clear_commit(&self, did: &str, rev: &str) -> Result<(), StorageError> {
-        self.conn
-            .prepare_cached(r#"delete from "pending_commit" where "did" = :did and "rev" = :rev"#)?
-            .execute(named_params! { ":did": did, ":rev": rev })?;
+        self.conn.pragma_update(None, "synchronous", "normal")?;
+        let cleared = self
+            .conn
+            .prepare_cached(r#"delete from "pending_commit" where "did" = :did and "rev" = :rev"#)
+            .and_then(|mut statement| {
+                statement.execute(named_params! { ":did": did, ":rev": rev })
+            });
+        self.conn.pragma_update(None, "synchronous", "full")?;
+        cleared?;
         Ok(())
     }
 

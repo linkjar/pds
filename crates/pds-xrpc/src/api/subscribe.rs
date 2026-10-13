@@ -18,8 +18,6 @@ pub const NSID: &str = "com.atproto.sync.subscribeRepos";
 
 /// The close code after an error frame: policy violation.
 const CLOSE_POLICY: u16 = 1008;
-/// The close code of a stream that ended without an error.
-const CLOSE_NORMAL: u16 = 1000;
 
 const CURSOR: &[Spec] = &[Spec::integer(
     "cursor",
@@ -132,12 +130,6 @@ async fn serve(
             },
         }
     }
-}
-
-/// Closes a stream that ended without an error. The firehose never ends by
-/// itself; a shutdown ends it.
-pub async fn close_normally(socket: WebSocket) {
-    close(socket, CLOSE_NORMAL, "").await;
 }
 
 #[cfg(test)]

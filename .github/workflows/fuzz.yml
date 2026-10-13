@@ -33,6 +33,7 @@ jobs:
           - identity_key
           - lexicon_record
           - xrpc_request
+          - xrpc_body
         # Targets that start from files in the repository. The files are
         # read; new inputs go to the cached corpus.
         include:

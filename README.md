@@ -4,18 +4,20 @@ An AT Protocol Personal Data Server in Rust, compatible with the reference
 implementation, with LinkJar's account behaviour as native extension points
 instead of source patches. Dual-licensed MIT or Apache-2.0.
 
-> Status: unit 3 of 13. The server reads: it serves the repository and
-> sync reads of a data directory that the reference server wrote, and
-> answers them as the reference does. The [parity harness](parity/README.md)
-> puts both servers on the same data directory and compares 331 requests,
-> body bytes included
-> ([unit record](docs/research/2026-10-13-read-only-server.md)). `verify`
-> checks a data directory without changing it. The server does not write
-> yet: accounts, sessions, record writes, the firehose and OAuth come with
-> units 4 and 5. The repository engine is written here and gives the same
-> bytes as `@atproto/repo` at the pin
+> Status: unit 4 of 13. The server reads and writes repositories and
+> serves the firehose, on a data directory that the reference server
+> started. The [parity harness](parity/README.md) runs the same write,
+> blob, import and firehose scenarios on both servers and allows only the
+> differences the owner decided
+> ([unit record](docs/research/2026-10-13-writes-and-firehose.md)). A relay
+> in strict mode accepts every commit. When the server stops between a
+> commit and its event, it states the head with `#sync` at the next start.
+> A simulation runs seeded plans with stops inside commits every night.
+> Not built yet: accounts, sessions and OAuth (unit 5), the S3-compatible
+> blob store, and storage faults in the simulation. The repository engine
+> is written here and gives the same bytes as `@atproto/repo` at the pin
 > ([decision D2](docs/research/2026-10-12-repository-crate.md)). The
-> specification is at revision 6. The reference image under
+> specification is at revision 7. The reference image under
 > [`legacy/`](legacy/README.md) remains the deployed server until cutover.
 > Progress is logged in [docs/plan.md](docs/plan.md#status).
 
@@ -73,6 +75,7 @@ engine to the firehose, is shared.
 |---|---|
 | `crates/` | The workspace crates, one per subsystem ([architecture](docs/architecture/README.md#crates)) |
 | `crates/linkjar-pds/` | The binary: `serve`, `verify`, `export-car`, `check-config`, `health`, `version` |
+| `crates/pds-sim/` | The simulation: `pds-sim --seeds N` runs seeded plans against the server in process |
 | `Dockerfile` | The server's image |
 | `xtask/` | Repository tasks: `cargo xtask codegen` generates API types from the lexicons |
 | `lexicons/` | Vendored upstream lexicons at the pin, LinkJar lexicons, project lexicons ([notice](lexicons/NOTICE.md)) |
@@ -94,6 +97,7 @@ cargo build --workspace
 cargo test --workspace
 cargo xtask codegen --check     # generated types are current
 cargo deny check                 # advisories, licences, bans, sources
+cargo run -p pds-sim -- --seeds 20   # the simulation: seeded plans, stops inside commits
 devenv shell -- pds:check        # the Rust gates of CI
 devenv shell -- pds:hooks        # the rustfmt and clippy hooks, by hand
 ```
@@ -105,11 +109,13 @@ export PDS_HOSTNAME=pds.example.com PDS_DATA_DIRECTORY=/path/to/copy \
        PDS_BLOBSTORE_DISK_LOCATION=/path/to/copy/blocks \
        PDS_JWT_SECRET=... PDS_ADMIN_PASSWORD=...
 cargo run -p linkjar-pds -- verify   # reads only; exit 1 on a difference
-cargo run -p linkjar-pds -- serve    # reads only in this unit; port 2583
+cargo run -p linkjar-pds -- serve    # port 2583
 ```
 
-The variables are the reference server's (SPEC Appendix C). The server
-writes one file of the copy, the DID cache.
+The variables are the reference server's (SPEC Appendix C). `serve` writes
+to the copy: records, blobs and events for a session that the reference
+server minted, the DID cache, and its own file `ops.sqlite`. It creates no
+account yet.
 
 `devenv shell` installs no git hook. Linked worktrees share one `.git/hooks`,
 so an installed hook would run for every worktree with the configuration of
@@ -124,6 +130,7 @@ pnpm parity run reference        # scenarios against the reference image
 pnpm parity compare reference repeat
 pnpm parity images build-candidate
 pnpm parity restore              # the Rust server on the reference's data
+pnpm parity writes               # writes and the firehose on both servers
 ```
 
 ## Measurements
