@@ -219,6 +219,11 @@ pub struct Config {
     /// `PDS_FAIL_POINTS`: fail points to arm (SPEC §19.2). Read in dev mode
     /// only.
     pub fail_points: Option<String>,
+    /// `PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX`: the key that signs the
+    /// PLC operations of the accounts. Without it no account is created.
+    pub plc_rotation_key: Option<Vec<u8>>,
+    /// `PDS_RECOVERY_DID_KEY`.
+    pub recovery_did_key: Option<String>,
     /// `PDS_JWT_SECRET`.
     pub jwt_secret: Option<String>,
     /// `PDS_ADMIN_PASSWORD`.
@@ -355,6 +360,25 @@ impl Env<'_> {
                 .unwrap_or(Duration::from_secs(20)),
             request_timeout: positive("PDS_BLOBSTORE_S3_REQUEST_TIMEOUT_MS")?,
         }))
+    }
+
+    /// `PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX` as its 32 bytes.
+    fn rotation_key(&self) -> Result<Option<Vec<u8>>, ConfigError> {
+        const NAME: &str = "PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX";
+        let Some(hex) = self.text(NAME) else {
+            return Ok(None);
+        };
+        data_encoding::HEXLOWER_PERMISSIVE
+            .decode(hex.as_bytes())
+            .ok()
+            .filter(|bytes| bytes.len() == 32)
+            .map(Some)
+            .ok_or_else(|| ConfigError::Invalid {
+                name: NAME,
+                // The value is a secret and stays out of the message.
+                value: "(hidden)".to_owned(),
+                reason: "expected 64 hexadecimal digits",
+            })
     }
 
     /// The `PDS_*` variables that Appendix C does not name. A variable that
@@ -496,6 +520,8 @@ impl Config {
             contact_email: env.text("PDS_CONTACT_EMAIL_ADDRESS"),
             blob_s3: env.blob_s3()?,
             blob_dir: env.text("PDS_BLOBSTORE_DISK_LOCATION").map(PathBuf::from),
+            plc_rotation_key: env.rotation_key()?,
+            recovery_did_key: env.text("PDS_RECOVERY_DID_KEY"),
             jwt_secret: env.text("PDS_JWT_SECRET"),
             admin_password: env.text("PDS_ADMIN_PASSWORD"),
             plc_url: env
@@ -544,6 +570,16 @@ impl Config {
                 None => store.into(),
             }
         }))
+    }
+
+    /// The URL the server is reached at, as the Reference derives it: HTTPS
+    /// on the host name, and HTTP with the port on `localhost`.
+    pub fn public_url(&self) -> String {
+        if self.hostname == "localhost" {
+            format!("http://localhost:{}", self.port)
+        } else {
+            format!("https://{}", self.hostname)
+        }
     }
 
     /// The secrets `serve` needs. `verify` and `export-car` run without

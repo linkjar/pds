@@ -37,6 +37,34 @@ pub struct ServerConfig {
     pub proxy_timeout: Duration,
     /// How credentials are checked.
     pub auth: AuthConfig,
+    /// What the server needs to create an identity. Without it no account
+    /// is created.
+    pub identity: Option<IdentityConfig>,
+}
+
+/// What the server needs to create and change `did:plc` identities.
+#[derive(Clone)]
+pub struct IdentityConfig {
+    /// `PDS_DID_PLC_URL`, without a trailing slash.
+    pub plc_url: String,
+    /// The URL the server is reached at: the PDS endpoint of its accounts.
+    pub public_url: String,
+    /// `PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX`, as bytes.
+    pub rotation_key: Vec<u8>,
+    /// `PDS_RECOVERY_DID_KEY`.
+    pub recovery_did_key: Option<String>,
+    /// `PDS_DEV_MODE`: handles under `.test` are taken.
+    pub dev_mode: bool,
+}
+
+impl std::fmt::Debug for IdentityConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("IdentityConfig")
+            .field("plc_url", &self.plc_url)
+            .field("public_url", &self.public_url)
+            .field("recovery_did_key", &self.recovery_did_key)
+            .finish_non_exhaustive()
+    }
 }
 
 impl ServerConfig {

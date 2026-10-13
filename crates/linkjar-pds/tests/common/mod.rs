@@ -47,6 +47,9 @@ CREATE TABLE "actor" ("did" varchar primary key, "handle" varchar, "createdAt" v
 CREATE TABLE "repo_root" ("did" varchar primary key, "cid" varchar not null, "rev" varchar not null, "indexedAt" varchar not null);
 CREATE TABLE "account" ("did" varchar primary key, "email" varchar not null, "passwordScrypt" varchar not null, "emailConfirmedAt" varchar, "invitesDisabled" int2 default 0 not null);
 CREATE TABLE "app_password" ("did" varchar not null, "name" varchar not null, "passwordScrypt" varchar not null, "createdAt" varchar not null, "privileged" int2 default 0 not null, constraint "app_password_pkey" primary key ("did", "name"));
+CREATE TABLE "invite_code" ("code" varchar primary key, "availableUses" integer not null, "disabled" int2 default 0, "forAccount" varchar not null, "createdBy" varchar not null, "createdAt" varchar not null);
+CREATE TABLE "invite_code_use" ("code" varchar not null, "usedBy" varchar not null, "usedAt" varchar not null, constraint "invite_code_use_pkey" primary key ("code", "usedBy"));
+CREATE TABLE "email_token" ("purpose" varchar not null, "did" varchar not null, "token" varchar not null, "requestedAt" varchar not null, constraint "email_token_pkey" primary key ("purpose", "did"));
 CREATE TABLE "refresh_token" ("id" varchar primary key, "did" varchar not null, "expiresAt" varchar not null, "nextId" varchar, "appPasswordName" varchar);
 "#;
 
@@ -93,6 +96,11 @@ impl DataDir {
     /// Three accounts: alice with `posts` posts and one blob, dana
     /// deactivated, tara taken down.
     pub fn new(posts: usize) -> Self {
+        Self::new_with(posts, &[])
+    }
+
+    /// [`DataDir::new`] with more variables of the configuration.
+    pub fn new_with(posts: usize, extra: &[(&str, &str)]) -> Self {
         let root = std::env::temp_dir().join(format!(
             "linkjar-pds-test-{}-{}",
             std::process::id(),
@@ -114,6 +122,7 @@ impl DataDir {
             ("PDS_DID_PLC_URL", "http://127.0.0.1:9"),
         ]
         .into_iter()
+        .chain(extra.iter().copied())
         .map(|(k, v)| (k.to_owned(), v.to_owned()))
         .collect();
         let config = Config::from_vars(&vars).unwrap();
