@@ -9,6 +9,7 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+pds-ext.workspace = true
 pds-identity.workspace = true
 pds-types.workspace = true
 icu_normalizer.workspace = true

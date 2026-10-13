@@ -5,6 +5,7 @@
 use icu_normalizer::DecomposingNormalizerBorrowed;
 use icu_properties::CodePointMapData;
 use icu_properties::props::{GeneralCategory, GeneralCategoryGroup};
+use pds_ext::{HandlePolicyRow, Rename};
 use pds_identity::reserved;
 use pds_types::Handle;
 
@@ -131,27 +132,16 @@ pub fn derive<E>(
     Ok(None)
 }
 
-/// What the rename rule says of a change of handle.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Rename {
-    /// The rule does not apply, or the target is the one already claimed.
-    Free,
-    /// The change spends the allowance: the target is to be recorded.
-    Claim,
-    /// The allowance is spent, or its 30 days are over.
-    Refused,
-}
-
 /// The message of a refused rename.
 pub const RENAME_REFUSED: &str = "One hosted handle change is available within 30 days of signup. You can still use a domain you own.";
 
 /// Decides a change of handle from `previous` to `handle`.
 ///
-/// `policy` is the account's row when it has one: when the account was
-/// created, in milliseconds, and the target it claimed. An account without
-/// a row, a handle under another domain and an unchanged handle are free.
+/// An account without a row, a handle under another domain and an
+/// unchanged handle are free. So is the target that the account claimed
+/// already, also after the 30 days: the PLC directory may hold it.
 pub fn rename(
-    policy: Option<(Option<i64>, Option<&str>)>,
+    policy: Option<&HandlePolicyRow>,
     previous: Option<&str>,
     handle: &str,
     now_ms: i64,
@@ -159,19 +149,21 @@ pub fn rename(
     if !is_linkjar_handle(handle) || Some(handle) == previous {
         return Rename::Free;
     }
-    let Some((created_ms, claimed)) = policy else {
+    let Some(policy) = policy else {
         return Rename::Free;
     };
-    if claimed == Some(handle) {
+    if policy.claimed.as_deref() == Some(handle) {
         return Rename::Free;
     }
-    match created_ms {
+    match policy.created_ms {
         Some(created)
-            if claimed.is_none() && now_ms >= created && now_ms < created + RENAME_WINDOW_MS =>
+            if policy.claimed.is_none()
+                && now_ms >= created
+                && now_ms < created + RENAME_WINDOW_MS =>
         {
             Rename::Claim
         }
-        _ => Rename::Refused,
+        _ => Rename::Refused(RENAME_REFUSED),
     }
 }
 
@@ -236,41 +228,31 @@ mod tests {
         let day = 24 * 60 * 60 * 1000;
         let old = Some("fresh.linkjar.social");
         let target = "chosen.linkjar.social";
+        let row = |created_ms, claimed: Option<&str>| HandlePolicyRow {
+            created_ms,
+            claimed: claimed.map(str::to_owned),
+        };
+        let fresh = row(Some(0), None);
+        let spent = row(Some(0), Some(target));
+        let refused = Rename::Refused(RENAME_REFUSED);
         // No row: a password account.
         assert_eq!(rename(None, old, target, 0), Rename::Free);
         assert_eq!(
-            rename(Some((Some(0), None)), old, "fresh.linkjar.social", day),
+            rename(Some(&fresh), old, "fresh.linkjar.social", day),
             Rename::Free
         );
         assert_eq!(
-            rename(Some((Some(0), None)), old, "own.example.org", day),
+            rename(Some(&fresh), old, "own.example.org", day),
             Rename::Free
         );
-        assert_eq!(
-            rename(Some((Some(0), None)), old, target, day),
-            Rename::Claim
-        );
-        assert_eq!(
-            rename(Some((Some(0), None)), old, target, 30 * day),
-            Rename::Refused
-        );
+        assert_eq!(rename(Some(&fresh), old, target, day), Rename::Claim);
+        assert_eq!(rename(Some(&fresh), old, target, 30 * day), refused);
         // The claimed target stays free, also after the 30 days.
+        assert_eq!(rename(Some(&spent), old, target, 40 * day), Rename::Free);
         assert_eq!(
-            rename(Some((Some(0), Some(target))), old, target, 40 * day),
-            Rename::Free
+            rename(Some(&spent), old, "another.linkjar.social", day),
+            refused
         );
-        assert_eq!(
-            rename(
-                Some((Some(0), Some(target))),
-                old,
-                "another.linkjar.social",
-                day
-            ),
-            Rename::Refused
-        );
-        assert_eq!(
-            rename(Some((None, None)), old, target, day),
-            Rename::Refused
-        );
+        assert_eq!(rename(Some(&row(None, None)), old, target, day), refused);
     }
 }
