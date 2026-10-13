@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       from:
-        description: First seed. Default: the run number times 1,000.
+        description: 'First seed. The default is the run number times 1,000.'
         required: false
       seeds:
         description: Seeds for each shape.
