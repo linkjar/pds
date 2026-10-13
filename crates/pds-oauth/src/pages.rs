@@ -39,6 +39,8 @@ pub struct Flow<'a> {
     /// The identity providers a person can continue with: the name in the
     /// path and the name on the button.
     pub providers: &'a [(&'a str, &'a str)],
+    /// The hCaptcha site key, when a sign-up needs a challenge.
+    pub captcha: Option<&'a str>,
 }
 
 const STYLE: &str = "\
@@ -322,12 +324,22 @@ pub fn sign_up_handle(
     domain: &str,
     error: Option<&str>,
 ) -> String {
+    // The challenge is a script of hCaptcha. The form sends its answer in
+    // `h-captcha-response`.
+    let captcha = flow.captcha.map_or_else(String::new, |site_key| {
+        format!(
+            "<div class=\"h-captcha\" data-sitekey=\"{}\"></div>\
+<script src=\"https://js.hcaptcha.com/1/api.js\" async defer nonce=\"{}\"></script>",
+            escape(site_key),
+            escape(flow.nonce)
+        )
+    });
     let body = format!(
         "<h1>Choose your handle</h1><p>Your handle is your name on the network. It ends with <strong>{}</strong>.</p>{}\
 <form method=\"post\" action=\"/oauth/authorize/sign-up\">{}\
 <input type=\"hidden\" name=\"pending\" value=\"{}\">\
 <label for=\"handle\">Handle</label>\
-<input id=\"handle\" type=\"text\" name=\"handle\" value=\"{}\" autocapitalize=\"none\" spellcheck=\"false\" required autofocus>\
+<input id=\"handle\" type=\"text\" name=\"handle\" value=\"{}\" autocapitalize=\"none\" spellcheck=\"false\" required autofocus>{captcha}\
 <div class=\"row\"><button type=\"submit\" class=\"primary\">Create account</button></div></form>",
         escape(domain),
         alert(error),
@@ -647,6 +659,7 @@ mod tests {
         request_uri: "urn:ietf:params:oauth:request_uri:req-00",
         csrf: "token",
         providers: &[],
+        captcha: None,
     };
 
     #[test]

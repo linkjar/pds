@@ -486,7 +486,9 @@ impl Page<'_> {
             .iter()
             .map(|provider| (provider.id, provider.label))
             .collect();
+        let captcha = self.state.config().oauth.hcaptcha.as_ref();
         let flow = Flow {
+            captcha: captcha.map(|hcaptcha| hcaptcha.site_key.as_str()),
             providers: &providers,
             service: &self.state.config().hostname,
             nonce: &nonce,
@@ -494,7 +496,19 @@ impl Page<'_> {
             request_uri: &request_uri,
             csrf: &csrf,
         };
-        html(status, &nonce, &self.device.cookies, build(&flow))
+        let mut response = html(status, &nonce, &self.device.cookies, build(&flow));
+        // The challenge of a sign-up is hCaptcha's script and frame.
+        if captcha.is_some() {
+            let csp = format!(
+                "default-src 'none'; style-src 'nonce-{nonce}' https://hcaptcha.com https://*.hcaptcha.com; script-src 'nonce-{nonce}' https://hcaptcha.com https://*.hcaptcha.com; frame-src https://hcaptcha.com https://*.hcaptcha.com; connect-src https://hcaptcha.com https://*.hcaptcha.com; base-uri 'none'; frame-ancestors 'none'"
+            );
+            if let Ok(csp) = HeaderValue::from_str(&csp) {
+                response
+                    .headers_mut()
+                    .insert(header::CONTENT_SECURITY_POLICY, csp);
+            }
+        }
+        response
     }
 
     fn sign_in(&self, status: StatusCode, username: &str, error: Option<&str>) -> Response {
@@ -707,6 +721,9 @@ pub async fn page(
 
 /// What a form of a page carries, after the checks every form shares.
 struct Posted {
+    /// The address and the browser of the request.
+    ip: String,
+    user_agent: Option<String>,
     fields: Fields,
     client: Arc<LoadedClient>,
     device: Device,
@@ -775,6 +792,11 @@ async fn posted(
         );
     }
     Ok(Ok(Posted {
+        ip: crate::ratelimit::client_ip(headers, peer),
+        user_agent: headers
+            .get(header::USER_AGENT)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned),
         fields,
         client,
         device,
@@ -1119,6 +1141,17 @@ async fn sign_up_handle(
     } else {
         format!("{typed}{domain}")
     };
+    // With a CAPTCHA configured, nothing is created without a good answer.
+    if let Some(hcaptcha) = &state.config().oauth.hcaptcha {
+        let answer = posted.field("h-captcha-response");
+        let agent = posted.user_agent.as_deref();
+        if !super::captcha::verify(state, hcaptcha, answer, &posted.ip, &handle, agent).await {
+            return Ok(page.render(StatusCode::BAD_REQUEST, |flow| {
+                let message = "Complete the challenge to continue.";
+                pages::sign_up_handle(flow, key, &typed, &domain, Some(message))
+            }));
+        }
+    }
     let mut input = json!({ "email": first.email, "handle": handle, "password": first.password });
     if let Some(code) = &first.invite_code {
         input["inviteCode"] = Value::String(code.clone());
