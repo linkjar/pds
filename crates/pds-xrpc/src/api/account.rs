@@ -307,7 +307,9 @@ fn validate_for_entryway(
             .unwrap_or_default()
     };
     if !listed("rotationKeys").contains(&entryway.plc_rotation_key.as_str()) {
-        return Err(incompatible("PLC DID does not include service rotation key"));
+        return Err(incompatible(
+            "PLC DID does not include service rotation key",
+        ));
     }
     let signed = plc::is_signed_by(operation, &entryway.plc_rotation_key);
     if !signed || plc::did_of_genesis(operation).as_deref() != Some(did) {
@@ -322,7 +324,9 @@ fn validate_for_entryway(
         .into_iter()
         .find_map(|path| std::fs::read(&path).ok().map(|key| (path, key)));
     let Some((reserved, key)) = reserved else {
-        return Err(XrpcError::invalid_request("reserved signing key does not exist"));
+        return Err(XrpcError::invalid_request(
+            "reserved signing key does not exist",
+        ));
     };
     let keypair =
         Keypair::from_secret_bytes(Algorithm::Secp256k1, &key).map_err(XrpcError::internal)?;
@@ -330,13 +334,19 @@ fn validate_for_entryway(
         .pointer("/services/atproto_pds/endpoint")
         .and_then(Value::as_str);
     if keypair.did_key() != signing_key {
-        return Err(incompatible("DID document signing key does not match service-reserved key"));
+        return Err(incompatible(
+            "DID document signing key does not match service-reserved key",
+        ));
     }
     if endpoint != Some(state.config().public_url().as_str()) {
-        return Err(incompatible("DID document pds endpoint does not match service endpoint"));
+        return Err(incompatible(
+            "DID document pds endpoint does not match service endpoint",
+        ));
     }
     if listed("alsoKnownAs").first().copied() != Some(format!("at://{handle}").as_str()) {
-        return Err(incompatible("provided handle does not match DID document handle"));
+        return Err(incompatible(
+            "provided handle does not match DID document handle",
+        ));
     }
     Ok(Request {
         handle,
@@ -528,7 +538,11 @@ async fn create_for_entryway(
         &now,
     )
     .await;
-    let (did, reserved, failed) = (member.did.clone(), member.reserved.clone(), created.is_err());
+    let (did, reserved, failed) = (
+        member.did.clone(),
+        member.reserved.clone(),
+        created.is_err(),
+    );
     let _ = state
         .blocking(move |state| {
             if failed {

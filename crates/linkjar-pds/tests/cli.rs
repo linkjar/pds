@@ -102,7 +102,7 @@ fn check_config_needs_the_secrets_and_a_valid_value() {
 }
 
 #[test]
-fn check_config_warns_on_an_unknown_variable_and_refuses_an_entryway_one() {
+fn check_config_warns_on_an_unknown_variable_and_refuses_half_an_entryway() {
     let secrets = [("PDS_JWT_SECRET", "a"), ("PDS_ADMIN_PASSWORD", "b")];
     let unknown = run(
         &[secrets[0], secrets[1], ("PDS_JWT_SECERT", "c")],

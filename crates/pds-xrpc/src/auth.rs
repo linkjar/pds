@@ -210,28 +210,37 @@ fn verify(
     let signature = URL_SAFE_NO_PAD
         .decode(signature)
         .map_err(|_| unverified())?;
-    match &config.entryway {
-        // A member host takes the tokens of its entryway and no other.
-        Some(entryway) => {
-            if alg != Some("ES256K") {
-                return Err(unverified());
+    if let Some(entryway) = &config.entryway {
+        // A member host takes the tokens of its entryway and no other. A
+        // token from before the entryway, which this server signed with
+        // its secret, has ended: the client then refreshes its session,
+        // and the entryway answers (SPEC §21.3).
+        if alg == Some("HS256") && !config.jwt_secret.is_empty() {
+            let own = Hmac::<Sha256>::new_from_slice(&config.jwt_secret).is_ok_and(|mut mac| {
+                mac.update(format!("{head}.{body}").as_bytes());
+                mac.verify_slice(&signature).is_ok()
+            });
+            if own {
+                return Err(XrpcError::bad_request("ExpiredToken", "Token has expired"));
             }
-            entryway
-                .key
-                .verify_any_s(format!("{head}.{body}").as_bytes(), &signature)
-                .map_err(|_| unverified())?;
         }
-        None => {
-            if alg != Some("HS256") {
-                return Err(unverified());
-            }
-            let mut mac =
-                Hmac::<Sha256>::new_from_slice(&config.jwt_secret).map_err(|_| unverified())?;
-            mac.update(head.as_bytes());
-            mac.update(b".");
-            mac.update(body.as_bytes());
-            mac.verify_slice(&signature).map_err(|_| unverified())?;
+        if alg != Some("ES256K") {
+            return Err(unverified());
         }
+        entryway
+            .key
+            .verify_any_s(format!("{head}.{body}").as_bytes(), &signature)
+            .map_err(|_| unverified())?;
+    } else {
+        if alg != Some("HS256") {
+            return Err(unverified());
+        }
+        let mut mac =
+            Hmac::<Sha256>::new_from_slice(&config.jwt_secret).map_err(|_| unverified())?;
+        mac.update(head.as_bytes());
+        mac.update(b".");
+        mac.update(body.as_bytes());
+        mac.verify_slice(&signature).map_err(|_| unverified())?;
     }
 
     let claims = json(body).ok_or_else(unverified)?;
@@ -412,7 +421,7 @@ mod tests {
     #[test]
     fn a_member_host_takes_the_tokens_of_its_entryway_and_no_other() {
         let key = pds_identity::Keypair::generate(pds_identity::Algorithm::Secp256k1, |bytes| {
-            bytes.fill(11)
+            bytes.fill(11);
         });
         let member = AuthConfig {
             entryway: Some(EntrywayAuth {
@@ -434,21 +443,31 @@ mod tests {
         // For this server, and for the entryway.
         for aud in ["did:web:pds.test", "did:web:entryway.test"] {
             let token = entryway_token(&key, "at+jwt", &claims(aud));
-            let taken = optional_credentials(&with(&token), &member, &[], 1_000).unwrap();
-            assert!(matches!(taken, Credentials::Access { did: found, .. } if found == did));
+            let credential = optional_credentials(&with(&token), &member, &[], 1_000).unwrap();
+            assert!(matches!(credential, Credentials::Access { did: found, .. } if found == did));
         }
         // Another audience, another key, and a token of the server's own secret.
         let other = entryway_token(&key, "at+jwt", &claims("did:web:other.test"));
         assert!(optional_credentials(&with(&other), &member, &[], 1_000).is_err());
         let stranger =
             pds_identity::Keypair::generate(pds_identity::Algorithm::Secp256k1, |bytes| {
-                bytes.fill(12)
+                bytes.fill(12);
             });
         let forged = entryway_token(&stranger, "at+jwt", &claims("did:web:pds.test"));
         assert!(optional_credentials(&with(&forged), &member, &[], 1_000).is_err());
         let own = mint_access(&config(), did, SCOPE_ACCESS, 1_000);
         assert!(optional_credentials(&with(&own), &config(), &[], 1_000).is_ok());
-        assert!(optional_credentials(&with(&own), &member, &[], 1_000).is_err());
+        // A token of the server's own secret has ended, so the client
+        // refreshes. A token of another secret is not one of this server.
+        let ended = optional_credentials(&with(&own), &member, &[], 1_000).unwrap_err();
+        assert_eq!(ended.error, "ExpiredToken");
+        let elsewhere = AuthConfig {
+            jwt_secret: b"another".to_vec(),
+            ..config()
+        };
+        let foreign = mint_access(&elsewhere, did, SCOPE_ACCESS, 1_000);
+        let refused = optional_credentials(&with(&foreign), &member, &[], 1_000).unwrap_err();
+        assert_eq!(refused.error, "InvalidToken");
         // A server without an entryway takes no ES256K token.
         let token = entryway_token(&key, "at+jwt", &claims("did:web:pds.test"));
         assert!(optional_credentials(&with(&token), &config(), &[], 1_000).is_err());

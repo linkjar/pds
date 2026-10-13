@@ -1151,6 +1151,39 @@ mod tests {
 
     #[test]
     fn a_refused_variable_stops_the_start() {
+        // An entryway needs its DID, its token key and its rotation key.
+        let key = pds_identity::Keypair::generate(pds_identity::Algorithm::Secp256k1, |bytes| {
+            bytes.fill(9);
+        });
+        let public = data_encoding::HEXLOWER.encode(&key.public_key().to_compressed());
+        let rotation = key.did_key();
+        let member = [
+            ("PDS_ENTRYWAY_URL", "https://entryway.test/"),
+            ("PDS_ENTRYWAY_DID", "did:web:entryway.test"),
+            (
+                "PDS_ENTRYWAY_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX",
+                public.as_str(),
+            ),
+            ("PDS_ENTRYWAY_PLC_ROTATION_KEY", rotation.as_str()),
+        ];
+        let entryway = Config::from_vars(&vars(&member)).unwrap().entryway.unwrap();
+        assert_eq!(entryway.url, "https://entryway.test");
+        assert_eq!(entryway.admin_token, None);
+        assert!(!format!("{entryway:?}").contains("jwt_key"));
+        for (index, wrong) in ["ftp://e.test", "not-a-did", "abcd", "not-a-key"]
+            .iter()
+            .enumerate()
+        {
+            let mut changed = member;
+            changed[index].1 = wrong;
+            assert!(
+                matches!(
+                    Config::from_vars(&vars(&changed)),
+                    Err(ConfigError::Invalid { .. })
+                ),
+                "{wrong}"
+            );
+        }
         for name in ["PDS_ENTRYWAY_URL", "PDS_REDIS_SCRATCH_ADDRESS"] {
             assert!(
                 matches!(Config::from_vars(&vars(&[(name, "x")])), Err(ConfigError::Refused { name: n, .. }) if n == name),

@@ -256,13 +256,19 @@ mod tests {
             "https://pds.test",
             &signer,
         );
-        assert_eq!(did_of_genesis(&genesis.operation).as_deref(), Some(genesis.did.as_str()));
+        assert_eq!(
+            did_of_genesis(&genesis.operation).as_deref(),
+            Some(genesis.did.as_str())
+        );
         assert!(is_signed_by(&genesis.operation, &signer.did_key()));
         assert!(!is_signed_by(&genesis.operation, &other.did_key()));
-        let mut changed = genesis.operation.clone();
+        let mut changed = genesis.operation;
         changed["alsoKnownAs"] = serde_json::json!(["at://mallory.test"]);
         assert!(!is_signed_by(&changed, &signer.did_key()));
-        assert!(!is_signed_by(&serde_json::json!({"type": "plc_operation"}), &signer.did_key()));
+        assert!(!is_signed_by(
+            &serde_json::json!({"type": "plc_operation"}),
+            &signer.did_key()
+        ));
     }
     use crate::Algorithm;
 
