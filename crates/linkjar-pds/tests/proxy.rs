@@ -250,18 +250,7 @@ async fn a_method_without_a_handler_goes_to_the_appview_with_a_service_token() {
         );
     }
 
-    // Account management is never proxied, and the header is checked.
-    let (status, _, body) = server
-        .send(
-            server
-                .get("com.atproto.admin.sendEmail")
-                .bearer_auth(&access),
-        )
-        .await;
-    assert_eq!(
-        (status, &body["message"]),
-        (400, &json!("Bad token method"))
-    );
+    // The header is checked.
     for (value, message) in [
         (
             "did:web:other.test",

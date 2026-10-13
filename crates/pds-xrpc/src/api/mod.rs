@@ -124,6 +124,7 @@ enum Procedure {
     AdminUpdateAccountEmail,
     AdminUpdateAccountHandle,
     AdminUpdateAccountPassword,
+    AdminSendEmail,
     RequestPlcOperationSignature,
     SignPlcOperation,
     SubmitPlcOperation,
@@ -158,6 +159,7 @@ fn procedure(nsid: &str) -> Option<Procedure> {
         "com.atproto.server.requestAccountDelete" => Procedure::RequestAccountDelete,
         "com.atproto.server.deleteAccount" => Procedure::DeleteAccount,
         "com.atproto.admin.deleteAccount" => Procedure::AdminDeleteAccount,
+        "com.atproto.admin.sendEmail" => Procedure::AdminSendEmail,
         "com.atproto.admin.updateAccountEmail" => Procedure::AdminUpdateAccountEmail,
         "com.atproto.admin.updateAccountHandle" => Procedure::AdminUpdateAccountHandle,
         "com.atproto.admin.updateAccountPassword" => Procedure::AdminUpdateAccountPassword,
@@ -475,6 +477,7 @@ async fn run(
         Procedure::AdminUpdateAccountPassword => {
             admin::update_account_password(state, headers, body).await
         }
+        Procedure::AdminSendEmail => admin::send_email(state, headers, body).await,
         Procedure::AdminDeleteAccount => admin::delete_account(state, headers, body).await,
         Procedure::ResetPassword => email::reset_password(state, headers, body).await,
         Procedure::CreateInviteCode => invites::create_invite_code(state, headers, body).await,
