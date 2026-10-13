@@ -436,3 +436,35 @@ pub async fn update_account_password(
         .await?;
     Ok(axum::response::IntoResponse::into_response(StatusCode::OK))
 }
+
+/// `com.atproto.admin.sendEmail`: a mail of the operator to an account.
+pub async fn send_email(
+    state: &AppState,
+    headers: &HeaderMap,
+    body: &mut Option<Body>,
+) -> Result<Response, XrpcError> {
+    require_admin(state, headers)?;
+    let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
+    let text = |key: &str, required: bool, format: crate::params::Format| {
+        body::string(&input, key, required, format, None, "$").map(|value| value.map(str::to_owned))
+    };
+    let recipient = text("recipientDid", true, crate::params::Format::Did)?.unwrap_or_default();
+    let content = text("content", true, crate::params::Format::Any)?.unwrap_or_default();
+    let subject = text("subject", false, crate::params::Format::Any)?
+        .unwrap_or_else(|| "Message via your PDS".to_owned());
+    let email = state
+        .blocking(move |state| {
+            AccountDb::open(&state.layout().account_db)?
+                .account(&recipient, false, Availability::ANY)?
+                .ok_or_else(|| XrpcError::invalid_request("Recipient not found"))?
+                .email
+                .ok_or_else(|| XrpcError::invalid_request("account does not have an email address"))
+        })
+        .await?;
+    state
+        .config()
+        .mail
+        .send_moderation(&email, &subject, &content)
+        .await?;
+    Ok(json_response(StatusCode::OK, &json!({ "sent": true })))
+}

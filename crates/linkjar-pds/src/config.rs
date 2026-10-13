@@ -412,6 +412,8 @@ impl Env<'_> {
             disable_confirmation_link: self
                 .boolean("PDS_EMAIL_DISABLE_CONFIRMATION_LINK")?
                 .unwrap_or(false),
+            moderation_smtp_url: self.text("PDS_MODERATION_EMAIL_SMTP_URL"),
+            moderation_address: self.text("PDS_MODERATION_EMAIL_ADDRESS"),
         })
     }
 

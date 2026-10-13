@@ -29,6 +29,10 @@ pub struct MailConfig {
     pub primary_color: Option<String>,
     /// `PDS_EMAIL_DISABLE_CONFIRMATION_LINK`.
     pub disable_confirmation_link: bool,
+    /// `PDS_MODERATION_EMAIL_SMTP_URL`.
+    pub moderation_smtp_url: Option<String>,
+    /// `PDS_MODERATION_EMAIL_ADDRESS`.
+    pub moderation_address: Option<String>,
 }
 
 impl std::fmt::Debug for MailConfig {
@@ -154,6 +158,28 @@ impl MailConfig {
         out
     }
 
+    /// Sends a mail of the operator to `to`, through the moderation
+    /// mailer. `content` is HTML.
+    pub async fn send_moderation(
+        &self,
+        to: &str,
+        subject: &str,
+        content: &str,
+    ) -> Result<(), XrpcError> {
+        let Some(url) = &self.moderation_smtp_url else {
+            tracing::debug!(subject, "Moderation email auth is not configured");
+            return Ok(());
+        };
+        deliver(
+            url,
+            self.moderation_address.as_deref().unwrap_or_default(),
+            to,
+            subject,
+            content.to_owned(),
+        )
+        .await
+    }
+
     /// Sends a token mail to `to`.
     pub async fn send(
         &self,
@@ -170,29 +196,42 @@ impl MailConfig {
             return Ok(());
         };
         let html = self.render(template, token, handle);
-        let text = plain_text(&html);
-        let from: Mailbox = self
-            .from_address
-            .as_deref()
-            .unwrap_or_default()
-            .parse()
-            .map_err(XrpcError::internal)?;
-        let to: Mailbox = to.parse().map_err(XrpcError::internal)?;
-        let message = Message::builder()
-            .from(from)
-            .to(to)
-            .subject(template.subject())
-            .multipart(MultiPart::alternative_plain_html(text, html))
-            .map_err(XrpcError::internal)?;
-        let transport = AsyncSmtpTransport::<Tokio1Executor>::from_url(url)
-            .map_err(XrpcError::internal)?
-            .build();
-        transport
-            .send(message)
-            .await
-            .map(drop)
-            .map_err(XrpcError::internal)
+        deliver(
+            url,
+            self.from_address.as_deref().unwrap_or_default(),
+            to,
+            template.subject(),
+            html,
+        )
+        .await
     }
+}
+
+/// Sends one mail with an HTML part and its text.
+async fn deliver(
+    url: &str,
+    from: &str,
+    to: &str,
+    subject: &str,
+    html: String,
+) -> Result<(), XrpcError> {
+    let text = plain_text(&html);
+    let from: Mailbox = from.parse().map_err(XrpcError::internal)?;
+    let to: Mailbox = to.parse().map_err(XrpcError::internal)?;
+    let message = Message::builder()
+        .from(from)
+        .to(to)
+        .subject(subject)
+        .multipart(MultiPart::alternative_plain_html(text, html))
+        .map_err(XrpcError::internal)?;
+    let transport = AsyncSmtpTransport::<Tokio1Executor>::from_url(url)
+        .map_err(XrpcError::internal)?
+        .build();
+    transport
+        .send(message)
+        .await
+        .map(drop)
+        .map_err(XrpcError::internal)
 }
 
 /// The text of an HTML mail, for readers that show no HTML: the text
