@@ -41,5 +41,5 @@ pub use audit::{AuditDb, CheckpointRow};
 pub use did_cache::{CachedDoc, DidCacheDb};
 pub use error::StorageError;
 pub use layout::DataLayout;
-pub use ops::{OpsDb, PendingCommit};
+pub use ops::{BlockedEmailDomain, OperatorRole, OpsDb, PendingCommit};
 pub use sequencer::{SeqGap, SeqInsert, SeqRow, SequencerDb};

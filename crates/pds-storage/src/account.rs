@@ -874,6 +874,50 @@ impl AccountDb {
             > 0)
     }
 
+    /// Ends every legacy session of `did`. Returns how many it ended.
+    pub fn revoke_refresh_tokens(&self, did: &str) -> Result<usize, StorageError> {
+        Ok(self
+            .conn
+            .execute(r#"delete from "refresh_token" where "did" = ?1"#, [did])?)
+    }
+
+    /// The legacy sessions of `did`: the app password of each, if any, and
+    /// when it ends.
+    pub fn refresh_tokens_of(
+        &self,
+        did: &str,
+    ) -> Result<Vec<(Option<String>, String)>, StorageError> {
+        let mut statement = self.conn.prepare(
+            r#"select "appPasswordName", "expiresAt" from "refresh_token" where "did" = ?1 order by "expiresAt""#,
+        )?;
+        let rows = statement.query_map([did], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// Removes what has ended before `now`: legacy sessions, OAuth
+    /// sessions and authorization requests. Returns how many rows went.
+    pub fn purge_expired(&self, now: &str) -> Result<usize, StorageError> {
+        let mut removed = self.conn.execute(
+            r#"delete from "used_refresh_token" where "tokenId" in (select "id" from "token" where "expiresAt" < ?1)"#,
+            [now],
+        )?;
+        for table in ["refresh_token", "token", "authorization_request"] {
+            removed += self.conn.execute(
+                &format!(r#"delete from "{table}" where "expiresAt" < ?1"#),
+                [now],
+            )?;
+        }
+        Ok(removed)
+    }
+
+    /// The number of actors.
+    pub fn count_actors(&self) -> Result<u64, StorageError> {
+        let count: i64 = self
+            .conn
+            .query_row(r#"select count(*) from "actor""#, [], |row| row.get(0))?;
+        Ok(u64::try_from(count).unwrap_or(0))
+    }
+
     /// A page of hosted repositories in order of creation, then DID. `after`
     /// is the creation time and DID of the last entry of the previous page.
     pub fn list_repos(

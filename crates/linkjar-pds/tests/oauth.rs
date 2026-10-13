@@ -56,6 +56,7 @@ impl Answer {
 
 struct Server {
     origin: String,
+    ops_origin: String,
     issuer: String,
     http: reqwest::Client,
     nonce: String,
@@ -68,10 +69,22 @@ struct Server {
 
 impl Server {
     async fn start() -> Self {
-        let dir = DataDir::new(1);
+        Self::start_with(&[]).await
+    }
+
+    /// A server with more variables of the configuration, and its ops
+    /// listener on an address of its own.
+    async fn start_with(extra: &[(&str, &str)]) -> Self {
+        let dir = DataDir::new_with(1, extra);
+        linkjar_pds::serve::create_missing_databases(&dir.config).unwrap();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let origin = format!("http://{}", listener.local_addr().unwrap());
-        let router = pds_xrpc::router(app_state(&dir.config).unwrap());
+        let state = app_state(&dir.config).unwrap();
+        let router = pds_xrpc::router(state.clone());
+        tokio::spawn(async move { axum::serve(listener, router).await });
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let ops_origin = format!("http://{}", listener.local_addr().unwrap());
+        let router = linkjar_pds::serve::ops_router(state, &dir.config);
         tokio::spawn(async move { axum::serve(listener, router).await });
         let http = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
@@ -79,6 +92,7 @@ impl Server {
             .unwrap();
         let mut server = Self {
             origin,
+            ops_origin,
             issuer: String::new(),
             http,
             nonce: String::new(),
@@ -223,6 +237,57 @@ impl Server {
             headers: response.headers().clone(),
             text: response.text().await.unwrap(),
         }
+    }
+
+    /// A request to the ops listener with an OAuth access token. The
+    /// proof names the public address of the server.
+    async fn operate(
+        &mut self,
+        path: &str,
+        token: &str,
+        reason: Option<&str>,
+        body: Option<&Value>,
+    ) -> Answer {
+        let method = if body.is_some() {
+            reqwest::Method::POST
+        } else {
+            reqwest::Method::GET
+        };
+        let proof = self.proof(&client_key(), method.as_str(), path, Some(token));
+        let mut request = self
+            .http
+            .request(method, format!("{}{path}", self.ops_origin))
+            .header("authorization", format!("DPoP {token}"))
+            .header("dpop", proof);
+        if let Some(reason) = reason {
+            request = request.header("x-ops-reason", reason);
+        }
+        if let Some(body) = body {
+            request = request
+                .header("content-type", "application/json")
+                .body(body.to_string());
+        }
+        let response = request.send().await.unwrap();
+        Answer {
+            status: response.status().as_u16(),
+            headers: response.headers().clone(),
+            text: response.text().await.unwrap(),
+        }
+    }
+
+    /// An action of the admin on the ops listener.
+    async fn admin(&self, nsid: &str, reason: &str, body: &Value) -> u16 {
+        self.http
+            .post(format!("{}/xrpc/{nsid}", self.ops_origin))
+            .basic_auth("admin", Some(common::ADMIN_PASSWORD))
+            .header("x-ops-reason", reason)
+            .header("content-type", "application/json")
+            .body(body.to_string())
+            .send()
+            .await
+            .unwrap()
+            .status()
+            .as_u16()
     }
 
     async fn push(&mut self, change: &[(&str, &str)]) -> Answer {
@@ -804,4 +869,140 @@ async fn the_account_page_lists_and_ends_sessions_and_devices() {
     assert_eq!(signed_in.status, 303);
     let page = server.send(reqwest::Method::GET, &manage, None, &[]).await;
     assert!(page.text.contains("<h2>Devices</h2>"), "{}", page.text);
+}
+
+#[tokio::test]
+async fn an_account_with_a_role_operates_through_its_console_session() {
+    let console = client_id();
+    let mut server = Server::start_with(&[
+        ("PDS_PROFILE", "linkjar"),
+        ("PDS_ADMIN_PASSWORD", common::ADMIN_PASSWORD),
+        ("PDS_OPS_CLIENT_IDS", &console),
+    ])
+    .await;
+    server.push(&[]).await;
+    let (_, tokens) = server.sign_in(false).await;
+    assert_eq!(tokens["sub"], ALICE, "{tokens}");
+    let access = tokens["access_token"].as_str().unwrap().to_owned();
+    let who = "/xrpc/internal.ops.getOperator";
+
+    // Without a role the session is refused.
+    let refused = server.operate(who, &access, None, None).await;
+    assert_eq!(refused.status, 403, "{}", refused.text);
+    assert!(refused.header("dpop-nonce").is_some());
+
+    // The admin grants the role of a moderator.
+    let grant = json!({"did": ALICE, "role": "moderator"});
+    assert_eq!(
+        server
+            .admin("internal.ops.grantRole", "joins the team", &grant)
+            .await,
+        200
+    );
+    let operator = server.operate(who, &access, None, None).await;
+    assert_eq!(operator.status, 200, "{}", operator.text);
+    assert_eq!(
+        operator.json(),
+        json!({"actor": ALICE, "role": "moderator"})
+    );
+
+    // A moderator acts on one account and grants no role.
+    let sync = "/xrpc/internal.ops.emitSync";
+    let body = json!({"did": common::DANA});
+    let refused = server
+        .operate(sync, &access, Some("a test"), Some(&body))
+        .await;
+    assert_eq!(refused.status, 403, "{}", refused.text);
+    let grant = json!({"did": common::DANA, "role": "operator"});
+    let refused = server
+        .operate(
+            "/xrpc/internal.ops.grantRole",
+            &access,
+            Some("a test"),
+            Some(&grant),
+        )
+        .await;
+    assert_eq!(refused.status, 403, "{}", refused.text);
+    let takedown = json!({
+        "subject": {"$type": "com.atproto.admin.defs#repoRef", "did": common::DANA},
+        "takedown": {"applied": true, "ref": "ops-7"},
+    });
+    let status = "/xrpc/com.atproto.admin.updateSubjectStatus";
+    let no_reason = server.operate(status, &access, None, Some(&takedown)).await;
+    assert_eq!(no_reason.status, 400, "{}", no_reason.text);
+    let done = server
+        .operate(status, &access, Some("spam links"), Some(&takedown))
+        .await;
+    assert_eq!(done.status, 200, "{}", done.text);
+
+    // The entry names the account, its client, the reason and the console.
+    let audit = server
+        .operate("/xrpc/internal.ops.listAudit?limit=1", &access, None, None)
+        .await;
+    assert_eq!(audit.status, 200, "{}", audit.text);
+    let entry = &audit.json()["entries"][0];
+    assert_eq!(entry["action"], "com.atproto.admin.updateSubjectStatus");
+    assert_eq!(entry["actor"], ALICE);
+    assert_eq!(entry["credential"], "oauth");
+    assert_eq!(entry["clientId"], console.as_str());
+    assert_eq!(entry["subject"], common::DANA);
+    assert_eq!(entry["reason"], "spam links");
+    assert_eq!(entry["sidecar"], "console");
+    assert_eq!(entry["outcome"], "ok");
+
+    // The admin takes the role away, and the session is refused again.
+    let gone = json!({"did": ALICE});
+    assert_eq!(
+        server
+            .admin("internal.ops.revokeRole", "leaves the team", &gone)
+            .await,
+        200
+    );
+    let refused = server.operate(who, &access, None, None).await;
+    assert_eq!(refused.status, 403, "{}", refused.text);
+}
+
+#[tokio::test]
+async fn the_ops_listener_refuses_a_session_of_another_client_and_of_the_stock_profile() {
+    // The linkjar profile, and a console that is another client.
+    let mut server = Server::start_with(&[
+        ("PDS_PROFILE", "linkjar"),
+        ("PDS_ADMIN_PASSWORD", common::ADMIN_PASSWORD),
+        ("PDS_OPS_CLIENT_IDS", "https://console.example/client.json"),
+    ])
+    .await;
+    server.push(&[]).await;
+    let (_, tokens) = server.sign_in(false).await;
+    let access = tokens["access_token"].as_str().unwrap().to_owned();
+    let grant = json!({"did": ALICE, "role": "operator"});
+    assert_eq!(
+        server
+            .admin("internal.ops.grantRole", "a test", &grant)
+            .await,
+        200
+    );
+    let who = "/xrpc/internal.ops.getOperator";
+    let refused = server.operate(who, &access, None, None).await;
+    assert_eq!(refused.status, 403, "{}", refused.text);
+    assert!(refused.text.contains("not one of the console"));
+
+    // The stock profile grants no role: the admin is the only operator.
+    let console = client_id();
+    let mut server = Server::start_with(&[
+        ("PDS_ADMIN_PASSWORD", common::ADMIN_PASSWORD),
+        ("PDS_OPS_CLIENT_IDS", &console),
+    ])
+    .await;
+    server.push(&[]).await;
+    let (_, tokens) = server.sign_in(false).await;
+    let access = tokens["access_token"].as_str().unwrap().to_owned();
+    assert_eq!(
+        server
+            .admin("internal.ops.grantRole", "a test", &grant)
+            .await,
+        200
+    );
+    let refused = server.operate(who, &access, None, None).await;
+    assert_eq!(refused.status, 403, "{}", refused.text);
+    assert!(refused.text.contains("grants no operator role"));
 }

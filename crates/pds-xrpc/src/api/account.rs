@@ -205,6 +205,14 @@ pub(crate) fn validate(
             "This email address is not supported, please use a different email.",
         ));
     }
+    // The operator's list of blocked email domains (SPEC §12.2, §22.1).
+    if let Some(writes) = state.writes()
+        && writes.with_ops(|ops| ops.is_email_blocked(&email))?
+    {
+        return Err(XrpcError::invalid_request(
+            "This email address is not supported, please use a different email.",
+        ));
+    }
     identity(state)?;
     let (handle, _) = checked_handle(state, &handle, did.is_some(), false)?;
     let accounts = AccountDb::open(&state.layout().account_db)?;

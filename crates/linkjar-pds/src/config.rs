@@ -132,6 +132,7 @@ const KNOWN: &[&str] = &[
     "PDS_AUDIT_CHECKPOINT_REPO",
     "PDS_METRICS_ADDRESS",
     "PDS_OPS_ADDRESS",
+    "PDS_OPS_CLIENT_IDS",
     "PDS_OTLP_ENDPOINT",
 ];
 
@@ -251,6 +252,12 @@ pub struct Config {
     /// `PDS_METRICS_ADDRESS`: where the private metrics listener binds
     /// (SPEC §14.4). Unset, the server has none.
     pub metrics_address: Option<std::net::SocketAddr>,
+    /// `PDS_OPS_ADDRESS`: where the private ops listener binds (SPEC
+    /// §22.1). Unset: no ops listener.
+    pub ops_address: Option<std::net::SocketAddr>,
+    /// `PDS_OPS_CLIENT_IDS`: the OAuth clients whose sessions the ops
+    /// listener takes, separated by commas.
+    pub ops_client_ids: Vec<String>,
     /// `PDS_PROFILE` (SPEC §12.1).
     pub profile: ProfileName,
     /// `PDS_EXTERNAL_<PROVIDER>_CLIENT_ID` and `_CLIENT_SECRET`, for the
@@ -726,6 +733,25 @@ impl Config {
                     })
                 })
                 .transpose()?,
+            ops_address: env
+                .text("PDS_OPS_ADDRESS")
+                .map(|address| {
+                    address.parse().map_err(|_| ConfigError::Invalid {
+                        name: "PDS_OPS_ADDRESS",
+                        value: address,
+                        reason: "expected an address and a port, such as 127.0.0.1:2584",
+                    })
+                })
+                .transpose()?,
+            ops_client_ids: env
+                .text("PDS_OPS_CLIENT_IDS")
+                .map(|list| {
+                    list.split(',')
+                        .map(|client| client.trim().to_owned())
+                        .filter(|client| !client.is_empty())
+                        .collect()
+                })
+                .unwrap_or_default(),
             profile: env.profile()?,
             external_providers: env.external_providers()?,
             oauth: env.oauth()?,

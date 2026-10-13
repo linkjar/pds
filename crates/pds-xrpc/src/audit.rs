@@ -173,6 +173,45 @@ impl AuditLog {
         Ok(self.db().last_seq()? == 0)
     }
 
+    /// The `limit` entries before `before`, the newest first, as the ops
+    /// listener shows them. This call blocks.
+    pub fn page(&self, before: Option<u64>, limit: u64) -> Result<Vec<Value>, StorageError> {
+        let db = self.db();
+        let last = db.last_seq()?;
+        let to = before.map_or(last, |before| before.saturating_sub(1).min(last));
+        let from = to.saturating_sub(limit.saturating_sub(1)).max(1);
+        let signed = db
+            .last_checkpoint()?
+            .map_or(0, |checkpoint| checkpoint.last);
+        let rows = if to == 0 {
+            Vec::new()
+        } else {
+            db.entries(from, to)?
+        };
+        drop(db);
+        Ok(rows
+            .iter()
+            .rev()
+            .filter_map(|(seq, bytes)| {
+                let entry = pds_audit::Entry::from_bytes(bytes).ok()?;
+                let what = entry.what;
+                Some(json!({
+                    "seq": seq,
+                    "time": entry.time,
+                    "actor": what.actor,
+                    "action": what.action,
+                    "subject": what.subject,
+                    "credential": what.credential,
+                    "clientId": what.client_id,
+                    "outcome": what.outcome,
+                    "reason": what.reason,
+                    "sidecar": what.sidecar,
+                    "signed": *seq <= signed,
+                }))
+            })
+            .collect())
+    }
+
     /// The export bundle of the entries from `from` to `to` (SPEC §20.4):
     /// the entries, the hash before the first, the checkpoints that cover
     /// them, an inclusion proof for each covered entry, and the public
@@ -240,6 +279,52 @@ fn checkpoint_json(row: &CheckpointRow) -> Value {
 
 tokio::task_local! {
     static SUBJECT: RefCell<Option<String>>;
+}
+
+/// An operator on the ops listener, for the audit entries of the request
+/// (SPEC §22.1).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Acting {
+    /// The operator: a DID, or `admin`.
+    pub actor: String,
+    /// `oauth` or `admin`.
+    pub credential: &'static str,
+    /// The OAuth client of the operator's session.
+    pub client_id: Option<String>,
+    /// The reason the operator gave.
+    pub reason: Option<String>,
+}
+
+impl Acting {
+    /// The entry of `action` by this operator through the ops listener.
+    pub fn draft(&self, action: &str, subject: Option<String>, outcome: String) -> Draft {
+        Draft {
+            actor: self.actor.clone(),
+            action: action.to_owned(),
+            subject,
+            credential: Some(self.credential.to_owned()),
+            client_id: self.client_id.clone(),
+            outcome,
+            reason: self.reason.clone(),
+            sidecar: Some("console".to_owned()),
+            ..Draft::default()
+        }
+    }
+}
+
+tokio::task_local! {
+    static ACTING: Acting;
+}
+
+/// Serves a request of the ops listener, so that the audit entry of the
+/// method names the operator and not the credential the listener used.
+pub async fn acting_as<F: Future>(who: Acting, serve: F) -> F::Output {
+    ACTING.scope(who, serve).await
+}
+
+/// The operator of this task's request, on the ops listener.
+pub fn acting() -> Option<Acting> {
+    ACTING.try_with(Clone::clone).ok()
 }
 
 /// Names what the request of this task acts on, for its audit entry. A

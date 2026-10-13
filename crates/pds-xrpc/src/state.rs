@@ -59,6 +59,9 @@ pub struct ServerConfig {
     pub profile: Arc<dyn pds_ext::Profile>,
     /// The OAuth settings.
     pub oauth: crate::oauth::OAuthConfig,
+    /// `PDS_OPS_CLIENT_IDS`: the OAuth clients whose sessions the ops
+    /// listener takes (SPEC §22.1).
+    pub ops_client_ids: Vec<String>,
     /// `PDS_BSKY_APP_VIEW_CDN_URL_PATTERN`: the URL of an image, with `%s`
     /// for the preset, the DID and the CID.
     pub appview_cdn_url_pattern: Option<String>,
@@ -276,6 +279,7 @@ struct Inner {
     oauth: crate::oauth::OAuthState,
     audit: std::sync::OnceLock<crate::audit::AuditLog>,
     metrics: crate::metrics::Metrics,
+    subscribers: crate::subscribers::Subscribers,
     now_ms: Box<dyn Fn() -> i64 + Send + Sync>,
 }
 
@@ -307,6 +311,7 @@ impl AppState {
                 oauth,
                 audit: std::sync::OnceLock::new(),
                 metrics: crate::metrics::Metrics::default(),
+                subscribers: crate::subscribers::Subscribers::default(),
                 config,
                 layout,
                 blobs,
@@ -317,6 +322,11 @@ impl AppState {
                 now_ms: Box::new(now_ms),
             }),
         }
+    }
+
+    /// The live subscribers of the firehose.
+    pub fn subscribers(&self) -> &crate::subscribers::Subscribers {
+        &self.inner.subscribers
     }
 
     /// The buckets of the rate limits.

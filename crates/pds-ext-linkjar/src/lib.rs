@@ -93,6 +93,10 @@ impl Profile for Linkjar {
         true
     }
 
+    fn grants_operator_roles(&self) -> bool {
+        true
+    }
+
     fn providers(&self) -> Vec<ProviderInfo> {
         self.providers
             .iter()
