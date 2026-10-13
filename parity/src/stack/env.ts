@@ -11,7 +11,7 @@ import type { TargetSpec } from './targets.ts'
 
 // `restore` is the production configuration again: its scenarios run against a
 // data directory that the Reference wrote (src/restore.ts).
-export const PROFILES = ['default', 'invites', 'firehose', 'captcha', 'perf', 'restore', 'restore-perf', 'writes', 'writes-firehose', 'writes-crash', 'writes-perf'] as const
+export const PROFILES = ['default', 'invites', 'firehose', 'captcha', 'perf', 'restore', 'restore-perf', 'writes', 'writes-firehose', 'writes-crash', 'writes-perf', 'writes-s3'] as const
 export type Profile = (typeof PROFILES)[number]
 
 export function isProfile(value: string): value is Profile {
@@ -148,6 +148,18 @@ export function pdsEnv(spec: TargetSpec, profile: Profile, secrets: Secrets): Re
     // the data volume, so the restarted server passes the point.
     env.PDS_DEV_MODE = 'true'
     env.PDS_FAIL_POINTS = 'commit.stored=abort-once:/app/data/fail-point-commit-stored'
+  }
+  if (profile === 'writes-s3') {
+    // Blobs go to the stack's S3-compatible store, configured as the
+    // production host configures R2 (legacy/scripts/provision-wizard.sh):
+    // an endpoint, path style and static credentials.
+    delete env.PDS_BLOBSTORE_DISK_LOCATION
+    env.PDS_BLOBSTORE_S3_BUCKET = 'blobs'
+    env.PDS_BLOBSTORE_S3_REGION = 'us-east-1'
+    env.PDS_BLOBSTORE_S3_ENDPOINT = 'http://s3:9000'
+    env.PDS_BLOBSTORE_S3_FORCE_PATH_STYLE = 'true'
+    env.PDS_BLOBSTORE_S3_ACCESS_KEY_ID = 'parity'
+    env.PDS_BLOBSTORE_S3_SECRET_ACCESS_KEY = 'parity-s3-secret'
   }
   if (profile === 'captcha') {
     env.PDS_HCAPTCHA_SITE_KEY = HCAPTCHA_SITE_KEY

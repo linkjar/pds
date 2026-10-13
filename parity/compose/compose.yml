@@ -140,6 +140,23 @@ services:
       MP_SMTP_AUTH_ALLOW_INSECURE: "1"
     networks: [inner]
 
+  # An S3-compatible store that checks request signatures: the Versity
+  # gateway on a directory. A directory under /data is a bucket. The PDS
+  # uses it only under the `writes-s3` profile (src/stack/env.ts). The
+  # credentials exist in this stack only.
+  s3:
+    image: ${S3_IMAGE:?}
+    restart: "no"
+    entrypoint: [sh, -c, "mkdir -p /data/blobs && exec versitygw --port :9000 --access parity --secret parity-s3-secret posix /data"]
+    tmpfs:
+      - /data
+    networks: [inner]
+    healthcheck:
+      test: [CMD-SHELL, "nc -z 127.0.0.1 9000"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+
   # The image runs as uid 1000; a named volume is created root-owned.
   pds-init:
     image: ${PDS_IMAGE:?}
@@ -169,6 +186,7 @@ services:
       plc: { condition: service_healthy }
       edge: { condition: service_healthy }
       mail: { condition: service_started }
+      s3: { condition: service_healthy }
     healthcheck:
       # Set by the harness for the image that runs: Node in the Reference,
       # the binary's own `health` command in the Candidate.

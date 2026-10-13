@@ -58,7 +58,7 @@ Other commands: `pnpm typecheck`, `pnpm test` (unit tests of the normaliser),
 | Part | Where | What it does |
 |---|---|---|
 | Targets | [`src/stack/targets.ts`](src/stack/targets.ts), [`images.json`](images.json) | A target is an image. `reference` is `ghcr.io/linkjar/pds` by digest, `stock` the `PATCH_PROFILE=none` build, `official` the upstream distribution by digest, `repeat` a second boot of `reference`, `candidate` the image in `PARITY_CANDIDATE_IMAGE`, by default `linkjar-pds:candidate`. |
-| Stack | [`compose/compose.yml`](compose/compose.yml), [`src/stack/`](src/stack/) | One compose project per target: the PDS, a PLC directory with its Postgres, a Sync 1.1 relay in strict mode, a mail catcher and a Caddy edge. |
+| Stack | [`compose/compose.yml`](compose/compose.yml), [`src/stack/`](src/stack/) | One compose project per target: the PDS, a PLC directory with its Postgres, a Sync 1.1 relay in strict mode, a mail catcher, an S3-compatible store and a Caddy edge. |
 | Fixtures | [`src/fixtures/`](src/fixtures/) | The outside world, served from the harness process: the AppView and report service the PDS forwards to, OAuth client metadata, a custom-domain handle, and stand-ins for Apple, Google, GitHub and hCaptcha. |
 | Scenarios | [`scenarios/<profile>/`](scenarios/), [`src/scenario.ts`](src/scenario.ts) | One `node:test` test per file. Assertions state what the SPEC requires. Every exchange and observation goes into a transcript. |
 | Oracles | [`src/oracles/`](src/oracles/), [`src/compare.ts`](src/compare.ts) | O1 response comparison, O2 repository CIDs, O3 firehose and relay, O4 OAuth, O9 verify at pin. |
@@ -152,7 +152,15 @@ Reference. A pass is one fresh stack, named `candidate`:
 |---|---|---|
 | `records` | `writes`: the production configuration | `default/03-repo-writes`, `04-repo-reads`, `05-blobs`, `15-import`, and `writes/20-firehose`, `21-relay`, `22-elsewhere` |
 | `cursor-limits` | `writes-firehose`: a five-second backfill window and a buffer of five events | `firehose/01-cursor-limits` |
+| `s3` | `writes-s3`: blobs in the stack's S3-compatible store, configured as production configures R2 | `default/05-blobs` and `writes/23-seeded-blob`; before the takeover `writes/01-seed-blob` stores one blob and stages one upload on the Reference |
 | `crash` | `writes-crash`: dev mode, and the fail point `commit.stored` armed to abort once | `writes-crash/30-crash`, on the Candidate only |
+
+The `s3` stage compares its own two groups, `transcripts/writes-s3-reference/`
+and `transcripts/writes-s3-candidate/`, against
+[`differences/reference-s3-vs-candidate-s3.json`](differences/reference-s3-vs-candidate-s3.json):
+the blob scenario also runs on the disk store in `records`. The store is
+the Versity S3 gateway on a directory, pinned by digest in `images.json`.
+It checks the signature of every request.
 
 Each of the first two stages runs one pass on the Reference and one on the
 Candidate. The transcripts go to `transcripts/writes-reference/` and
@@ -254,7 +262,7 @@ these names:
 | `perf` | Rate limits off, no crawler. | SPEC §16.1, S1 to S5, S8 and S9. See below. |
 | `restore` | Nothing: the production configuration. | The seed and the read scenarios of the [restore run](#the-restore-run). Run through `pnpm parity restore`, not `run`. |
 | `restore-perf` | Nothing: the production configuration. | The read measurements: one repository of 100,000 records, and the same reads timed on both servers. Run through `pnpm parity restore --perf`. See below. |
-| `writes`, `writes-firehose`, `writes-crash`, `writes-perf` | See [the writes run](#the-writes-run). | Run through `pnpm parity writes`, not `run`. |
+| `writes`, `writes-firehose`, `writes-s3`, `writes-crash`, `writes-perf` | See [the writes run](#the-writes-run). | Run through `pnpm parity writes`, not `run`. |
 
 ## Performance scenarios
 

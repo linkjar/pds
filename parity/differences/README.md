@@ -14,6 +14,7 @@ recorded difference that no longer appears.
 | `stock` against `official` (the `PATCH_PROFILE=none` build against the upstream distribution `ghcr.io/bluesky-social/pds`) | none | None is allowed: the two are different packagings of the same package version. |
 | The Reference against the Candidate on one data directory (`pnpm parity restore`) | none | None is allowed: both servers read the same bytes, and bodies are also compared by hash. |
 | The Reference against the Candidate, each on a data directory the Reference started (`pnpm parity writes`) | [reference-vs-candidate.json](reference-vs-candidate.json) | 37, in the eight groups [below](#the-reference-against-the-candidate). |
+| The same, with blobs in the S3-compatible store (`pnpm parity writes --only=s3`) | [reference-s3-vs-candidate-s3.json](reference-s3-vs-candidate-s3.json) | 6, one answer in two scenarios: `getBlob` of an upload that no record references. The Reference answers 500 on this store and the Candidate 400 `InvalidRequest`, "Blob not found", as both do on the disk store (SPEC §2.3, DD-18). |
 
 Regenerate a file with `--update` after a change that is meant to move it,
 and review the result like code.

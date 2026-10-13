@@ -1,0 +1,44 @@
+[
+  {
+    "scenario": "writes-s3/05-blobs",
+    "step": "getBlob before any record references it",
+    "path": "body.error",
+    "left": "InternalServerError",
+    "right": "InvalidRequest"
+  },
+  {
+    "scenario": "writes-s3/05-blobs",
+    "step": "getBlob before any record references it",
+    "path": "body.message",
+    "left": "Internal Server Error",
+    "right": "Blob not found"
+  },
+  {
+    "scenario": "writes-s3/05-blobs",
+    "step": "getBlob before any record references it",
+    "path": "status",
+    "left": 500,
+    "right": 400
+  },
+  {
+    "scenario": "writes-s3/23-seeded-blob",
+    "step": "getBlob of the staged upload",
+    "path": "body.error",
+    "left": "InternalServerError",
+    "right": "InvalidRequest"
+  },
+  {
+    "scenario": "writes-s3/23-seeded-blob",
+    "step": "getBlob of the staged upload",
+    "path": "body.message",
+    "left": "Internal Server Error",
+    "right": "Blob not found"
+  },
+  {
+    "scenario": "writes-s3/23-seeded-blob",
+    "step": "getBlob of the staged upload",
+    "path": "status",
+    "left": 500,
+    "right": 400
+  }
+]

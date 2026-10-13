@@ -1,6 +1,6 @@
 # LinkJar PDS Specification
 
-Status: Draft, revision 7, 2026-10-13
+Status: Draft, revision 8, 2026-10-13
 Normative keywords: **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, **MAY** ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119))
 
 LinkJar PDS is an AT Protocol Personal Data Server written in Rust. It is
@@ -58,6 +58,13 @@ orders a commit and its event. The evidence is in the
 [unit record](research/2026-10-13-writes-and-firehose.md); the changes are
 listed in Appendix K.
 
+Revision 8 follows the first part of unit 4b: the S3-compatible blob
+store. It states the object names, how the Candidate uploads and what it
+needs at the start, and one more answer of the Reference that the writes
+run showed on that store. The evidence is in the
+[unit record](research/2026-10-13-s3-blob-store.md); the changes are listed
+in Appendix L.
+
 ## Table of Contents
 
 - [0. Conventions and Terminology](#0-conventions-and-terminology)
@@ -94,6 +101,7 @@ listed in Appendix K.
 - [Appendix I. Changes in Revision 5](#appendix-i-changes-in-revision-5)
 - [Appendix J. Changes in Revision 6](#appendix-j-changes-in-revision-6)
 - [Appendix K. Changes in Revision 7](#appendix-k-changes-in-revision-7)
+- [Appendix L. Changes in Revision 8](#appendix-l-changes-in-revision-8)
 
 ## 0. Conventions and Terminology
 
@@ -259,6 +267,7 @@ answer. Until then the Harness does not count the row.
 | DD-13 | A commit of version 2 in a repository from elsewhere (§6.1) | refused | 8 |
 | DD-16 | `createAccount` with the handle of a deactivated or taken-down account (§10.1). The pin answers 500 | 400 `InvalidRequest` | 5 |
 | DD-17 | `createAccount` with the email of a deactivated or taken-down account (§10.1). The pin answers 500 | 400 `InvalidRequest` | 5 |
+| DD-18 | `getBlob` of an upload that no record references, with blobs in the S3-compatible store (§6.4). The pin answers 500: it reads the object at its permanent name and does not map the store's `NoSuchKey`. On the disk store it answers 400 | 400 `InvalidRequest`, "Blob not found", on both stores | 4b |
 
 DD-11 and DD-12 cannot be observed before the server verifies a handle and
 reads a signing key itself, which it first does in unit 5.
@@ -693,6 +702,10 @@ the DPoP proof, nonce, scope.
   and a few containers. The Reference asks the `file-type` package, which
   knows more formats; for any other content the declared type stands in the
   Candidate.
+- With blobs in the S3-compatible store the pin answers 500 to `getBlob`
+  of an unreferenced upload, where it answers 400 on the disk store. The
+  Candidate answers 400 on both (§2.3, DD-18; it waits for the owner's
+  confirmation as a case of D15).
 - The Candidate serves a blob only when its index row is permanent. A commit
   that stops after it moved an upload into place and before it stored the
   reference leaves the file in place and the row waiting; no record
@@ -874,6 +887,31 @@ and monitoring tooling in `linkjar/infra` keeps working:
 | the sibling `key` file | the actor's signing key, byte-identical to the Reference's format |
 | `$PDS_ACTOR_STORE_DIRECTORY/reserved_keys/<did>` | reserved signing keys |
 | `$PDS_BLOBSTORE_DISK_LOCATION/<did>/<cid>` | stored blobs; uploads stage under `tempt/<did>/` (`PDS_BLOBSTORE_DISK_TMP_LOCATION` overrides) and taken-down blobs move to `quarantine/<did>/<cid>`, both siblings of the blob root |
+
+With `PDS_BLOBSTORE_S3_BUCKET` set, blobs are objects of that bucket and not
+files. The names are the Reference's (`packages/aws/src/s3.ts` at the pin),
+so that a bucket the Reference wrote is served as it is:
+
+| Object | Content |
+|---|---|
+| `blocks/<did>/<cid>` | a stored blob |
+| `tmp/<did>/<key>` | an upload that waits for a record |
+| `quarantine/<did>/<cid>` | a taken-down blob |
+
+The Candidate signs each request with AWS Signature Version 4 and the
+SHA-256 of the body. An upload goes to the store as the client sends it:
+one `PutObject` below 8 MiB, and a multipart upload in parts of 8 MiB
+above, so the server holds at most one part of each upload in memory and
+writes none of it to disk. An upload that ends early leaves no object and
+no part. A staged upload becomes permanent by a copy and a delete, as at
+the pin; the move is safe to repeat. A request that fails to connect, or
+that the store answers with 429, 500, 502, 503 or 504, is sent three times
+at most. The timeouts are the Reference's: 5 seconds to connect,
+`PDS_BLOBSTORE_S3_UPLOAD_TIMEOUT_MS` (20 seconds) for one upload from its
+first byte to its last, and `PDS_BLOBSTORE_S3_REQUEST_TIMEOUT_MS` for a
+request that stalls, by default the upload timeout held between 6 and 15
+seconds. `verify` lists the objects of each account and does not ask for
+each blob (§18.2).
 
 The individual database locations are overridable by the same variables as
 the Reference (Appendix C). Candidate-only state lives only in the files
@@ -1505,6 +1543,15 @@ longer shows. After the Candidate's pass `verify` checks the directory. A
 last pass stops the Candidate between a commit and its event and requires
 the repair of §7.4 and a relay that converges.
 
+One stage of the writes run keeps blobs in an S3-compatible store that
+checks request signatures, configured as production configures R2: an
+endpoint, path style and static credentials. Before the takeover the
+Reference stores one blob and stages one upload. The server under test
+then serves the blob, makes the staged upload permanent and removes both
+with their last references, and the blob scenario of the default profile
+runs on that store. `verify` checks the bucket. The stage has its own list,
+`parity/differences/reference-s3-vs-candidate-s3.json`, which holds DD-18.
+
 ### 17.2 Interop vectors
 
 The upstream `atproto-interop-tests` (CC0: crypto, data model, firehose,
@@ -1923,6 +1970,20 @@ Accepted with the Reference's defaults and meaning:
 - **Branding**: `PDS_LOGO_URL`, `PDS_PRIMARY_COLOR`, `PDS_ERROR_COLOR`, `PDS_WARNING_COLOR`, `PDS_SUCCESS_COLOR`, `PDS_INFO_COLOR`, `PDS_BACKGROUND_LIGHT_URL`, `PDS_BACKGROUND_DARK_URL`.
 - **Refused in version 1**: `PDS_REDIS_SCRATCH_*`.
 
+`PDS_BLOBSTORE_S3_*` are `BUCKET`, `REGION`, `ENDPOINT`, `FORCE_PATH_STYLE`,
+`ACCESS_KEY_ID`, `SECRET_ACCESS_KEY`, `UPLOAD_TIMEOUT_MS` and
+`REQUEST_TIMEOUT_MS`. The bucket and `PDS_BLOBSTORE_DISK_LOCATION` together
+are refused, and so is one half of the credentials, both as at the pin. The
+Candidate needs the region and the credentials at the start and refuses to
+start without them; the Reference's client looks for them at the first
+request. Without `REGION` the Candidate reads `AWS_REGION` and
+`AWS_DEFAULT_REGION`, and without both halves of the credentials it reads
+`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN`. It
+reads no credentials from a profile file, an instance role or a web
+identity, which the Reference's client does. The bucket is the first
+segment of the path when `FORCE_PATH_STYLE` is set or the endpoint is an
+address, and a label of the host otherwise.
+
 New in the Candidate:
 
 - `PDS_FAIL_POINTS`: fail points to arm (§19.2). Read in dev mode only.
@@ -2130,3 +2191,16 @@ Revision 7 follows unit 4 and applies the owner's decisions of 2026-10-13.
 - §19.2 states what of the simulation is written and what is not, and
   defines `PDS_FAIL_POINTS`. Appendix C lists the variable.
 - Appendix D: D15 and D17 carry the decisions of 2026-10-13.
+
+## Appendix L. Changes in Revision 8
+
+Revision 8 follows the first part of unit 4b, the S3-compatible blob store.
+
+- §2.3: DD-18 is new and observed.
+- §6.4: what both servers answer to `getBlob` of an unreferenced upload on
+  each store.
+- §8.1: the object names of the S3-compatible store, how the Candidate
+  uploads, retries and times out.
+- §17.1 describes the stage of the writes run on the S3-compatible store.
+- Appendix C lists the `PDS_BLOBSTORE_S3_*` variables, what the Candidate
+  needs at the start, and which sources of credentials it reads.
