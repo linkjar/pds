@@ -142,6 +142,9 @@ pub struct NewAccount<'a> {
     /// When set, the account is created deactivated and is deleted at
     /// this time unless it is activated.
     pub delete_after: Option<&'a str>,
+    /// Whether the account is created deactivated, with no time to
+    /// delete it: an account that moves here.
+    pub deactivated: bool,
 }
 
 /// Why the rows of a new account were not written.
@@ -653,7 +656,7 @@ impl AccountDb {
         {
             return Ok(Err(Refused::Invite));
         }
-        let deactivated_at = new.delete_after.map(|_| new.now);
+        let deactivated_at = (new.deactivated || new.delete_after.is_some()).then_some(new.now);
         let actor = txn.execute(
             r#"insert into "actor" ("did", "handle", "createdAt", "deactivatedAt", "deleteAfter") values (?1, ?2, ?3, ?4, ?5) on conflict do nothing"#,
             rusqlite::params![new.did, new.handle, new.now, deactivated_at, new.delete_after],

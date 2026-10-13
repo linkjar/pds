@@ -524,6 +524,7 @@ async fn create_account(
             }),
             legacy_session: false,
             signup: signup.cloned(),
+            brought_did: None,
         };
         match crate::api::account::create(state, request).await {
             Ok(created) => {

@@ -359,6 +359,34 @@ pub async fn update_handle(
     Ok(StatusCode::OK.into_response())
 }
 
+/// Checks that a handle under a domain this server does not host names
+/// the account already: its well-known file is read over HTTPS. The DNS
+/// record is not read yet.
+pub(crate) async fn assert_handle_resolves(
+    state: &AppState,
+    handle: &str,
+    did: &str,
+) -> Result<(), XrpcError> {
+    let named = state
+        .http()
+        .get(format!("https://{handle}/.well-known/atproto-did"))
+        .send()
+        .await
+        .ok()
+        .filter(|response| response.status().is_success());
+    let text = match named {
+        Some(response) => response.text().await.unwrap_or_default(),
+        None => String::new(),
+    };
+    let resolved = pds_identity::handle::did_from_well_known(&text);
+    if resolved.as_ref().map(Did::as_str) != Some(did) {
+        return Err(XrpcError::invalid_request(
+            "External handle did not resolve to DID",
+        ));
+    }
+    Ok(())
+}
+
 /// Applies the rename rule of the profile (SPEC §12.4) before anything is
 /// written to the PLC directory. A change that spends an allowance records
 /// its target first, so two requests cannot both spend it, and the target
@@ -435,26 +463,8 @@ pub(crate) async fn change_handle(
             })
             .await?
     };
-    // A handle under another domain must name the account already: its
-    // well-known file is read over HTTPS. The DNS record is not read yet.
     if !hosted {
-        let named = state
-            .http()
-            .get(format!("https://{handle}/.well-known/atproto-did"))
-            .send()
-            .await
-            .ok()
-            .filter(|response| response.status().is_success());
-        let text = match named {
-            Some(response) => response.text().await.unwrap_or_default(),
-            None => String::new(),
-        };
-        let resolved = pds_identity::handle::did_from_well_known(&text);
-        if resolved.as_ref().map(Did::as_str) != Some(did.as_str()) {
-            return Err(XrpcError::invalid_request(
-                "External handle did not resolve to DID",
-            ));
-        }
+        assert_handle_resolves(state, &handle, &did).await?;
     }
     if !did.starts_with("did:plc:") {
         return Err(XrpcError::invalid_request(
