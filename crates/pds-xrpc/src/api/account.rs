@@ -65,14 +65,16 @@ pub(crate) fn email_is_valid(email: &str) -> bool {
 pub(crate) fn checked_handle(
     state: &AppState,
     given: &str,
-    identity: &IdentityConfig,
     has_did: bool,
     allow_reserved: bool,
 ) -> Result<(String, bool), XrpcError> {
     let handle = Handle::parse(&given.to_lowercase())
         .map_err(|error| refuse("InvalidHandle", error.to_string()))?
         .normalized();
-    if check_handle_policy(&handle, identity.dev_mode).is_err() {
+    // The Reference at the pin accepts a handle under `.test` in every
+    // mode, and `default/11-identity` verifies one as a custom domain, so
+    // the rule for development does not apply here (SPEC §9.2).
+    if check_handle_policy(&handle, true).is_err() {
         return Err(refuse(
             "InvalidHandle",
             "Handle TLD is invalid or disallowed",
@@ -163,8 +165,8 @@ fn validate(
             "This email address is not supported, please use a different email.",
         ));
     }
-    let identity = identity(state)?;
-    let (handle, _) = checked_handle(state, &handle, identity, false, false)?;
+    identity(state)?;
+    let (handle, _) = checked_handle(state, &handle, false, false)?;
     let accounts = AccountDb::open(&state.layout().account_db)?;
     if required
         && let Some(code) = &invite_code

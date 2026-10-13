@@ -431,6 +431,36 @@ impl AccountDb {
         }
     }
 
+    /// The sessions of an account, the latest refresh first.
+    pub fn account_tokens(&self, did: &str) -> Result<Vec<TokenRow>, StorageError> {
+        let mut statement = self.conn.prepare(&format!(
+            r#"select {TOKEN_COLUMNS} from "token" where "did" = ?1 order by "updatedAt" desc"#
+        ))?;
+        let rows = statement.query_map([did], token_from_row)?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// The devices that remember an account, each with the time of the
+    /// account's last sign-in on it, the latest first.
+    pub fn account_devices(&self, did: &str) -> Result<Vec<(DeviceRow, String)>, StorageError> {
+        let mut statement = self.conn.prepare(
+            r#"select device."id", device."sessionId", device."userAgent", device."ipAddress", device."lastSeenAt", account_device."updatedAt" from "account_device" inner join "device" on device."id" = account_device."deviceId" where account_device."did" = ?1 order by account_device."updatedAt" desc"#,
+        )?;
+        let rows = statement.query_map([did], |row| {
+            Ok((
+                DeviceRow {
+                    id: row.get(0)?,
+                    session_id: row.get(1)?,
+                    user_agent: row.get(2)?,
+                    ip_address: row.get(3)?,
+                    last_seen_at: row.get(4)?,
+                },
+                row.get(5)?,
+            ))
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
     /// Ends a session.
     pub fn delete_token(&mut self, token_id: &str) -> Result<(), StorageError> {
         let txn = self.conn.transaction()?;

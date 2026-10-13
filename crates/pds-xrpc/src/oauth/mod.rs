@@ -5,6 +5,7 @@
 //! the routes, the rows of `account.sqlite`, client metadata from the
 //! network, and the state that lives in memory.
 
+pub mod account;
 pub mod authorize;
 pub mod clients;
 pub mod endpoints;
@@ -370,6 +371,10 @@ pub async fn serve(
             | "/oauth/authorize/sign-up"
             | "/oauth/authorize/accept"
             | "/oauth/authorize/reject"
+            | "/account"
+            | "/account/sign-in"
+            | "/account/revoke"
+            | "/account/sign-out"
     );
     if !known || state.writes().is_none() {
         return None;
@@ -380,6 +385,7 @@ pub async fn serve(
         "/.well-known/oauth-protected-resource" if reads => metadata::protected_resource(state),
         "/oauth/jwks" if reads => metadata::jwks(),
         "/oauth/authorize" if reads => authorize::page(state, query, headers, peer).await,
+        "/account" if reads => account::page(state, headers, peer).await,
         _ if method != Method::POST => method_not_allowed(),
         "/oauth/par" => {
             let answer = endpoints::par(state, headers, take(body)).await;
@@ -397,6 +403,9 @@ pub async fn serve(
         "/oauth/authorize/sign-up" => authorize::sign_up(state, headers, peer, take(body)).await,
         "/oauth/authorize/accept" => authorize::accept(state, headers, peer, take(body)).await,
         "/oauth/authorize/reject" => authorize::reject(state, headers, peer, take(body)).await,
+        "/account/sign-in" | "/account/revoke" | "/account/sign-out" => {
+            account::post(state, path, headers, peer, take(body)).await
+        }
         _ => method_not_allowed(),
     };
     Some(response)

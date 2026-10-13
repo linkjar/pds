@@ -61,6 +61,8 @@ struct Server {
     nonce: String,
     cookies: String,
     serial: u32,
+    /// The PKCE verifier of the last pushed request.
+    verifier: String,
     _dir: DataDir,
 }
 
@@ -82,6 +84,7 @@ impl Server {
             nonce: String::new(),
             cookies: String::new(),
             serial: 0,
+            verifier: String::new(),
             _dir: dir,
         };
         let metadata = server
@@ -222,12 +225,10 @@ impl Server {
         }
     }
 
-    fn challenge() -> String {
-        URL_SAFE_NO_PAD.encode(Sha256::digest(VERIFIER.as_bytes()))
-    }
-
     async fn push(&mut self, change: &[(&str, &str)]) -> Answer {
-        let challenge = Self::challenge();
+        // A challenge is good once in a day, so each request has its own.
+        self.verifier = format!("{VERIFIER}{}", self.serial);
+        let challenge = URL_SAFE_NO_PAD.encode(Sha256::digest(self.verifier.as_bytes()));
         let mut form = vec![
             ("response_type", "code"),
             ("code_challenge", challenge.as_str()),
@@ -330,13 +331,14 @@ impl Server {
         assert_eq!(parameter("iss").as_deref(), Some(self.issuer.as_str()));
         assert_eq!(parameter("state").as_deref(), Some("the-state"));
         let code = parameter("code").unwrap();
+        let verifier = self.verifier.clone();
         let tokens = self
             .endpoint(
                 "/oauth/token",
                 &[
                     ("grant_type", "authorization_code"),
                     ("code", &code),
-                    ("code_verifier", VERIFIER),
+                    ("code_verifier", &verifier),
                     ("redirect_uri", REDIRECT),
                 ],
             )
@@ -615,13 +617,14 @@ async fn a_client_is_authorized_and_its_session_is_used_refreshed_and_revoked() 
     assert_eq!(ended.status, 401);
 
     // A code is good once.
+    let verifier = server.verifier.clone();
     let replay = server
         .endpoint(
             "/oauth/token",
             &[
                 ("grant_type", "authorization_code"),
                 ("code", &code),
-                ("code_verifier", VERIFIER),
+                ("code_verifier", &verifier),
                 ("redirect_uri", REDIRECT),
             ],
         )
@@ -695,4 +698,81 @@ async fn a_device_remembers_an_account_and_a_token_is_revoked() {
         .endpoint("/oauth/revoke", &[("token", &unknown)])
         .await;
     assert_eq!(nobody.status, 200);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_account_page_lists_and_ends_sessions_and_devices() {
+    let mut server = Server::start().await;
+    server.push(&[]).await;
+    let key = client_key();
+    let (_, tokens) = server.sign_in(true).await;
+    let access = tokens["access_token"].as_str().unwrap().to_owned();
+    let page = server
+        .send(reqwest::Method::GET, "/account", None, &[])
+        .await;
+    assert_eq!(page.status, 200);
+    assert!(
+        page.text.contains("<code>http://localhost?"),
+        "{}",
+        page.text
+    );
+    assert!(page.text.contains("(this device)"));
+    let csrf = page.field("csrf").unwrap();
+    let token_id = page.field("token_id").unwrap();
+    let device_id = page.field("device_id").unwrap();
+    let form = [
+        ("csrf", csrf.as_str()),
+        ("did", ALICE),
+        ("token_id", token_id.as_str()),
+    ];
+    let forged = [
+        ("csrf", "0000"),
+        ("did", ALICE),
+        ("token_id", token_id.as_str()),
+    ];
+    let refused = server
+        .send(reqwest::Method::POST, "/account/revoke", Some(&forged), &[])
+        .await;
+    assert_eq!(refused.status, 403);
+    let revoked = server
+        .send(reqwest::Method::POST, "/account/revoke", Some(&form), &[])
+        .await;
+    assert_eq!(
+        (revoked.status, revoked.header("location")),
+        (303, Some("/account"))
+    );
+    let after = server
+        .resource(&key, reqwest::Method::GET, GET_SESSION, &access, None)
+        .await;
+    assert_eq!(after.status, 401);
+    let form = [
+        ("csrf", csrf.as_str()),
+        ("did", ALICE),
+        ("device_id", device_id.as_str()),
+    ];
+    server
+        .send(reqwest::Method::POST, "/account/sign-out", Some(&form), &[])
+        .await;
+    let signed_out = server
+        .send(reqwest::Method::GET, "/account", None, &[])
+        .await;
+    assert!(
+        signed_out.text.contains("name=\"password\""),
+        "{}",
+        signed_out.text
+    );
+    // A sign-in on the page brings the account back.
+    let form = [
+        ("csrf", csrf.as_str()),
+        ("username", ALICE),
+        ("password", PASSWORD),
+    ];
+    let signed_in = server
+        .send(reqwest::Method::POST, "/account/sign-in", Some(&form), &[])
+        .await;
+    assert_eq!(signed_in.status, 303);
+    let page = server
+        .send(reqwest::Method::GET, "/account", None, &[])
+        .await;
+    assert!(page.text.contains("<h2>Devices</h2>"), "{}", page.text);
 }
