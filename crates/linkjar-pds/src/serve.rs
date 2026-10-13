@@ -156,7 +156,9 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
         rate_limits: config.rate_limits.clone(),
         oauth: config.oauth.clone(),
         profile: if config.profile == crate::config::ProfileName::Linkjar {
-            Arc::new(pds_ext_linkjar::Linkjar)
+            Arc::new(pds_ext_linkjar::Linkjar {
+                providers: config.external_providers.clone(),
+            })
         } else {
             Arc::new(pds_ext::Stock)
         },
