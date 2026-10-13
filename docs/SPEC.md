@@ -1,6 +1,6 @@
 # LinkJar PDS Specification
 
-Status: Draft, revision 9, 2026-10-13
+Status: Draft, revision 10, 2026-10-13
 Normative keywords: **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, **MAY** ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119))
 
 LinkJar PDS is an AT Protocol Personal Data Server written in Rust. It is
@@ -75,6 +75,12 @@ owner's word. The evidence is in the
 [unit record](research/2026-10-13-oauth.md); the changes are listed in
 Appendix M.
 
+Revision 10 follows unit 6: the `linkjar` profile. It states how the
+profile is built, what of the eight patches the Candidate does in another
+way, and what is not built. The evidence is in the
+[unit record](research/2026-10-13-linkjar-profile.md); the changes are
+listed in Appendix N.
+
 ## Table of Contents
 
 - [0. Conventions and Terminology](#0-conventions-and-terminology)
@@ -113,6 +119,7 @@ Appendix M.
 - [Appendix K. Changes in Revision 7](#appendix-k-changes-in-revision-7)
 - [Appendix L. Changes in Revision 8](#appendix-l-changes-in-revision-8)
 - [Appendix M. Changes in Revision 9](#appendix-m-changes-in-revision-9)
+- [Appendix N. Changes in Revision 10](#appendix-n-changes-in-revision-10)
 
 ## 0. Conventions and Terminology
 
@@ -1421,7 +1428,11 @@ not change at cutover.
 
 The server itself answers handle hostnames according to §12.4, keyed by the
 `Host` header. The Caddy snippet in `legacy/staging/Caddyfile.handles` remains valid
-and MAY stay in front of it.
+and MAY stay in front of it. The snippet forwards two requests of a handle
+host, the DID and the profile redirect (`/.well-known/linkjar-profile`),
+and sets the CSP, `nosniff` and referrer headers on them. The server sets
+those headers on every other answer of a handle host and not on these two,
+so that an answer through the snippet carries each header once.
 
 ### 13.3 Lexicons
 
@@ -1433,6 +1444,28 @@ and served only in this profile.
 
 Named accounts hold the `operator` and `moderator` roles for §12.11, stored
 in `ops.sqlite`.
+
+### 13.5 State after unit 6
+
+The Candidate has the behaviour of the eight patches under
+`PDS_PROFILE=linkjar`. The [unit record](research/2026-10-13-linkjar-profile.md)
+gives the evidence.
+
+- The profile applies the four migrations of the patch stack that the
+  account database lacks, under the patch stack's names, at the start.
+- The identity, the confirmed address, the handle policy row and the
+  creation receipt are written in the transaction that creates the
+  account. A link, an unlink and a password change write their notice in
+  the transaction of the change.
+- With hCaptcha configured, the sign-up page shows the challenge on its
+  last step and the server asks hCaptcha before it creates anything. The
+  legacy `createAccount` is closed to new accounts.
+- The account pages are `/account`, which lists the accounts that are
+  signed in on the device, and `/account/<did>/manage`, which has the
+  sign-in methods, the sessions and the devices.
+- **Not built:** setting a password from the account page; operator roles
+  (§13.4, with unit 9); the reactivation step of a deactivated account in
+  a provider flow; the explicit-slur check on a suggested handle.
 
 ## 14. Operations
 
@@ -2347,3 +2380,19 @@ Revision 9 follows the ninth part of unit 5: OAuth and read-after-write.
 - Of the variables of Appendix C the Candidate now reads
   `PDS_DPOP_SECRET`, `PDS_OAUTH_TRUSTED_CLIENTS`,
   `PDS_DISABLE_SSRF_PROTECTION` and `PDS_BSKY_APP_VIEW_CDN_URL_PATTERN`.
+
+## Appendix N. Changes in Revision 10
+
+Revision 10 follows unit 6, the `linkjar` profile.
+
+- §13.2: which headers the server sets on a handle host when the Caddy
+  snippet may be in front.
+- §13.5 is new: how the profile is built and what is not built.
+- §12: the `Profile` trait has the handle policy (§12.4), the identity
+  providers (§12.3), the creation receipt (§12.8), the sign-up guard
+  (§12.2) and the notices (§12.6). The stock profile answers each as the
+  Stock Reference behaves.
+- §11.5: the account pages are `/account` and `/account/<did>/manage`. A
+  sign-up on the pages opens no legacy session.
+- §10: `com.atproto.admin.disableInviteCodes`, `disableAccountInvites` and
+  `enableAccountInvites` are built.
