@@ -114,3 +114,10 @@ path = "fuzz_targets/xrpc_request.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "xrpc_body"
+path = "fuzz_targets/xrpc_body.rs"
+test = false
+doc = false
+bench = false

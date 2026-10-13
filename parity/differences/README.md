@@ -13,7 +13,7 @@ recorded difference that no longer appears.
 | `reference` against `stock` (the production build against the `PATCH_PROFILE=none` build) | [reference-vs-stock.json](reference-vs-stock.json) | 47, in the five groups below. |
 | `stock` against `official` (the `PATCH_PROFILE=none` build against the upstream distribution `ghcr.io/bluesky-social/pds`) | none | None is allowed: the two are different packagings of the same package version. |
 | The Reference against the Candidate on one data directory (`pnpm parity restore`) | none | None is allowed: both servers read the same bytes, and bodies are also compared by hash. |
-| The Reference against the Candidate, each on a data directory the Reference started (`pnpm parity writes`) | [reference-vs-candidate.json](reference-vs-candidate.json) | DIFF_COUNT, in the seven groups [below](#the-reference-against-the-candidate). |
+| The Reference against the Candidate, each on a data directory the Reference started (`pnpm parity writes`) | [reference-vs-candidate.json](reference-vs-candidate.json) | 37, in the eight groups [below](#the-reference-against-the-candidate). |
 
 Regenerate a file with `--update` after a change that is meant to move it,
 and review the result like code.

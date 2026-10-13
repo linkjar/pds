@@ -7,9 +7,10 @@ server behaves when it stops inside a commit, and what the unit leaves out.
 
 **Result.** The Candidate takes over a data directory that the Reference
 started, accepts writes on it, and serves the firehose. On 2026-10-13 the
-writes run of the Harness ran the same scenarios on each server. Nine
-scenarios passed on both. The comparison showed WRITES_DIFFERENCES
-differences, each a deliberate difference of SPEC §2.3, and no other.
+writes run of the Harness ran the same eight scenarios on each server, and
+all passed on both. The comparison showed 37 differences: 36 belong to the
+deliberate differences of SPEC §2.3, and one is the wording of a refusal
+that both servers give.
 `verify` reported zero differences on every directory the Candidate had
 written. A relay in strict mode re-emitted every commit of the Candidate.
 The Candidate was stopped once between a commit and its event; at the next
@@ -76,7 +77,7 @@ and fails on any other, and on a recorded one that no longer shows
 on every change to the crates (`.github/workflows/restore.yml`, job
 `writes`).
 
-Without a Reference, the crates hold the rest: TESTS_TOTAL tests in the
+Without a Reference, the crates hold the rest: 235 tests in the
 workspace, among them the write path through a real listener
 ([`writes.rs`](../../crates/linkjar-pds/tests/writes.rs)), the cursor table
 on a log in a temporary directory
@@ -124,11 +125,21 @@ About the Candidate, found by its own tests and by the Harness, and fixed:
    The WebSocket handler drops the wait when the client sends a frame, so
    the mark was lost and the next burst of events ended the stream with
    `ConsumerTooSlow`. The mark is now set before the wait.
-2. **A backfill of large commits held the whole range in memory.** A page
-   of the log was 500 events whatever their size; with commits of 900 kB a
-   subscriber held 450 MB. A page now ends after 4 MiB, and the frame cache
-   is bounded by bytes.
-3. **A blob could be served without a reference.** A commit that stopped
+2. **A backfill of large commits could hold hundreds of megabytes.** A page
+   of the log was 500 events whatever their size, and the frame cache held
+   1,024 frames whatever their size. The cursor-limit scenario writes 60
+   commits of 900 kB. A page now ends after 4 MiB, and the frame cache is
+   bounded at 16 MiB. One run of that stage ended with an empty `verify`
+   output, before this change; it did not recur in three later runs, and
+   its cause is not established.
+3. **A refusal could reach the client as 502.** The server answered an
+   upload over the limit, and any request it refused before the body, while
+   the proxy still sent the body; the server then closed the connection.
+   One of the two runs before this change showed 502 from the proxy in
+   place of 413. The server
+   now reads a refused body to its end, up to 16 MiB, as the Reference's
+   HTTP server does.
+4. **A blob could be served without a reference.** A commit that stopped
    after it moved an upload into place left the file where `getBlob` reads
    it, with an index row that still waited for a record. The simulation's
    oracle named this state. `getBlob` now serves a permanent row only, and
@@ -199,9 +210,10 @@ After every stop and at intervals a run checks:
   `#sync`, holds the server's repositories;
 - a blob is served when a record references it, and only then.
 
-On 2026-10-13, before the merge: SIM_SEEDS_DEFAULT seeds of 200 steps with
-the default plan, and SIM_SEEDS_FAULTY seeds of 250 steps with five accounts
-and 30 stops in 100 writes. SIM_TOTALS. No seed failed.
+On 2026-10-13, before the merge: 400 seeds of 200 steps with the default
+plan, and 150 seeds of 250 steps with five accounts and 30 stops in 100
+writes. Together they made 51,283 commits and stopped the server 9,241
+times. No seed failed.
 
 Two checks on the simulator itself:
 
