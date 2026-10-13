@@ -1518,6 +1518,15 @@ dependencies = [
 [[package]]
 name = "pds-oauth"
 version = "0.0.1"
+dependencies = [
+ "base64 0.22.1",
+ "hmac",
+ "pds-identity",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "url",
+]
 
 [[package]]
 name = "pds-repo"
