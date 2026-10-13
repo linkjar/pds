@@ -9,6 +9,7 @@ pub mod account;
 pub mod authorize;
 pub mod clients;
 pub mod endpoints;
+pub mod external;
 pub mod metadata;
 pub mod resource;
 
@@ -58,6 +59,8 @@ pub struct OAuthState {
     seen: Mutex<HashMap<String, i64>>,
     clients: Mutex<HashMap<String, (Arc<clients::LoadedClient>, i64)>>,
     pending: Mutex<HashMap<String, authorize::PendingSignUp>>,
+    /// The sign-ins at identity providers that are in progress.
+    pub(crate) flows: external::Flows,
 }
 
 impl std::fmt::Debug for OAuthState {
@@ -85,6 +88,7 @@ impl OAuthState {
             seen: Mutex::default(),
             clients: Mutex::default(),
             pending: Mutex::default(),
+            flows: external::Flows::default(),
         }
     }
 
@@ -376,7 +380,11 @@ pub async fn serve(
             | "/account/revoke"
             | "/account/sign-out"
     );
-    if !known || state.writes().is_none() {
+    state.writes()?;
+    if path.starts_with("/oauth/external/") {
+        return external::serve(state, method, path, query, headers, peer, body).await;
+    }
+    if !known {
         return None;
     }
     let take = |body: &mut Option<Body>| body.take().unwrap_or_else(Body::empty);
