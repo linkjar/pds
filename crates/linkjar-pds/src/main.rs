@@ -18,6 +18,11 @@ Usage: linkjar-pds <command>
   serve              serve the data directory (read-only in this build)
   verify [--json]    check the data directory; exit 1 when it finds a difference
   export-car <did>   write one repository to standard output as a CAR
+  audit export [<from> [<to>]]
+                     write the audit log, or a range of its entries, to standard
+                     output as a bundle
+  audit verify <file>
+                     check a bundle offline; exit 1 when it finds a problem
   check-config       validate the configuration and exit
   health             ask the local server's health route; exit 0 when it answers 200,
                      and 1 otherwise
@@ -119,6 +124,10 @@ fn run(args: &[String]) -> Result<ExitCode, Failure> {
     if words == ["health"] {
         return Ok(health_exit());
     }
+    // The verifier needs no configuration: it reads a file (SPEC §20.4).
+    if let ["audit", "verify", file] = words.as_slice() {
+        return audit_verify(file);
+    }
     let config = Config::from_env()?;
     // A command takes its own arguments and no others.
     match words.as_slice() {
@@ -153,6 +162,15 @@ fn run(args: &[String]) -> Result<ExitCode, Failure> {
             export_car(&config, did)?;
             Ok(ExitCode::SUCCESS)
         }
+        ["audit", "export", range @ ..] if range.len() <= 2 => {
+            let bound = |at: usize, default: u64| match range.get(at) {
+                Some(text) => text.parse::<u64>().map_err(|_| Failure::from(USAGE)),
+                None => Ok(default),
+            };
+            let log = pds_xrpc::audit::AuditLog::open(&config.layout.audit_db, None)?;
+            println!("{}", log.export(bound(0, 1)?, bound(1, u64::MAX)?)?);
+            Ok(ExitCode::SUCCESS)
+        }
         ["check-config"] => {
             warn_unknown(&config);
             config.serve_secrets()?;
@@ -160,6 +178,27 @@ fn run(args: &[String]) -> Result<ExitCode, Failure> {
             Ok(ExitCode::SUCCESS)
         }
         _ => Err(USAGE.into()),
+    }
+}
+
+/// `audit verify <file>`: recomputes the chain, the roots and the
+/// signatures of a bundle.
+#[allow(clippy::print_stdout)] // a command reports on standard output
+fn audit_verify(file: &str) -> Result<ExitCode, Failure> {
+    let bundle: serde_json::Value = serde_json::from_slice(&std::fs::read(file)?)?;
+    let report = pds_audit::verify::verify(&bundle);
+    println!(
+        "{} entries, {} checkpoints ({} with every entry in the bundle), {} proofs",
+        report.entries, report.checkpoints, report.roots_recomputed, report.proofs
+    );
+    for problem in &report.problems {
+        println!("problem: {problem}");
+    }
+    if report.ok() {
+        println!("the bundle verifies");
+        Ok(ExitCode::SUCCESS)
+    } else {
+        Ok(ExitCode::FAILURE)
     }
 }
 

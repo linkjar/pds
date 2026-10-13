@@ -118,6 +118,7 @@ impl AuditLog {
             self.record(time, what)?;
         }
         let db = self.db();
+        db.remember_key(&signer.key_id(), &signer.public_key())?;
         let entries: Vec<Vec<u8>> = db
             .entries(covered + 1, db.last_seq()?)?
             .into_iter()
@@ -167,12 +168,12 @@ impl AuditLog {
                 proofs.push(json!({ "seq": seq, "checkpoint": checkpoint.last, "path": path }));
             }
         }
-        drop(db);
-        let keys: Vec<Value> = self
-            .signer
+        let keys: Vec<Value> = db
+            .keys()?
             .iter()
-            .map(|signer| json!({ "keyId": signer.key_id(), "publicKey": encode(&signer.public_key()) }))
+            .map(|(id, public)| json!({ "keyId": id, "publicKey": encode(public) }))
             .collect();
+        drop(db);
         Ok(json!({
             "version": 1,
             "anchor": encode(&anchor),
@@ -264,6 +265,30 @@ pub async fn record(state: &AppState, what: Draft) {
     if !matches!(written, Ok(Some(Ok(_)))) {
         tracing::error!(%action, "an audit entry was not written");
     }
+}
+
+/// Appends the entry of an action on a page (SPEC §20.1): a sign-up or a
+/// change of a sign-in method. `detail` is what the action was done with,
+/// such as the provider.
+pub async fn record_page(
+    state: &AppState,
+    action: &str,
+    did: &str,
+    device_id: &str,
+    client_id: Option<&str>,
+    detail: Option<&str>,
+) {
+    let what = Draft {
+        actor: did.to_owned(),
+        action: action.to_owned(),
+        subject: Some(detail.map_or_else(|| did.to_owned(), |detail| format!("{did} {detail}"))),
+        credential: Some("page".to_owned()),
+        client_id: client_id.map(str::to_owned),
+        device_id: Some(device_id.to_owned()),
+        outcome: "ok".to_owned(),
+        ..Draft::default()
+    };
+    record(state, what).await;
 }
 
 /// Signs a checkpoint when there are new entries, and publishes it as a
@@ -402,6 +427,9 @@ mod tests {
         let third = log.checkpoint("2026-10-13T00:25:00.000Z").unwrap().unwrap();
         assert_eq!((third.first, third.last), (10, 11));
         assert_ne!(third.key_id, second.key_id);
+        let report = pds_audit::verify::verify(&log.export(1, u64::MAX).unwrap());
+        assert!(report.ok(), "{:?}", report.problems);
+        assert_eq!(report.checkpoints, 3, "the export carries both keys");
         // Without a key the log still chains.
         drop(log);
         let log = AuditLog::open(&path, None).unwrap();

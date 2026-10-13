@@ -1297,6 +1297,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "pds-audit"
+version = "0.0.1"
+dependencies = [
+ "base64 0.22.1",
+ "pds-types",
+ "ring",
+ "serde_json",
+ "sha2",
+ "thiserror",
+]
+
+[[package]]
 name = "pds-blob"
 version = "0.0.1"
 dependencies = [
@@ -1444,6 +1456,7 @@ dependencies = [
  "futures-util",
  "hmac",
  "lettre",
+ "pds-audit",
  "pds-blob",
  "pds-ext",
  "pds-identity",

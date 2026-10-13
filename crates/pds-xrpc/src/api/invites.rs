@@ -307,6 +307,7 @@ pub async fn set_account_invites(
         .unwrap_or_default()
         .to_owned();
     body::string(&input, "note", false, Format::Any, None, "$")?;
+    crate::audit::set_subject(&account);
     state
         .blocking(move |state| {
             let writes = state
