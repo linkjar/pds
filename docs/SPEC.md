@@ -1,6 +1,6 @@
 # LinkJar PDS Specification
 
-Status: Draft, revision 14, 2026-10-13
+Status: Draft, revision 15, 2026-10-13
 Normative keywords: **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, **MAY** ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119))
 
 LinkJar PDS is an AT Protocol Personal Data Server written in Rust. It is
@@ -101,6 +101,11 @@ Revision 14 follows unit 10: the MCP server
 ([unit record](research/2026-10-13-mcp-server.md)). The changes are
 listed in Appendix R.
 
+Revision 15 follows unit 11: the shared tier on Postgres and
+`migrate-storage`
+([unit record](research/2026-10-13-postgres.md)). The changes are listed
+in Appendix S.
+
 ## Table of Contents
 
 - [0. Conventions and Terminology](#0-conventions-and-terminology)
@@ -144,6 +149,7 @@ listed in Appendix R.
 - [Appendix P. Changes in Revision 12](#appendix-p-changes-in-revision-12)
 - [Appendix Q. Changes in Revision 13](#appendix-q-changes-in-revision-13)
 - [Appendix R. Changes in Revision 14](#appendix-r-changes-in-revision-14)
+- [Appendix S. Changes in Revision 15](#appendix-s-changes-in-revision-15)
 
 ## 0. Conventions and Terminology
 
@@ -1018,6 +1024,13 @@ Rules:
   the shared tier MAY use a different schema.
 - A backend combination that is compiled but unsupported MUST refuse to
   start with a message naming the gap. There are no silent fallbacks.
+- As of unit 11, `migrate-storage --to postgres|sqlite` copies the four
+  databases to an empty target, sets the sequences of Postgres, and
+  compares the row count of each table, the head of the event log, and
+  the last entry and the last checkpoint of the audit log. It takes the
+  lock of the data directory and the lease of the event log, so it runs
+  only while no server does. The actor stores do not move: they are
+  SQLite on both sides.
 - Switching the shared tier is the `migrate-storage` command (§14.2): copy
   under a maintenance window, verify row counts and the last checkpoint,
   then switch. Actor stores move one actor at a time under a short
@@ -2045,6 +2058,27 @@ routing. Documented as an alternative, not the recommended path, because the
 per-actor file placement under several processes has no production evidence
 in the surveyed implementations.
 
+As of unit 11:
+
+- **Built.** With `PDS_POSTGRES_URL` the accounts, the event log, the DID
+  cache and the audit log are in Postgres: one schema for each, named
+  `<prefix>_account`, `<prefix>_sequencer`, `<prefix>_did_cache` and
+  `<prefix>_audit`. The tables and the statements are those of SQLite.
+  Text columns compare by their bytes (`COLLATE "C"`), as in SQLite. A
+  trigger refuses an update and a delete in the audit log.
+- **One process.** A server takes the lease of the event log, a session
+  advisory lock, at start. A second server on the same schemas exits 2.
+  The actor stores, the blobs on disk and `ops.sqlite` stay in the data
+  directory, so the lock file of §8.3 still applies.
+- **The client.** The server speaks the Postgres wire protocol itself:
+  SCRAM-SHA-256 or a clear-text password, statements with parameters in
+  the text format, no TLS. `PDS_POSTGRES_URL` takes no option but
+  `sslmode=disable`, and the server refuses another one at start.
+- **Not built:** several processes over the tier. The replay set of
+  DPoP proofs, the rate limits and the head of the event log that
+  subscribers wait on are in the memory of one process. TLS to Postgres
+  is not built.
+
 ### 21.3 Entryway and member hosts
 
 The recommended way to scale (decision of 2026-10-08). The `pds-account` and
@@ -2274,6 +2308,11 @@ New in the Candidate:
 - `PDS_OPS_ADDRESS`: the private ops listener (§22.1); unset disables it.
 - `PDS_OPS_CLIENT_IDS`: the OAuth client ids of the consoles whose
   sessions the ops listener takes, separated by commas (§22.1).
+- `PDS_POSTGRES_URL`: the shared tier on Postgres (§21.2), as
+  `postgres://user:password@host:port/database`. A file location for a
+  database of the tier beside it is refused.
+- `PDS_POSTGRES_SCHEMA_PREFIX`: the start of the four schema names;
+  `pds` when it is not set.
 - `PDS_MCP_CLIENT_IDS`: the OAuth client ids of the MCP servers of this
   server, separated by commas (§22.2).
 - `PDS_OAUTH_KNOWN_CLIENTS_FILE`: a JSON file of OAuth clients that the
@@ -2588,3 +2627,13 @@ Revision 14 follows unit 10.
   and the scopes the MCP server asks for.
 - Appendix C: `PDS_MCP_CLIENT_IDS` and `PDS_OAUTH_KNOWN_CLIENTS_FILE`.
 - [sidecars.md](sidecars.md) §2.8: the state of the MCP server.
+
+## Appendix S. Changes in Revision 15
+
+Revision 15 follows unit 11.
+
+- §8.4: what `migrate-storage` does as built.
+- §21.2: the shared tier on Postgres as built, for one process, and what
+  several processes still lack.
+- Appendix C: `PDS_POSTGRES_URL` and `PDS_POSTGRES_SCHEMA_PREFIX`.
+- The procedure is [`docs/runbooks/postgres.md`](runbooks/postgres.md).
