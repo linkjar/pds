@@ -1418,3 +1418,25 @@ async fn a_plc_operation_is_recommended_signed_and_submitted() {
         .unwrap();
     assert_eq!(last, "identity");
 }
+
+#[tokio::test]
+async fn a_signing_key_is_reserved_once_for_a_did() {
+    let server = Server::start(&[]).await;
+    let reserve = "com.atproto.server.reserveSigningKey";
+    let did = json!({"did": "did:plc:aaaaaaaaaaaaaaaaaaaaaaaz"});
+    let (status, first) = server.post(reserve, None, &did).await;
+    assert_eq!(status, 200, "{first}");
+    let key = first["signingKey"].as_str().unwrap();
+    assert!(key.starts_with("did:key:zQ3s"), "{key}");
+    let (_, again) = server.post(reserve, None, &did).await;
+    assert_eq!(again["signingKey"], first["signingKey"]);
+    // Without a DID each call reserves another key.
+    let (_, one) = server.post(reserve, None, &json!({})).await;
+    let (_, two) = server.post(reserve, None, &json!({})).await;
+    assert_ne!(one["signingKey"], two["signingKey"]);
+    let (status, body) = server.post(reserve, None, &json!({"did": "../x"})).await;
+    assert_eq!(
+        (status, body["error"].as_str()),
+        (400, Some("InvalidRequest"))
+    );
+}

@@ -108,6 +108,7 @@ enum Procedure {
     CreateAccount,
     DeactivateAccount,
     ActivateAccount,
+    ReserveSigningKey,
     UpdateHandle,
     AdminUpdateSubjectStatus,
     PutPreferences,
@@ -146,6 +147,7 @@ fn procedure(nsid: &str) -> Option<Procedure> {
         "com.atproto.server.createAccount" => Procedure::CreateAccount,
         "com.atproto.server.deactivateAccount" => Procedure::DeactivateAccount,
         "com.atproto.server.activateAccount" => Procedure::ActivateAccount,
+        "com.atproto.server.reserveSigningKey" => Procedure::ReserveSigningKey,
         "com.atproto.identity.updateHandle" => Procedure::UpdateHandle,
         "com.atproto.admin.updateSubjectStatus" => Procedure::AdminUpdateSubjectStatus,
         "app.bsky.actor.putPreferences" => Procedure::PutPreferences,
@@ -508,6 +510,7 @@ async fn run(
         Procedure::CreateAccount => account::create_account(state, headers, body).await,
         Procedure::DeactivateAccount => lifecycle::deactivate_account(state, headers, body).await,
         Procedure::ActivateAccount => lifecycle::activate_account(state, headers).await,
+        Procedure::ReserveSigningKey => plc::reserve_signing_key(state, headers, body).await,
         Procedure::UpdateHandle => lifecycle::update_handle(state, headers, body).await,
         Procedure::PutPreferences => prefs::put_preferences(state, headers, body).await,
         Procedure::RequestEmailConfirmation => {
