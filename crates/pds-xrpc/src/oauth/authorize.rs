@@ -190,7 +190,7 @@ pub(super) fn error_page(status: StatusCode, cookies: &[HeaderValue], message: &
 
 /// Sends the browser back to the client with `outcome`, in the response
 /// mode of the request.
-fn to_client(
+pub(super) fn to_client(
     state: &AppState,
     parameters: &Map<String, Value>,
     cookies: &[HeaderValue],
@@ -238,7 +238,7 @@ fn to_client(
     response
 }
 
-fn denied(
+pub(super) fn denied(
     state: &AppState,
     parameters: &Map<String, Value>,
     cookies: &[HeaderValue],
@@ -267,24 +267,24 @@ pub(super) fn csrf(state: &AppState, device_id: &str, request_id: &str) -> Strin
 }
 
 /// A pushed request as a page works with it.
-struct Pending {
-    row: RequestRow,
-    parameters: Map<String, Value>,
+pub(super) struct Pending {
+    pub(super) row: RequestRow,
+    pub(super) parameters: Map<String, Value>,
 }
 
 impl Pending {
-    fn text(&self, name: &str) -> Option<&str> {
+    pub(super) fn text(&self, name: &str) -> Option<&str> {
         self.parameters.get(name).and_then(Value::as_str)
     }
 
-    fn scopes(&self) -> Vec<&str> {
+    pub(super) fn scopes(&self) -> Vec<&str> {
         self.text("scope")
             .map(|scope| scope.split(' ').collect())
             .unwrap_or_default()
     }
 }
 
-enum Loaded {
+pub(super) enum Loaded {
     Ready(Box<Pending>),
     /// The request is over. The client hears why.
     Denied(Map<String, Value>, &'static str),
@@ -294,10 +294,10 @@ enum Loaded {
 /// Reads the pushed request for this device and this client, binds it to
 /// the device and gives it five more minutes, as `RequestManager.get` of
 /// the Reference.
-async fn load(
+pub(super) async fn load(
     state: &AppState,
     request_uri: &str,
-    client_id: &str,
+    client_id: Option<&str>,
     device_id: &str,
 ) -> Result<Loaded, OAuthError> {
     let Some(id) = request_uri
@@ -307,7 +307,8 @@ async fn load(
         return Ok(Loaded::Unknown);
     };
     let now_ms = state.now_ms();
-    let (id, client_id, device_id) = (id.to_owned(), client_id.to_owned(), device_id.to_owned());
+    let (id, device_id) = (id.to_owned(), device_id.to_owned());
+    let client_id = client_id.map(str::to_owned);
     accounts(state, move |db| {
         let Some(mut row) = db.request(&id)? else {
             return Ok(Loaded::Unknown);
@@ -318,7 +319,10 @@ async fn load(
             Some("This request was already authorized")
         } else if millis(&row.expires_at) < now_ms {
             Some("This request has expired")
-        } else if row.client_id != client_id {
+        } else if client_id
+            .as_ref()
+            .is_some_and(|given| row.client_id != *given)
+        {
             Some("This request was initiated for another client")
         } else if row.device_id.as_ref().is_some_and(|own| *own != device_id) {
             Some("This request was initiated from another device")
@@ -353,7 +357,7 @@ fn matches_hint(hint: Option<&str>, did: &str, handle: &str) -> bool {
 /// Whether the account must be asked: it never authorized the client, the
 /// client asks for consent, or the request has a scope the account did not
 /// grant before.
-fn consent_required(pending: &Pending, authorized: Option<&str>) -> bool {
+pub(super) fn consent_required(pending: &Pending, authorized: Option<&str>) -> bool {
     let Some(data) = authorized.and_then(|data| serde_json::from_str::<Value>(data).ok()) else {
         return true;
     };
@@ -402,7 +406,7 @@ async fn sessions(
 
 /// Authorizes the request for the account: the code, the record of what
 /// the account granted, and the way back to the client.
-async fn authorize(
+pub(super) async fn authorize(
     state: &AppState,
     pending: &Pending,
     did: &str,
@@ -462,11 +466,11 @@ async fn authorize(
 }
 
 /// What a page of one flow is built from.
-struct Page<'a> {
-    state: &'a AppState,
-    client: &'a LoadedClient,
-    pending: &'a Pending,
-    device: &'a Device,
+pub(super) struct Page<'a> {
+    pub(super) state: &'a AppState,
+    pub(super) client: &'a LoadedClient,
+    pub(super) pending: &'a Pending,
+    pub(super) device: &'a Device,
 }
 
 impl Page<'_> {
@@ -474,7 +478,16 @@ impl Page<'_> {
         let nonce = new_nonce();
         let request_uri = format!("{REQUEST_URI_PREFIX}{}", self.pending.row.id);
         let csrf = csrf(self.state, &self.device.id, &self.pending.row.id);
+        let providers: Vec<(&str, &str)> = self
+            .state
+            .config()
+            .profile
+            .providers()
+            .iter()
+            .map(|provider| (provider.id, provider.label))
+            .collect();
         let flow = Flow {
+            providers: &providers,
             service: &self.state.config().hostname,
             nonce: &nonce,
             client_id: &self.client.client.id,
@@ -502,7 +515,7 @@ impl Page<'_> {
         })
     }
 
-    fn consent(&self, did: &str, handle: &str, ephemeral: Option<&str>) -> Response {
+    pub(super) fn consent(&self, did: &str, handle: &str, ephemeral: Option<&str>) -> Response {
         let scopes = self.pending.scopes();
         // A client the operator does not trust is shown by its identifier only.
         let client_name = self.client.client.name().filter(|_| self.client.trusted);
@@ -562,7 +575,7 @@ async fn page_inner(
     let Some(device) = device(state, headers, peer, true).await? else {
         return Err(OAuthError::server("no device"));
     };
-    let pending = match load(state, request_uri, client_id, &device.id).await? {
+    let pending = match load(state, request_uri, Some(client_id), &device.id).await? {
         Loaded::Ready(pending) => pending,
         Loaded::Denied(parameters, why) => {
             return Ok(denied(
@@ -676,7 +689,7 @@ async fn view(
     })
 }
 
-fn failed(error: &OAuthError) -> Response {
+pub(super) fn failed(error: &OAuthError) -> Response {
     error_page(error.status, &[], &error.description)
 }
 
@@ -741,7 +754,7 @@ async fn posted(
         Ok(client) => client,
         Err(error) => return stop(StatusCode::BAD_REQUEST, &error.description),
     };
-    let pending = match load(state, request_uri, client_id, &device.id).await? {
+    let pending = match load(state, request_uri, Some(client_id), &device.id).await? {
         Loaded::Ready(pending) => pending,
         Loaded::Denied(parameters, why) => {
             return Ok(Err(denied(
