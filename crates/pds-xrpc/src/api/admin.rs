@@ -6,7 +6,7 @@ use axum::body::Body;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 use pds_sequencer::account_event;
-use pds_storage::{AccountDb, ActorDb, Availability};
+use pds_storage::{AccountDb, ActorDb, Availability, Invites};
 use serde_json::{Map, Value, json};
 
 use super::Query;
@@ -36,6 +36,44 @@ fn not_found(what: &str) -> XrpcError {
     XrpcError::bad_request("NotFound", format!("{what} not found"))
 }
 
+/// An account as the admin sees it, with its invite codes.
+fn account_view(accounts: &AccountDb, did: &str) -> Result<Option<Value>, XrpcError> {
+    let Some(account) = accounts.account(did, false, Availability::ANY)? else {
+        return Ok(None);
+    };
+    let mut out = Map::new();
+    out.insert("did".to_owned(), account.actor.did.clone().into());
+    let handle = account.actor.handle.as_deref().unwrap_or("handle.invalid");
+    out.insert("handle".to_owned(), handle.into());
+    if let Some(email) = &account.email {
+        out.insert("email".to_owned(), email.clone().into());
+    }
+    out.insert(
+        "indexedAt".to_owned(),
+        account.actor.created_at.clone().into(),
+    );
+    if let Some(at) = &account.email_confirmed_at {
+        out.insert("emailConfirmedAt".to_owned(), at.clone().into());
+    }
+    if let Some(code) = accounts.invite_codes(Invites::UsedBy(did))?.first() {
+        out.insert("invitedBy".to_owned(), super::invites::view(code));
+    }
+    let invites: Vec<Value> = accounts
+        .invite_codes(Invites::For(did))?
+        .iter()
+        .map(super::invites::view)
+        .collect();
+    out.insert("invites".to_owned(), invites.into());
+    out.insert(
+        "invitesDisabled".to_owned(),
+        accounts.invites_disabled(did)?.unwrap_or(false).into(),
+    );
+    if let Some(at) = &account.actor.deactivated_at {
+        out.insert("deactivatedAt".to_owned(), at.clone().into());
+    }
+    Ok(Some(Value::Object(out)))
+}
+
 /// `com.atproto.admin.getAccountInfo`.
 pub async fn get_account_info(state: &AppState, query: &Query<'_>) -> Result<Response, XrpcError> {
     require_admin(state, query.headers)?;
@@ -43,35 +81,35 @@ pub async fn get_account_info(state: &AppState, query: &Query<'_>) -> Result<Res
     let info = state
         .blocking(move |state| {
             let accounts = AccountDb::open(&state.layout().account_db)?;
-            let account = accounts
-                .account(&did, false, Availability::ANY)?
-                .ok_or_else(|| not_found("Account"))?;
-            let mut out = Map::new();
-            out.insert("did".to_owned(), account.actor.did.clone().into());
-            let handle = account.actor.handle.as_deref().unwrap_or("handle.invalid");
-            out.insert("handle".to_owned(), handle.into());
-            if let Some(email) = &account.email {
-                out.insert("email".to_owned(), email.clone().into());
-            }
-            out.insert(
-                "indexedAt".to_owned(),
-                account.actor.created_at.clone().into(),
-            );
-            if let Some(at) = &account.email_confirmed_at {
-                out.insert("emailConfirmedAt".to_owned(), at.clone().into());
-            }
-            out.insert("invites".to_owned(), json!([]));
-            out.insert(
-                "invitesDisabled".to_owned(),
-                accounts.invites_disabled(&did)?.unwrap_or(false).into(),
-            );
-            if let Some(at) = &account.actor.deactivated_at {
-                out.insert("deactivatedAt".to_owned(), at.clone().into());
-            }
-            Ok(Value::Object(out))
+            account_view(&accounts, &did)?.ok_or_else(|| not_found("Account"))
         })
         .await?;
     Ok(json_response(StatusCode::OK, &info))
+}
+
+/// `com.atproto.admin.getAccountInfos`. A DID without an account is left
+/// out.
+pub async fn get_account_infos(state: &AppState, query: &Query<'_>) -> Result<Response, XrpcError> {
+    require_admin(state, query.headers)?;
+    let dids: Vec<String> = query
+        .params
+        .list("dids")
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+    let infos = state
+        .blocking(move |state| {
+            let accounts = AccountDb::open(&state.layout().account_db)?;
+            let mut infos = Vec::new();
+            for did in &dids {
+                if let Some(info) = account_view(&accounts, did)? {
+                    infos.push(info);
+                }
+            }
+            Ok(infos)
+        })
+        .await?;
+    Ok(json_response(StatusCode::OK, &json!({ "infos": infos })))
 }
 
 fn status(reference: Option<&str>) -> Value {

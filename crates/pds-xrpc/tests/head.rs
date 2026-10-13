@@ -21,6 +21,7 @@ use pds_xrpc::{AppState, ServerConfig};
 fn state() -> AppState {
     let http = reqwest::Client::new();
     let config = ServerConfig {
+        hostname: "pds.test".to_owned(),
         version: Some("0.0.0-test".to_owned()),
         handle_domains: vec![".test".to_owned()],
         invite_required: false,

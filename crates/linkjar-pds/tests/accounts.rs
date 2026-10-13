@@ -777,3 +777,127 @@ async fn the_admin_reads_and_changes_the_status_of_accounts_records_and_blobs() 
         (400, "Invalid subject (other)")
     );
 }
+
+#[tokio::test]
+async fn the_admin_makes_invite_codes_and_sees_who_used_them() {
+    use base64::Engine as _;
+    let server = Server::start(&[("PDS_INVITE_REQUIRED", "true")]).await;
+    let basic = format!(
+        "Basic {}",
+        base64::engine::general_purpose::STANDARD
+            .encode(format!("admin:{}", common::ADMIN_PASSWORD))
+    );
+    let call = |method: reqwest::Method, path: String, body: Option<Value>| {
+        let mut request = server
+            .http
+            .request(method, format!("{}/xrpc/{path}", server.origin))
+            .header("authorization", &basic);
+        if let Some(body) = body {
+            request = request
+                .header("content-type", "application/json")
+                .body(body.to_string());
+        }
+        async move {
+            let response = request.send().await.unwrap();
+            let status = response.status().as_u16();
+            let body: Value = serde_json::from_slice(&response.bytes().await.unwrap()).unwrap();
+            (status, body)
+        }
+    };
+    let post = reqwest::Method::POST;
+    let get = reqwest::Method::GET;
+
+    let (status, _) = server
+        .post(
+            "com.atproto.server.createInviteCode",
+            None,
+            &json!({"useCount": 1}),
+        )
+        .await;
+    assert_eq!(status, 401);
+    let (status, made) = call(
+        post.clone(),
+        "com.atproto.server.createInviteCode".to_owned(),
+        Some(json!({"useCount": 2})),
+    )
+    .await;
+    assert_eq!(status, 200, "{made}");
+    let code = text(&made, "code").to_owned();
+    assert!(
+        code.starts_with("pds-test-") && code.len() == "pds-test-".len() + 11,
+        "{code}"
+    );
+    let (_, batch) = call(
+        post,
+        "com.atproto.server.createInviteCodes".to_owned(),
+        Some(json!({"codeCount": 3, "useCount": 1})),
+    )
+    .await;
+    assert_eq!(batch["codes"][0]["account"], "admin");
+    assert_eq!(batch["codes"][0]["codes"].as_array().unwrap().len(), 3);
+
+    let (status, joined) = server
+        .create(&json!({"handle": "jules.pds-users.org", "email": "jules@example.com", "password": PASSWORD, "inviteCode": code}))
+        .await;
+    assert_eq!(status, 200, "{joined}");
+    let did = text(&joined, "did");
+
+    let (_, info) = call(
+        get.clone(),
+        format!("com.atproto.admin.getAccountInfo?did={did}"),
+        None,
+    )
+    .await;
+    assert_eq!(info["invitedBy"]["code"], code.as_str());
+    assert_eq!(info["invitedBy"]["uses"][0]["usedBy"], did);
+    assert_eq!(info["invites"], json!([]));
+    let (_, infos) = call(
+        get.clone(),
+        format!(
+            "com.atproto.admin.getAccountInfos?dids={did}&dids={}",
+            common::ALICE
+        ),
+        None,
+    )
+    .await;
+    assert_eq!(infos["infos"].as_array().unwrap().len(), 2);
+
+    let (status, listed) = call(
+        get.clone(),
+        "com.atproto.admin.getInviteCodes?sort=usage&limit=2".to_owned(),
+        None,
+    )
+    .await;
+    assert_eq!(status, 200, "{listed}");
+    let codes = listed["codes"].as_array().unwrap();
+    assert_eq!(codes.len(), 2);
+    assert_eq!(
+        (&codes[0]["code"], &codes[0]["available"]),
+        (&json!(code), &json!(2))
+    );
+    let cursor = text(&listed, "cursor").to_owned();
+    let (_, rest) = call(
+        get.clone(),
+        format!("com.atproto.admin.getInviteCodes?sort=usage&limit=10&cursor={cursor}"),
+        None,
+    )
+    .await;
+    assert_eq!(rest["codes"].as_array().unwrap().len(), 2);
+    let (_, recent) = call(
+        get.clone(),
+        "com.atproto.admin.getInviteCodes".to_owned(),
+        None,
+    )
+    .await;
+    assert_eq!(recent["codes"].as_array().unwrap().len(), 4);
+    let (status, body) = call(
+        get,
+        "com.atproto.admin.getInviteCodes?sort=other".to_owned(),
+        None,
+    )
+    .await;
+    assert_eq!(
+        (status, text(&body, "message")),
+        (400, "unknown sort method: other")
+    );
+}

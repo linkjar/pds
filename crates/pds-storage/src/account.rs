@@ -69,6 +69,50 @@ pub struct RefreshToken {
     pub app_password: Option<AppPassword>,
 }
 
+/// An invite code with its uses.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InviteCode {
+    /// The code.
+    pub code: String,
+    /// How many accounts it can create.
+    pub available: i64,
+    /// Whether it is disabled.
+    pub disabled: bool,
+    /// The account it was made for, or `admin`.
+    pub for_account: String,
+    /// Who made it: `admin`, or the account itself.
+    pub created_by: String,
+    /// When it was made (ISO 8601).
+    pub created_at: String,
+    /// Who used it and when, the newest first.
+    pub uses: Vec<(String, String)>,
+}
+
+/// Which invite codes a query returns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Invites<'a> {
+    /// The codes made for one account.
+    For(&'a str),
+    /// The code that one account used.
+    UsedBy(&'a str),
+    /// A page of all codes, the newest first. The cursor is the creation
+    /// time and the code of the last entry of the page before.
+    Recent {
+        /// The page size.
+        limit: u32,
+        /// Where the page starts.
+        after: Option<(&'a str, &'a str)>,
+    },
+    /// A page of all codes, the most used first. The cursor is the count
+    /// of uses and the code of the last entry of the page before.
+    Usage {
+        /// The page size.
+        limit: u32,
+        /// Where the page starts.
+        after: Option<(i64, &'a str)>,
+    },
+}
+
 /// The rows of a new account.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewAccount<'a> {
@@ -363,6 +407,79 @@ impl AccountDb {
             [did],
         )?;
         Ok(updated > 0)
+    }
+
+    /// Stores invite codes: each code with the account it is for.
+    pub fn create_invite_codes(
+        &mut self,
+        codes: &[(String, String)],
+        use_count: i64,
+        created_by: &str,
+        now: &str,
+    ) -> Result<(), StorageError> {
+        let txn = self.conn.transaction()?;
+        for (code, for_account) in codes {
+            txn.execute(
+                r#"insert into "invite_code" ("code", "availableUses", "disabled", "forAccount", "createdBy", "createdAt") values (?1, ?2, 0, ?3, ?4, ?5)"#,
+                rusqlite::params![code, use_count, for_account, created_by, now],
+            )?;
+        }
+        txn.commit()?;
+        Ok(())
+    }
+
+    /// Invite codes with their uses.
+    pub fn invite_codes(&self, which: Invites<'_>) -> Result<Vec<InviteCode>, StorageError> {
+        const SELECT: &str = r#"select * from (select invite_code."code" as code, invite_code."availableUses" as available, invite_code."disabled" as disabled, invite_code."forAccount" as forAccount, invite_code."createdBy" as createdBy, invite_code."createdAt" as createdAt, (select count(*) from "invite_code_use" where invite_code_use."code" = invite_code."code") as uses from "invite_code") as codes"#;
+        let (tail, params): (String, Vec<rusqlite::types::Value>) = match which {
+            Invites::For(did) => (" where forAccount = ?1".to_owned(), vec![did.to_owned().into()]),
+            Invites::UsedBy(did) => (
+                r#" where code in (select distinct "code" from "invite_code_use" where "usedBy" = ?1)"#.to_owned(),
+                vec![did.to_owned().into()],
+            ),
+            Invites::Recent { limit, after } => match after {
+                Some((created_at, code)) => (
+                    " where (createdAt, code) < (?1, ?2) order by createdAt desc, code desc limit ?3".to_owned(),
+                    vec![created_at.to_owned().into(), code.to_owned().into(), i64::from(limit).into()],
+                ),
+                None => (
+                    " order by createdAt desc, code desc limit ?1".to_owned(),
+                    vec![i64::from(limit).into()],
+                ),
+            },
+            Invites::Usage { limit, after } => match after {
+                Some((uses, code)) => (
+                    " where (uses, code) < (?1, ?2) order by uses desc, code desc limit ?3".to_owned(),
+                    vec![uses.into(), code.to_owned().into(), i64::from(limit).into()],
+                ),
+                None => (
+                    " order by uses desc, code desc limit ?1".to_owned(),
+                    vec![i64::from(limit).into()],
+                ),
+            },
+        };
+        let mut statement = self.conn.prepare(&format!("{SELECT}{tail}"))?;
+        let rows = statement.query_map(rusqlite::params_from_iter(params), |row| {
+            Ok(InviteCode {
+                code: row.get(0)?,
+                available: row.get(1)?,
+                disabled: row.get::<_, Option<i64>>(2)?.unwrap_or(0) == 1,
+                for_account: row.get(3)?,
+                created_by: row.get(4)?,
+                created_at: row.get(5)?,
+                uses: Vec::new(),
+            })
+        })?;
+        let mut codes: Vec<InviteCode> = rows.collect::<Result<_, _>>()?;
+        let mut uses = self.conn.prepare(
+            r#"select "usedBy", "usedAt" from "invite_code_use" where "code" = ?1 order by "usedAt" desc"#,
+        )?;
+        for code in &mut codes {
+            code.uses = uses
+                .query_map([&code.code], |row| Ok((row.get(0)?, row.get(1)?)))?
+                .collect::<Result<_, _>>()?;
+        }
+        Ok(codes)
     }
 
     /// Whether the invite code can still be used: it exists, it is not
