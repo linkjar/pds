@@ -397,8 +397,13 @@ mod tests {
 
     /// A token as an entryway signs it: ES256K over the header and the
     /// claims.
-    fn entryway_token(key: &pds_identity::Keypair, typ: &str, claims: &serde_json::Value) -> String {
-        let head = URL_SAFE_NO_PAD.encode(serde_json::json!({"typ": typ, "alg": "ES256K"}).to_string());
+    fn entryway_token(
+        key: &pds_identity::Keypair,
+        typ: &str,
+        claims: &serde_json::Value,
+    ) -> String {
+        let head =
+            URL_SAFE_NO_PAD.encode(serde_json::json!({"typ": typ, "alg": "ES256K"}).to_string());
         let body = URL_SAFE_NO_PAD.encode(claims.to_string());
         let signature = key.sign(format!("{head}.{body}").as_bytes());
         format!("{head}.{body}.{}", URL_SAFE_NO_PAD.encode(signature))
@@ -406,7 +411,9 @@ mod tests {
 
     #[test]
     fn a_member_host_takes_the_tokens_of_its_entryway_and_no_other() {
-        let key = pds_identity::Keypair::generate(pds_identity::Algorithm::Secp256k1, |bytes| bytes.fill(11));
+        let key = pds_identity::Keypair::generate(pds_identity::Algorithm::Secp256k1, |bytes| {
+            bytes.fill(11)
+        });
         let member = AuthConfig {
             entryway: Some(EntrywayAuth {
                 did: "did:web:entryway.test".to_owned(),
@@ -418,7 +425,10 @@ mod tests {
         let claims = |aud: &str| serde_json::json!({"sub": did, "aud": aud, "scope": SCOPE_ACCESS, "exp": 2_000});
         let with = |token: &str| {
             let mut headers = HeaderMap::new();
-            headers.insert(header::AUTHORIZATION, format!("Bearer {token}").parse().unwrap());
+            headers.insert(
+                header::AUTHORIZATION,
+                format!("Bearer {token}").parse().unwrap(),
+            );
             headers
         };
         // For this server, and for the entryway.
@@ -430,7 +440,10 @@ mod tests {
         // Another audience, another key, and a token of the server's own secret.
         let other = entryway_token(&key, "at+jwt", &claims("did:web:other.test"));
         assert!(optional_credentials(&with(&other), &member, &[], 1_000).is_err());
-        let stranger = pds_identity::Keypair::generate(pds_identity::Algorithm::Secp256k1, |bytes| bytes.fill(12));
+        let stranger =
+            pds_identity::Keypair::generate(pds_identity::Algorithm::Secp256k1, |bytes| {
+                bytes.fill(12)
+            });
         let forged = entryway_token(&stranger, "at+jwt", &claims("did:web:pds.test"));
         assert!(optional_credentials(&with(&forged), &member, &[], 1_000).is_err());
         let own = mint_access(&config(), did, SCOPE_ACCESS, 1_000);
