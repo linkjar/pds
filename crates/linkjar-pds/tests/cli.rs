@@ -292,3 +292,42 @@ async fn shutdown_does_not_wait_for_the_limit_without_a_connection() {
         .expect("the server stopped before the limit")
         .unwrap();
 }
+
+#[test]
+fn the_audit_log_is_sealed_exported_and_verified_from_the_command_line() {
+    let dir = DataDir::new(1);
+    let mut vars = data_vars(&dir);
+    vars.push((
+        "PDS_AUDIT_KEY_ED25519_PRIVATE_KEY_HEX",
+        "0909090909090909090909090909090909090909090909090909090909090909".to_owned(),
+    ));
+    let vars = borrowed(&vars);
+    let sealed = run(&vars, &["audit", "seal"]);
+    assert_eq!(exit(&sealed), 0, "{}", stderr(&sealed));
+    let said = String::from_utf8_lossy(&sealed.stdout).into_owned();
+    assert!(said.starts_with("sealed 3 accounts as sha256:"), "{said}");
+    assert!(said.contains("signed by ed25519:"), "{said}");
+    // A seal is the first entry: there is no second one.
+    let again = run(&vars, &["audit", "seal"]);
+    assert_eq!(exit(&again), 2);
+    assert!(stderr(&again).contains("has entries already"));
+
+    let exported = run(&vars, &["audit", "export"]);
+    assert_eq!(exit(&exported), 0, "{}", stderr(&exported));
+    let bundle = dir.root.join("bundle.json");
+    std::fs::write(&bundle, &exported.stdout).unwrap();
+    // The verifier needs no configuration.
+    let verified = run(&[], &["audit", "verify", bundle.to_str().unwrap()]);
+    assert_eq!(exit(&verified), 0, "{}", stderr(&verified));
+    let said = String::from_utf8_lossy(&verified.stdout).into_owned();
+    assert!(said.contains("2 entries, 1 checkpoints"), "{said}");
+    assert!(said.contains("the bundle verifies"));
+
+    // A changed bundle is refused with exit 1.
+    let mut changed: serde_json::Value = serde_json::from_slice(&exported.stdout).unwrap();
+    changed["checkpoints"][0]["time"] = serde_json::json!("2020-01-01T00:00:00.000Z");
+    std::fs::write(&bundle, changed.to_string()).unwrap();
+    let refused = run(&[], &["audit", "verify", bundle.to_str().unwrap()]);
+    assert_eq!(exit(&refused), 1);
+    assert!(String::from_utf8_lossy(&refused.stdout).contains("bad signature"));
+}

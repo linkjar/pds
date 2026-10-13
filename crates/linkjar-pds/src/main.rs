@@ -21,6 +21,8 @@ Usage: linkjar-pds <command>
   audit export [<from> [<to>]]
                      write the audit log, or a range of its entries, to standard
                      output as a bundle
+  audit seal         begin the audit log with a signed snapshot of the accounts and
+                     their repository heads, for the history before the log
   audit verify <file>
                      check a bundle offline; exit 1 when it finds a problem
   check-config       validate the configuration and exit
@@ -171,6 +173,10 @@ fn run(args: &[String]) -> Result<ExitCode, Failure> {
             println!("{}", log.export(bound(0, 1)?, bound(1, u64::MAX)?)?);
             Ok(ExitCode::SUCCESS)
         }
+        ["audit", "seal"] => {
+            audit_seal(&config)?;
+            Ok(ExitCode::SUCCESS)
+        }
         ["check-config"] => {
             warn_unknown(&config);
             config.serve_secrets()?;
@@ -179,6 +185,58 @@ fn run(args: &[String]) -> Result<ExitCode, Failure> {
         }
         _ => Err(USAGE.into()),
     }
+}
+
+/// `audit seal` (SPEC §20.4): the one entry that stands for the history
+/// before the log. It names how many accounts the server has and the
+/// SHA-256 of their DIDs with their repository heads, and says that
+/// nothing before it is in the log. It is the first entry or it is
+/// refused.
+#[allow(clippy::print_stdout)] // a command reports on standard output
+fn audit_seal(config: &Config) -> Result<(), Failure> {
+    use sha2::{Digest, Sha256};
+    let signer = match &config.audit_key {
+        Some(seed) => Some(
+            pds_audit::Signer::from_seed(seed)
+                .ok_or("the audit checkpoint key is not an Ed25519 seed")?,
+        ),
+        None => None,
+    };
+    let has_key = signer.is_some();
+    let log = pds_xrpc::audit::AuditLog::open(&config.layout.audit_db, signer)?;
+    if !log.is_empty()? {
+        return Err("the audit log has entries already; a seal is its first entry".into());
+    }
+    let accounts = pds_storage::AccountDb::open(&config.layout.account_db)?;
+    let mut digest = Sha256::new();
+    let mut count = 0_u64;
+    for actor in accounts.all_actors()? {
+        let (cid, rev) = accounts.repo_root(&actor.did)?.unwrap_or_default();
+        digest.update(format!("{} {rev} {cid}\n", actor.did));
+        count += 1;
+    }
+    let snapshot = data_encoding::HEXLOWER.encode(&digest.finalize());
+    let time = pds_sequencer::iso_millis(serve::now_ms());
+    let what = pds_audit::Draft {
+        actor: "operator".to_owned(),
+        action: "audit.sealed".to_owned(),
+        subject: Some(format!("sha256:{snapshot}")),
+        credential: Some("server".to_owned()),
+        outcome: "ok".to_owned(),
+        reason: Some(format!(
+            "The history before this entry is not in the log. This entry stands for {count} accounts and their repository heads."
+        )),
+        ..pds_audit::Draft::default()
+    };
+    log.record(&time, what)?;
+    let checkpoint = log.checkpoint(&time)?;
+    println!("sealed {count} accounts as sha256:{snapshot}");
+    match checkpoint {
+        Some(checkpoint) => println!("signed by {}", checkpoint.key_id),
+        None if has_key => println!("no checkpoint was signed"),
+        None => println!("no checkpoint key is configured, so the seal is not signed"),
+    }
+    Ok(())
 }
 
 /// `audit verify <file>`: recomputes the chain, the roots and the
