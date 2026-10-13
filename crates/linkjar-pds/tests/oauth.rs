@@ -707,10 +707,26 @@ async fn the_account_page_lists_and_ends_sessions_and_devices() {
     let key = client_key();
     let (_, tokens) = server.sign_in(true).await;
     let access = tokens["access_token"].as_str().unwrap().to_owned();
-    let page = server
+    // The flow remembered the account on this device, so the first page
+    // lists it.
+    let list = server
         .send(reqwest::Method::GET, "/account", None, &[])
         .await;
+    assert_eq!(list.status, 200);
+    let manage = format!("/account/{ALICE}/manage");
+    assert!(
+        list.text.contains(&format!("href=\"{manage}\"")),
+        "{}",
+        list.text
+    );
+    let page = server.send(reqwest::Method::GET, &manage, None, &[]).await;
     assert_eq!(page.status, 200);
+    assert!(
+        page.text.contains("<h2>Sign-in methods</h2>"),
+        "{}",
+        page.text
+    );
+    assert!(page.text.contains("A password is set."));
     assert!(
         page.text.contains("<code>http://localhost?"),
         "{}",
@@ -739,7 +755,7 @@ async fn the_account_page_lists_and_ends_sessions_and_devices() {
         .await;
     assert_eq!(
         (revoked.status, revoked.header("location")),
-        (303, Some("/account"))
+        (303, Some(manage.as_str()))
     );
     let after = server
         .resource(&key, reqwest::Method::GET, GET_SESSION, &access, None)
@@ -753,8 +769,23 @@ async fn the_account_page_lists_and_ends_sessions_and_devices() {
     server
         .send(reqwest::Method::POST, "/account/sign-out", Some(&form), &[])
         .await;
-    let signed_out = server
+    // Signed out: the page of the account is closed, and the first page
+    // offers to sign in.
+    let closed = server.send(reqwest::Method::GET, &manage, None, &[]).await;
+    assert_eq!(
+        (closed.status, closed.header("location")),
+        (303, Some("/account"))
+    );
+    let welcome = server
         .send(reqwest::Method::GET, "/account", None, &[])
+        .await;
+    assert!(
+        welcome.text.contains(">Sign in</button>"),
+        "{}",
+        welcome.text
+    );
+    let signed_out = server
+        .send(reqwest::Method::GET, "/account?view=sign-in", None, &[])
         .await;
     assert!(
         signed_out.text.contains("name=\"password\""),
@@ -771,8 +802,6 @@ async fn the_account_page_lists_and_ends_sessions_and_devices() {
         .send(reqwest::Method::POST, "/account/sign-in", Some(&form), &[])
         .await;
     assert_eq!(signed_in.status, 303);
-    let page = server
-        .send(reqwest::Method::GET, "/account", None, &[])
-        .await;
+    let page = server.send(reqwest::Method::GET, &manage, None, &[]).await;
     assert!(page.text.contains("<h2>Devices</h2>"), "{}", page.text);
 }

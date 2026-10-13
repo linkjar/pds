@@ -143,6 +143,12 @@ pub trait Profile: Send + Sync + Debug {
         false
     }
 
+    /// Whether changes of sign-in methods produce notices that the
+    /// server mails (§12.6).
+    fn produces_notices(&self) -> bool {
+        false
+    }
+
     /// The identity providers a person can sign in with (§12.3).
     fn providers(&self) -> Vec<ProviderInfo> {
         Vec::new()

@@ -85,6 +85,10 @@ impl Profile for Linkjar {
         true
     }
 
+    fn produces_notices(&self) -> bool {
+        true
+    }
+
     fn providers(&self) -> Vec<ProviderInfo> {
         self.providers
             .iter()

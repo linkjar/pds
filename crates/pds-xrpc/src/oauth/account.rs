@@ -10,7 +10,7 @@ use std::net::IpAddr;
 use axum::body::Body;
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
-use pds_oauth::pages::{self, DeviceLine, SessionLine};
+use pds_oauth::pages::{self, DeviceLine, MethodLine, Methods, SessionLine};
 use pds_oauth::token::AUTHENTICATION_MAX_AGE_MS;
 use pds_storage::Availability;
 use subtle::ConstantTimeEq;
@@ -24,7 +24,10 @@ use crate::state::AppState;
 const CSRF_PURPOSE: &str = "account";
 
 /// The accounts that signed in on the device recently enough to be shown.
-async fn signed_in(state: &AppState, device_id: &str) -> Result<Vec<(String, String)>, OAuthError> {
+pub(super) async fn signed_in(
+    state: &AppState,
+    device_id: &str,
+) -> Result<Vec<(String, String)>, OAuthError> {
     let now_ms = state.now_ms();
     let device_id = device_id.to_owned();
     accounts(state, move |db| {
@@ -43,17 +46,70 @@ async fn signed_in(state: &AppState, device_id: &str) -> Result<Vec<(String, Str
     .await
 }
 
+/// The sign-in methods of an account: its password, the identities that
+/// are linked, and the providers it can link.
+async fn methods(state: &AppState, did: &str) -> Result<Methods, OAuthError> {
+    let providers = state.config().profile.providers();
+    if providers.is_empty() {
+        return Ok(Methods {
+            has_password: true,
+            ..Methods::default()
+        });
+    }
+    let owned = did.to_owned();
+    let (has_password, identities) = accounts(state, move |db| {
+        Ok((db.has_password(&owned)?, db.external_identities(&owned)?))
+    })
+    .await?;
+    let label = |id: &str| {
+        providers
+            .iter()
+            .find(|provider| provider.id == id)
+            .map(|provider| provider.label)
+    };
+    // A provider without credentials signs nobody in, so its identity
+    // does not count as a method.
+    let usable = identities
+        .iter()
+        .filter(|identity| label(&identity.provider).is_some())
+        .count();
+    let linked: Vec<MethodLine> = identities
+        .iter()
+        .map(|identity| MethodLine {
+            label: label(&identity.provider)
+                .unwrap_or(identity.provider.as_str())
+                .to_owned(),
+            provider: identity.provider.clone(),
+            subject: identity.subject.clone(),
+            email: identity.email.clone(),
+        })
+        .collect();
+    let offered = providers
+        .iter()
+        .filter(|provider| !identities.iter().any(|own| own.provider == provider.id))
+        .map(|provider| (provider.id.to_owned(), provider.label.to_owned()))
+        .collect();
+    Ok(Methods {
+        can_unlink: usize::from(has_password) + usable > 1,
+        has_password,
+        linked,
+        offered,
+    })
+}
+
 async fn home(
     state: &AppState,
     device: &Device,
     did: &str,
     handle: &str,
+    error: Option<&str>,
 ) -> Result<Response, OAuthError> {
     let owned = did.to_owned();
     let (tokens, devices) = accounts(state, move |db| {
         Ok((db.account_tokens(&owned)?, db.account_devices(&owned)?))
     })
     .await?;
+    let methods = methods(state, did).await?;
     let sessions: Vec<SessionLine> = tokens
         .into_iter()
         .map(|token| SessionLine {
@@ -77,8 +133,15 @@ async fn home(
         .collect();
     let nonce = new_nonce();
     let token = csrf(state, &device.id, CSRF_PURPOSE);
-    let page = pages::account_home(&nonce, &token, did, handle, &sessions, &devices);
-    Ok(html(StatusCode::OK, &nonce, &device.cookies, page))
+    let page = pages::account_home(
+        &nonce, &token, did, handle, &methods, &sessions, &devices, error,
+    );
+    let status = if error.is_some() {
+        StatusCode::BAD_REQUEST
+    } else {
+        StatusCode::OK
+    };
+    Ok(html(status, &nonce, &device.cookies, page))
 }
 
 fn sign_in_page(
@@ -90,39 +153,87 @@ fn sign_in_page(
 ) -> Response {
     let nonce = new_nonce();
     let token = csrf(state, &device.id, CSRF_PURPOSE);
-    let page = pages::account_sign_in(&nonce, &state.config().hostname, &token, username, error);
+    let providers: Vec<(&str, &str)> = state
+        .config()
+        .profile
+        .providers()
+        .iter()
+        .map(|provider| (provider.id, provider.label))
+        .collect();
+    let page = pages::account_sign_in(
+        &nonce,
+        &state.config().hostname,
+        &token,
+        username,
+        error,
+        &providers,
+    );
     html(status, &nonce, &device.cookies, page)
 }
 
 async fn page_inner(
     state: &AppState,
+    path: &str,
+    query: Option<&str>,
     headers: &HeaderMap,
     peer: Option<IpAddr>,
 ) -> Result<Response, OAuthError> {
     let Some(device) = device(state, headers, peer, true).await? else {
         return Err(OAuthError::server("no device"));
     };
-    match signed_in(state, &device.id).await?.first() {
-        Some((did, handle)) => home(state, &device, did, handle).await,
-        None => Ok(sign_in_page(state, &device, StatusCode::OK, "", None)),
+    let accounts = signed_in(state, &device.id).await?;
+    // The page of one account: `/account/<did>/manage`.
+    if let Some(did) = path
+        .strip_prefix("/account/")
+        .and_then(|rest| rest.strip_suffix("/manage"))
+    {
+        return match accounts.iter().find(|(own, _)| own == did) {
+            Some((did, handle)) => home(state, &device, did, handle, None).await,
+            None => Ok(back(&device.cookies)),
+        };
     }
+    let wants_sign_in = url::form_urlencoded::parse(query.unwrap_or_default().as_bytes())
+        .any(|(name, value)| name == "view" && value == "sign-in");
+    if wants_sign_in {
+        return Ok(sign_in_page(state, &device, StatusCode::OK, "", None));
+    }
+    let nonce = new_nonce();
+    let page = if accounts.is_empty() {
+        pages::account_welcome(&nonce, &state.config().hostname)
+    } else {
+        pages::account_list(&nonce, &accounts)
+    };
+    Ok(html(StatusCode::OK, &nonce, &device.cookies, page))
 }
 
 fn failed(error: &OAuthError) -> Response {
     error_page(error.status, &[], &error.description)
 }
 
-/// `GET /account`.
-pub async fn page(state: &AppState, headers: &HeaderMap, peer: Option<IpAddr>) -> Response {
-    page_inner(state, headers, peer)
+/// `GET /account` and `GET /account/<did>/manage`.
+pub async fn page(
+    state: &AppState,
+    path: &str,
+    query: Option<&str>,
+    headers: &HeaderMap,
+    peer: Option<IpAddr>,
+) -> Response {
+    page_inner(state, path, query, headers, peer)
         .await
         .unwrap_or_else(|error| failed(&error))
 }
 
-fn back(cookies: &[HeaderValue]) -> Response {
+pub(super) fn back(cookies: &[HeaderValue]) -> Response {
+    to("/account", cookies)
+}
+
+/// A redirect to a page of the account pages.
+pub(super) fn to(location: &str, cookies: &[HeaderValue]) -> Response {
     let mut response = StatusCode::SEE_OTHER.into_response();
     let headers = response.headers_mut();
-    headers.insert(header::LOCATION, HeaderValue::from_static("/account"));
+    if let Ok(location) = HeaderValue::from_str(location) {
+        headers.insert(header::LOCATION, location);
+    }
     for cookie in cookies {
         headers.append(header::SET_COOKIE, cookie.clone());
     }
@@ -235,24 +346,54 @@ async fn post_inner(
     {
         return Ok(back(&device.cookies));
     }
+    let manage = format!("/account/{did}/manage");
+    if path == "/account/unlink" {
+        let usable: Vec<&'static str> = state
+            .config()
+            .profile
+            .providers()
+            .iter()
+            .map(|provider| provider.id)
+            .collect();
+        let (provider, subject) = (field("provider").to_owned(), field("subject").to_owned());
+        let now_ms = state.now_ms();
+        let notice = super::new_id(pds_oauth::token::Id::Request);
+        let owned = did.clone();
+        let removed = accounts(state, move |db| {
+            db.unlink_identity(&owned, &provider, &subject, &usable, &notice, now_ms)
+        })
+        .await?;
+        if !removed {
+            let handle = signed_in(state, &device.id)
+                .await?
+                .into_iter()
+                .find(|(own, _)| *own == did)
+                .map_or_else(|| did.clone(), |(_, handle)| handle);
+            let message = "This is your only sign-in method. Add another one before you remove it.";
+            return home(state, &device, &did, &handle, Some(message)).await;
+        }
+        return Ok(to(&manage, &device.cookies));
+    }
     let (token_id, device_id) = (field("token_id").to_owned(), field("device_id").to_owned());
     let revoke = path == "/account/revoke";
+    let owned = did.clone();
     accounts(state, move |db| {
         if revoke {
             // A session of another account is not this account's to end.
-            if db.token(&token_id)?.is_some_and(|token| token.did == did) {
+            if db.token(&token_id)?.is_some_and(|token| token.did == owned) {
                 db.delete_token(&token_id)?;
             }
             Ok(())
         } else {
-            db.remove_device_account(&device_id, &did)
+            db.remove_device_account(&device_id, &owned)
         }
     })
     .await?;
-    Ok(back(&device.cookies))
+    Ok(to(&manage, &device.cookies))
 }
 
-/// `POST /account/sign-in`, `/account/revoke` and `/account/sign-out`.
+/// `POST /account/sign-in`, `/account/revoke`, `/account/sign-out` and
+/// `/account/unlink`.
 pub async fn post(
     state: &AppState,
     path: &str,
