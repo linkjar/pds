@@ -214,6 +214,7 @@ async fn start(
             max_import_size: None,
             backfill_limit_ms: 86_400_000,
             max_subscription_buffer: 500,
+            actor_store_cache_size: 2,
         },
     )
     .map_err(storage)?

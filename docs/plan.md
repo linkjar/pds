@@ -61,6 +61,12 @@ from `@atproto/repo` at the pin and the same S1 to S3 workload.
 classifies each upstream change after the pin, examines the shared-node fix
 (#5584) for LinkJar's deployment, and prices the three pin options.
 
+[Writes, the event log and the firehose](research/2026-10-13-writes-and-firehose.md)
+records unit 4: the write path and the firehose, the writes run that holds
+them to the Reference, what the Reference accepts from elsewhere, the
+boundary between a commit and its event, the simulation, and what the unit
+did not build.
+
 [The read-only server](research/2026-10-13-read-only-server.md) records
 unit 3: what the server serves, the restore run that holds it to the
 Reference on one data directory, eleven things the comparison found, what
@@ -132,6 +138,7 @@ upstream bumps, which nothing does today beyond the image smoke gate.
 
 | Date | Event |
 |---|---|
+| 2026-10-13 | Unit 4 on `feat/unit-4-writes`. **The Candidate writes, sequences and serves the firehose on a data directory that the Reference started** ([unit record](research/2026-10-13-writes-and-firehose.md)). `createRecord`, `putRecord`, `deleteRecord`, `applyWrites`, `uploadBlob`, `importRepo`, `listMissingBlobs` and `subscribeRepos` answer as the Reference does. The Harness has a writes run, `pnpm parity writes`: the Reference creates a pool of accounts, the Candidate takes over the volume, and eight scenarios run on each server; the differences are the deliberate ones of SPEC §2.3 and one wording, WRITES_DIFFERENCES entries in all. A relay in strict mode re-emits every commit of the Candidate. The Candidate stores a commit before it appends the event and notes the commit in `ops.sqlite`; stopped between the two, it states the head with `#sync` at the next start, and the relay converges. The run recorded what the Reference at the pin does with data from elsewhere: `importRepo` accepts a commit that any key signed and a commit for another account, a tree that is not a Merkle search tree, and record blocks that are not canonical. `pds-sim` runs seeded plans with stops at the fail points and five oracles; SIM_SEEDS seeds passed before the merge, and a seed run twice gives the same trace. SPEC revision 7 carries the owner's decisions of 2026-10-13 and what the run showed. **Not built: the fault-injecting VFS, the `turmoil` network and the S3-compatible blob store** ([below](#open-questions-for-the-owner)). Left for unit 5: the account events, rate limits, OAuth and service tokens, the proxy. Next: unit 5, from `main`. |
 | 2026-10-13 | After unit 3, an audit and a cleanup (pull request #28). Nine readers audited the repository and a second reader checked each finding; 111 were confirmed and most are fixed. A streamed answer ends with an error when its producer fails or the client stalls for 60 seconds, and shutdown is bounded. `verify` reports a break in the event log without counting it as a difference, because the Reference deletes the events of a deleted account; it names fifteen kinds of damage in tests. The restore run has its own workflow. The reads of both servers are measured on one data directory of 100,000 records ([perf-reads.md](../parity/results/perf-reads.md)): the export takes 1,385 ms on the Reference and 167 ms on the Candidate, for the same bytes. What was not fixed, and why, is in the pull request. |
 | 2026-10-13 | Unit 3 done on `feat/unit-3-read-server`. **The Candidate serves the reads of a data directory that the Reference wrote** ([unit record](research/2026-10-13-read-only-server.md)): the sync and repository reads, `describeServer`, `resolveHandle` and the plain routes. The Harness has a restore run, `pnpm parity restore`: the Reference seeds six accounts and answers four read scenarios, the Candidate replaces it on the same volume and answers them again. 331 requests, no difference in status, compared headers or body, and 328 bodies equal byte for byte, repository exports among them. `verify` reports zero differences on that directory and names fourteen kinds of damage in tests. `pds-storage` reads the Reference's SQLite files, `pds-identity` resolves DIDs through the cache, `pds-xrpc` validates parameters in the Reference's order and with its messages. The image is built by `./Dockerfile`, and CI runs the restore run on every change to the crates. SPEC revision 6 carries what the comparison showed. **Not met: `verify` on a staging restore**, which needs the owner's copy ([below](#open-questions-for-the-owner)). Left for later units: the proxy, the read-after-write methods, rate limits, OAuth tokens, handle resolution over DNS. Next: unit 4, from `main`. |
 | 2026-10-13 | The ninth patch is in production's image stream: `104-mst-shared-node` merged (pull request #25) and revision 12 of the reference image is published. The Harness pins it and has an `importRepo` scenario, `default/15-import`. It shows what the patch closes: the unpatched build answers 200 to a tree that references a node more than once and replaces the repository with it; revision 12 answers 400 and keeps the repository. DD-6 has moved into the table of observed differences (SPEC §2.3). The scenario also found that `importRepo` answers 500 to bytes that are not a CAR, on both builds. |
@@ -207,14 +214,46 @@ question. Revision 7 of the SPEC applies them.
 
 ## Open questions for the owner
 
-Three. None blocks unit 4.
+Six. The first decides what unit 4 still owes; unit 5 needs none of them.
+
+- **Where the three missing parts of unit 4 go.** The decision of
+  2026-10-08 placed the `StorageIo` seam, a fault-injecting SQLite VFS and
+  `turmoil` in unit 4, and the plan lists the blob store there. The unit
+  built the fail points, the seed runner, the oracles and the disk store;
+  it did not build the VFS, the network simulation or the S3-compatible
+  store ([unit record](research/2026-10-13-writes-and-firehose.md)). The
+  recommendation: a unit 4b of about two weeks before unit 5, with the
+  S3-compatible store first, because production blobs are in R2 and a
+  staging restore of production cannot be served without it; then the VFS,
+  which needs the one reviewed use of `unsafe` that SPEC §3.2 allows; then
+  `turmoil`. The other choice is to move them into unit 8, where the
+  restore drill needs the store anyway.
+
+- **`#sync` after an import into an active account.** At the pin an import
+  appends no event, and SPEC revision 6 required `#sync`. The Candidate
+  now follows the pin (SPEC §6.5). A relay learns of the imported
+  repository at the account's next commit, which does not follow the
+  relay's copy, so a strict relay drops it until something states the head.
+  An account that moves in is deactivated while it imports, and its
+  activation emits `#sync`; the gap is an import into an account that is
+  active. The recommendation: emit `#sync` after an import into an active
+  account and list it as a deliberate difference.
+
+- **What the Reference accepts in `importRepo`.** The writes run recorded
+  that the pin stores a commit that another key signed, and a commit for
+  another account, when a full session of the account sends it
+  ([unit record](research/2026-10-13-writes-and-firehose.md) §3). The
+  Candidate refuses both. This is no way into another account. It is worth
+  a report upstream; say whether to send one.
 
 - **`verify` on a staging restore.** Unit 3's gate asks for zero
   differences on a staging restore of production data. The unit had no such
   copy. Run `linkjar-pds verify` on it
   ([unit record](research/2026-10-13-read-only-server.md) §5) and send the
   report; a finding there is a fact about production data that the cutover
-  runbook has to handle.
+  runbook has to handle. With blobs in R2 the blob check needs the store of
+  the first question; without `PDS_BLOBSTORE_DISK_LOCATION` the command
+  checks everything else and says that it skipped the blob store.
 
 - **Imports in production until revision 12 is deployed.** Revision 12 of
   the reference image is published. Until it runs in production, the
