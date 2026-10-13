@@ -76,6 +76,10 @@ pub async fn health(state: &AppState) -> Response {
 pub async fn atproto_did(state: &AppState, headers: &HeaderMap) -> Response {
     // Express sends a string without a type as HTML.
     let not_found = || html(StatusCode::NOT_FOUND, "User not found".to_owned());
+    // Behind an entryway the handles are the entryway's (SPEC §21.3).
+    if state.config().entryway.is_some() {
+        return not_found();
+    }
     let host = headers
         .get(header::HOST)
         .and_then(|value| value.to_str().ok())

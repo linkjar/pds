@@ -393,6 +393,12 @@ pub async fn serve(
             | "/account/unlink"
     ) || (path.starts_with("/account/") && path.ends_with("/manage"));
     state.writes()?;
+    // A member host is a resource server only: its entryway is the
+    // authorization server and has the account pages (SPEC §21.3).
+    if state.config().entryway.is_some() {
+        return (reads && path == "/.well-known/oauth-protected-resource")
+            .then(|| metadata::protected_resource(state));
+    }
     if path.starts_with("/oauth/external/") {
         return external::serve(state, method, path, query, headers, peer, body).await;
     }

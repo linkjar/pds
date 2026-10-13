@@ -120,13 +120,22 @@ fn server_config(config: &Config, jwt_secret: &str, admin_password: &str) -> Ser
             jwt_secret: jwt_secret.as_bytes().to_vec(),
             admin_password: admin_password.to_owned(),
             service_did: config.service_did.clone(),
-            entryway: None,
+            entryway: config.entryway.as_ref().map(|entryway| pds_xrpc::auth::EntrywayAuth {
+                did: entryway.did.clone(),
+                key: entryway.jwt_key,
+            }),
         },
         mail: config.mail.clone(),
         rate_limits: config.rate_limits.clone(),
         oauth: config.oauth.clone(),
         ops_client_ids: config.ops_client_ids.clone(),
         mcp_client_ids: config.mcp_client_ids.clone(),
+        entryway: config.entryway.as_ref().map(|entryway| pds_xrpc::state::Entryway {
+            url: entryway.url.clone(),
+            did: entryway.did.clone(),
+            plc_rotation_key: entryway.plc_rotation_key.clone(),
+            admin_token: entryway.admin_token.clone(),
+        }),
         audit_repo: config.audit_repo.clone(),
         profile: if config.profile == crate::config::ProfileName::Linkjar {
             Arc::new(pds_ext_linkjar::Linkjar {
@@ -136,7 +145,13 @@ fn server_config(config: &Config, jwt_secret: &str, admin_password: &str) -> Ser
             Arc::new(pds_ext::Stock)
         },
         appview_cdn_url_pattern: config.appview_cdn_url_pattern.clone(),
-        identity: config.plc_rotation_key.clone().map(|rotation_key| {
+        // A member host has no rotation key: its entryway signs the PLC
+        // operations. It still knows the directory and its own address.
+        identity: config
+            .plc_rotation_key
+            .clone()
+            .or_else(|| config.entryway.as_ref().map(|_| Vec::new()))
+            .map(|rotation_key| {
             pds_xrpc::state::IdentityConfig {
                 plc_url: config.plc_url.trim_end_matches('/').to_owned(),
                 public_url: config.public_url(),

@@ -153,6 +153,21 @@ pub(crate) struct Request {
     /// deactivated, the server writes nothing to the PLC directory, and
     /// no event goes out until the account is activated.
     pub(crate) brought_did: Option<String>,
+    /// The account as its entryway made it, on a member host (SPEC
+    /// §21.3). Only a server with an entryway sets it.
+    pub(crate) member: Option<Member>,
+}
+
+/// An account that an entryway creates on a member host: the DID, the
+/// signed PLC operation that creates it, and the signing key that the
+/// host reserved for it.
+#[derive(Debug, Clone)]
+pub(crate) struct Member {
+    did: String,
+    operation: Value,
+    key: Vec<u8>,
+    /// The file of the reserved key, which goes when the account exists.
+    reserved: std::path::PathBuf,
 }
 
 /// A new account.
@@ -254,9 +269,92 @@ pub(crate) fn validate(
             legacy_session: true,
             signup: None,
             brought_did: None,
+            member: None,
         },
         did,
     ))
+}
+
+/// Checks the account that an entryway asks a member host to create, as
+/// `validateInputsForEntrywayPds` of the Reference: a DID with the PLC
+/// operation that creates it, signed with the rotation key of the
+/// entryway, for a signing key that this host reserved, with this host as
+/// its PDS.
+fn validate_for_entryway(
+    state: &AppState,
+    entryway: &crate::state::Entryway,
+    input: &Map<String, Value>,
+) -> Result<Request, XrpcError> {
+    let incompatible = |message: &str| refuse("IncompatibleDidDoc", message);
+    let handle = input
+        .get("handle")
+        .and_then(Value::as_str)
+        .ok_or_else(|| XrpcError::invalid_request("Input must have the property \"handle\""))?
+        .to_ascii_lowercase();
+    let (Some(did), Some(operation)) = (
+        input.get("did").and_then(Value::as_str),
+        input.get("plcOp").filter(|op| op.is_object()),
+    ) else {
+        return Err(XrpcError::invalid_request(
+            "non-entryway pds requires bringing a DID and plcOp",
+        ));
+    };
+    let listed = |key: &str| -> Vec<&str> {
+        operation
+            .get(key)
+            .and_then(Value::as_array)
+            .map(|values| values.iter().filter_map(Value::as_str).collect())
+            .unwrap_or_default()
+    };
+    if !listed("rotationKeys").contains(&entryway.plc_rotation_key.as_str()) {
+        return Err(incompatible("PLC DID does not include service rotation key"));
+    }
+    let signed = plc::is_signed_by(operation, &entryway.plc_rotation_key);
+    if !signed || plc::did_of_genesis(operation).as_deref() != Some(did) {
+        return Err(incompatible("invalid plc operation"));
+    }
+    let signing_key = operation
+        .pointer("/verificationMethods/atproto")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let layout = state.layout();
+    let reserved = [layout.reserved_key(did), layout.reserved_key(signing_key)]
+        .into_iter()
+        .find_map(|path| std::fs::read(&path).ok().map(|key| (path, key)));
+    let Some((reserved, key)) = reserved else {
+        return Err(XrpcError::invalid_request("reserved signing key does not exist"));
+    };
+    let keypair =
+        Keypair::from_secret_bytes(Algorithm::Secp256k1, &key).map_err(XrpcError::internal)?;
+    let endpoint = operation
+        .pointer("/services/atproto_pds/endpoint")
+        .and_then(Value::as_str);
+    if keypair.did_key() != signing_key {
+        return Err(incompatible("DID document signing key does not match service-reserved key"));
+    }
+    if endpoint != Some(state.config().public_url().as_str()) {
+        return Err(incompatible("DID document pds endpoint does not match service endpoint"));
+    }
+    if listed("alsoKnownAs").first().copied() != Some(format!("at://{handle}").as_str()) {
+        return Err(incompatible("provided handle does not match DID document handle"));
+    }
+    Ok(Request {
+        handle,
+        email: String::new(),
+        password: None,
+        invite_code: None,
+        recovery_key: None,
+        external: None,
+        legacy_session: false,
+        signup: None,
+        brought_did: None,
+        member: Some(Member {
+            did: did.to_owned(),
+            operation: operation.clone(),
+            key,
+            reserved,
+        }),
+    })
 }
 
 pub(crate) fn identity(state: &AppState) -> Result<&IdentityConfig, XrpcError> {
@@ -318,6 +416,24 @@ pub async fn create_account(
     body: &mut Option<Body>,
 ) -> Result<Response, XrpcError> {
     let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
+    // A member host creates the accounts that its entryway made, and no
+    // other (SPEC §21.3).
+    if let Some(entryway) = state.config().entryway.clone() {
+        let request = {
+            let input = input.clone();
+            state
+                .blocking(move |state| validate_for_entryway(state, &entryway, &input))
+                .await?
+        };
+        let created = create(state, request).await?;
+        crate::audit::set_subject(&created.did);
+        // The entryway opens the session: this host signs no token.
+        let out = serde_json::json!({
+            "handle": created.handle, "did": created.did,
+            "accessJwt": "", "refreshJwt": "",
+        });
+        return Ok(json_response(StatusCode::OK, &out));
+    }
     crate::ratelimit::route(
         state,
         &[(
@@ -381,7 +497,56 @@ pub async fn create_account(
 
 /// Creates the account of a checked request: the identity, the store, the
 /// rows and the events.
+/// Creates the account that an entryway made: the host has its signing
+/// key, and the entryway signed its PLC operation.
+async fn create_for_entryway(
+    state: &AppState,
+    request: Request,
+    member: &Member,
+) -> Result<Created, XrpcError> {
+    let identity = identity(state)?.clone();
+    let keypair = Keypair::from_secret_bytes(Algorithm::Secp256k1, &member.key)
+        .map_err(XrpcError::internal)?;
+    let genesis = plc::Genesis {
+        did: member.did.clone(),
+        operation: member.operation.clone(),
+    };
+    let now = pds_sequencer::iso_millis(state.now_ms());
+    let commit = {
+        let (did, now) = (member.did.clone(), now.clone());
+        state
+            .blocking(move |state| create_store(state, &did, &keypair, &now))
+            .await?
+    };
+    let created = finish(
+        state,
+        &identity,
+        &request,
+        &member.did,
+        Some(&genesis),
+        &commit,
+        &now,
+    )
+    .await;
+    let (did, reserved, failed) = (member.did.clone(), member.reserved.clone(), created.is_err());
+    let _ = state
+        .blocking(move |state| {
+            if failed {
+                destroy_store(state, &did);
+            } else {
+                // The key is the account's now.
+                let _ = std::fs::remove_file(&reserved);
+            }
+            Ok(())
+        })
+        .await;
+    created
+}
+
 pub(crate) async fn create(state: &AppState, request: Request) -> Result<Created, XrpcError> {
+    if let Some(member) = request.member.clone() {
+        return create_for_entryway(state, request, &member).await;
+    }
     let identity = identity(state)?.clone();
     let writes = writes(state)?;
     let signer = Keypair::from_secret_bytes(Algorithm::Secp256k1, &identity.rotation_key)

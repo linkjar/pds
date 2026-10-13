@@ -143,7 +143,7 @@ const KNOWN: &[&str] = &[
 /// The families that Appendix C names with a `*`.
 const KNOWN_PREFIXES: &[&str] = &["PDS_BLOBSTORE_S3_", "PDS_PROXY_", "PDS_AUDIT_KEY_"];
 
-/// The entryway variables: "Refused until the entryway unit ships".
+/// The variables of a member host behind an entryway (SPEC §21.3).
 const ENTRYWAY: &[&str] = &[
     "PDS_ENTRYWAY_URL",
     "PDS_ENTRYWAY_DID",
@@ -152,9 +152,35 @@ const ENTRYWAY: &[&str] = &[
     "PDS_ENTRYWAY_ADMIN_TOKEN",
 ];
 
+/// The entryway of a member host.
+#[derive(Clone)]
+pub struct EntrywayConfig {
+    /// `PDS_ENTRYWAY_URL`, without a slash at its end.
+    pub url: String,
+    /// `PDS_ENTRYWAY_DID`.
+    pub did: String,
+    /// `PDS_ENTRYWAY_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX`: the key that
+    /// signs the tokens of the entryway.
+    pub jwt_key: pds_identity::PublicKey,
+    /// `PDS_ENTRYWAY_PLC_ROTATION_KEY`: a `did:key`.
+    pub plc_rotation_key: String,
+    /// `PDS_ENTRYWAY_ADMIN_TOKEN`.
+    pub admin_token: Option<String>,
+}
+
+impl std::fmt::Debug for EntrywayConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EntrywayConfig")
+            .field("url", &self.url)
+            .field("did", &self.did)
+            .finish_non_exhaustive()
+    }
+}
+
 /// Whether Appendix C names the variable.
 fn is_known(name: &str) -> bool {
     KNOWN.contains(&name)
+        || ENTRYWAY.contains(&name)
         || KNOWN_PREFIXES
             .iter()
             .any(|prefix| name.starts_with(prefix))
@@ -169,9 +195,7 @@ fn is_known(name: &str) -> bool {
 
 /// Why Appendix C refuses the variable, when it does.
 fn refusal(name: &str) -> Option<&'static str> {
-    if ENTRYWAY.contains(&name) {
-        Some("this version has no entryway mode")
-    } else if name.starts_with("PDS_REDIS_SCRATCH_") {
+    if name.starts_with("PDS_REDIS_SCRATCH_") {
         Some("version 1 has no Redis scratch store")
     } else {
         None
@@ -265,6 +289,8 @@ pub struct Config {
     /// `PDS_MCP_CLIENT_IDS`: the OAuth client ids of the MCP sidecars of
     /// this server, separated by commas (SPEC §22.2).
     pub mcp_client_ids: Vec<String>,
+    /// The entryway, when the server is a member host (SPEC §21.3).
+    pub entryway: Option<EntrywayConfig>,
     /// `PDS_PROFILE` (SPEC §12.1).
     pub profile: ProfileName,
     /// `PDS_EXTERNAL_<PROVIDER>_CLIENT_ID` and `_CLIENT_SECRET`, for the
@@ -605,6 +631,61 @@ impl Env<'_> {
         Ok(Some(pds_storage::SharedTier::new(target, &prefix)))
     }
 
+    /// The entryway of a member host. With `PDS_ENTRYWAY_URL` the DID, the
+    /// key of the tokens and the PLC rotation key are required, as in the
+    /// Reference.
+    fn entryway(&self) -> Result<Option<EntrywayConfig>, ConfigError> {
+        const URL: &str = "PDS_ENTRYWAY_URL";
+        const KEY: &str = "PDS_ENTRYWAY_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX";
+        let Some(url) = self.text(URL) else {
+            return Ok(None);
+        };
+        let all = (
+            self.text("PDS_ENTRYWAY_DID"),
+            self.text(KEY),
+            self.text("PDS_ENTRYWAY_PLC_ROTATION_KEY"),
+        );
+        let (Some(did), Some(key), Some(plc_rotation_key)) = all else {
+            return Err(ConfigError::Refused {
+                name: URL.to_owned(),
+                reason: "if entryway url is configured, must include all required entryway configuration",
+            });
+        };
+        let invalid = |name, value: &str, reason| ConfigError::Invalid {
+            name,
+            value: value.to_owned(),
+            reason,
+        };
+        if !(url.starts_with("https://") || url.starts_with("http://")) {
+            return Err(invalid(URL, &url, "expected an http or https URL"));
+        }
+        if did.parse::<pds_types::Did>().is_err() {
+            return Err(invalid("PDS_ENTRYWAY_DID", &did, "expected a DID"));
+        }
+        if !plc_rotation_key.starts_with("did:key:") {
+            return Err(invalid(
+                "PDS_ENTRYWAY_PLC_ROTATION_KEY",
+                &plc_rotation_key,
+                "expected a did:key",
+            ));
+        }
+        let jwt_key = data_encoding::HEXLOWER_PERMISSIVE
+            .decode(key.as_bytes())
+            .ok()
+            .and_then(|bytes| {
+                pds_identity::PublicKey::from_sec1_bytes(pds_identity::Algorithm::Secp256k1, &bytes)
+                    .ok()
+            })
+            .ok_or_else(|| invalid(KEY, &key, "expected a secp256k1 public key in hexadecimal"))?;
+        Ok(Some(EntrywayConfig {
+            url: url.trim_end_matches('/').to_owned(),
+            did,
+            jwt_key,
+            plc_rotation_key,
+            admin_token: self.text("PDS_ENTRYWAY_ADMIN_TOKEN"),
+        }))
+    }
+
     /// The values of a variable that holds a list with commas.
     fn list(&self, name: &'static str) -> Vec<String> {
         self.text(name)
@@ -842,6 +923,7 @@ impl Config {
                 .transpose()?,
             ops_client_ids: env.list("PDS_OPS_CLIENT_IDS"),
             mcp_client_ids: env.list("PDS_MCP_CLIENT_IDS"),
+            entryway: env.entryway()?,
             profile: env.profile()?,
             external_providers: env.external_providers()?,
             oauth: env.oauth()?,

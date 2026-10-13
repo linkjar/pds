@@ -68,6 +68,34 @@ pub struct ServerConfig {
     /// `PDS_BSKY_APP_VIEW_CDN_URL_PATTERN`: the URL of an image, with `%s`
     /// for the preset, the DID and the CID.
     pub appview_cdn_url_pattern: Option<String>,
+    /// The entryway of this member host (SPEC §21.3). `None`: the server
+    /// keeps its accounts itself.
+    pub entryway: Option<Entryway>,
+}
+
+/// The entryway of a member host: the service that owns the credentials
+/// and the sessions of its accounts.
+#[derive(Clone)]
+pub struct Entryway {
+    /// `PDS_ENTRYWAY_URL`.
+    pub url: String,
+    /// `PDS_ENTRYWAY_DID`.
+    pub did: String,
+    /// `PDS_ENTRYWAY_PLC_ROTATION_KEY`: the `did:key` that signs the PLC
+    /// operation of a new account.
+    pub plc_rotation_key: String,
+    /// `PDS_ENTRYWAY_ADMIN_TOKEN`: the admin password of the entryway,
+    /// for the admin methods the server passes on.
+    pub admin_token: Option<String>,
+}
+
+impl std::fmt::Debug for Entryway {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Entryway")
+            .field("url", &self.url)
+            .field("did", &self.did)
+            .finish_non_exhaustive()
+    }
 }
 
 /// What the server needs to create and change `did:plc` identities.

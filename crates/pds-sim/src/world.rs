@@ -207,6 +207,7 @@ async fn start(
         oauth: pds_xrpc::oauth::OAuthConfig::default(),
         ops_client_ids: Vec::new(),
         mcp_client_ids: Vec::new(),
+        entryway: None,
         audit_repo: None,
         profile: std::sync::Arc::new(pds_xrpc::ext::Stock),
         appview_cdn_url_pattern: None,

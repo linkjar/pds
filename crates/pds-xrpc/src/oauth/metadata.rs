@@ -54,11 +54,16 @@ pub fn authorization_server(state: &AppState) -> Response {
 /// `GET /.well-known/oauth-protected-resource`.
 pub fn protected_resource(state: &AppState) -> Response {
     let issuer = issuer(state);
+    let authorization_server = state
+        .config()
+        .entryway
+        .as_ref()
+        .map_or_else(|| issuer.clone(), |entryway| entryway.url.clone());
     answer(
         StatusCode::OK,
         &json!({
             "resource": issuer,
-            "authorization_servers": [issuer],
+            "authorization_servers": [authorization_server],
             "scopes_supported": [],
             "bearer_methods_supported": ["header"],
             "resource_documentation": "https://atproto.com",

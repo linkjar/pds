@@ -3,6 +3,7 @@
 pub mod account;
 pub mod admin;
 pub mod email;
+pub mod entryway;
 pub mod identity;
 pub mod import;
 pub mod invites;
@@ -698,6 +699,12 @@ async fn xrpc(
     headers: &HeaderMap,
     body: &mut Option<Body>,
 ) -> Result<Response, XrpcError> {
+    // A member host passes the methods of its entryway on (SPEC §21.3).
+    if let Some(entryway) = &state.config().entryway
+        && entryway::is_forwarded(nsid)
+    {
+        return entryway::forward(state, entryway, nsid, method, raw_query, headers, body).await;
+    }
     // The methods of the profile exist in that profile only (EX-7).
     if state.writes().is_some()
         && let Some(response) = linkjar::serve(state, nsid, method, headers).await
