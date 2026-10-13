@@ -145,6 +145,7 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
             service_did: config.service_did.clone(),
         },
         mail: config.mail.clone(),
+        rate_limits: config.rate_limits.clone(),
         identity: config.plc_rotation_key.clone().map(|rotation_key| {
             pds_xrpc::state::IdentityConfig {
                 plc_url: config.plc_url.trim_end_matches('/').to_owned(),
@@ -296,12 +297,15 @@ pub async fn serve_until(
 ) -> Result<(), ServeError> {
     let stopping = Arc::new(Notify::new());
     let told = Arc::clone(&stopping);
-    let server = axum::serve(listener, pds_xrpc::router(state))
-        .with_graceful_shutdown(async move {
-            stop.await;
-            told.notify_one();
-        })
-        .into_future();
+    let server = axum::serve(
+        listener,
+        pds_xrpc::router(state).into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .with_graceful_shutdown(async move {
+        stop.await;
+        told.notify_one();
+    })
+    .into_future();
     // The limit starts when the server is told to stop, not when it starts.
     let expired = async {
         stopping.notified().await;

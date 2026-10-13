@@ -334,6 +334,24 @@ pub async fn update_handle(
             .await?;
     }
     let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
+    {
+        use crate::ratelimit::{Key, of_route, route};
+        route(
+            state,
+            &[
+                (
+                    of_route("com.atproto.identity.updateHandle-0", 300, 10),
+                    Key::Text(&did),
+                    1,
+                ),
+                (
+                    of_route("com.atproto.identity.updateHandle-1", 86_400, 50),
+                    Key::Text(&did),
+                    1,
+                ),
+            ],
+        )?;
+    }
     let given = body::string(&input, "handle", true, Format::Handle, None, "$")?
         .unwrap_or_default()
         .to_owned();
@@ -467,6 +485,12 @@ pub async fn request_account_delete(
     headers: &HeaderMap,
 ) -> Result<Response, XrpcError> {
     let did = session(state, headers, Some(auth::ACCESS_FULL))?;
+    crate::ratelimit::mail_request(
+        state,
+        "com.atproto.server.requestAccountDelete-0",
+        "com.atproto.server.requestAccountDelete-1",
+        &did,
+    )?;
     let email = {
         let did = did.clone();
         state
@@ -499,6 +523,14 @@ pub async fn delete_account(
     body: &mut Option<Body>,
 ) -> Result<Response, XrpcError> {
     let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
+    crate::ratelimit::route(
+        state,
+        &[(
+            crate::ratelimit::of_route("com.atproto.server.deleteAccount-0", 300, 50),
+            crate::ratelimit::Key::Ip,
+            1,
+        )],
+    )?;
     let text = |key: &str, format: Format| {
         body::string(&input, key, true, format, None, "$")
             .map(|value| value.unwrap_or_default().to_owned())

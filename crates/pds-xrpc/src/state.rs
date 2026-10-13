@@ -50,6 +50,8 @@ pub struct ServerConfig {
     pub identity: Option<IdentityConfig>,
     /// How the server sends mail and what its mails look like.
     pub mail: crate::mail::MailConfig,
+    /// The settings of the rate limits.
+    pub rate_limits: crate::ratelimit::RateLimitConfig,
 }
 
 /// What the server needs to create and change `did:plc` identities.
@@ -252,6 +254,7 @@ struct Inner {
     resolver: DidResolver,
     http: reqwest::Client,
     writes: Option<WriteState>,
+    limiter: crate::ratelimit::Limiter,
     now_ms: Box<dyn Fn() -> i64 + Send + Sync>,
 }
 
@@ -285,9 +288,15 @@ impl AppState {
                 resolver,
                 http,
                 writes,
+                limiter: crate::ratelimit::Limiter::default(),
                 now_ms: Box::new(now_ms),
             }),
         }
+    }
+
+    /// The buckets of the rate limits.
+    pub fn limiter(&self) -> &crate::ratelimit::Limiter {
+        &self.inner.limiter
     }
 
     /// The configuration.

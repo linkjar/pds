@@ -226,6 +226,9 @@ pub struct Config {
     pub recovery_did_key: Option<String>,
     /// The mail settings: `PDS_EMAIL_*` and the branding variables.
     pub mail: pds_xrpc::mail::MailConfig,
+    /// `PDS_RATE_LIMITS_ENABLED`, `PDS_RATE_LIMIT_BYPASS_KEY` and
+    /// `PDS_RATE_LIMIT_BYPASS_IPS`.
+    pub rate_limits: pds_xrpc::ratelimit::RateLimitConfig,
     /// `PDS_JWT_SECRET`.
     pub jwt_secret: Option<String>,
     /// `PDS_ADMIN_PASSWORD`.
@@ -368,6 +371,24 @@ impl Env<'_> {
                 .unwrap_or(Duration::from_secs(20)),
             request_timeout: positive("PDS_BLOBSTORE_S3_REQUEST_TIMEOUT_MS")?,
         }))
+    }
+
+    /// The settings of the rate limits. They run unless
+    /// `PDS_RATE_LIMITS_ENABLED` says otherwise, as at the pin.
+    fn rate_limits(&self) -> Result<pds_xrpc::ratelimit::RateLimitConfig, ConfigError> {
+        Ok(pds_xrpc::ratelimit::RateLimitConfig {
+            enabled: self.boolean("PDS_RATE_LIMITS_ENABLED")?.unwrap_or(false),
+            bypass_key: self.text("PDS_RATE_LIMIT_BYPASS_KEY"),
+            bypass_ips: self
+                .text("PDS_RATE_LIMIT_BYPASS_IPS")
+                .map(|list| {
+                    list.split(',')
+                        .map(|ip| ip.trim().to_owned())
+                        .filter(|ip| !ip.is_empty())
+                        .collect()
+                })
+                .unwrap_or_default(),
+        })
     }
 
     /// A service the server sends requests to: its URL and its DID.
@@ -555,6 +576,7 @@ impl Config {
             plc_rotation_key: env.rotation_key()?,
             recovery_did_key: env.text("PDS_RECOVERY_DID_KEY"),
             mail: env.mail()?,
+            rate_limits: env.rate_limits()?,
             jwt_secret: env.text("PDS_JWT_SECRET"),
             admin_password: env.text("PDS_ADMIN_PASSWORD"),
             plc_url: env

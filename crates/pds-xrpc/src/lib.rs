@@ -14,6 +14,7 @@ pub mod error;
 pub mod mail;
 pub mod params;
 pub mod password;
+pub mod ratelimit;
 pub mod service_auth;
 pub mod state;
 pub mod stream;

@@ -372,22 +372,59 @@ pub async fn entry(State(state): State<AppState>, request: axum::extract::Reques
             .into_response();
     }
     let mut body = Some(body);
-    let response = xrpc(
-        &state,
-        nsid,
-        &method,
-        uri.query(),
-        &parts.headers,
-        &mut body,
-    )
-    .await
-    .unwrap_or_else(IntoResponse::into_response);
-    // A handler that answered without reading the body left it here.
-    if let Some(unread) = body {
-        crate::body::drain(unread).await;
-    }
-    response
+    let peer = parts
+        .extensions
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        .map(|info| info.0.ip());
+    let served = async {
+        let limited = if ROUTES_WITH_LIMITS.contains(&nsid) {
+            Ok(())
+        } else {
+            crate::ratelimit::route(&state, &[])
+        };
+        let response = match limited {
+            Ok(()) => xrpc(
+                &state,
+                nsid,
+                &method,
+                uri.query(),
+                &parts.headers,
+                &mut body,
+            )
+            .await
+            .unwrap_or_else(IntoResponse::into_response),
+            Err(refusal) => refusal.into_response(),
+        };
+        // A handler that answered without reading the body left it here.
+        if let Some(unread) = body {
+            crate::body::drain(unread).await;
+        }
+        response
+    };
+    crate::ratelimit::scope(&state, &parts.headers, peer, served).await
 }
+
+/// The methods with limiters of their own. Each spends its points, and the
+/// point of the address bucket, after its credential and its input are
+/// read. Every other method spends the point of the address bucket when
+/// it arrives.
+const ROUTES_WITH_LIMITS: &[&str] = &[
+    "com.atproto.sync.getRepo",
+    "com.atproto.server.createAccount",
+    "com.atproto.server.createSession",
+    "com.atproto.server.requestPasswordReset",
+    "com.atproto.server.resetPassword",
+    "com.atproto.server.deleteAccount",
+    "com.atproto.server.requestEmailConfirmation",
+    "com.atproto.server.requestEmailUpdate",
+    "com.atproto.server.requestAccountDelete",
+    "com.atproto.identity.updateHandle",
+    "com.atproto.repo.uploadBlob",
+    "com.atproto.repo.createRecord",
+    "com.atproto.repo.putRecord",
+    "com.atproto.repo.deleteRecord",
+    "com.atproto.repo.applyWrites",
+];
 
 /// Runs a procedure.
 // A table: one arm for each procedure the crate serves.

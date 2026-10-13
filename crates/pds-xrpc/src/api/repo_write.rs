@@ -108,6 +108,7 @@ pub async fn create_record(
 ) -> Result<Response, XrpcError> {
     let caller = session(state, headers, None)?;
     let input = body::read_json(headers, body, JSON_LIMIT).await?;
+    crate::ratelimit::repo_write(state, &caller, 3)?;
     let repo = body::string(&input, "repo", true, Format::AtIdentifier, None, "$")?
         .unwrap_or_default()
         .to_owned();
@@ -182,6 +183,7 @@ pub async fn put_record(
 ) -> Result<Response, XrpcError> {
     let caller = session(state, headers, None)?;
     let input = body::read_json(headers, body, JSON_LIMIT).await?;
+    crate::ratelimit::repo_write(state, &caller, 2)?;
     let repo = body::string(&input, "repo", true, Format::AtIdentifier, None, "$")?
         .unwrap_or_default()
         .to_owned();
@@ -241,6 +243,7 @@ pub async fn delete_record(
 ) -> Result<Response, XrpcError> {
     let caller = session(state, headers, None)?;
     let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
+    crate::ratelimit::repo_write(state, &caller, 1)?;
     let repo = body::string(&input, "repo", true, Format::AtIdentifier, None, "$")?
         .unwrap_or_default()
         .to_owned();
@@ -360,6 +363,7 @@ pub async fn apply_writes(
 ) -> Result<Response, XrpcError> {
     let caller = session(state, headers, None)?;
     let input = body::read_json(headers, body, JSON_LIMIT).await?;
+    crate::ratelimit::repo_write(state, &caller, crate::ratelimit::batch_points(&input))?;
     let repo = body::string(&input, "repo", true, Format::AtIdentifier, None, "$")?
         .unwrap_or_default()
         .to_owned();
@@ -473,11 +477,21 @@ fn staging_key(writes: &WriteState) -> String {
 /// The account that uploads: a session, or a service token that the
 /// account's key signed for this method.
 async fn uploader(state: &AppState, headers: &HeaderMap) -> Result<String, XrpcError> {
-    if crate::service_auth::is_service_token(headers) {
-        crate::service_auth::verify(state, headers, "com.atproto.repo.uploadBlob").await
+    let caller = if crate::service_auth::is_service_token(headers) {
+        crate::service_auth::verify(state, headers, "com.atproto.repo.uploadBlob").await?
     } else {
-        session(state, headers, None)
-    }
+        session(state, headers, None)?
+    };
+    // 1,000 uploads a day from one address.
+    crate::ratelimit::route(
+        state,
+        &[(
+            crate::ratelimit::of_route("com.atproto.repo.uploadBlob-0", 86_400, 1000),
+            crate::ratelimit::Key::Ip,
+            1,
+        )],
+    )?;
+    Ok(caller)
 }
 
 /// `com.atproto.repo.uploadBlob`.
