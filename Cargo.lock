@@ -1460,6 +1460,14 @@ version = "0.0.1"
 [[package]]
 name = "pds-audit"
 version = "0.0.1"
+dependencies = [
+ "base64 0.22.1",
+ "pds-types",
+ "ring",
+ "serde_json",
+ "sha2",
+ "thiserror",
+]
 
 [[package]]
 name = "pds-blob"
