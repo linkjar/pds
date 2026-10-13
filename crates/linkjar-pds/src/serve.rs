@@ -9,6 +9,7 @@ use pds_identity::{DidCache, DidResolver, ResolverConfig};
 use pds_storage::DidCacheDb;
 use pds_xrpc::auth::AuthConfig;
 use pds_xrpc::{AppState, ServerConfig};
+use socket2::{Domain, Protocol, Socket, Type};
 use tokio::net::TcpListener;
 use tokio::sync::Notify;
 
@@ -127,17 +128,37 @@ pub const SHUTDOWN_LIMIT: Duration = Duration::from_secs(8);
 
 /// Binds the listener of `serve` on every address of the host.
 ///
-/// It binds the IPv6 wildcard first. That socket also accepts IPv4 where the
-/// system leaves `IPV6_V6ONLY` off, which is the default on Linux. When the
-/// bind fails, as on a host without IPv6, it binds the IPv4 wildcard.
-async fn bind(port: u16) -> std::io::Result<TcpListener> {
-    match TcpListener::bind(SocketAddr::from((Ipv6Addr::UNSPECIFIED, port))).await {
-        Ok(listener) => Ok(listener),
+/// It binds the IPv6 wildcard with `IPV6_V6ONLY` off, so the one socket
+/// accepts IPv4 too, whatever the system default is. On a host without
+/// IPv6 it binds the IPv4 wildcard. Any other failure, an address in use
+/// among them, is the caller's error.
+fn bind(port: u16) -> std::io::Result<TcpListener> {
+    let open = |domain: Domain, address: SocketAddr| -> std::io::Result<Socket> {
+        let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
+        if domain == Domain::IPV6 {
+            socket.set_only_v6(false)?;
+        }
+        socket.set_reuse_address(true)?;
+        socket.set_nonblocking(true)?;
+        socket.bind(&address.into())?;
+        socket.listen(1024)?;
+        Ok(socket)
+    };
+    let socket = match open(
+        Domain::IPV6,
+        SocketAddr::from((Ipv6Addr::UNSPECIFIED, port)),
+    ) {
+        Ok(socket) => socket,
+        Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => return Err(error),
         Err(error) => {
             tracing::warn!(%error, "the IPv6 wildcard did not bind; listening on IPv4 only");
-            TcpListener::bind(SocketAddr::from((Ipv4Addr::UNSPECIFIED, port))).await
+            open(
+                Domain::IPV4,
+                SocketAddr::from((Ipv4Addr::UNSPECIFIED, port)),
+            )?
         }
-    }
+    };
+    TcpListener::from_std(socket.into())
 }
 
 /// Serves until the process is told to stop.
@@ -146,7 +167,7 @@ pub async fn serve(config: &Config) -> Result<(), ServeError> {
         tracing::warn!(variable = %name, "unknown variable: SPEC Appendix C does not name it");
     }
     let state = app_state(config)?;
-    let listener = bind(config.port).await?;
+    let listener = bind(config.port)?;
     let address = listener.local_addr()?;
     tracing::info!(%address, did = %config.service_did, "serving");
     serve_until(listener, state, shutdown(), SHUTDOWN_LIMIT).await
@@ -177,7 +198,7 @@ pub async fn serve_until(
         result = server => result?,
         () = expired => tracing::warn!(
             limit_ms = u64::try_from(limit.as_millis()).unwrap_or(u64::MAX),
-            "connections were still open at the shutdown limit; they are closed"
+            "connections were still open at the shutdown limit; the process ends without them"
         ),
     }
     tracing::info!("stopped");

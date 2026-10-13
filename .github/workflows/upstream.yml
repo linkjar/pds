@@ -72,8 +72,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # Explicit dispatch runs with GITHUB_TOKEN. This fixed non-main ref can
         # run verify, but the build workflow's main-only publish guard rejects it.
-        # The parity harness, the restore run and the Rust gates also read
-        # upstream.json.
+        # A pull request that GITHUB_TOKEN opened starts no workflow, so each
+        # one is dispatched to put its checks on the bump commit. The parity
+        # harness and the restore run read upstream.json; the Rust gates do
+        # not, and their dispatch also runs the advisories job.
         run: |
           set -euo pipefail
           for workflow in build.yml parity.yml restore.yml rust.yml; do
