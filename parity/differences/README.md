@@ -13,7 +13,7 @@ recorded difference that no longer appears.
 | `reference` against `stock` (the production build against the `PATCH_PROFILE=none` build) | [reference-vs-stock.json](reference-vs-stock.json) | 47, in the five groups below. |
 | `stock` against `official` (the `PATCH_PROFILE=none` build against the upstream distribution `ghcr.io/bluesky-social/pds`) | none | None is allowed: the two are different packagings of the same package version. |
 | The Reference against the Candidate on one data directory (`pnpm parity restore`) | none | None is allowed: both servers read the same bytes, and bodies are also compared by hash. |
-| `reference` against `candidate`, each on its own stack | `reference-vs-candidate.json`, written when the Candidate first answers the write scenarios (unit 4) | The deliberate differences [below](#the-reference-against-the-candidate), and no others. |
+| The Reference against the Candidate, each on a data directory the Reference started (`pnpm parity writes`) | [reference-vs-candidate.json](reference-vs-candidate.json) | DIFF_COUNT, in the seven groups [below](#the-reference-against-the-candidate). |
 
 Regenerate a file with `--update` after a change that is meant to move it,
 and review the result like code.
@@ -54,23 +54,27 @@ steps the page driver took.
 
 ## The Reference against the Candidate
 
-The Candidate does not answer the write scenarios yet, so it has no
-transcript of its own stack (unit 4). When it does, its comparison with the
-Reference on separate stacks may show the deliberate differences of SPEC
-§2.3 and nothing else. Each one is one step of one scenario.
+`pnpm parity writes` runs the write and firehose scenarios on each server
+([Harness README](../README.md#the-writes-run)). The differences are the
+deliberate differences of SPEC §2.3 that these scenarios reach, and one
+difference in the wording of a refusal.
 
-| Id | Scenario | Step | Reference | Candidate |
-|---|---|---|---|---|
-| DD-1 | `default/03-repo-writes` | createRecord with a key that exists | 500 `InternalServerError` | 400 `InvalidRequest` |
-| DD-2 | `default/03-repo-writes` | applyWrites with one invalid operation | 500 `InternalServerError` | 400 `InvalidRequest` |
-| DD-3 | `default/02-sessions` | createAppPassword with a used name | 500 `InternalServerError` | 400 `InvalidRequest` |
-| DD-4 | `default/08-proxy` | proxy target that is not a DID | 500 `InternalServerError` | 400 `InvalidRequest` |
-| DD-5 | `default/08-proxy` | uploadBlob with the same service token again | 200 | 401 `BadJwt` |
+| Difference | Scenario | Entries | What differs |
+|---|---|---|---|
+| DD-1 | `default/03-repo-writes`, "createRecord with a key that exists" | 3 | The Reference answers 500 `InternalServerError`; the Candidate answers 400 `InvalidRequest`, "Record already exists". |
+| DD-2 | `default/03-repo-writes`, "applyWrites with one invalid operation" | 3 | The same, for a batch that creates a key that exists. |
+| DD-15 | `default/15-import`, "importRepo of bytes that are not a CAR" | 3 | The Reference answers 500; the Candidate answers 400 `InvalidRequest`. |
+| DD-7 | `writes/22-elsewhere`, three steps | 8 | A key at the wrong layer and keys out of order across nodes: the Reference answers 200 and replaces the repository; the Candidate answers 400 and keeps it. An empty node below the root: 500 against 400, and both keep the repository. |
+| DD-8 | `writes/22-elsewhere`, three steps | 9 | Map keys out of canonical order, a float with a whole value, and `undefined` in a record block: the Reference answers 200 and replaces the repository; the Candidate answers 400. |
+| DD-14 | `writes/22-elsewhere`, two steps | 6 | A commit that another key signed, and a commit for another account: the Reference answers 200 and replaces the repository; the Candidate answers 400. |
+| DD-9 | `writes/22-elsewhere`, two steps | 4 | A record that references a blob with size zero, and one with an empty media type: the Reference answers 200; the Candidate answers 400 `InvalidRequest`. |
+| Wording | `default/15-import`, "importRepo of a tree that shares nodes" | 1 | Both answer 400 `InvalidRequest`. The tree also hangs a subtree below layer zero; the Reference names the shared node and the Candidate the subtree. |
 
-SPEC §2.3 also lists DD-6 and DD-7 to DD-13. DD-6 shows against the stock
-build only: the production Reference, with patch 104, answers as the
-Candidate. It is recorded in [reference-vs-stock.json](reference-vs-stock.json).
-The scenario steps of DD-7 to DD-13 are named here when units 4, 5 and 8 add
-them.
+DD-3 to DD-5 need the endpoints of unit 5. DD-6 does not show here: the
+production Reference carries upstream's fix and agrees with the Candidate.
+DD-10 cannot be observed in a run that does not last an hour (SPEC §2.3).
 
-The owner decided DD-1 to DD-5 on 2026-10-09 ([plan.md](../../docs/plan.md#decisions-taken-2026-10-09)).
+The scenarios do not reach the account events of the firehose, rate
+limits, OAuth and service tokens, or the proxy. The Candidate does not have
+them yet ([unit record](../../docs/research/2026-10-13-writes-and-firehose.md)
+§6), and no difference file can show what no scenario asks.

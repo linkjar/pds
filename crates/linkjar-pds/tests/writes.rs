@@ -520,6 +520,24 @@ async fn an_upload_waits_for_a_record_and_goes_with_its_last_reference() {
         "Request encoding (Content-Type) required but not provided"
     );
 
+    // One byte over the limit: the client receives the refusal, because the
+    // server reads the body to its end before it answers.
+    let too_large = upload(vec![b'x'; 5 * 1024 * 1024 + 1]).await;
+    assert_eq!(too_large.error(), (413, "PayloadTooLarge".to_owned()));
+    let anonymous = server
+        .send(
+            server
+                .http
+                .post(format!(
+                    "{}/xrpc/com.atproto.repo.uploadBlob",
+                    server.origin
+                ))
+                .header("content-type", "text/plain")
+                .body(vec![b'x'; 3 * 1024 * 1024]),
+        )
+        .await;
+    assert_eq!(anonymous.error(), (401, "AuthMissing".to_owned()));
+
     // A record that states another size is refused.
     let mut wrong = blob.clone();
     wrong["size"] = json!(1);

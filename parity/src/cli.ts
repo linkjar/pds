@@ -8,7 +8,7 @@
 //   pnpm parity compare <left> <right> [--update]
 //   pnpm parity images build-candidate
 //   pnpm parity restore [--keep] [--perf]
-//   pnpm parity writes [--keep] [--update] [--only=<stage>]
+//   pnpm parity writes [--keep] [--update] [--only=<stage>] [--perf]
 //   pnpm parity perf report <target>
 
 import { spawnSync } from 'node:child_process'
@@ -133,7 +133,7 @@ async function main(): Promise<void> {
   if (group === 'writes') {
     const args = [command ?? '', ...rest]
     const only = args.find((arg) => arg.startsWith('--only='))?.slice('--only='.length)
-    process.exit(await writes({ keep: args.includes('--keep'), update: args.includes('--update'), only }))
+    process.exit(await writes({ keep: args.includes('--keep'), update: args.includes('--update'), only, perf: args.includes('--perf') }))
   }
   if (group === 'compare') {
     process.exit(compare(target(command), target(rest[0]), { update: rest.includes('--update') }))

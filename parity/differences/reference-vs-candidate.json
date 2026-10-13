@@ -1,0 +1,303 @@
+[
+  {
+    "scenario": "writes/03-repo-writes",
+    "step": "createRecord with a key that exists",
+    "path": "body.error",
+    "left": "InternalServerError",
+    "right": "InvalidRequest"
+  },
+  {
+    "scenario": "writes/03-repo-writes",
+    "step": "createRecord with a key that exists",
+    "path": "body.message",
+    "left": "Internal Server Error",
+    "right": "Record already exists: app.bsky.feed.post/<tid:3>"
+  },
+  {
+    "scenario": "writes/03-repo-writes",
+    "step": "createRecord with a key that exists",
+    "path": "status",
+    "left": 500,
+    "right": 400
+  },
+  {
+    "scenario": "writes/03-repo-writes",
+    "step": "applyWrites with one invalid operation",
+    "path": "body.error",
+    "left": "InternalServerError",
+    "right": "InvalidRequest"
+  },
+  {
+    "scenario": "writes/03-repo-writes",
+    "step": "applyWrites with one invalid operation",
+    "path": "body.message",
+    "left": "Internal Server Error",
+    "right": "Record already exists: app.bsky.feed.post/<tid:15>"
+  },
+  {
+    "scenario": "writes/03-repo-writes",
+    "step": "applyWrites with one invalid operation",
+    "path": "status",
+    "left": 500,
+    "right": 400
+  },
+  {
+    "scenario": "writes/05-blobs",
+    "step": "uploadBlob one byte over the limit",
+    "path": "body",
+    "left": {
+      "error": "PayloadTooLarge",
+      "message": "request entity too large"
+    },
+    "right": ""
+  },
+  {
+    "scenario": "writes/05-blobs",
+    "step": "uploadBlob one byte over the limit",
+    "path": "headers.access-control-allow-origin",
+    "left": "*"
+  },
+  {
+    "scenario": "writes/05-blobs",
+    "step": "uploadBlob one byte over the limit",
+    "path": "headers.content-type",
+    "left": "application/json; charset=utf-8"
+  },
+  {
+    "scenario": "writes/05-blobs",
+    "step": "uploadBlob one byte over the limit",
+    "path": "status",
+    "left": 413,
+    "right": 502
+  },
+  {
+    "scenario": "writes/05-blobs",
+    "step": "over the limit",
+    "path": "note.error",
+    "left": "PayloadTooLarge"
+  },
+  {
+    "scenario": "writes/05-blobs",
+    "step": "over the limit",
+    "path": "note.status",
+    "left": 413,
+    "right": 502
+  },
+  {
+    "scenario": "writes/15-import",
+    "step": "importRepo of bytes that are not a CAR",
+    "path": "body.error",
+    "left": "InternalServerError",
+    "right": "InvalidRequest"
+  },
+  {
+    "scenario": "writes/15-import",
+    "step": "importRepo of bytes that are not a CAR",
+    "path": "body.message",
+    "left": "Internal Server Error",
+    "right": "invalid repository: invalid CAR: truncated"
+  },
+  {
+    "scenario": "writes/15-import",
+    "step": "importRepo of bytes that are not a CAR",
+    "path": "status",
+    "left": 500,
+    "right": 400
+  },
+  {
+    "scenario": "writes/15-import",
+    "step": "importRepo of a tree that shares nodes",
+    "path": "body.message",
+    "left": "invalid MST: node referenced more than once: <cid:2>",
+    "right": "invalid repository: invalid tree at node <cid:2>: a subtree below layer zero"
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-7: a key at the wrong layer",
+    "path": "note.error",
+    "left": null,
+    "right": "InvalidRequest"
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-7: a key at the wrong layer",
+    "path": "note.headMoved",
+    "left": true,
+    "right": false
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-7: a key at the wrong layer",
+    "path": "note.status",
+    "left": 200,
+    "right": 400
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-7: keys out of order across nodes",
+    "path": "note.error",
+    "left": null,
+    "right": "InvalidRequest"
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-7: keys out of order across nodes",
+    "path": "note.headMoved",
+    "left": true,
+    "right": false
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-7: keys out of order across nodes",
+    "path": "note.status",
+    "left": 200,
+    "right": 400
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-7: an empty node below the root",
+    "path": "note.error",
+    "left": "InternalServerError",
+    "right": "InvalidRequest"
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-7: an empty node below the root",
+    "path": "note.status",
+    "left": 500,
+    "right": 400
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-8: map keys out of canonical order",
+    "path": "note.error",
+    "left": null,
+    "right": "InvalidRequest"
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-8: map keys out of canonical order",
+    "path": "note.headMoved",
+    "left": true,
+    "right": false
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-8: map keys out of canonical order",
+    "path": "note.status",
+    "left": 200,
+    "right": 400
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-8: a float with a whole value",
+    "path": "note.error",
+    "left": null,
+    "right": "InvalidRequest"
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-8: a float with a whole value",
+    "path": "note.headMoved",
+    "left": true,
+    "right": false
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-8: a float with a whole value",
+    "path": "note.status",
+    "left": 200,
+    "right": 400
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-8: undefined",
+    "path": "note.error",
+    "left": null,
+    "right": "InvalidRequest"
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-8: undefined",
+    "path": "note.headMoved",
+    "left": true,
+    "right": false
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-8: undefined",
+    "path": "note.status",
+    "left": 200,
+    "right": 400
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-14: a commit that another key signed",
+    "path": "note.error",
+    "left": null,
+    "right": "InvalidRequest"
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-14: a commit that another key signed",
+    "path": "note.headMoved",
+    "left": true,
+    "right": false
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-14: a commit that another key signed",
+    "path": "note.status",
+    "left": 200,
+    "right": 400
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-14: a commit for another account",
+    "path": "note.error",
+    "left": null,
+    "right": "InvalidRequest"
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-14: a commit for another account",
+    "path": "note.headMoved",
+    "left": true,
+    "right": false
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-14: a commit for another account",
+    "path": "note.status",
+    "left": 200,
+    "right": 400
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-9: a blob reference with size zero",
+    "path": "note.error",
+    "left": null,
+    "right": "InvalidRequest"
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-9: a blob reference with size zero",
+    "path": "note.status",
+    "left": 200,
+    "right": 400
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-9: a blob reference with an empty mimeType",
+    "path": "note.error",
+    "left": null,
+    "right": "InvalidRequest"
+  },
+  {
+    "scenario": "writes/22-elsewhere",
+    "step": "DD-9: a blob reference with an empty mimeType",
+    "path": "note.status",
+    "left": 200,
+    "right": 400
+  }
+]

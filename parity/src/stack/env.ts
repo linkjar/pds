@@ -11,7 +11,7 @@ import type { TargetSpec } from './targets.ts'
 
 // `restore` is the production configuration again: its scenarios run against a
 // data directory that the Reference wrote (src/restore.ts).
-export const PROFILES = ['default', 'invites', 'firehose', 'captcha', 'perf', 'restore', 'restore-perf', 'writes', 'writes-firehose', 'writes-crash'] as const
+export const PROFILES = ['default', 'invites', 'firehose', 'captcha', 'perf', 'restore', 'restore-perf', 'writes', 'writes-firehose', 'writes-crash', 'writes-perf'] as const
 export type Profile = (typeof PROFILES)[number]
 
 export function isProfile(value: string): value is Profile {
@@ -154,7 +154,7 @@ export function pdsEnv(spec: TargetSpec, profile: Profile, secrets: Secrets): Re
     env.PDS_HCAPTCHA_SECRET_KEY = secrets.hcaptchaSecretKey
     env.PDS_HCAPTCHA_TOKEN_SALT = secrets.hcaptchaTokenSalt
   }
-  if (profile === 'perf') {
+  if (profile === 'perf' || profile === 'writes-perf') {
     // Seeding 100,000 records would spend the write limiters many times over.
     env.PDS_RATE_LIMITS_ENABLED = 'false'
     delete env.PDS_RATE_LIMIT_BYPASS_KEY

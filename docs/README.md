@@ -17,9 +17,9 @@
 
 ## Parity harness
 
-- [../parity/README.md](../parity/README.md): how the harness is built and run, the oracles, the restore run of the Candidate, the contract its page driver relies on, and the port of the legacy suites.
+- [../parity/README.md](../parity/README.md): how the harness is built and run, the oracles, the restore run and the writes run of the Candidate, the contract its page driver relies on, and the port of the legacy suites.
 - [../parity/verify-at-pin.md](../parity/verify-at-pin.md): the twelve "verify at pin" answers with source and scenario, the rate-limiter table, and what the scenarios corrected in the specification.
-- [../parity/differences/README.md](../parity/differences/README.md): how the stock build and the production build differ, by patch.
+- [../parity/differences/README.md](../parity/differences/README.md): how the stock build and the production build differ, by patch, and how the Reference and the Candidate differ, by deliberate difference.
 - [../parity/results/perf-reference.md](../parity/results/perf-reference.md): the Reference's baseline for the performance scenarios.
 
 ## Research
@@ -30,6 +30,7 @@
 - [research/2026-10-12-repository-crate.md](research/2026-10-12-repository-crate.md): decision D2. The in-house repository engine and `rsky-repo` on the same interop vectors, the same fixtures from `@atproto/repo` at the pin, and the same S1 to S3 workload, with the method and the host.
 
 - [research/2026-10-10-upstream-0.5.35-to-0.5.37.md](research/2026-10-10-upstream-0.5.35-to-0.5.37.md): what upstream released after the pin, the shared-node fix (#5584) for LinkJar's deployment, and the cost of each pin option.
+- [research/2026-10-13-writes-and-firehose.md](research/2026-10-13-writes-and-firehose.md): unit 4. The write path, the event log and the firehose, the writes run that compares them with the Reference, what the Reference answers to data from elsewhere, the boundary between a commit and its event, the simulation, and what the unit leaves out.
 - [research/2026-10-13-read-only-server.md](research/2026-10-13-read-only-server.md): unit 3. What the read-only server serves, the restore run that compares it with the Reference on one data directory, what the comparison found, what `verify` checks, and what the unit leaves out.
 
 ## Upstream sources

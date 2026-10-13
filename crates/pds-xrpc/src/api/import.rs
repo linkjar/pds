@@ -179,7 +179,7 @@ impl Session<'_> {
 pub async fn import_repo(
     state: &AppState,
     headers: &HeaderMap,
-    body: Body,
+    body: &mut Option<Body>,
 ) -> Result<Response, XrpcError> {
     let did = session(state, headers, Some(ACCESS_FULL))?;
     {
@@ -214,9 +214,7 @@ pub async fn import_repo(
     let limit = limit.map_or(usize::MAX, |limit| {
         usize::try_from(limit).unwrap_or(usize::MAX)
     });
-    let car = axum::body::to_bytes(body, limit)
-        .await
-        .map_err(|_| body::payload_too_large())?;
+    let car = body::collect(body.take().unwrap_or_default(), limit).await?;
     state
         .blocking(move |state| transact(state, &did, |session| session.import(&car)))
         .await?;
