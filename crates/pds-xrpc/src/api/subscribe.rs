@@ -52,8 +52,28 @@ pub async fn upgrade(state: &AppState, parts: &mut Parts) -> Option<Response> {
     let sequencer = Arc::clone(writes.sequencer());
     let backfill_limit_ms = writes.settings().backfill_limit_ms;
     let max_buffer = writes.settings().max_subscription_buffer;
+    let remote = parts
+        .extensions
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        .map(|info| info.0.ip().to_string());
+    let user_agent = parts
+        .headers
+        .get(axum::http::header::USER_AGENT)
+        .and_then(|value| value.to_str().ok())
+        .map(|value| value.chars().take(200).collect());
+    let state = state.clone();
     Some(upgrade.on_upgrade(move |socket| async move {
-        serve(socket, sequencer, cursor, backfill_limit_ms, max_buffer).await;
+        let from = Peer { remote, user_agent };
+        serve(
+            socket,
+            &state,
+            sequencer,
+            cursor,
+            backfill_limit_ms,
+            max_buffer,
+            from,
+        )
+        .await;
     }))
 }
 
@@ -81,12 +101,20 @@ fn binary(frame: Frame) -> Message {
     Message::Binary(Bytes::from_owner(frame))
 }
 
+/// Who subscribes, as the ops listener shows it.
+struct Peer {
+    remote: Option<String>,
+    user_agent: Option<String>,
+}
+
 async fn serve(
     mut socket: WebSocket,
+    state: &AppState,
     sequencer: Arc<Sequencer>,
     cursor: Result<Option<i64>, String>,
     backfill_limit_ms: i64,
     max_buffer: u32,
+    from: Peer,
 ) {
     let cursor = match cursor {
         Ok(cursor) => cursor,
@@ -102,8 +130,18 @@ async fn serve(
                 return;
             }
         };
+    let subscriber = state.subscribers().register(
+        from.remote,
+        from.user_agent,
+        subscription.cursor(),
+        state.now_ms(),
+    );
     loop {
         tokio::select! {
+            // An operator disconnects the subscriber (SPEC §22.1).
+            () = subscriber.stopped() => {
+                return close(socket, CLOSE_POLICY, "disconnected by the operator").await;
+            }
             // A frame the client sends is ignored. The end of its side ends
             // the stream.
             received = socket.recv() => match received {
@@ -113,9 +151,11 @@ async fn serve(
             frames = subscription.next() => match frames {
                 Ok(Ok(frames)) => {
                     for frame in frames {
+                        let len = frame.len();
                         if socket.send(binary(frame)).await.is_err() {
                             return;
                         }
+                        subscriber.sent(len, subscription.cursor(), state.now_ms());
                     }
                 }
                 Ok(Err(refusal)) => {

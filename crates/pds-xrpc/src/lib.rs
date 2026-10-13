@@ -15,12 +15,14 @@ pub mod error;
 pub mod mail;
 pub mod metrics;
 pub mod oauth;
+pub mod ops;
 pub mod params;
 pub mod password;
 pub mod ratelimit;
 pub mod service_auth;
 pub mod state;
 pub mod stream;
+pub mod subscribers;
 pub mod write;
 
 use axum::Router;

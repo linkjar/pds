@@ -131,6 +131,7 @@ fn server_config(config: &Config, jwt_secret: &str, admin_password: &str) -> Ser
         mail: config.mail.clone(),
         rate_limits: config.rate_limits.clone(),
         oauth: config.oauth.clone(),
+        ops_client_ids: config.ops_client_ids.clone(),
         audit_repo: config.audit_repo.clone(),
         profile: if config.profile == crate::config::ProfileName::Linkjar {
             Arc::new(pds_ext_linkjar::Linkjar {
@@ -274,6 +275,74 @@ async fn serve_metrics(address: std::net::SocketAddr, state: AppState) -> Result
     Ok(())
 }
 
+/// The routes of the ops listener (SPEC §22.1): the methods of
+/// `pds_xrpc::ops`, and `internal.ops.verify`, which this crate has.
+pub fn ops_router(state: AppState, config: &Config) -> axum::Router {
+    let config = Arc::new(config.clone());
+    axum::Router::new()
+        .route(
+            "/xrpc/internal.ops.verify",
+            axum::routing::get(
+                move |axum::extract::State(state): axum::extract::State<AppState>,
+                      request: axum::extract::Request| {
+                    let config = Arc::clone(&config);
+                    async move { ops_verify(state, config, request).await }
+                },
+            ),
+        )
+        .fallback(pds_xrpc::ops::serve)
+        .with_state(state)
+}
+
+/// Starts the private ops listener.
+async fn serve_ops(
+    address: std::net::SocketAddr,
+    state: AppState,
+    config: &Config,
+) -> Result<(), ServeError> {
+    let listener = TcpListener::bind(address).await?;
+    tracing::info!(address = %listener.local_addr()?, "serving the ops listener");
+    let app = ops_router(state, config);
+    tokio::spawn(async move {
+        if let Err(error) = axum::serve(listener, app).await {
+            tracing::error!(%error, "the ops listener stopped");
+        }
+    });
+    Ok(())
+}
+
+/// `internal.ops.verify`: the checks of the `verify` command on the data
+/// directory that the server serves (SPEC §18.2). It writes nothing.
+async fn ops_verify(
+    state: AppState,
+    config: Arc<Config>,
+    request: axum::extract::Request,
+) -> axum::response::Response {
+    use axum::response::IntoResponse as _;
+    let headers = request.headers().clone();
+    let path = request.uri().path().to_owned();
+    let allowed = pds_xrpc::ops::authenticate(&state, request.method(), &path, &headers).await;
+    let response = if let Err(refusal) = allowed {
+        *refusal
+    } else {
+        let blobs = state.clone();
+        let report =
+            tokio::task::spawn_blocking(move || crate::verify::verify_with(&config, blobs.blobs()))
+                .await;
+        match report {
+            Ok(Ok(report)) => {
+                pds_xrpc::error::json_response(axum::http::StatusCode::OK, &report.to_json())
+            }
+            Ok(Err(error)) => {
+                tracing::error!(%error, "verify failed on the ops listener");
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            }
+            Err(_) => axum::http::StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        }
+    };
+    pds_xrpc::ops::finish(&state, &headers, response)
+}
+
 /// Opens the audit log of the data directory (SPEC §20). Without a key the
 /// log chains its entries and signs no checkpoint.
 fn open_audit_log(config: &Config, state: &AppState) -> Result<(), ServeError> {
@@ -360,6 +429,9 @@ pub async fn serve(config: &Config) -> Result<(), ServeError> {
     tokio::spawn(collect_uploads(state.clone()));
     if let Some(address) = config.metrics_address {
         serve_metrics(address, state.clone()).await?;
+    }
+    if let Some(address) = config.ops_address {
+        serve_ops(address, state.clone(), config).await?;
     }
     {
         // A checkpoint every five minutes (SPEC §20.3). The first tick of

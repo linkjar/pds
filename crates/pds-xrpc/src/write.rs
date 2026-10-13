@@ -787,6 +787,40 @@ pub fn repair(state: &AppState) -> Result<Repaired, XrpcError> {
     Ok(repaired)
 }
 
+/// Appends `#sync` with the head of the repository of `did`, so that a
+/// consumer takes the state of the server (SPEC §7.4, §22.1). Returns the
+/// sequence number, or `None` when the account has no repository.
+///
+/// This call blocks.
+pub fn emit_sync(state: &AppState, did: &str) -> Result<Option<i64>, XrpcError> {
+    let writes = state
+        .writes()
+        .ok_or_else(|| XrpcError::internal("a read-only server appends no event"))?;
+    let lock = writes.repo_lock(did);
+    let _held = lock
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let path = state.layout().actor_db(did);
+    if !path.exists() {
+        return Ok(None);
+    }
+    let db = ActorDb::open(&path)?;
+    let Some(head) = db.root()? else {
+        return Ok(None);
+    };
+    let block = db
+        .block(&head.cid)?
+        .ok_or_else(|| XrpcError::internal("the commit block of the head is missing"))?;
+    let rev = pds_repo::Commit::decode(&block).map_or_else(
+        |_| head.rev.clone(),
+        |commit| commit.rev.as_str().to_owned(),
+    );
+    let now = writes.sequencer().now();
+    let event = sync_event(did, &rev, &head.cid, &block, &now);
+    let seqs = writes.sequencer().sequence(std::slice::from_ref(&event))?;
+    Ok(seqs.first().copied())
+}
+
 /// How long an upload waits for a record before the server collects it:
 /// one hour (SPEC §6.4; §2.3, DD-10).
 pub const UPLOAD_GRACE_MS: i64 = 60 * 60 * 1000;

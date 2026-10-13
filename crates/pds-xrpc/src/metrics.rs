@@ -162,6 +162,12 @@ pub fn render(state: &AppState) -> String {
         state.config().profile.name()
     );
     state.metrics().render_requests(&mut out);
+    gauge(
+        &mut out,
+        "pds_firehose_subscribers",
+        "Connections to subscribeRepos.",
+        state.subscribers().len(),
+    );
     if let Some(log) = state.audit() {
         if let Ok(entries) = log.len() {
             gauge(

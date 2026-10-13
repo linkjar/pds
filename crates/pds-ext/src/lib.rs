@@ -150,6 +150,12 @@ pub trait Profile: Send + Sync + Debug {
         false
     }
 
+    /// Whether named accounts hold operator roles on the ops listener
+    /// (§12.11). Without them the admin credential is the only operator.
+    fn grants_operator_roles(&self) -> bool {
+        false
+    }
+
     /// Whether changes of sign-in methods produce notices that the
     /// server mails (§12.6).
     fn produces_notices(&self) -> bool {

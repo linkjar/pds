@@ -460,7 +460,7 @@ pub fn is_handled(nsid: &str) -> bool {
 
 /// Runs a method with the grant of its OAuth token in reach, and writes
 /// its audit entry when the method is audited.
-async fn call(
+pub(crate) async fn call(
     state: &AppState,
     nsid: &str,
     method: &Method,
@@ -500,6 +500,11 @@ async fn audit_request(
     outcome: String,
 ) {
     use crate::auth::{SCOPE_TAKENDOWN, optional_credentials};
+    // On the ops listener the caller is the operator (SPEC §22.1).
+    if let Some(acting) = crate::audit::acting() {
+        let what = acting.draft(nsid, subject, outcome);
+        return crate::audit::record(state, what).await;
+    }
     let (actor, credential, client_id) = if let Some((did, client_id)) = oauth {
         (did, Some("oauth"), Some(client_id))
     } else {
