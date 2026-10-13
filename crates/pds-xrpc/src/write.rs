@@ -796,6 +796,11 @@ pub fn collect_uploads(state: &AppState) -> Result<usize, XrpcError> {
             Ok(waiting)
         })?;
         for upload in &gone {
+            // The file may already be in place, when a commit stopped
+            // after it moved the file and before it stored the reference.
+            if let Err(error) = blobs.delete(&actor.did, &upload.cid) {
+                tracing::error!(did = %actor.did, cid = %upload.cid, %error, "could not delete an unreferenced blob");
+            }
             if let Err(error) = blobs.delete_staged(&actor.did, &upload.temp_key) {
                 tracing::error!(did = %actor.did, cid = %upload.cid, %error, "could not delete a staged upload");
             }

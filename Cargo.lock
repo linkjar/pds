@@ -1350,7 +1350,6 @@ dependencies = [
  "pds-storage",
  "pds-types",
  "reqwest",
- "rusqlite",
  "serde_json",
  "thiserror",
  "tokio",

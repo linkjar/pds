@@ -11,11 +11,17 @@ use tokio::sync::watch;
 use crate::crawlers::Crawlers;
 use crate::events::{FrameError, frame, info_frame};
 
-/// How many events one read of the log returns.
+/// The most events one read of the log returns.
 const PAGE: u32 = 500;
 
-/// How many encoded frames the sequencer keeps for other subscribers.
-const FRAME_CACHE: usize = 1024;
+/// One read of the log stops after this many bytes of events, so that a
+/// subscriber far behind a log of large commits holds a few megabytes and
+/// not the whole range (SPEC §7.5).
+const PAGE_BYTES: usize = 4 * 1024 * 1024;
+
+/// The most bytes of encoded frames the sequencer keeps for other
+/// subscribers.
+const FRAME_CACHE_BYTES: usize = 16 * 1024 * 1024;
 
 /// How long a live subscription waits for a wakeup before it reads the log
 /// again. A lost wakeup costs at most this (SPEC §7.4).
@@ -82,7 +88,15 @@ pub struct Sequencer {
     head: watch::Sender<i64>,
     crawlers: Crawlers,
     now_ms: Box<dyn Fn() -> i64 + Send + Sync>,
-    frames: Mutex<VecDeque<(i64, Frame)>>,
+    frames: Mutex<FrameCache>,
+}
+
+/// The frames of the newest events, encoded once for every subscriber that
+/// reads them (SPEC §7.5).
+#[derive(Default)]
+struct FrameCache {
+    frames: VecDeque<(i64, Frame)>,
+    bytes: usize,
 }
 
 impl std::fmt::Debug for Sequencer {
@@ -109,7 +123,7 @@ impl Sequencer {
             head: watch::Sender::new(head),
             crawlers,
             now_ms: Box::new(now_ms),
-            frames: Mutex::new(VecDeque::with_capacity(FRAME_CACHE)),
+            frames: Mutex::new(FrameCache::default()),
         })
     }
 
@@ -160,8 +174,9 @@ impl Sequencer {
     }
 
     fn cached(&self, seq: i64) -> Option<Frame> {
-        let frames = self.frames.lock().unwrap_or_else(PoisonError::into_inner);
-        frames
+        let cache = self.frames.lock().unwrap_or_else(PoisonError::into_inner);
+        cache
+            .frames
             .iter()
             .rev()
             .find(|(cached, _)| *cached == seq)
@@ -175,12 +190,18 @@ impl Sequencer {
             return Ok(frame);
         }
         let encoded: Frame = frame(row)?.into();
-        let mut frames = self.frames.lock().unwrap_or_else(PoisonError::into_inner);
-        if frames.len() == FRAME_CACHE {
-            frames.pop_front();
+        // A frame that would fill the cache by itself is not kept.
+        if encoded.len() <= FRAME_CACHE_BYTES / 4 {
+            let mut cache = self.frames.lock().unwrap_or_else(PoisonError::into_inner);
+            cache.bytes += encoded.len();
+            cache.frames.push_back((row.seq, Arc::clone(&encoded)));
+            while cache.bytes > FRAME_CACHE_BYTES {
+                match cache.frames.pop_front() {
+                    Some((_, old)) => cache.bytes -= old.len(),
+                    None => break,
+                }
+            }
         }
-        frames.push_back((row.seq, Arc::clone(&encoded)));
-        drop(frames);
         Ok(encoded)
     }
 }
@@ -305,13 +326,23 @@ impl Subscription {
         loop {
             let sequencer = Arc::clone(&self.sequencer);
             let cursor = self.cursor;
-            // One more than the buffer, to see that the subscriber is past it.
-            let limit = PAGE.max(self.max_buffer.saturating_add(1));
-            let rows = blocking(move || Ok(sequencer.reader()?.range(cursor, limit)?)).await?;
-            if self.live && !self.waited && rows.len() > self.max_buffer as usize {
+            // A subscriber that was at the head and took its last frames
+            // without a wait is checked against the buffer.
+            let buffer = (self.live && !self.waited).then_some(self.max_buffer);
+            let page = blocking(move || {
+                let log = sequencer.reader()?;
+                if let Some(buffer) = buffer
+                    && log.pending(cursor, buffer.saturating_add(1))? > buffer
+                {
+                    return Ok(None);
+                }
+                Ok(Some(log.page(cursor, PAGE, PAGE_BYTES)?))
+            })
+            .await?;
+            let Some((rows, at_head)) = page else {
                 return Ok(Err(Refusal::ConsumerTooSlow));
-            }
-            if rows.len() < limit as usize {
+            };
+            if at_head {
                 self.live = true;
             }
             if let Some(last) = rows.last() {
@@ -324,9 +355,11 @@ impl Subscription {
                 return Ok(Ok(frames));
             }
             // At the head: wait for an append, or read again after a while.
+            // The mark is set before the wait, so that it holds when the
+            // caller drops this call while it waits.
+            self.waited = true;
             let cursor = self.cursor;
             let _ = tokio::time::timeout(POLL, self.wake.wait_for(|head| *head > cursor)).await;
-            self.waited = true;
         }
     }
 }

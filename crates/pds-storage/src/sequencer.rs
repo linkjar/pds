@@ -139,22 +139,49 @@ impl SequencerDb {
     /// Up to `limit` events after `cursor`, in order. Invalidated rows are
     /// left out, as the Reference leaves them out.
     pub fn range(&self, cursor: i64, limit: u32) -> Result<Vec<SeqRow>, StorageError> {
+        Ok(self.page(cursor, limit, usize::MAX)?.0)
+    }
+
+    /// One page of the events after `cursor`, in order: at most `max_rows`
+    /// events, and no more after the page holds `max_bytes` of event
+    /// bodies. A page has at least one event when one follows the cursor.
+    ///
+    /// The flag is true when the page ends at the head of the log.
+    pub fn page(
+        &self,
+        cursor: i64,
+        max_rows: u32,
+        max_bytes: usize,
+    ) -> Result<(Vec<SeqRow>, bool), StorageError> {
         let mut statement = self.conn.prepare_cached(
-            r#"select "seq", "did", "eventType", "event", "sequencedAt" from "repo_seq" where "invalidated" = 0 and "seq" > :cursor order by "seq" asc limit :limit"#,
+            r#"select "seq", "did", "eventType", "event", "sequencedAt" from "repo_seq" where "invalidated" = 0 and "seq" > :cursor order by "seq" asc"#,
         )?;
-        let rows = statement.query_map(
-            named_params! { ":cursor": cursor, ":limit": limit },
-            |row| {
-                Ok(SeqRow {
-                    seq: row.get(0)?,
-                    did: row.get(1)?,
-                    event_type: row.get(2)?,
-                    event: row.get(3)?,
-                    sequenced_at: row.get(4)?,
-                })
-            },
-        )?;
-        Ok(rows.collect::<Result<_, _>>()?)
+        let mut rows = statement.query(named_params! { ":cursor": cursor })?;
+        let mut page = Vec::new();
+        let mut bytes = 0_usize;
+        while let Some(row) = rows.next()? {
+            if page.len() >= max_rows as usize || bytes >= max_bytes {
+                return Ok((page, false));
+            }
+            let event: Vec<u8> = row.get(3)?;
+            bytes = bytes.saturating_add(event.len());
+            page.push(SeqRow {
+                seq: row.get(0)?,
+                did: row.get(1)?,
+                event_type: row.get(2)?,
+                event,
+                sequenced_at: row.get(4)?,
+            });
+        }
+        Ok((page, true))
+    }
+
+    /// How many events follow `cursor`, counted up to `cap`.
+    pub fn pending(&self, cursor: i64, cap: u32) -> Result<u32, StorageError> {
+        Ok(self.conn.prepare_cached(
+            r#"select count(*) from (select 1 from "repo_seq" where "invalidated" = 0 and "seq" > :cursor limit :cap)"#,
+        )?
+        .query_row(named_params! { ":cursor": cursor, ":cap": cap }, |row| row.get(0))?)
     }
 
     /// The newest event of `did` among `types`, or `None`.
