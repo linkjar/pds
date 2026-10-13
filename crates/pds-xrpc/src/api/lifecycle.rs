@@ -28,7 +28,10 @@ fn writes(state: &AppState) -> Result<&WriteState, XrpcError> {
 /// The session of a method that an account uses while it is taken down
 /// too: the account password's scope, or the scope of a taken-down
 /// session.
-fn full_or_takendown(state: &AppState, headers: &HeaderMap) -> Result<String, XrpcError> {
+pub(crate) fn full_or_takendown(
+    state: &AppState,
+    headers: &HeaderMap,
+) -> Result<String, XrpcError> {
     if headers
         .get(axum::http::header::AUTHORIZATION)
         .is_none_or(axum::http::HeaderValue::is_empty)

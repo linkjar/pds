@@ -443,6 +443,15 @@ impl AccountDb {
             .optional()?)
     }
 
+    /// Removes the email token of `did` for `purpose`.
+    pub fn delete_email_token(&self, did: &str, purpose: &str) -> Result<(), StorageError> {
+        self.conn.execute(
+            r#"delete from "email_token" where "did" = ?1 and "purpose" = ?2"#,
+            [did, purpose],
+        )?;
+        Ok(())
+    }
+
     /// Marks the email address of `did` as confirmed at `now` and removes
     /// the token that confirmed it.
     pub fn confirm_email(&mut self, did: &str, now: &str) -> Result<(), StorageError> {

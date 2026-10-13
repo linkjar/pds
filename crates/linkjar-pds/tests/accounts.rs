@@ -1292,3 +1292,129 @@ async fn the_admin_changes_the_email_the_handle_and_the_password_of_an_account()
         .await;
     assert_eq!(status, 400);
 }
+
+#[tokio::test]
+async fn a_plc_operation_is_recommended_signed_and_submitted() {
+    let server = Server::start(&[]).await;
+    let (_, made) = server
+        .create(&json!({"handle": "petra.pds-users.org", "email": "petra@example.com", "password": PASSWORD}))
+        .await;
+    let (did, access) = (
+        text(&made, "did").to_owned(),
+        text(&made, "accessJwt").to_owned(),
+    );
+    let genesis = server.ops.lock().unwrap()[0].1.clone();
+
+    let response = server
+        .http
+        .get(format!(
+            "{}/xrpc/com.atproto.identity.getRecommendedDidCredentials",
+            server.origin
+        ))
+        .bearer_auth(&access)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status().as_u16(), 200);
+    let recommended: Value = serde_json::from_slice(&response.bytes().await.unwrap()).unwrap();
+    assert_eq!(recommended["alsoKnownAs"], genesis["alsoKnownAs"]);
+    assert_eq!(
+        recommended["verificationMethods"],
+        genesis["verificationMethods"]
+    );
+    assert_eq!(recommended["rotationKeys"], genesis["rotationKeys"]);
+    assert_eq!(recommended["services"], genesis["services"]);
+
+    // Signing needs the token of the mail.
+    let sign = "com.atproto.identity.signPlcOperation";
+    let (status, body) = server.post(sign, Some(&access), &json!({})).await;
+    assert_eq!(
+        (status, text(&body, "message")),
+        (
+            400,
+            "email confirmation token required to sign PLC operations"
+        )
+    );
+    assert_eq!(
+        server
+            .post(
+                "com.atproto.identity.requestPlcOperationSignature",
+                Some(&access),
+                &Value::Null
+            )
+            .await
+            .0,
+        200
+    );
+    let token: String = common::open(&server.dir.root.join("account.sqlite"))
+        .query_row(
+            r#"select "token" from "email_token" where "did" = ?1 and "purpose" = 'plc_operation'"#,
+            [&did],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let extra = "did:key:zQ3shokFTS3brHcDQrn82RUDfCZESWL1ZdCEJwekUDPQiYBme";
+    let mut keys = vec![json!(extra)];
+    keys.extend(genesis["rotationKeys"].as_array().unwrap().iter().cloned());
+    let (status, signed) = server
+        .post(
+            sign,
+            Some(&access),
+            &json!({"token": token, "rotationKeys": keys}),
+        )
+        .await;
+    assert_eq!(status, 200, "{signed}");
+    let operation = signed["operation"].clone();
+    assert_eq!(operation["rotationKeys"][0], extra);
+    assert_eq!(operation["alsoKnownAs"], genesis["alsoKnownAs"]);
+    assert!(operation["prev"].is_string() && operation["sig"].is_string());
+    // The token is used up.
+    let (status, body) = server
+        .post(sign, Some(&access), &json!({"token": token}))
+        .await;
+    assert_eq!((status, text(&body, "error")), (400, "InvalidToken"));
+
+    // Submitting keeps the account on this server.
+    let submit = "com.atproto.identity.submitPlcOperation";
+    let with = |change: &dyn Fn(&mut Value)| {
+        let mut op = operation.clone();
+        change(&mut op);
+        json!({ "operation": op })
+    };
+    for (body, message) in [
+        (
+            json!({"operation": {"type": "plc_tombstone"}}),
+            "Invalid operation",
+        ),
+        (
+            with(&|op| op["rotationKeys"] = json!([extra])),
+            "Rotation keys do not include server's rotation key",
+        ),
+        (
+            with(&|op| op["services"]["atproto_pds"]["endpoint"] = json!("https://elsewhere.test")),
+            "Incorrect endpoint on atproto_pds service",
+        ),
+        (
+            with(&|op| op["verificationMethods"]["atproto"] = json!(extra)),
+            "Incorrect signing key",
+        ),
+        (
+            with(&|op| op["alsoKnownAs"] = json!(["at://someone.else"])),
+            "Incorrect handle in alsoKnownAs",
+        ),
+    ] {
+        let (status, answer) = server.post(submit, Some(&access), &body).await;
+        assert_eq!((status, text(&answer, "message")), (400, message));
+    }
+    let (status, body) = server.post(submit, Some(&access), &with(&|_| {})).await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(server.ops.lock().unwrap().len(), 2);
+    let last: String = common::open(&server.dir.root.join("sequencer.sqlite"))
+        .query_row(
+            r#"select "eventType" from "repo_seq" where "did" = ?1 order by "seq" desc limit 1"#,
+            [&did],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(last, "identity");
+}

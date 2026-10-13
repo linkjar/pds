@@ -7,6 +7,7 @@ pub mod identity;
 pub mod import;
 pub mod invites;
 pub mod lifecycle;
+pub mod plc;
 pub mod prefs;
 pub mod proxy;
 pub mod repo;
@@ -80,6 +81,7 @@ enum Served {
     AdminGetAccountInfo,
     ServerGetServiceAuth,
     ActorGetPreferences,
+    IdentityGetRecommendedDidCredentials,
     AdminGetAccountInfos,
     AdminGetInviteCodes,
     ServerGetAccountInviteCodes,
@@ -122,6 +124,9 @@ enum Procedure {
     AdminUpdateAccountEmail,
     AdminUpdateAccountHandle,
     AdminUpdateAccountPassword,
+    RequestPlcOperationSignature,
+    SignPlcOperation,
+    SubmitPlcOperation,
 }
 
 /// The procedure that `nsid` names. `None` for a method without a handler.
@@ -156,6 +161,11 @@ fn procedure(nsid: &str) -> Option<Procedure> {
         "com.atproto.admin.updateAccountEmail" => Procedure::AdminUpdateAccountEmail,
         "com.atproto.admin.updateAccountHandle" => Procedure::AdminUpdateAccountHandle,
         "com.atproto.admin.updateAccountPassword" => Procedure::AdminUpdateAccountPassword,
+        "com.atproto.identity.requestPlcOperationSignature" => {
+            Procedure::RequestPlcOperationSignature
+        }
+        "com.atproto.identity.signPlcOperation" => Procedure::SignPlcOperation,
+        "com.atproto.identity.submitPlcOperation" => Procedure::SubmitPlcOperation,
         "com.atproto.server.createAppPassword" => Procedure::CreateAppPassword,
         "com.atproto.server.revokeAppPassword" => Procedure::RevokeAppPassword,
         _ => return None,
@@ -255,6 +265,9 @@ fn served(nsid: &str) -> Option<(Served, &'static [Spec])> {
         "com.atproto.server.listAppPasswords" => (Served::ServerListAppPasswords, &[]),
         "com.atproto.server.checkAccountStatus" => (Served::ServerCheckAccountStatus, &[]),
         "app.bsky.actor.getPreferences" => (Served::ActorGetPreferences, &[]),
+        "com.atproto.identity.getRecommendedDidCredentials" => {
+            (Served::IdentityGetRecommendedDidCredentials, &[])
+        }
         "com.atproto.admin.getAccountInfos" => (
             Served::AdminGetAccountInfos,
             const { &[Spec::list("dids", Format::Did)] },
@@ -411,6 +424,11 @@ async fn run(
         }
         Procedure::RequestAccountDelete => lifecycle::request_account_delete(state, headers).await,
         Procedure::DeleteAccount => lifecycle::delete_account(state, headers, body).await,
+        Procedure::RequestPlcOperationSignature => {
+            plc::request_plc_operation_signature(state, headers).await
+        }
+        Procedure::SignPlcOperation => plc::sign_plc_operation(state, headers, body).await,
+        Procedure::SubmitPlcOperation => plc::submit_plc_operation(state, headers, body).await,
         Procedure::AdminUpdateAccountEmail => {
             admin::update_account_email(state, headers, body).await
         }
@@ -490,6 +508,9 @@ async fn xrpc(
         Served::AdminGetInviteCodes => invites::get_invite_codes(state, &query).await,
         Served::ServerGetAccountInviteCodes => {
             invites::get_account_invite_codes(state, &query).await
+        }
+        Served::IdentityGetRecommendedDidCredentials => {
+            plc::get_recommended_did_credentials(state, headers).await
         }
         Served::ActorGetPreferences => prefs::get_preferences(state, &query).await,
         Served::ServerGetServiceAuth => proxy::get_service_auth(state, &query).await,
