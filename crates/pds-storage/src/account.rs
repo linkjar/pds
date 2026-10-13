@@ -504,8 +504,18 @@ impl AccountDb {
 
     /// Gives an account another password. Its sessions end, and the token
     /// that reset the password is removed.
-    pub fn update_password(&mut self, did: &str, hash: &str) -> Result<(), StorageError> {
+    pub fn update_password(
+        &mut self,
+        did: &str,
+        hash: &str,
+        notice: Option<(&str, i64)>,
+    ) -> Result<(), StorageError> {
         let txn = self.conn.transaction()?;
+        // A profile that mails notices of sign-in changes gets one in the
+        // transaction of the change: its id and the time.
+        if let Some((id, now_ms)) = notice {
+            crate::linkjar::enqueue_notice(&txn, id, did, "password-set", None, now_ms)?;
+        }
         txn.execute(
             r#"update "account" set "passwordScrypt" = ?2 where "did" = ?1"#,
             [did, hash],

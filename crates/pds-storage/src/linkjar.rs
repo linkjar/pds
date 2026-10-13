@@ -441,7 +441,7 @@ pub struct Notice {
 
 /// Enqueues a notice for the account's address of this moment. An account
 /// without an address gets none.
-fn enqueue_notice(
+pub(crate) fn enqueue_notice(
     conn: &rusqlite::Connection,
     id: &str,
     did: &str,
