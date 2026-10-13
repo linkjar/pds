@@ -57,14 +57,17 @@ fn email_is_valid(email: &str) -> bool {
     local_ok && domain_ok && email.len() <= 254
 }
 
-/// The handle an account asks for, normalised and checked, as
-/// `normalizeAndValidateHandle` of the Reference checks one that names no
-/// DID.
-fn checked_handle(
+/// A handle an account asks for, normalised and checked as
+/// `normalizeAndValidateHandle` of the Reference checks it. Returns the
+/// handle and whether a hosted domain holds it. A handle under another
+/// domain passes only for an account that exists, and the caller then
+/// checks that the handle resolves to the account.
+pub(crate) fn checked_handle(
     state: &AppState,
     given: &str,
     identity: &IdentityConfig,
-) -> Result<String, XrpcError> {
+    has_did: bool,
+) -> Result<(String, bool), XrpcError> {
     let handle = Handle::parse(&given.to_lowercase())
         .map_err(|error| refuse("InvalidHandle", error.to_string()))?
         .normalized();
@@ -80,6 +83,9 @@ fn checked_handle(
         .iter()
         .find(|domain| handle.ends_with(domain.as_str()))
     else {
+        if has_did {
+            return Ok((handle, false));
+        }
         return Err(refuse("UnsupportedDomain", "Not a supported handle domain"));
     };
     let front = &handle[..handle.len() - domain.len()];
@@ -95,7 +101,7 @@ fn checked_handle(
     if reserved::is_reserved(front) {
         return Err(refuse("HandleNotAvailable", "Reserved handle"));
     }
-    Ok(handle)
+    Ok((handle, true))
 }
 
 fn random_bytes<const N: usize>(writes: &WriteState) -> [u8; N] {
@@ -157,7 +163,7 @@ fn validate(
         ));
     }
     let identity = identity(state)?;
-    let handle = checked_handle(state, &handle, identity)?;
+    let (handle, _) = checked_handle(state, &handle, identity, false)?;
     let accounts = AccountDb::open(&state.layout().account_db)?;
     if required
         && let Some(code) = &invite_code
@@ -198,7 +204,7 @@ fn validate(
     ))
 }
 
-fn identity(state: &AppState) -> Result<&IdentityConfig, XrpcError> {
+pub(crate) fn identity(state: &AppState) -> Result<&IdentityConfig, XrpcError> {
     state
         .config()
         .identity

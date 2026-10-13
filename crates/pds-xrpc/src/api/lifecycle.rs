@@ -264,3 +264,142 @@ pub async fn check_account_status(
         .await?;
     Ok(json_response(StatusCode::OK, &status))
 }
+
+/// Sends the PLC directory the operation that gives `did` the handle.
+async fn publish_handle(
+    state: &AppState,
+    identity: &crate::state::IdentityConfig,
+    did: &str,
+    handle: &str,
+) -> Result<(), XrpcError> {
+    let signer = Keypair::from_secret_bytes(Algorithm::Secp256k1, &identity.rotation_key)
+        .map_err(XrpcError::internal)?;
+    let last = state
+        .http()
+        .get(format!("{}/{did}/log/last", identity.plc_url))
+        .send()
+        .await
+        .map_err(XrpcError::internal)?;
+    if !last.status().is_success() {
+        return Err(XrpcError::internal(format!(
+            "the PLC directory answered {} for the last operation of {did}",
+            last.status().as_u16()
+        )));
+    }
+    let last: Value = serde_json::from_slice(&last.bytes().await.map_err(XrpcError::internal)?)
+        .map_err(XrpcError::internal)?;
+    let operation =
+        pds_identity::plc::update_handle_op(&last, &signer, handle).map_err(XrpcError::internal)?;
+    let sent = state
+        .http()
+        .post(format!("{}/{did}", identity.plc_url))
+        .header("content-type", "application/json")
+        .body(operation.to_string())
+        .send()
+        .await
+        .map_err(XrpcError::internal)?;
+    if !sent.status().is_success() {
+        return Err(XrpcError::internal(format!(
+            "the PLC directory answered {} to the handle change of {did}",
+            sent.status().as_u16()
+        )));
+    }
+    Ok(())
+}
+
+/// `com.atproto.identity.updateHandle`: the PLC directory first, then the
+/// account, then `#identity`.
+pub async fn update_handle(
+    state: &AppState,
+    headers: &HeaderMap,
+    body: &mut Option<Body>,
+) -> Result<Response, XrpcError> {
+    let did = session(state, headers, None)?;
+    {
+        let did = did.clone();
+        state
+            .blocking(move |state| {
+                super::repo_write::find_account(state, &did, true, false).map(|_| ())
+            })
+            .await?;
+    }
+    let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
+    let given = body::string(&input, "handle", true, Format::Handle, None, "$")?
+        .unwrap_or_default()
+        .to_owned();
+    let identity = super::account::identity(state)?.clone();
+    let (handle, hosted) = {
+        let (did, identity) = (did.clone(), identity.clone());
+        state
+            .blocking(move |state| {
+                let accounts = AccountDb::open(&state.layout().account_db)?;
+                let availability = Availability {
+                    include_taken_down: false,
+                    include_deactivated: true,
+                };
+                if accounts.actor(&did, availability)?.is_none() {
+                    return Err(XrpcError::invalid_request("Account not found"));
+                }
+                let (handle, hosted) =
+                    super::account::checked_handle(state, &given, &identity, true)?;
+                if accounts
+                    .actor(&handle, Availability::ANY)?
+                    .is_some_and(|other| other.did != did)
+                {
+                    return Err(XrpcError::bad_request(
+                        "HandleNotAvailable",
+                        format!("Handle already taken: {handle}"),
+                    ));
+                }
+                Ok((handle, hosted))
+            })
+            .await?
+    };
+    // A handle under another domain must name the account already: its
+    // well-known file is read over HTTPS. The DNS record is not read yet.
+    if !hosted {
+        let named = state
+            .http()
+            .get(format!("https://{handle}/.well-known/atproto-did"))
+            .send()
+            .await
+            .ok()
+            .filter(|response| response.status().is_success());
+        let text = match named {
+            Some(response) => response.text().await.unwrap_or_default(),
+            None => String::new(),
+        };
+        let resolved = pds_identity::handle::did_from_well_known(&text);
+        if resolved.as_ref().map(Did::as_str) != Some(did.as_str()) {
+            return Err(XrpcError::invalid_request(
+                "External handle did not resolve to DID",
+            ));
+        }
+    }
+    if !did.starts_with("did:plc:") {
+        return Err(XrpcError::invalid_request(
+            "DID is not properly configured for handle",
+        ));
+    }
+    publish_handle(state, &identity, &did, &handle).await?;
+    state
+        .blocking(move |state| {
+            let writes = writes(state)?;
+            if !writes.with_accounts(|accounts| accounts.update_handle(&did, &handle))? {
+                return Err(XrpcError::invalid_request(
+                    "Handle is already in use, please choose a different handle.",
+                ));
+            }
+            let now = pds_sequencer::iso_millis(state.now_ms());
+            if let Err(error) =
+                writes
+                    .sequencer()
+                    .sequence(&[identity_event(&did, Some(&handle), &now)])
+            {
+                tracing::error!(%did, %handle, %error, "failed to sequence handle update");
+            }
+            Ok(())
+        })
+        .await?;
+    Ok(StatusCode::OK.into_response())
+}
