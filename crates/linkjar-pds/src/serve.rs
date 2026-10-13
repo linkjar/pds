@@ -4,7 +4,6 @@ use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use pds_blob::DiskBlobStore;
 use pds_identity::{DidCache, DidResolver, ResolverConfig};
 use pds_sequencer::{Crawlers, Sequencer};
 use pds_storage::DidCacheDb;
@@ -141,13 +140,9 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
         },
     )
     .map_err(storage)?;
-    let blobs = config.blob_dir.clone().map(|dir| {
-        let store = DiskBlobStore::new(dir);
-        match &config.blob_tmp_dir {
-            Some(tmp) => store.with_tmp(tmp),
-            None => store,
-        }
-    });
+    let blobs = config
+        .blob_store(&tokio::runtime::Handle::current())
+        .map_err(|error| ServeError::Storage(format!("blob store: {error}")))?;
     Ok(AppState::new(
         server,
         config.layout.clone(),

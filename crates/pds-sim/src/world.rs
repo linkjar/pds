@@ -223,7 +223,7 @@ async fn start(
     let state = AppState::new(
         config,
         layout,
-        Some(blobs),
+        Some(blobs.into()),
         resolver,
         http,
         Some(writes),

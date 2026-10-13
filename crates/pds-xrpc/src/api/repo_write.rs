@@ -494,7 +494,7 @@ pub async fn upload_blob(
     }
     let blobs = state
         .blobs()
-        .ok_or_else(|| XrpcError::internal("no disk blob store is configured"))?
+        .ok_or_else(|| XrpcError::internal("no blob store is configured"))?
         .clone();
 
     // The file is written on the blocking pool; the request body feeds it
