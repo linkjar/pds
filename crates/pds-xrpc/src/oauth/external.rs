@@ -63,6 +63,8 @@ struct Flow {
     /// The account that links the identity, from its account page. The
     /// server sets it at the start; the provider's answer cannot.
     link_did: Option<String>,
+    /// The invite code that the sign-up page handed over (patch 103).
+    invite_code: Option<String>,
     verifier: String,
     nonce: String,
     expires_ms: i64,
@@ -356,6 +358,10 @@ async fn start(
         return Err("Authorization request mismatch");
     }
     let link_did = query.get("link").cloned().filter(|_| account_page);
+    let invite_code = query
+        .get("invite")
+        .filter(|code| !code.is_empty() && code.len() <= 512)
+        .cloned();
     let device = device(state, headers, peer, true)
         .await
         .map_err(|_| "The device could not be loaded")?
@@ -382,6 +388,7 @@ async fn start(
             device_id: device.id.clone(),
             request_uri,
             link_did,
+            invite_code,
             verifier,
             nonce: nonce.clone(),
             expires_ms: now_ms + FLOW_LIFETIME_MS,
@@ -457,6 +464,7 @@ async fn create_account(
     state: &AppState,
     identity: &VerifiedIdentity,
     signup: Option<&(String, String, String)>,
+    invite_code: Option<&str>,
 ) -> Result<String, Stop> {
     let email = identity
         .email
@@ -502,7 +510,7 @@ async fn create_account(
             handle,
             email: email.clone(),
             password: None,
-            invite_code: None,
+            invite_code: invite_code.map(str::to_owned),
             recovery_key: None,
             external: Some(External {
                 provider: identity.provider.to_owned(),
@@ -572,7 +580,14 @@ async fn complete(
     if let Some(did) = &flow.link_did {
         return link(state, &device, did, &identity).await;
     }
-    finish(state, &device, pending, &identity).await
+    finish(
+        state,
+        &device,
+        pending,
+        &identity,
+        flow.invite_code.as_deref(),
+    )
+    .await
 }
 
 /// The end of a flow, once the provider said who signed in: the account
@@ -583,6 +598,7 @@ async fn finish(
     device: &super::authorize::Device,
     pending: Option<Box<Pending>>,
     identity: &VerifiedIdentity,
+    invite_code: Option<&str>,
 ) -> Result<Response, Stop> {
     let now_ms = state.now_ms();
     let known = {
@@ -600,8 +616,11 @@ async fn finish(
     if created && hint.is_some() {
         return Err("No linked account matches the requested account");
     }
-    if created && state.config().invite_required {
-        return Err("External account creation is disabled while invites are required");
+    // While invites are required, a new account needs the code that the
+    // sign-up page handed over. The account transaction checks and uses it.
+    let invite_code = invite_code.filter(|_| state.config().invite_required);
+    if created && state.config().invite_required && invite_code.is_none() {
+        return Err("External account creation needs an invite code while invites are required");
     }
     let did = if let Some(did) = known {
         did
@@ -615,7 +634,7 @@ async fn finish(
                 device.id.clone(),
             )
         });
-        create_account(state, identity, signup.as_ref()).await?
+        create_account(state, identity, signup.as_ref(), invite_code).await?
     };
     let actor = {
         let did = did.clone();
@@ -738,6 +757,7 @@ mod tests {
             device_id: device.to_owned(),
             request_uri: None,
             link_did: None,
+            invite_code: None,
             verifier: "v".to_owned(),
             nonce: "n".to_owned(),
             expires_ms: 1000,
