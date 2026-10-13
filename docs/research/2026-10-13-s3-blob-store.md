@@ -77,8 +77,8 @@ record references yet. On the disk store it answers 400 `InvalidRequest`,
 
 Production runs on R2, so production answers 500 here today. The Candidate
 answers 400 on both stores. This is SPEC §2.3, DD-18, a client error that
-the Reference answers with 500, as in decision D15. It waits for the
-owner's confirmation.
+the Reference answers with 500, as in decision D15. The owner confirmed it
+on 2026-10-13.
 
 ## 5. What the Candidate needs that the Reference does not
 
@@ -96,3 +96,61 @@ No latency or memory was measured on the S3-compatible store. The Harness
 store is a gateway on a memory file system in the same Docker network, and
 its numbers would say nothing about R2. The measurement that matters is a
 `getBlob` and an `uploadBlob` against R2 from the staging host.
+
+## 7. Draft of the report upstream
+
+For `bluesky-social/atproto`, as a public issue. The owner sends it.
+
+> **`com.atproto.repo.importRepo` accepts a commit that the account's key
+> did not sign, and `getBlob` answers 500 for a staged blob on S3**
+>
+> Observed on `@atproto/pds` 0.5.34 (`7ca16cc6`).
+>
+> 1. `importRepo` verifies neither the DID of the commit nor its
+>    signature. With a full-access session of account A, a CAR whose
+>    commit is signed by another key, or whose commit names account B, is
+>    answered 200 and replaces A's repository. The caller can only write
+>    to its own account, so this gives no access to another account. The
+>    result is a repository whose head does not verify against the
+>    account's signing key, which a relay in strict mode rejects.
+>    Expected: 400 `InvalidRequest`.
+> 2. `importRepo` into an active account appends no event. The account's
+>    next commit has a `since` and `prevData` that the relay's copy does
+>    not match, and a strict relay drops it until something emits `#sync`.
+> 3. With `S3BlobStore`, `com.atproto.sync.getBlob` for a blob that was
+>    uploaded and is not referenced by a record yet answers 500
+>    `InternalServerError`. `DiskBlobStore` answers 400 "Blob not found".
+>    `S3BlobStore.getObject` reads `blocks/<did>/<cid>` while the object is
+>    at `tmp/<did>/<key>`, and the SDK's `NoSuchKey` is not mapped to
+>    `BlobNotFoundError`.
+>
+> Each was reproduced with a scripted run against a local stack. I can
+> share the scenarios.
+
+The scenarios are `parity/scenarios/writes/22-elsewhere.scenario.ts`,
+`default/15-import.scenario.ts` and `default/05-blobs.scenario.ts`.
+
+## 8. The next part: can `sqlite-plugin` carry the VFS
+
+SPEC §19.2 names `sqlite-plugin` for the fault-injecting VFS. A spike
+outside the workspace checked version 0.11.0 with `rusqlite` 0.40.2 and its
+bundled SQLite 3.53.2:
+
+- `register_static` is a safe function. A VFS written against the crate's
+  `Vfs` trait needs no `unsafe` in this repository.
+- It links. The crate declares the SQLite symbols itself and the linker
+  resolves them to the SQLite that `rusqlite` bundles. `rusqlite` opened a
+  database through the registered VFS, in WAL mode.
+- A write that the VFS failed reached SQLite as `SQLITE_IOERR_WRITE`, the
+  statement failed, and after a reopen the database held the rows from
+  before and passed `integrity_check`.
+- The spike ran WAL with `locking_mode=EXCLUSIVE`. WAL between two
+  connections needs the shared-memory methods, which the trait has
+  (`shm_map`, `shm_lock`, `shm_barrier`, `shm_unmap`). The spike did not
+  write them.
+
+Two costs. The crate builds with `bindgen`, so the build needs libclang:
+the spike failed until `LIBCLANG_PATH` named Xcode's copy, and `devenv` and
+the CI job need the same. `bindgen` brings about 30 build-time crates for
+`cargo vet`. Both stay out of the server's binary and image when only
+`pds-sim` depends on the crate.

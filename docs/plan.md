@@ -138,7 +138,7 @@ upstream bumps, which nothing does today beyond the image smoke gate.
 
 | Date | Event |
 |---|---|
-| 2026-10-13 | Unit 4b, first part, on `feat/unit-4b-s3-store`. **The Candidate keeps blobs in an S3-compatible store** ([unit record](research/2026-10-13-s3-blob-store.md)). The owner chose on 2026-10-13 to build the three missing parts of unit 4 before unit 5, the store first. The object names are the Reference's, requests are signed with Signature Version 4, and an upload goes to the store in parts of 8 MiB as the client sends it. The writes run has an `s3` stage on a store that checks signatures: the Reference stores a blob and stages an upload, the Candidate takes over, serves and removes them, and `verify` checks the bucket with 0 differences. The stage showed that the Reference answers 500 to `getBlob` of an unreferenced upload on this store; the Candidate answers 400 (DD-18, [below](#open-questions-for-the-owner)). SPEC revision 8. The first nightly seed run of unit 4 was dispatched by hand after `sim.yml` was repaired (pull request #30). Next: the fault-injecting VFS, then `turmoil`. |
+| 2026-10-13 | Unit 4b, first part, on `feat/unit-4b-s3-store`. **The Candidate keeps blobs in an S3-compatible store** ([unit record](research/2026-10-13-s3-blob-store.md)). The owner chose on 2026-10-13 to build the three missing parts of unit 4 before unit 5, the store first. The object names are the Reference's, requests are signed with Signature Version 4, and an upload goes to the store in parts of 8 MiB as the client sends it. The writes run has an `s3` stage on a store that checks signatures: the Reference stores a blob and stages an upload, the Candidate takes over, serves and removes them, and `verify` checks the bucket with 0 differences. The stage showed that the Reference answers 500 to `getBlob` of an unreferenced upload on this store; the Candidate answers 400 (DD-18). The owner answered the open questions on 2026-10-13: an import into an active account now appends `#sync` (DD-19). A spike showed that `sqlite-plugin` 0.11.0 registers a VFS with the SQLite that `rusqlite` bundles ([unit record](research/2026-10-13-s3-blob-store.md) §8). SPEC revision 8. The first nightly seed run of unit 4 was dispatched by hand after `sim.yml` was repaired (pull request #30). Next: the fault-injecting VFS, then `turmoil`. |
 | 2026-10-13 | Unit 4 on `feat/unit-4-writes`. **The Candidate writes, sequences and serves the firehose on a data directory that the Reference started** ([unit record](research/2026-10-13-writes-and-firehose.md)). `createRecord`, `putRecord`, `deleteRecord`, `applyWrites`, `uploadBlob`, `importRepo`, `listMissingBlobs` and `subscribeRepos` answer as the Reference does. The Harness has a writes run, `pnpm parity writes`: the Reference creates a pool of accounts, the Candidate takes over the volume, and eight scenarios run on each server; the differences are the deliberate ones of SPEC §2.3 and one wording, 37 entries in all. A relay in strict mode re-emits every commit of the Candidate. The Candidate stores a commit before it appends the event and notes the commit in `ops.sqlite`; stopped between the two, it states the head with `#sync` at the next start, and the relay converges. The run recorded what the Reference at the pin does with data from elsewhere: `importRepo` accepts a commit that any key signed and a commit for another account, a tree that is not a Merkle search tree, and record blocks that are not canonical. `pds-sim` runs seeded plans with stops at the fail points and five oracles; 550 seeds passed before the merge, and a seed run twice gives the same trace. SPEC revision 7 carries the owner's decisions of 2026-10-13 and what the run showed. **Not built: the fault-injecting VFS, the `turmoil` network and the S3-compatible blob store** ([below](#open-questions-for-the-owner)). Left for unit 5: the account events, rate limits, OAuth and service tokens, the proxy. Next: unit 5, from `main`. |
 | 2026-10-13 | After unit 3, an audit and a cleanup (pull request #28). Nine readers audited the repository and a second reader checked each finding; 111 were confirmed and most are fixed. A streamed answer ends with an error when its producer fails or the client stalls for 60 seconds, and shutdown is bounded. `verify` reports a break in the event log without counting it as a difference, because the Reference deletes the events of a deleted account; it names fifteen kinds of damage in tests. The restore run has its own workflow. The reads of both servers are measured on one data directory of 100,000 records ([perf-reads.md](../parity/results/perf-reads.md)): the export takes 1,385 ms on the Reference and 167 ms on the Candidate, for the same bytes. What was not fixed, and why, is in the pull request. |
 | 2026-10-13 | Unit 3 done on `feat/unit-3-read-server`. **The Candidate serves the reads of a data directory that the Reference wrote** ([unit record](research/2026-10-13-read-only-server.md)): the sync and repository reads, `describeServer`, `resolveHandle` and the plain routes. The Harness has a restore run, `pnpm parity restore`: the Reference seeds six accounts and answers four read scenarios, the Candidate replaces it on the same volume and answers them again. 331 requests, no difference in status, compared headers or body, and 328 bodies equal byte for byte, repository exports among them. `verify` reports zero differences on that directory and names fourteen kinds of damage in tests. `pds-storage` reads the Reference's SQLite files, `pds-identity` resolves DIDs through the cache, `pds-xrpc` validates parameters in the Reference's order and with its messages. The image is built by `./Dockerfile`, and CI runs the restore run on every change to the crates. SPEC revision 6 carries what the comparison showed. **Not met: `verify` on a staging restore**, which needs the owner's copy ([below](#open-questions-for-the-owner)). Left for later units: the proxy, the read-after-write methods, rate limits, OAuth tokens, handle resolution over DNS. Next: unit 4, from `main`. |
@@ -212,35 +212,16 @@ question. Revision 7 of the SPEC applies them.
 | Outbound TLS | `aws-lc-rs` is accepted as the TLS provider of outbound requests. SPEC §3.2 names RustCrypto for the protocol's own cryptography only. |
 | The licence of the root list | `deny.toml` keeps the CDLA-Permissive-2.0 exception for `webpki-root-certs`. |
 | The three missing parts of unit 4 | Built before unit 5, as unit 4b: the S3-compatible blob store first, then the fault-injecting VFS, then `turmoil`. |
-| The S3 client of the pin (#5575) | Not carried now. A tenth patch publishes an image, and the evidence that decides it is a measurement on staging. The question stays open [below](#open-questions-for-the-owner). |
+| The S3 client of the pin (#5575) | Not carried now. A tenth patch publishes an image, and the evidence that decides it is a measurement on staging. Confirmed on 2026-10-13, second round: it stays out until staging shows the count of open connections to R2 growing under repeated `getBlob`. |
+| DD-18, `getBlob` of an unreferenced upload on the S3-compatible store | Second round, 2026-10-13. The Candidate answers 400 `InvalidRequest` on both stores, as one more case of D15. |
+| `#sync` after an import into an active account | Second round. The Candidate emits it; it is deliberate difference DD-19 (SPEC §6.5). |
+| The `importRepo` finding | Second round. It is reported upstream as a public issue. The draft is in [the unit record](research/2026-10-13-s3-blob-store.md#7-draft-of-the-report-upstream); the owner sends it. |
+| Imports in production | Second round. `PDS_ACCEPTING_REPO_IMPORTS=false` on the production host until revision 12 runs there, unless move-in is offered to people. The owner sets it. |
 
 ## Open questions for the owner
 
-Six. Unit 5 needs none of them.
-
-- **DD-18: `getBlob` of an unreferenced upload on the S3-compatible
-  store.** The Reference answers 500 there and 400 on the disk store
-  ([unit record](research/2026-10-13-s3-blob-store.md) §4). Production is
-  on R2, so production answers 500 today. The Candidate answers 400
-  `InvalidRequest`, "Blob not found", on both stores. The recommendation:
-  confirm it as one more case of D15.
-
-- **`#sync` after an import into an active account.** At the pin an import
-  appends no event, and SPEC revision 6 required `#sync`. The Candidate
-  now follows the pin (SPEC §6.5). A relay learns of the imported
-  repository at the account's next commit, which does not follow the
-  relay's copy, so a strict relay drops it until something states the head.
-  An account that moves in is deactivated while it imports, and its
-  activation emits `#sync`; the gap is an import into an account that is
-  active. The recommendation: emit `#sync` after an import into an active
-  account and list it as a deliberate difference.
-
-- **What the Reference accepts in `importRepo`.** The writes run recorded
-  that the pin stores a commit that another key signed, and a commit for
-  another account, when a full session of the account sends it
-  ([unit record](research/2026-10-13-writes-and-firehose.md) §3). The
-  Candidate refuses both. This is no way into another account. It is worth
-  a report upstream; say whether to send one.
+Four, each an action on a system that is the owner's. Unit 5 needs none
+of them.
 
 - **`verify` on a staging restore.** Unit 3's gate asks for zero
   differences on a staging restore of production data. The unit had no such
@@ -261,9 +242,11 @@ Six. Unit 5 needs none of them.
   replaces the repository (`default/15-import`). The setting is on the host
   and is yours to change.
 
-- **The S3 client of the pin.** Production blobs are in R2, and the pin
-  builds a new S3 client on every actor store access (#5575). Decide
-  whether the legacy build carries the fix.
-  [The upstream note](research/2026-10-10-upstream-0.5.35-to-0.5.37.md) §4
-  names the evidence: the count of open connections from the PDS to R2 on
-  staging under repeated `getBlob`.
+- **Send the report on `importRepo`.** The owner said yes on 2026-10-13.
+  The draft is in
+  [the unit record](research/2026-10-13-s3-blob-store.md#7-draft-of-the-report-upstream).
+
+- **Measure the S3 client of the pin on staging.** The fix (#5575) stays
+  out of the legacy build until the count of open connections from the PDS
+  to R2 grows under repeated `getBlob`
+  ([the upstream note](research/2026-10-10-upstream-0.5.35-to-0.5.37.md) §4).
