@@ -3,17 +3,21 @@
 //! The crate reads and writes the disk store in the Reference's layout
 //! (`disk-blobstore.ts` at the pin): a blob is at `<root>/<did>/<cid>`, an
 //! upload waits at `<tmp>/<did>/<key>` until a record references it, and
-//! `<tmp>` is `<root>/tempt` unless it is configured.
+//! `<tmp>` is `<root>/tempt` unless it is configured. The S3-compatible
+//! store is in [`s3`]. [`BlobStore`] is the one that is configured.
 
+pub mod s3;
 pub mod sniff;
 
+use std::collections::BTreeSet;
 use std::fs::File;
-use std::io::{self, Write as _};
+use std::io::{self, Read, Write as _};
 use std::path::{Path, PathBuf};
 
 use cid::Cid;
 use sha2::{Digest as _, Sha256};
 
+pub use s3::{Clock, S3BlobStore, S3Config};
 pub use sniff::sniff;
 
 /// Reading a blob failed.
@@ -32,6 +36,14 @@ pub enum BlobError {
         path: PathBuf,
         /// What the file system said.
         source: io::Error,
+    },
+    /// The S3-compatible store refused a request, or did not answer.
+    #[error("{object}: {message}")]
+    Remote {
+        /// The object, or the endpoint.
+        object: String,
+        /// What the store said.
+        message: String,
     },
 }
 
@@ -61,28 +73,48 @@ fn sync_dir(dir: &Path) -> io::Result<()> {
     File::open(dir)?.sync_all()
 }
 
-/// An upload in progress. The staged file is removed when the value is
+/// Where the bytes of an upload go.
+#[derive(Debug)]
+enum Sink {
+    Disk { path: PathBuf, file: Option<File> },
+    S3(Box<s3::Upload>),
+}
+
+/// An upload in progress. The staged bytes are removed when the value is
 /// dropped without [`Staging::finish`].
 #[derive(Debug)]
 pub struct Staging {
-    path: PathBuf,
     key: String,
-    file: Option<File>,
+    sink: Sink,
     hasher: Sha256,
     size: u64,
     head: Vec<u8>,
 }
 
 impl Staging {
+    fn new(key: &str, sink: Sink) -> Self {
+        Self {
+            key: key.to_owned(),
+            sink,
+            hasher: Sha256::new(),
+            size: 0,
+            head: Vec::with_capacity(sniff::SNIFF_LEN),
+        }
+    }
+
     /// Appends bytes of the upload.
     pub fn write(&mut self, bytes: &[u8]) -> Result<(), BlobError> {
-        let Some(file) = self.file.as_mut() else {
-            return Ok(());
-        };
-        file.write_all(bytes).map_err(|source| BlobError::Io {
-            path: self.path.clone(),
-            source,
-        })?;
+        match &mut self.sink {
+            Sink::Disk { file: None, .. } => return Ok(()),
+            Sink::Disk {
+                path,
+                file: Some(file),
+            } => file.write_all(bytes).map_err(|source| BlobError::Io {
+                path: path.clone(),
+                source,
+            })?,
+            Sink::S3(upload) => upload.write(bytes)?,
+        }
         self.hasher.update(bytes);
         self.size += bytes.len() as u64;
         if self.head.len() < sniff::SNIFF_LEN {
@@ -97,17 +129,22 @@ impl Staging {
         self.size
     }
 
-    /// Makes the staged file durable and describes it.
+    /// Makes the staged bytes durable and describes them.
     pub fn finish(mut self) -> Result<StagedBlob, BlobError> {
-        let io = |source| BlobError::Io {
-            path: self.path.clone(),
-            source,
-        };
-        if let Some(file) = self.file.take() {
-            file.sync_all().map_err(io)?;
-        }
-        if let Some(dir) = self.path.parent() {
-            sync_dir(dir).map_err(io)?;
+        match &mut self.sink {
+            Sink::Disk { path, file } => {
+                let io = |source| BlobError::Io {
+                    path: path.clone(),
+                    source,
+                };
+                if let Some(file) = file.take() {
+                    file.sync_all().map_err(io)?;
+                }
+                if let Some(dir) = path.parent() {
+                    sync_dir(dir).map_err(io)?;
+                }
+            }
+            Sink::S3(upload) => upload.finish()?,
         }
         let digest: [u8; 32] = std::mem::take(&mut self.hasher).finalize().into();
         Ok(StagedBlob {
@@ -121,8 +158,11 @@ impl Staging {
 
 impl Drop for Staging {
     fn drop(&mut self) {
-        if self.file.take().is_some() {
-            let _ = std::fs::remove_file(&self.path);
+        // An upload to the S3-compatible store removes its own parts.
+        if let Sink::Disk { path, file } = &mut self.sink
+            && file.take().is_some()
+        {
+            let _ = std::fs::remove_file(path);
         }
     }
 }
@@ -178,14 +218,13 @@ impl DiskBlobStore {
             .create_new(true)
             .open(&path)
             .map_err(io)?;
-        Ok(Staging {
-            path,
-            key: key.to_owned(),
-            file: Some(file),
-            hasher: Sha256::new(),
-            size: 0,
-            head: Vec::with_capacity(sniff::SNIFF_LEN),
-        })
+        Ok(Staging::new(
+            key,
+            Sink::Disk {
+                path,
+                file: Some(file),
+            },
+        ))
     }
 
     /// Moves a staged upload to its place as the blob `cid`. When the store
@@ -267,6 +306,120 @@ impl DiskBlobStore {
             Ok(meta) => Ok(meta.is_file()),
             Err(source) if source.kind() == io::ErrorKind::NotFound => Ok(false),
             Err(source) => Err(BlobError::Io { path, source }),
+        }
+    }
+}
+
+/// The blob store that the configuration names.
+///
+/// Every call blocks. A call on the S3-compatible store waits for the
+/// network and must run on the blocking pool.
+#[derive(Debug, Clone)]
+pub enum BlobStore {
+    /// `PDS_BLOBSTORE_DISK_LOCATION`.
+    Disk(DiskBlobStore),
+    /// `PDS_BLOBSTORE_S3_BUCKET`.
+    S3(S3BlobStore),
+}
+
+impl From<DiskBlobStore> for BlobStore {
+    fn from(store: DiskBlobStore) -> Self {
+        Self::Disk(store)
+    }
+}
+
+impl From<S3BlobStore> for BlobStore {
+    fn from(store: S3BlobStore) -> Self {
+        Self::S3(store)
+    }
+}
+
+impl BlobStore {
+    /// Starts an upload for `did`. `key` names the staged bytes: 32
+    /// characters that the caller draws at random.
+    pub fn stage(&self, did: &str, key: &str) -> Result<Staging, BlobError> {
+        match self {
+            Self::Disk(store) => store.stage(did, key),
+            Self::S3(store) => {
+                check_component(did)?;
+                check_component(key)?;
+                Ok(Staging::new(key, Sink::S3(Box::new(store.stage(did, key)))))
+            }
+        }
+    }
+
+    /// Moves a staged upload to its place as the blob `cid`. The call is
+    /// safe to repeat.
+    pub fn make_permanent(&self, did: &str, key: &str, cid: &str) -> Result<(), BlobError> {
+        match self {
+            Self::Disk(store) => store.make_permanent(did, key, cid),
+            Self::S3(store) => {
+                check_component(did)?;
+                check_component(key)?;
+                check_component(cid)?;
+                store.make_permanent(did, key, cid)
+            }
+        }
+    }
+
+    /// Removes a stored blob. A blob that is not there is no error.
+    pub fn delete(&self, did: &str, cid: &str) -> Result<(), BlobError> {
+        match self {
+            Self::Disk(store) => store.delete(did, cid),
+            Self::S3(store) => {
+                check_component(did)?;
+                check_component(cid)?;
+                store.delete(did, cid)
+            }
+        }
+    }
+
+    /// Removes a staged upload. One that is not there is no error.
+    pub fn delete_staged(&self, did: &str, key: &str) -> Result<(), BlobError> {
+        match self {
+            Self::Disk(store) => store.delete_staged(did, key),
+            Self::S3(store) => {
+                check_component(did)?;
+                check_component(key)?;
+                store.delete_staged(did, key)
+            }
+        }
+    }
+
+    /// Opens a stored blob for reading.
+    pub fn open(&self, did: &str, cid: &str) -> Result<Box<dyn Read + Send>, BlobError> {
+        match self {
+            Self::Disk(store) => Ok(Box::new(store.open(did, cid)?)),
+            Self::S3(store) => {
+                check_component(did)?;
+                check_component(cid)?;
+                Ok(Box::new(store.open(did, cid)?))
+            }
+        }
+    }
+
+    /// Whether the store holds the blob.
+    pub fn has(&self, did: &str, cid: &str) -> Result<bool, BlobError> {
+        match self {
+            Self::Disk(store) => store.has(did, cid),
+            Self::S3(store) => {
+                check_component(did)?;
+                check_component(cid)?;
+                store.has(did, cid)
+            }
+        }
+    }
+
+    /// The CID of every blob the store holds for `did`, when the store
+    /// answers that in fewer requests than one [`BlobStore::has`] for each
+    /// blob. The disk store answers `None`.
+    pub fn stored(&self, did: &str) -> Result<Option<BTreeSet<String>>, BlobError> {
+        match self {
+            Self::Disk(_) => Ok(None),
+            Self::S3(store) => {
+                check_component(did)?;
+                store.stored(did).map(Some)
+            }
         }
     }
 }

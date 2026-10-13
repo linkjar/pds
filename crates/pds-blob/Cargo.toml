@@ -12,7 +12,18 @@ publish.workspace = true
 pds-types.workspace = true
 cid.workspace = true
 sha2.workspace = true
+hmac.workspace = true
+data-encoding.workspace = true
+bytes.workspace = true
+chrono.workspace = true
+reqwest.workspace = true
+url.workspace = true
+tokio.workspace = true
+tracing.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+axum.workspace = true
 
 [lints]
 workspace = true

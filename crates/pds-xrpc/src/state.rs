@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
-use pds_blob::DiskBlobStore;
+use pds_blob::BlobStore;
 use pds_identity::DidResolver;
 use pds_sequencer::Sequencer;
 use pds_storage::{AccountDb, ActorDb, DataLayout, OpsDb, StorageError};
@@ -201,7 +201,7 @@ pub struct AppState {
 struct Inner {
     config: ServerConfig,
     layout: DataLayout,
-    blobs: Option<DiskBlobStore>,
+    blobs: Option<BlobStore>,
     resolver: DidResolver,
     http: reqwest::Client,
     writes: Option<WriteState>,
@@ -224,7 +224,7 @@ impl AppState {
     pub fn new(
         config: ServerConfig,
         layout: DataLayout,
-        blobs: Option<DiskBlobStore>,
+        blobs: Option<BlobStore>,
         resolver: DidResolver,
         http: reqwest::Client,
         writes: Option<WriteState>,
@@ -254,7 +254,7 @@ impl AppState {
     }
 
     /// The disk blob store, when one is configured.
-    pub fn blobs(&self) -> Option<&DiskBlobStore> {
+    pub fn blobs(&self) -> Option<&BlobStore> {
         self.inner.blobs.as_ref()
     }
 

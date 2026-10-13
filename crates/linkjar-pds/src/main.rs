@@ -134,7 +134,10 @@ fn run(args: &[String]) -> Result<ExitCode, Failure> {
         }
         ["verify"] | ["verify", "--json"] => {
             warn_unknown(&config);
-            let report = verify::verify(&config)?;
+            // The S3-compatible store sends its requests on a runtime.
+            let runtime = runtime()?;
+            let blobs = config.blob_store(runtime.handle())?;
+            let report = verify::verify_with(&config, blobs.as_ref())?;
             if words.len() == 2 {
                 println!("{}", report.to_json());
             } else {

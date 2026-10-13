@@ -19,7 +19,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use cid::Cid;
-use pds_blob::DiskBlobStore;
+use pds_blob::BlobStore;
 use pds_identity::{Algorithm, Keypair};
 use pds_repo::mst::tree::Tree;
 use pds_repo::mst::walk::{Guard, read_tree};
@@ -123,7 +123,7 @@ impl fmt::Display for Report {
         if !self.blob_store_checked {
             writeln!(
                 f,
-                "blob store        not checked: PDS_BLOBSTORE_DISK_LOCATION is not set"
+                "blob store        not checked: no blob store is configured"
             )?;
         }
         writeln!(f, "differences       {}", self.findings.len())?;
@@ -262,11 +262,14 @@ fn check_tree(
 /// store unless it is taken down.
 fn check_blobs(
     store: &ActorDb,
-    blobs: Option<&DiskBlobStore>,
+    blobs: Option<&BlobStore>,
     did: &str,
     report: &mut Report,
 ) -> Result<(), StorageError> {
     let mut checked: Option<String> = None;
+    // The S3-compatible store lists an account's blobs in one request for
+    // each thousand; the list is fetched at the first blob.
+    let mut listed: Option<Result<Option<std::collections::BTreeSet<String>>, String>> = None;
     for (blob, uri) in store.all_record_blobs()? {
         report.blob_references += 1;
         if checked.as_deref() == Some(blob.as_str()) {
@@ -281,7 +284,15 @@ fn check_blobs(
             ),
             // A taken-down blob is in quarantine and not in the store.
             Some(true) => {}
-            Some(false) => match blobs.map(|blobs| blobs.has(did, &blob)) {
+            Some(false) => match blobs.map(|blobs| {
+                let listed = listed
+                    .get_or_insert_with(|| blobs.stored(did).map_err(|error| error.to_string()));
+                match listed {
+                    Ok(Some(stored)) => Ok(stored.contains(&blob)),
+                    Ok(None) => blobs.has(did, &blob).map_err(|error| error.to_string()),
+                    Err(error) => Err(error.clone()),
+                }
+            }) {
                 None | Some(Ok(true)) => {}
                 Some(Ok(false)) => report.find(
                     did,
@@ -304,7 +315,7 @@ fn check_blobs(
 fn verify_actor(
     config: &Config,
     accounts: &AccountDb,
-    blobs: Option<&DiskBlobStore>,
+    blobs: Option<&BlobStore>,
     did: &str,
     report: &mut Report,
 ) -> Result<(), StorageError> {
@@ -401,14 +412,22 @@ fn read_sequencer(config: &Config, report: &mut Report) -> Result<(), StorageErr
 /// An account database that cannot be read is the error. A failure of any
 /// other store is a finding, so the report of the other stores is kept.
 pub fn verify(config: &Config) -> Result<Report, StorageError> {
+    let blobs = config
+        .blob_dir
+        .clone()
+        .map(|dir| pds_blob::DiskBlobStore::new(dir).into());
+    verify_with(config, blobs.as_ref())
+}
+
+/// [`verify`] with the blob store to check, or none. The S3-compatible
+/// store needs a runtime, and the caller holds it.
+pub fn verify_with(config: &Config, blobs: Option<&BlobStore>) -> Result<Report, StorageError> {
     let mut report = Report::default();
     let accounts = AccountDb::open(&config.layout.account_db)?;
-    let blobs = config.blob_dir.clone().map(DiskBlobStore::new);
     report.blob_store_checked = blobs.is_some();
     for actor in accounts.all_actors()? {
         report.actors += 1;
-        if let Err(error) = verify_actor(config, &accounts, blobs.as_ref(), &actor.did, &mut report)
-        {
+        if let Err(error) = verify_actor(config, &accounts, blobs, &actor.did, &mut report) {
             report.find(&actor.did, "store-unreadable", error.to_string());
         }
     }

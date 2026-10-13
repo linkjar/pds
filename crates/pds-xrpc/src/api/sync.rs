@@ -313,7 +313,7 @@ pub async fn get_blob(state: &AppState, query: &Query<'_>) -> Result<Response, X
             let meta = store.blob(&cid)?.ok_or_else(not_found)?;
             let blobs = state
                 .blobs()
-                .ok_or_else(|| XrpcError::internal("no disk blob store is configured"))?;
+                .ok_or_else(|| XrpcError::internal("no blob store is configured"))?;
             let file = match blobs.open(&did, &cid) {
                 Ok(file) => file,
                 Err(pds_blob::BlobError::NotFound) => return Err(not_found()),

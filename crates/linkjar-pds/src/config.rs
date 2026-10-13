@@ -198,6 +198,9 @@ pub struct Config {
     pub layout: DataLayout,
     /// `PDS_BLOBSTORE_DISK_LOCATION`.
     pub blob_dir: Option<PathBuf>,
+    /// `PDS_BLOBSTORE_S3_*`: the S3-compatible blob store. It and
+    /// [`Config::blob_dir`] are not both set.
+    pub blob_s3: Option<pds_blob::S3Config>,
     /// `PDS_BLOBSTORE_DISK_TMP_LOCATION`, default `tempt` under the blob
     /// directory.
     pub blob_tmp_dir: Option<PathBuf>,
@@ -246,6 +249,7 @@ impl std::fmt::Debug for Config {
             .field("service_did", &self.service_did)
             .field("layout", &self.layout)
             .field("blob_dir", &self.blob_dir)
+            .field("blob_s3", &self.blob_s3)
             .field("plc_url", &self.plc_url)
             .field("appview_url", &self.appview_url)
             .finish_non_exhaustive()
@@ -288,6 +292,69 @@ impl Env<'_> {
         Ok(self
             .number::<u64>(name)?
             .map_or(default, Duration::from_millis))
+    }
+
+    /// The S3-compatible blob store, when `PDS_BLOBSTORE_S3_BUCKET` names
+    /// one. The checks and their order are the Reference's (`config.ts` at
+    /// the pin); the Candidate also needs the region and the credentials
+    /// at the start, where the Reference's client looks for them at the
+    /// first request.
+    fn blob_s3(&self) -> Result<Option<pds_blob::S3Config>, ConfigError> {
+        let Some(bucket) = self.text("PDS_BLOBSTORE_S3_BUCKET") else {
+            return Ok(None);
+        };
+        if self.text("PDS_BLOBSTORE_DISK_LOCATION").is_some() {
+            return Err(ConfigError::Refused {
+                name: "PDS_BLOBSTORE_S3_BUCKET".to_owned(),
+                reason: "Cannot set both S3 and disk blobstore env vars",
+            });
+        }
+        // The Reference's client falls back to these variables.
+        let first = |names: &[&'static str]| names.iter().find_map(|name| self.text(name));
+        let key_id = self.text("PDS_BLOBSTORE_S3_ACCESS_KEY_ID");
+        let secret = self.text("PDS_BLOBSTORE_S3_SECRET_ACCESS_KEY");
+        let (access_key_id, secret_access_key, session_token) = match (key_id, secret) {
+            (Some(key_id), Some(secret)) => (key_id, secret, None),
+            (Some(_), None) => {
+                return Err(ConfigError::Missing("PDS_BLOBSTORE_S3_SECRET_ACCESS_KEY"));
+            }
+            (None, Some(_)) => return Err(ConfigError::Missing("PDS_BLOBSTORE_S3_ACCESS_KEY_ID")),
+            (None, None) => (
+                first(&["AWS_ACCESS_KEY_ID"])
+                    .ok_or(ConfigError::Missing("PDS_BLOBSTORE_S3_ACCESS_KEY_ID"))?,
+                first(&["AWS_SECRET_ACCESS_KEY"])
+                    .ok_or(ConfigError::Missing("PDS_BLOBSTORE_S3_SECRET_ACCESS_KEY"))?,
+                first(&["AWS_SESSION_TOKEN"]),
+            ),
+        };
+        let region = first(&[
+            "PDS_BLOBSTORE_S3_REGION",
+            "AWS_REGION",
+            "AWS_DEFAULT_REGION",
+        ])
+        .ok_or(ConfigError::Missing("PDS_BLOBSTORE_S3_REGION"))?;
+        // The Reference reads zero as unset.
+        let positive = |name| {
+            Ok::<_, ConfigError>(
+                self.number::<u64>(name)?
+                    .filter(|millis| *millis > 0)
+                    .map(Duration::from_millis),
+            )
+        };
+        Ok(Some(pds_blob::S3Config {
+            bucket,
+            region,
+            endpoint: self.url("PDS_BLOBSTORE_S3_ENDPOINT")?,
+            force_path_style: self
+                .boolean("PDS_BLOBSTORE_S3_FORCE_PATH_STYLE")?
+                .unwrap_or(false),
+            access_key_id,
+            secret_access_key,
+            session_token,
+            upload_timeout: positive("PDS_BLOBSTORE_S3_UPLOAD_TIMEOUT_MS")?
+                .unwrap_or(Duration::from_secs(20)),
+            request_timeout: positive("PDS_BLOBSTORE_S3_REQUEST_TIMEOUT_MS")?,
+        }))
     }
 
     /// The `PDS_*` variables that Appendix C does not name. A variable that
@@ -427,6 +494,7 @@ impl Config {
             privacy_policy_url: env.text("PDS_PRIVACY_POLICY_URL"),
             terms_of_service_url: env.text("PDS_TERMS_OF_SERVICE_URL"),
             contact_email: env.text("PDS_CONTACT_EMAIL_ADDRESS"),
+            blob_s3: env.blob_s3()?,
             blob_dir: env.text("PDS_BLOBSTORE_DISK_LOCATION").map(PathBuf::from),
             jwt_secret: env.text("PDS_JWT_SECRET"),
             admin_password: env.text("PDS_ADMIN_PASSWORD"),
@@ -449,6 +517,33 @@ impl Config {
     /// Reads the configuration from the process environment.
     pub fn from_env() -> Result<Self, ConfigError> {
         Self::from_vars(&std::env::vars().collect())
+    }
+
+    /// The blob store that the configuration names: the disk store, the
+    /// S3-compatible store, or none. The calls of the S3-compatible store
+    /// run on `handle`.
+    pub fn blob_store(
+        &self,
+        handle: &tokio::runtime::Handle,
+    ) -> Result<Option<pds_blob::BlobStore>, pds_blob::BlobError> {
+        if let Some(s3) = &self.blob_s3 {
+            let clock: pds_blob::Clock = std::sync::Arc::new(|| {
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_or(0, |elapsed| {
+                        i64::try_from(elapsed.as_millis()).unwrap_or(i64::MAX)
+                    })
+            });
+            let store = pds_blob::S3BlobStore::new(s3.clone(), handle.clone(), clock)?;
+            return Ok(Some(store.into()));
+        }
+        Ok(self.blob_dir.clone().map(|dir| {
+            let store = pds_blob::DiskBlobStore::new(dir);
+            match &self.blob_tmp_dir {
+                Some(tmp) => store.with_tmp(tmp).into(),
+                None => store.into(),
+            }
+        }))
     }
 
     /// The secrets `serve` needs. `verify` and `export-car` run without
@@ -510,6 +605,70 @@ mod tests {
     }
 
     #[test]
+    fn the_s3_compatible_store_is_configured_as_on_the_reference() {
+        let r2 = [
+            ("PDS_BLOBSTORE_S3_BUCKET", "blobs"),
+            ("PDS_BLOBSTORE_S3_REGION", "auto"),
+            ("PDS_BLOBSTORE_S3_ENDPOINT", "https://account.r2.example"),
+            ("PDS_BLOBSTORE_S3_FORCE_PATH_STYLE", "true"),
+            ("PDS_BLOBSTORE_S3_ACCESS_KEY_ID", "id"),
+            ("PDS_BLOBSTORE_S3_SECRET_ACCESS_KEY", "hidden"),
+        ];
+        let config = Config::from_vars(&vars(&r2)).unwrap();
+        let s3 = config.blob_s3.clone().unwrap();
+        assert_eq!(s3.bucket, "blobs");
+        assert_eq!(s3.region, "auto");
+        assert!(s3.force_path_style);
+        assert_eq!(s3.upload_timeout, Duration::from_secs(20));
+        assert_eq!(s3.stall_timeout(), Duration::from_secs(15));
+        assert!(config.unknown_variables.is_empty());
+        // The secret stays out of every log.
+        assert!(!format!("{config:?}").contains("hidden"));
+
+        let without = |name: &str| {
+            let kept: Vec<(&str, &str)> = r2.iter().copied().filter(|(n, _)| *n != name).collect();
+            Config::from_vars(&vars(&kept))
+        };
+        for name in [
+            "PDS_BLOBSTORE_S3_REGION",
+            "PDS_BLOBSTORE_S3_ACCESS_KEY_ID",
+            "PDS_BLOBSTORE_S3_SECRET_ACCESS_KEY",
+        ] {
+            assert_eq!(without(name).unwrap_err(), ConfigError::Missing(name));
+        }
+        assert!(
+            without("PDS_BLOBSTORE_S3_BUCKET")
+                .unwrap()
+                .blob_s3
+                .is_none()
+        );
+
+        let mut both = r2.to_vec();
+        both.push(("PDS_BLOBSTORE_DISK_LOCATION", "/blobs"));
+        assert!(matches!(
+            Config::from_vars(&vars(&both)),
+            Err(ConfigError::Refused { .. })
+        ));
+
+        // The variables of the AWS clients are the fallback.
+        let aws = Config::from_vars(&vars(&[
+            ("PDS_BLOBSTORE_S3_BUCKET", "blobs"),
+            ("AWS_REGION", "eu-central-1"),
+            ("AWS_ACCESS_KEY_ID", "id"),
+            ("AWS_SECRET_ACCESS_KEY", "hidden"),
+            ("AWS_SESSION_TOKEN", "token"),
+            ("PDS_BLOBSTORE_S3_UPLOAD_TIMEOUT_MS", "4000"),
+        ]))
+        .unwrap()
+        .blob_s3
+        .unwrap();
+        assert_eq!(aws.region, "eu-central-1");
+        assert_eq!(aws.session_token.as_deref(), Some("token"));
+        assert_eq!(aws.endpoint, None);
+        assert_eq!(aws.stall_timeout(), Duration::from_secs(6));
+    }
+
+    #[test]
     fn an_invalid_value_is_refused() {
         for (name, value) in [
             ("PDS_PORT", "70000"),
@@ -531,7 +690,7 @@ mod tests {
             ("PDS_JWT_SECERT", "x"),
             ("PDS_EXTERNAL_APPLE_CLIENT_TOKEN", "x"),
             ("PDS_EXTERNAL_APPLE_CLIENT_ID", "x"),
-            ("PDS_BLOBSTORE_S3_BUCKET", "x"),
+            ("PDS_BLOBSTORE_S3_REGION", "x"),
             ("PDS_PROXY_MAX_RETRIES", "x"),
             ("PDS_AUDIT_KEY_ID", "x"),
             ("PDS_PROFILE", "stock"),
