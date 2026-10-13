@@ -234,7 +234,7 @@ fn create_store(
         Ok(keypair.sign(bytes).to_vec())
     })
     .map_err(XrpcError::internal)?;
-    drop(schema::create(&layout.actor_db(did), schema::ACTOR_STORE)?);
+    drop(schema::create_actor_store(&layout.actor_db(did), now)?);
     let mut store = ActorDb::open_writable(&layout.actor_db(did))?;
     let txn = store.begin()?;
     txn.update_root(did, &commit.cid, commit.rev.as_str(), now, true)?;

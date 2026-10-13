@@ -76,6 +76,29 @@ impl DidCache for SqliteDidCache {
     }
 }
 
+/// Creates the shared databases that a new data directory lacks, as the
+/// Reference creates them at the pin. A database that exists is left as it
+/// is.
+pub fn create_missing_databases(config: &Config) -> Result<(), ServeError> {
+    use pds_storage::{schema, schema_shared};
+    let now = pds_sequencer::iso_millis(now_ms());
+    let layout = &config.layout;
+    for (path, shared) in [
+        (&layout.account_db, &schema_shared::ACCOUNT),
+        (&layout.sequencer_db, &schema_shared::SEQUENCER),
+        (&layout.did_cache_db, &schema_shared::DID_CACHE),
+    ] {
+        if !path.exists() {
+            drop(
+                schema::create_shared(path, shared, &now)
+                    .map_err(|error| ServeError::Storage(error.to_string()))?,
+            );
+            tracing::info!(path = %path.display(), "created a database of the data directory");
+        }
+    }
+    Ok(())
+}
+
 /// Builds the server state from the configuration.
 pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
     let (jwt_secret, admin_password) = config.serve_secrets()?;
@@ -212,6 +235,7 @@ pub async fn serve(config: &Config) -> Result<(), ServeError> {
         tracing::warn!(%setting, "fail points are armed");
         pds_storage::fail::arm_from(setting)?;
     }
+    create_missing_databases(config)?;
     let state = app_state(config)?;
     // Commits that were in flight at the last stop are settled before the
     // first request (SPEC §7.4).

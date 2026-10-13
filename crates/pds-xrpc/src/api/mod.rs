@@ -3,6 +3,7 @@
 pub mod account;
 pub mod identity;
 pub mod import;
+pub mod lifecycle;
 pub mod repo;
 pub mod repo_write;
 pub mod root;
@@ -70,6 +71,7 @@ enum Served {
     ServerDescribeServer,
     ServerGetSession,
     ServerListAppPasswords,
+    ServerCheckAccountStatus,
     IdentityResolveHandle,
     RepoListMissingBlobs,
 }
@@ -89,6 +91,8 @@ enum Procedure {
     CreateAppPassword,
     RevokeAppPassword,
     CreateAccount,
+    DeactivateAccount,
+    ActivateAccount,
 }
 
 /// The procedure that `nsid` names. `None` for a method without a handler.
@@ -104,6 +108,8 @@ fn procedure(nsid: &str) -> Option<Procedure> {
         "com.atproto.server.refreshSession" => Procedure::RefreshSession,
         "com.atproto.server.deleteSession" => Procedure::DeleteSession,
         "com.atproto.server.createAccount" => Procedure::CreateAccount,
+        "com.atproto.server.deactivateAccount" => Procedure::DeactivateAccount,
+        "com.atproto.server.activateAccount" => Procedure::ActivateAccount,
         "com.atproto.server.createAppPassword" => Procedure::CreateAppPassword,
         "com.atproto.server.revokeAppPassword" => Procedure::RevokeAppPassword,
         _ => return None,
@@ -199,6 +205,7 @@ fn served(nsid: &str) -> Option<(Served, &'static [Spec])> {
         "com.atproto.server.describeServer" => (Served::ServerDescribeServer, &[]),
         "com.atproto.server.getSession" => (Served::ServerGetSession, &[]),
         "com.atproto.server.listAppPasswords" => (Served::ServerListAppPasswords, &[]),
+        "com.atproto.server.checkAccountStatus" => (Served::ServerCheckAccountStatus, &[]),
         "com.atproto.identity.resolveHandle" => (
             Served::IdentityResolveHandle,
             const { &[Spec::required("handle", Format::Handle)] },
@@ -304,6 +311,10 @@ async fn xrpc(
             Procedure::RefreshSession => session::refresh_session(state, headers).await,
             Procedure::DeleteSession => session::delete_session(state, headers).await,
             Procedure::CreateAccount => account::create_account(state, headers, body).await,
+            Procedure::DeactivateAccount => {
+                lifecycle::deactivate_account(state, headers, body).await
+            }
+            Procedure::ActivateAccount => lifecycle::activate_account(state, headers).await,
             Procedure::CreateAppPassword => {
                 session::create_app_password(state, headers, body).await
             }
@@ -342,6 +353,7 @@ async fn xrpc(
         Served::ServerDescribeServer => Ok(server::describe_server(state)),
         Served::ServerGetSession => session::get_session(state, headers).await,
         Served::ServerListAppPasswords => session::list_app_passwords(state, headers).await,
+        Served::ServerCheckAccountStatus => lifecycle::check_account_status(state, headers).await,
         Served::IdentityResolveHandle => identity::resolve_handle(state, &query).await,
         Served::RepoListMissingBlobs if state.writes().is_some() => {
             repo_write::list_missing_blobs(state, &query).await
