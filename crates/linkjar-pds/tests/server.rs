@@ -530,29 +530,26 @@ async fn an_account_that_is_not_active_is_read_by_its_owner_and_by_an_admin() {
 }
 
 #[tokio::test]
-async fn a_method_without_a_handler_wants_a_session_first() {
+async fn a_method_without_a_handler_needs_a_service_to_go_to() {
     let server = Server::start(1).await;
     let path = "/xrpc/app.bsky.actor.getProfile?actor=alice.pds.test";
-    assert_eq!(
-        server.get(path).await.error(),
-        (401, "AuthMissing".to_owned())
-    );
-    assert_eq!(
-        server.get_as(path, &admin()).await.error(),
-        (400, "InvalidToken".to_owned())
-    );
-    assert_eq!(
-        server.get_as(path, "Bearer abc").await.error(),
-        (400, "InvalidToken".to_owned())
-    );
-    // With a session the Reference proxies. This build has no proxy yet.
-    assert_eq!(
-        server
-            .get_as(path, &access_token(ALICE, "com.atproto.access"))
-            .await
-            .error(),
-        (501, "MethodNotImplemented".to_owned())
-    );
+    // This directory names no AppView. The service is looked up before the
+    // credential, as in the Reference; `tests/proxy.rs` has one.
+    for credential in [
+        None,
+        Some(admin()),
+        Some(access_token(ALICE, "com.atproto.access")),
+    ] {
+        let answer = match &credential {
+            Some(credential) => server.get_as(path, credential).await,
+            None => server.get(path).await,
+        };
+        assert_eq!(answer.error(), (400, "InvalidRequest".to_owned()));
+        assert_eq!(
+            answer.json()["message"],
+            "No service configured for app.bsky.actor.getProfile"
+        );
+    }
     assert_eq!(
         server.get("/xrpc/a/b").await.json()["message"],
         "invalid xrpc path"

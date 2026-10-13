@@ -190,6 +190,9 @@ async fn start(
         terms_of_service_url: None,
         contact_email: None,
         appview_url: None,
+        appview_did: None,
+        mod_service: None,
+        report_service: None,
         proxy_timeout: Duration::from_secs(1),
         auth: AuthConfig {
             jwt_secret: JWT_SECRET.as_bytes().to_vec(),

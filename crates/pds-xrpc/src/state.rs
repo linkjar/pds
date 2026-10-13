@@ -33,6 +33,12 @@ pub struct ServerConfig {
     pub contact_email: Option<String>,
     /// `PDS_BSKY_APP_VIEW_URL`, without a trailing slash.
     pub appview_url: Option<String>,
+    /// `PDS_BSKY_APP_VIEW_DID`.
+    pub appview_did: Option<String>,
+    /// `PDS_MOD_SERVICE_URL` and `PDS_MOD_SERVICE_DID`.
+    pub mod_service: Option<(String, String)>,
+    /// `PDS_REPORT_SERVICE_URL` and `PDS_REPORT_SERVICE_DID`.
+    pub report_service: Option<(String, String)>,
     /// The bound on one request to the AppView.
     pub proxy_timeout: Duration,
     /// How credentials are checked.
