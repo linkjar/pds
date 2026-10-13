@@ -469,15 +469,31 @@ pub(crate) async fn change_handle(
             })
             .await?
     };
-    if !hosted {
-        assert_handle_resolves(state, &handle, &did).await?;
+    // A member host tracks the handle that its entryway set: the entryway
+    // checked it and wrote the PLC operation (SPEC §21.3).
+    if state.config().entryway.is_none() {
+        if !hosted {
+            assert_handle_resolves(state, &handle, &did).await?;
+        }
+        if !did.starts_with("did:plc:") {
+            return Err(XrpcError::invalid_request(
+                "DID is not properly configured for handle",
+            ));
+        }
+        publish_handle(state, &identity, &did, &handle).await?;
     }
-    if !did.starts_with("did:plc:") {
-        return Err(XrpcError::invalid_request(
-            "DID is not properly configured for handle",
-        ));
+    // The member host of an entryway keeps the repository: it learns the
+    // handle and announces it on its firehose.
+    if let Some(host) = state.config().member_host.clone() {
+        let change = serde_json::json!({ "did": did, "handle": handle });
+        super::entryway::ask_member(
+            state,
+            &host,
+            "com.atproto.admin.updateAccountHandle",
+            &change,
+        )
+        .await?;
     }
-    publish_handle(state, &identity, &did, &handle).await?;
     state
         .blocking(move |state| {
             let writes = writes(state)?;
@@ -497,6 +513,16 @@ pub(crate) async fn change_handle(
             Ok(())
         })
         .await?;
+    Ok(())
+}
+
+/// At an entryway, removes the account from the member host too, which
+/// has its repository.
+pub(crate) async fn tell_member_of_deletion(state: &AppState, did: &str) -> Result<(), XrpcError> {
+    if let Some(host) = state.config().member_host.clone() {
+        let gone = serde_json::json!({ "did": did });
+        super::entryway::ask_member(state, &host, "com.atproto.admin.deleteAccount", &gone).await?;
+    }
     Ok(())
 }
 
@@ -606,6 +632,7 @@ pub async fn delete_account(
             "Password too long. Consider resetting your password.",
         ));
     }
+    let deleted = did.clone();
     state
         .blocking(move |state| {
             let accounts = state.layout().accounts()?;
@@ -623,5 +650,6 @@ pub async fn delete_account(
             delete_account_now(state, &did)
         })
         .await?;
+    tell_member_of_deletion(state, &deleted).await?;
     Ok(StatusCode::OK.into_response())
 }

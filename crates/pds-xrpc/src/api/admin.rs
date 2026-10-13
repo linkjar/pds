@@ -344,9 +344,13 @@ pub async fn delete_account(
         .unwrap_or_default()
         .to_owned();
     crate::audit::set_subject(&did);
-    state
-        .blocking(move |state| super::lifecycle::delete_account_now(state, &did))
-        .await?;
+    {
+        let did = did.clone();
+        state
+            .blocking(move |state| super::lifecycle::delete_account_now(state, &did))
+            .await?;
+    }
+    super::lifecycle::tell_member_of_deletion(state, &did).await?;
     Ok(axum::response::IntoResponse::into_response(StatusCode::OK))
 }
 

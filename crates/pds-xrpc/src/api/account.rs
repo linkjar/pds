@@ -534,7 +534,7 @@ async fn create_for_entryway(
         &request,
         &member.did,
         Some(&genesis),
-        &commit,
+        Some(&commit),
         &now,
     )
     .await;
@@ -557,9 +557,63 @@ async fn create_for_entryway(
     created
 }
 
+/// Creates an account at an entryway (SPEC §21.3): the member host
+/// reserves the signing key and keeps the repository, and the entryway
+/// signs the PLC operation and keeps the credentials.
+async fn create_at_entryway(
+    state: &AppState,
+    request: Request,
+    host: &crate::state::MemberHost,
+) -> Result<Created, XrpcError> {
+    let identity = identity(state)?.clone();
+    let signer = Keypair::from_secret_bytes(Algorithm::Secp256k1, &identity.rotation_key)
+        .map_err(XrpcError::internal)?;
+    let reserved = super::entryway::ask_member(
+        state,
+        host,
+        "com.atproto.server.reserveSigningKey",
+        &serde_json::json!({}),
+    )
+    .await?;
+    let signing_key = reserved
+        .get("signingKey")
+        .and_then(Value::as_str)
+        .ok_or_else(|| XrpcError::internal("the member host reserved no signing key"))?;
+    let mut rotation_keys = vec![signer.did_key()];
+    if let Some(recovery) = &identity.recovery_did_key {
+        rotation_keys.insert(0, recovery.clone());
+    }
+    if let Some(recovery) = &request.recovery_key {
+        rotation_keys.insert(0, recovery.clone());
+    }
+    let genesis = plc::create_op(
+        signing_key,
+        &rotation_keys,
+        &request.handle,
+        &host.url,
+        &signer,
+    );
+    let account = serde_json::json!({
+        "did": genesis.did, "handle": request.handle, "plcOp": genesis.operation,
+    });
+    super::entryway::ask_member(state, host, "com.atproto.server.createAccount", &account).await?;
+    let now = pds_sequencer::iso_millis(state.now_ms());
+    let created = finish(state, &identity, &request, &genesis.did, None, None, &now).await;
+    if created.is_err() {
+        // The host has a repository that no account owns: it goes again.
+        let gone = serde_json::json!({ "did": genesis.did });
+        let _ = super::entryway::ask_member(state, host, "com.atproto.admin.deleteAccount", &gone)
+            .await;
+    }
+    created
+}
+
 pub(crate) async fn create(state: &AppState, request: Request) -> Result<Created, XrpcError> {
     if let Some(member) = request.member.clone() {
         return create_for_entryway(state, request, &member).await;
+    }
+    if let Some(host) = state.config().member_host.clone() {
+        return create_at_entryway(state, request, &host).await;
     }
     let identity = identity(state)?.clone();
     let writes = writes(state)?;
@@ -613,7 +667,7 @@ pub(crate) async fn create(state: &AppState, request: Request) -> Result<Created
         &request,
         &did,
         genesis.as_ref(),
-        &commit,
+        Some(&commit),
         &now,
     )
     .await;
@@ -637,7 +691,7 @@ fn store_rows(
     request: &Request,
     did: &str,
     now: &str,
-    root: &(String, String),
+    root: Option<&(String, String)>,
     session: &(String, String),
     salt: &str,
 ) -> Result<Result<(), Refused>, XrpcError> {
@@ -673,7 +727,7 @@ fn store_rows(
         refresh_token: request
             .legacy_session
             .then_some((session.0.as_str(), session.1.as_str())),
-        repo_root: (&root.0, &root.1),
+        repo_root: root.map(|root| (root.0.as_str(), root.1.as_str())),
         now,
         delete_after: None,
         deactivated: request.brought_did.is_some(),
@@ -689,7 +743,7 @@ async fn finish(
     request: &Request,
     did: &str,
     genesis: Option<&plc::Genesis>,
-    commit: &pds_repo::CommitData,
+    commit: Option<&pds_repo::CommitData>,
     now: &str,
 ) -> Result<Created, XrpcError> {
     if let Some(genesis) = genesis {
@@ -729,10 +783,12 @@ async fn finish(
     let stored = {
         let request = request.clone();
         let (did, now) = (did.to_owned(), now.to_owned());
-        let root = (commit.cid.to_string(), commit.rev.as_str().to_owned());
+        let root = commit.map(|commit| (commit.cid.to_string(), commit.rev.as_str().to_owned()));
         let session = (id, expires_at);
         state
-            .blocking(move |state| store_rows(state, &request, &did, &now, &root, &session, &salt))
+            .blocking(move |state| {
+                store_rows(state, &request, &did, &now, root.as_ref(), &session, &salt)
+            })
             .await?
     };
     match stored {
@@ -751,13 +807,16 @@ async fn finish(
         }
     }
 
-    let block = commit
-        .new_blocks
-        .get(&commit.cid)
-        .ok_or_else(|| XrpcError::internal("the first commit has no block"))?;
     // An account that moved here says nothing on the firehose until it is
-    // activated.
-    if request.brought_did.is_none() {
+    // activated. An entryway has no repository to announce: its member
+    // host does that.
+    if let Some(commit) = commit
+        && request.brought_did.is_none()
+    {
+        let block = commit
+            .new_blocks
+            .get(&commit.cid)
+            .ok_or_else(|| XrpcError::internal("the first commit has no block"))?;
         let events = [
             identity_event(did, Some(&request.handle), now),
             account_event(did, None, now),

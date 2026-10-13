@@ -135,8 +135,9 @@ pub struct NewAccount<'a> {
     pub invite_code: Option<&'a str>,
     /// The id of the first refresh token and when it ends.
     pub refresh_token: Option<(&'a str, &'a str)>,
-    /// The CID and the revision of the first commit.
-    pub repo_root: (&'a str, &'a str),
+    /// The CID and the revision of the first commit. An entryway keeps
+    /// no repository and gives none.
+    pub repo_root: Option<(&'a str, &'a str)>,
     /// The time of creation (ISO 8601).
     pub now: &'a str,
     /// When set, the account is created deactivated and is deleted at
@@ -710,10 +711,12 @@ impl AccountDb {
                 [id, new.did, expires_at],
             )?;
         }
-        txn.execute(
-            r#"insert into "repo_root" ("did", "cid", "rev", "indexedAt") values (?1, ?2, ?3, ?4) on conflict ("did") do update set "cid" = excluded."cid", "rev" = excluded."rev", "indexedAt" = excluded."indexedAt""#,
-            [new.did, new.repo_root.0, new.repo_root.1, new.now],
-        )?;
+        if let Some((cid, rev)) = new.repo_root {
+            txn.execute(
+                r#"insert into "repo_root" ("did", "cid", "rev", "indexedAt") values (?1, ?2, ?3, ?4) on conflict ("did") do update set "cid" = excluded."cid", "rev" = excluded."rev", "indexedAt" = excluded."indexedAt""#,
+                [new.did, cid, rev, new.now],
+            )?;
+        }
         txn.commit()?;
         Ok(Ok(()))
     }

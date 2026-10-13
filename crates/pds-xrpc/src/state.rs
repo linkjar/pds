@@ -71,6 +71,30 @@ pub struct ServerConfig {
     /// The entryway of this member host (SPEC §21.3). `None`: the server
     /// keeps its accounts itself.
     pub entryway: Option<Entryway>,
+    /// The member host of this entryway (SPEC §21.3). `None`: the server
+    /// keeps its repositories itself.
+    pub member_host: Option<MemberHost>,
+}
+
+/// The member host of an entryway: the server that keeps the
+/// repositories of its accounts.
+#[derive(Clone)]
+pub struct MemberHost {
+    /// `PDS_MEMBER_URL`: the public address, which a DID document names.
+    pub url: String,
+    /// `PDS_MEMBER_INTERNAL_URL`: where the entryway reaches the host.
+    pub internal_url: String,
+    /// `PDS_MEMBER_ADMIN_PASSWORD`: the admin password of the host.
+    pub admin_password: String,
+}
+
+impl std::fmt::Debug for MemberHost {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MemberHost")
+            .field("url", &self.url)
+            .field("internal_url", &self.internal_url)
+            .finish_non_exhaustive()
+    }
 }
 
 /// The entryway of a member host: the service that owns the credentials
