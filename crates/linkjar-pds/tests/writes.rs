@@ -880,7 +880,8 @@ async fn a_subscriber_receives_each_commit_once_and_in_order() {
         "InvalidRequest"
     );
 
-    // Without an upgrade the method has no route (SPEC §7.2).
+    // Without an upgrade the method has no route (SPEC §7.2) and goes to
+    // the proxy, which has no service to send it to in this directory.
     let plain = server.get("/xrpc/com.atproto.sync.subscribeRepos").await;
-    assert_eq!(plain.error(), (401, "AuthMissing".to_owned()));
+    assert_eq!(plain.error(), (400, "InvalidRequest".to_owned()));
 }
