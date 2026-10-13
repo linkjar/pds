@@ -33,6 +33,9 @@ pub struct MailConfig {
     pub moderation_smtp_url: Option<String>,
     /// `PDS_MODERATION_EMAIL_ADDRESS`.
     pub moderation_address: Option<String>,
+    /// Whether the mails use LinkJar's templates in place of the
+    /// Reference's (SPEC §12.7). The server sets it from the profile.
+    pub linkjar_templates: bool,
 }
 
 impl std::fmt::Debug for MailConfig {
@@ -58,16 +61,32 @@ pub enum Template {
     DeleteAccount,
     /// Sign a PLC operation.
     PlcOperation,
+    /// A sign-in method of the account changed. Only the `linkjar`
+    /// profile sends it.
+    SignInMethodChange,
 }
 
 impl Template {
-    const fn source(self) -> &'static str {
-        match self {
-            Self::ConfirmEmail => include_str!("../templates/confirm-email.hbs"),
-            Self::UpdateEmail => include_str!("../templates/update-email.hbs"),
-            Self::ResetPassword => include_str!("../templates/reset-password.hbs"),
-            Self::DeleteAccount => include_str!("../templates/delete-account.hbs"),
-            Self::PlcOperation => include_str!("../templates/plc-operation.hbs"),
+    /// The template of the Reference, or LinkJar's (SPEC §12.7, patch 101).
+    const fn source(self, linkjar: bool) -> &'static str {
+        match (self, linkjar) {
+            (Self::ConfirmEmail, false) => include_str!("../templates/confirm-email.hbs"),
+            (Self::UpdateEmail, false) => include_str!("../templates/update-email.hbs"),
+            (Self::ResetPassword, false) => include_str!("../templates/reset-password.hbs"),
+            (Self::DeleteAccount, false) => include_str!("../templates/delete-account.hbs"),
+            (Self::PlcOperation, false) => include_str!("../templates/plc-operation.hbs"),
+            (Self::ConfirmEmail, true) => include_str!("../templates/linkjar/confirm-email.hbs"),
+            (Self::UpdateEmail, true) => include_str!("../templates/linkjar/update-email.hbs"),
+            (Self::ResetPassword, true) => {
+                include_str!("../templates/linkjar/reset-password.hbs")
+            }
+            (Self::DeleteAccount, true) => {
+                include_str!("../templates/linkjar/delete-account.hbs")
+            }
+            (Self::PlcOperation, true) => include_str!("../templates/linkjar/plc-operation.hbs"),
+            (Self::SignInMethodChange, _) => {
+                include_str!("../templates/linkjar/sign-in-method-change.hbs")
+            }
         }
     }
 
@@ -79,6 +98,7 @@ impl Template {
             Self::ResetPassword => "Password Reset Requested",
             Self::DeleteAccount => "Account Deletion Requested",
             Self::PlcOperation => "PLC Update Operation Requested",
+            Self::SignInMethodChange => "sign-in method changed",
         }
     }
 }
@@ -101,9 +121,18 @@ fn escape(text: &str) -> String {
 }
 
 impl MailConfig {
-    fn value(&self, name: &str, token: &str, handle: Option<&str>) -> Option<String> {
+    fn value(
+        &self,
+        name: &str,
+        token: &str,
+        handle: Option<&str>,
+        more: &[(&str, &str)],
+    ) -> Option<String> {
         const LOGO: &str = "https://bsky.social/about/images/email/email_logo_default.png";
         const MARK: &str = "https://bsky.social/about/images/email/email_mark_dark.png";
+        if let Some((_, value)) = more.iter().find(|(key, _)| *key == name) {
+            return Some((*value).to_owned());
+        }
         Some(match name {
             "token" => token.to_owned(),
             "handle" => handle.unwrap_or_default().to_owned(),
@@ -128,8 +157,20 @@ impl MailConfig {
     /// The HTML of a mail: the template with its variables filled in and
     /// escaped, and its one condition decided.
     pub fn render(&self, template: Template, token: &str, handle: Option<&str>) -> String {
+        self.render_with(template, token, handle, &[])
+    }
+
+    /// [`MailConfig::render`] with the values of a template that has more
+    /// than a token and a handle.
+    pub fn render_with(
+        &self,
+        template: Template,
+        token: &str,
+        handle: Option<&str>,
+        more: &[(&str, &str)],
+    ) -> String {
         let mut out = String::new();
-        let mut rest = template.source();
+        let mut rest = template.source(self.linkjar_templates);
         let mut hidden = false;
         while let Some(open) = rest.find("{{") {
             let (before, tag) = rest.split_at(open);
@@ -147,7 +188,7 @@ impl MailConfig {
                 hidden = !shown;
             } else if name == "/if" {
                 hidden = false;
-            } else if !hidden && let Some(value) = self.value(name, token, handle) {
+            } else if !hidden && let Some(value) = self.value(name, token, handle, more) {
                 out.push_str(&escape(&value));
             }
             rest = &tag[close + 2..];
@@ -176,6 +217,7 @@ impl MailConfig {
             to,
             subject,
             content.to_owned(),
+            None,
         )
         .await
     }
@@ -202,6 +244,50 @@ impl MailConfig {
             to,
             template.subject(),
             html,
+            None,
+        )
+        .await
+    }
+
+    /// Whether the server can send mail.
+    pub const fn can_send(&self) -> bool {
+        self.smtp_url.is_some()
+    }
+
+    /// Sends the notice of a changed sign-in method (SPEC §12.6). `id`
+    /// names the notice: a retry carries the same `Message-ID`, so a
+    /// mailbox shows one mail for one change.
+    pub async fn send_notice(
+        &self,
+        id: &str,
+        to: &str,
+        change: &str,
+        did: &str,
+        time: &str,
+    ) -> Result<(), XrpcError> {
+        let Some(url) = &self.smtp_url else {
+            return Err(XrpcError::internal("No SMTP URL has been configured"));
+        };
+        let service = self.service_name.as_deref().unwrap_or("Bluesky");
+        let host = self
+            .home_url
+            .as_deref()
+            .and_then(|home| home.split("://").nth(1))
+            .and_then(|rest| rest.split(['/', ':']).next())
+            .unwrap_or("localhost");
+        let html = self.render_with(
+            Template::SignInMethodChange,
+            "",
+            None,
+            &[("change", change), ("did", did), ("time", time)],
+        );
+        deliver(
+            url,
+            self.from_address.as_deref().unwrap_or_default(),
+            to,
+            &format!("{service}: {}", Template::SignInMethodChange.subject()),
+            html,
+            Some(format!("<{id}@{host}>")),
         )
         .await
     }
@@ -214,11 +300,16 @@ async fn deliver(
     to: &str,
     subject: &str,
     html: String,
+    message_id: Option<String>,
 ) -> Result<(), XrpcError> {
     let text = plain_text(&html);
     let from: Mailbox = from.parse().map_err(XrpcError::internal)?;
     let to: Mailbox = to.parse().map_err(XrpcError::internal)?;
-    let message = Message::builder()
+    let mut builder = Message::builder();
+    if message_id.is_some() {
+        builder = builder.message_id(message_id);
+    }
+    let message = builder
         .from(from)
         .to(to)
         .subject(subject)
@@ -335,5 +426,41 @@ mod tests {
                 .render(Template::ResetPassword, "T", Some("alice.test"))
                 .contains("alice.test")
         );
+    }
+
+    #[test]
+    fn the_linkjar_profile_has_its_own_templates_and_a_notice() {
+        let config = MailConfig {
+            service_name: Some("LinkJar".to_owned()),
+            home_url: Some("https://linkjar.io".to_owned()),
+            linkjar_templates: true,
+            ..MailConfig::default()
+        };
+        let confirm = config.render(Template::ConfirmEmail, "AAAAA-BBBBB", None);
+        assert!(confirm.contains("AAAAA-BBBBB"));
+        assert!(confirm.contains("https://linkjar.io/logo/linkjar-128.png"));
+        let stock = MailConfig::default().render(Template::ConfirmEmail, "AAAAA-BBBBB", None);
+        assert!(!stock.contains("linkjar"));
+
+        let notice = config.render_with(
+            Template::SignInMethodChange,
+            "",
+            None,
+            &[
+                ("change", "Google was linked to your account."),
+                ("did", "did:plc:abc"),
+                ("time", "2026-10-13T00:00:00.000Z"),
+            ],
+        );
+        for part in [
+            "Your sign-in method changed",
+            "Google was linked to your account.",
+            "did:plc:abc",
+            "2026-10-13T00:00:00.000Z",
+        ] {
+            assert!(notice.contains(part), "{part}");
+        }
+        assert!(!notice.contains("{{"));
+        assert!(plain_text(&notice).contains("Google was linked to your account."));
     }
 }
