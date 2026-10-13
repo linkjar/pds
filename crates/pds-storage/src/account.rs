@@ -455,7 +455,7 @@ impl AccountDb {
         Ok(self
             .conn
             .query_row(
-                r#"select "did", "requestedAt" from "email_token" where "purpose" = ?1 and "token" = ?2 and (?3 is null or "did" = ?3)"#,
+                r#"select "did", "requestedAt" from "email_token" where "purpose" = ?1 and "token" = ?2 and (cast(?3 as varchar) is null or "did" = ?3)"#,
                 params![purpose, token, did],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
@@ -860,7 +860,7 @@ impl AccountDb {
             return Ok(false);
         }
         txn.execute(
-            r#"insert into "refresh_token" ("id", "did", "appPasswordName", "expiresAt") select ?2, "did", "appPasswordName", ?3 from "refresh_token" where "id" = ?1 on conflict do nothing"#,
+            r#"insert into "refresh_token" ("id", "did", "appPasswordName", "expiresAt") select cast(?2 as varchar), "did", "appPasswordName", cast(?3 as varchar) from "refresh_token" where "id" = ?1 on conflict do nothing"#,
             [id, next, next_expires_at],
         )?;
         txn.commit()?;
