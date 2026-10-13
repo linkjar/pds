@@ -156,12 +156,21 @@ fn admin(token: &str, config: &AuthConfig) -> Result<Credentials, XrpcError> {
     }
 }
 
-fn access(
+/// The claims of a token this server signed.
+struct Verified {
+    did: String,
+    scope: String,
+    jti: Option<String>,
+}
+
+/// Checks the signature, the type, the audience and the expiry of a token,
+/// and the shape of its claims, as `verifyBearerJwt` of the Reference.
+fn verify(
     token: &str,
     config: &AuthConfig,
-    additional: &[&str],
-    now_s: i64,
-) -> Result<Credentials, XrpcError> {
+    typ: &str,
+    now_s: Option<i64>,
+) -> Result<Verified, XrpcError> {
     let unverified = || invalid_token("Token could not be verified");
     let malformed = || invalid_token("Malformed token");
     let mut parts = token.split('.');
@@ -187,15 +196,15 @@ fn access(
     mac.verify_slice(&signature).map_err(|_| unverified())?;
 
     let claims = json(body).ok_or_else(unverified)?;
-    if header.get("typ").and_then(|v| v.as_str()) != Some("at+jwt") {
+    if header.get("typ").and_then(|v| v.as_str()) != Some(typ) {
         return Err(unverified());
     }
     if claims.get("aud").and_then(|v| v.as_str()) != Some(config.service_did.as_str()) {
         return Err(unverified());
     }
-    match claims.get("exp") {
-        None => {}
-        Some(exp) => {
+    match (claims.get("exp"), now_s) {
+        (None, _) | (_, None) => {}
+        (Some(exp), Some(now_s)) => {
             let exp = exp.as_f64().ok_or_else(unverified)?;
             #[allow(clippy::cast_precision_loss)] // seconds since 1970 fit a double exactly
             if exp <= now_s as f64 {
@@ -211,20 +220,129 @@ fn access(
         .and_then(|v| v.as_str())
         .filter(|sub| sub.parse::<pds_types::Did>().is_ok())
         .ok_or_else(malformed)?;
-    if claims.get("jti").is_some_and(|jti| !jti.is_string()) {
-        return Err(malformed());
-    }
+    let jti = match claims.get("jti") {
+        None => None,
+        Some(serde_json::Value::String(jti)) => Some(jti.clone()),
+        Some(_) => return Err(malformed()),
+    };
     let scope = claims
         .get("scope")
         .and_then(|v| v.as_str())
         .unwrap_or_default();
+    Ok(Verified {
+        did: did.to_owned(),
+        scope: scope.to_owned(),
+        jti,
+    })
+}
+
+fn access(
+    token: &str,
+    config: &AuthConfig,
+    additional: &[&str],
+    now_s: i64,
+) -> Result<Credentials, XrpcError> {
+    let verified = verify(token, config, "at+jwt", Some(now_s))?;
+    let scope = verified.scope.as_str();
     if !ACCESS_STANDARD.contains(&scope) && !additional.contains(&scope) {
         return Err(invalid_token("Bad token scope"));
     }
     Ok(Credentials::Access {
-        did: did.to_owned(),
-        scope: scope.to_owned(),
+        did: verified.did,
+        scope: verified.scope,
     })
+}
+
+/// The scope of a refresh token.
+pub const SCOPE_REFRESH: &str = "com.atproto.refresh";
+/// The scope of a session that an app password opened.
+pub const SCOPE_APP_PASS: &str = "com.atproto.appPass";
+/// The scope of a session that a privileged app password opened.
+pub const SCOPE_APP_PASS_PRIVILEGED: &str = "com.atproto.appPassPrivileged";
+/// The scope of a session of the account password.
+pub const SCOPE_ACCESS: &str = "com.atproto.access";
+
+/// How long an access token lives: 120 minutes.
+pub const ACCESS_LIFETIME_S: i64 = 120 * 60;
+/// How long a refresh token lives: 90 days.
+pub const REFRESH_LIFETIME_S: i64 = 90 * 24 * 60 * 60;
+
+/// The account and the id of the refresh token of a request, as
+/// `refresh()` of the Reference reads them. `allow_expired` accepts a token
+/// past its expiry: `deleteSession` revokes one whenever it is presented.
+pub fn refresh(
+    headers: &HeaderMap,
+    config: &AuthConfig,
+    now_s: i64,
+    allow_expired: bool,
+) -> Result<(String, String), XrpcError> {
+    let value = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default();
+    let token = match value.split_once(' ') {
+        Some((kind, token)) if kind.eq_ignore_ascii_case("bearer") && !token.is_empty() => token,
+        _ => return Err(XrpcError::auth_required("AuthMissing")),
+    };
+    let verified = verify(
+        token,
+        config,
+        "refresh+jwt",
+        (!allow_expired).then_some(now_s),
+    )?;
+    if verified.scope != SCOPE_REFRESH {
+        return Err(invalid_token("Bad token scope"));
+    }
+    let Some(id) = verified.jti else {
+        return Err(XrpcError {
+            status: axum::http::StatusCode::UNAUTHORIZED,
+            error: "MissingTokenId".to_owned(),
+            message: "Unexpected missing refresh token id".to_owned(),
+        });
+    };
+    Ok((verified.did, id))
+}
+
+fn sign(config: &AuthConfig, header: &serde_json::Value, claims: &serde_json::Value) -> String {
+    let head = URL_SAFE_NO_PAD.encode(header.to_string());
+    let body = URL_SAFE_NO_PAD.encode(claims.to_string());
+    // HMAC takes a key of any length, so there is no other arm.
+    let signature = Hmac::<Sha256>::new_from_slice(&config.jwt_secret).map_or_else(
+        |_| Vec::new(),
+        |mut mac| {
+            mac.update(format!("{head}.{body}").as_bytes());
+            mac.finalize().into_bytes().to_vec()
+        },
+    );
+    format!("{head}.{body}.{}", URL_SAFE_NO_PAD.encode(signature))
+}
+
+/// An access token for `did`, as `createAccessToken` of the Reference
+/// mints it.
+pub fn mint_access(config: &AuthConfig, did: &str, scope: &str, now_s: i64) -> String {
+    sign(
+        config,
+        &serde_json::json!({"typ": "at+jwt", "alg": "HS256"}),
+        &serde_json::json!({
+            "scope": scope, "aud": config.service_did, "sub": did,
+            "iat": now_s, "exp": now_s + ACCESS_LIFETIME_S,
+        }),
+    )
+}
+
+/// A refresh token for `did` with the id `jti`. Returns the token and the
+/// second it ends.
+pub fn mint_refresh(config: &AuthConfig, did: &str, jti: &str, now_s: i64) -> (String, i64) {
+    let exp = now_s + REFRESH_LIFETIME_S;
+    let token = sign(
+        config,
+        &serde_json::json!({"typ": "refresh+jwt", "alg": "HS256"}),
+        &serde_json::json!({
+            "scope": SCOPE_REFRESH, "aud": config.service_did, "sub": did,
+            "jti": jti, "iat": now_s, "exp": exp,
+        }),
+    );
+    (token, exp)
 }
 
 #[cfg(test)]

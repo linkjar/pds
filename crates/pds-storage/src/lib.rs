@@ -25,7 +25,10 @@ pub mod ops;
 pub mod schema;
 pub mod sequencer;
 
-pub use account::{AccountDb, Actor, Availability, RepoListing};
+pub use account::{
+    Account, AccountDb, Actor, AppPassword, Availability, NewAccount, RefreshToken, Refused,
+    RepoListing,
+};
 pub use actor::{ActorDb, BLOCK_BATCH, BlobMeta, BlockRow, FoundBlocks, RecordRow, RepoRoot};
 pub use actor_txn::{ActorTxn, Backlink, MissingBlob, PendingUpload, StoredBlob};
 pub use did_cache::{CachedDoc, DidCacheDb};

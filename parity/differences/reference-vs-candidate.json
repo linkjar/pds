@@ -1,5 +1,26 @@
 [
   {
+    "scenario": "writes/02-sessions",
+    "step": "createAppPassword with a used name",
+    "path": "body.error",
+    "left": "InternalServerError",
+    "right": "InvalidRequest"
+  },
+  {
+    "scenario": "writes/02-sessions",
+    "step": "createAppPassword with a used name",
+    "path": "body.message",
+    "left": "Internal Server Error",
+    "right": "An app password named \"reader\" already exists"
+  },
+  {
+    "scenario": "writes/02-sessions",
+    "step": "createAppPassword with a used name",
+    "path": "status",
+    "left": 500,
+    "right": 400
+  },
+  {
     "scenario": "writes/03-repo-writes",
     "step": "createRecord with a key that exists",
     "path": "body.error",

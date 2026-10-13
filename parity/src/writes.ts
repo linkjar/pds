@@ -61,7 +61,7 @@ const STAGES: Stage[] = [
   {
     name: 'records',
     profile: 'writes',
-    files: ['default/03-repo-writes', 'default/04-repo-reads', 'default/05-blobs', 'default/15-import', 'writes/20-firehose', 'writes/21-relay', 'writes/22-elsewhere'].map(scenario),
+    files: ['default/02-sessions', 'default/03-repo-writes', 'default/04-repo-reads', 'default/05-blobs', 'default/15-import', 'writes/20-firehose', 'writes/21-relay', 'writes/22-elsewhere'].map(scenario),
   },
   // The two rows of SPEC 7.3 that depend on configured limits.
   { name: 'cursor-limits', profile: 'writes-firehose', files: [scenario('firehose/01-cursor-limits')] },
