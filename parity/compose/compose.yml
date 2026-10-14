@@ -18,6 +18,8 @@ services:
     restart: "no"
     environment:
       PDS_UPSTREAM: pds:3000
+      # Set in the topology with an entryway; see the Caddyfile.
+      HANDLE_DID_UPSTREAM: ${HANDLE_DID_UPSTREAM:-}
       FIXTURE_UPSTREAM: host.docker.internal:${FIXTURE_PORT:?}
     extra_hosts:
       - host.docker.internal:host-gateway
@@ -33,8 +35,11 @@ services:
       pubnet:
         aliases:
           - pds.linkjar.social
+          - entryway.linkjar.social
       inner:
         aliases:
+          # The entryway of the topology with an entryway, for its member host.
+          - entryway.linkjar.social
           # Harness services, reached from the host through the edge.
           - plc.test
           - relay.test
@@ -196,6 +201,42 @@ services:
       retries: 90
     stop_grace_period: 20s
 
+  # The topology with an entryway (PARITY_CANDIDATE_ENTRYWAY=1, src/stack/env.ts):
+  # this server keeps the accounts, and `pds` is its member host.
+  entryway-init:
+    image: ${PDS_IMAGE:?}
+    profiles: [entryway]
+    user: root
+    entrypoint: [sh, -c, "mkdir -p /app/data && chown -R 1000:1000 /app/data"]
+    network_mode: none
+    volumes:
+      - entryway-data:/app/data
+
+  entryway:
+    image: ${PDS_IMAGE}
+    profiles: [entryway]
+    restart: "no"
+    env_file:
+      - path: ${RUN_DIR}/entryway.env
+        format: raw
+    environment:
+      SSL_CERT_FILE: /ca/ca.crt
+    volumes:
+      - entryway-data:/app/data
+      - ${RUN_DIR}/ca:/ca:ro
+    networks: [inner]
+    depends_on:
+      entryway-init: { condition: service_completed_successfully }
+      plc: { condition: service_healthy }
+      edge: { condition: service_healthy }
+      mail: { condition: service_started }
+    healthcheck:
+      test: [CMD-SHELL, "${PDS_HEALTH_CMD:?}"]
+      interval: 1s
+      timeout: 5s
+      retries: 90
+    stop_grace_period: 20s
+
   # See sqlite-tool.cjs. Started only by `docker compose run`.
   sqlite:
     image: ${TOOL_IMAGE:?}
@@ -206,6 +247,18 @@ services:
     entrypoint: [node, /tool/sqlite-tool.cjs]
     volumes:
       - pds-data:/app/data
+      - ./sqlite-tool.cjs:/tool/sqlite-tool.cjs:ro
+
+  # The same tool on the data directory of the entryway, which keeps the
+  # accounts in the topology with an entryway.
+  sqlite-entryway:
+    image: ${TOOL_IMAGE:?}
+    profiles: [tools]
+    user: "0:0"
+    network_mode: none
+    entrypoint: [node, /tool/sqlite-tool.cjs]
+    volumes:
+      - entryway-data:/app/data
       - ./sqlite-tool.cjs:/tool/sqlite-tool.cjs:ro
 
 networks:
@@ -226,4 +279,5 @@ networks:
 
 volumes:
   pds-data: {}
+  entryway-data: {}
   relay-data: {}

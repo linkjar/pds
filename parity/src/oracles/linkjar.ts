@@ -7,7 +7,7 @@ import type { NextIdentity } from '../fixtures/identity-providers.ts'
 import type { BrowserContext } from '../lib/browser.ts'
 import type { TestClient } from '../lib/oauth.ts'
 import type { Scenario } from '../scenario.ts'
-import { HOSTS } from '../stack/targets.ts'
+import { HOSTS, accountHost } from '../stack/targets.ts'
 import { driveAuthorization } from './oauth.ts'
 import type { PageFacts } from './oauth.ts'
 
@@ -71,7 +71,7 @@ export class AccountPage {
   static async open(device: BrowserContext, opts: { identifier?: string; password?: string; provider?: 'Apple' | 'Google' | 'GitHub' }): Promise<AccountPage> {
     const page = await device.newPage()
     page.setDefaultTimeout(10_000)
-    await page.goto(`https://${HOSTS.pds}/account`, { waitUntil: 'domcontentloaded' })
+    await page.goto(`https://${accountHost()}/account`, { waitUntil: 'domcontentloaded' })
     await page.getByRole('button', { name: 'Sign in', exact: true }).first().click()
     if (opts.provider) {
       await page.getByText(`Continue with ${opts.provider}`, { exact: true }).first().click()

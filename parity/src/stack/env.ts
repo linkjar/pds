@@ -3,9 +3,10 @@
 // outside services replaced by the stack's own. A profile changes a few
 // variables for the scenarios that need them.
 
-import { randomBytes } from 'node:crypto'
+import { createECDH, createHash, randomBytes } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { base58btc } from 'multiformats/bases/base58'
 import { HOSTS, upstream } from './targets.ts'
 import type { TargetSpec } from './targets.ts'
 
@@ -187,7 +188,68 @@ export function pdsEnv(spec: TargetSpec, profile: Profile, secrets: Secrets): Re
   return env
 }
 
+/**
+ * Whether the Candidate runs as a member host behind an entryway (SPEC
+ * 21.3), with PARITY_CANDIDATE_ENTRYWAY=1. The service `pds` is the member
+ * host: it keeps the address of the single node, as an adopted node does
+ * (docs/runbooks/entryway.md). The service `entryway` keeps the accounts.
+ */
+export function entrywayMode(spec: TargetSpec): boolean {
+  return spec.name === 'candidate' && process.env.PARITY_CANDIDATE_ENTRYWAY === '1'
+}
+
+/** The compressed secp256k1 public key of a private key, in hexadecimal. */
+function k256Public(privateHex: string): Buffer {
+  const ecdh = createECDH('secp256k1')
+  ecdh.setPrivateKey(Buffer.from(privateHex, 'hex'))
+  return ecdh.getPublicKey(undefined, 'compressed')
+}
+
+/** The `did:key` of a secp256k1 private key. */
+function k256DidKey(privateHex: string): string {
+  // The multicodec of a secp256k1 public key, 0xe7, as a varint.
+  return `did:key:${base58btc.encode(Buffer.concat([Buffer.from([0xe7, 0x01]), k256Public(privateHex)]))}`
+}
+
+/**
+ * The environments of the member host and of the entryway, from the
+ * environment of the single node. The steps are those of
+ * docs/runbooks/entryway.md §3. The key of the tokens comes from the
+ * secrets of the run, so a run directory keeps it.
+ */
+export function entrywayEnvs(env: Record<string, string>): { member: Record<string, string>; entryway: Record<string, string> } {
+  const signingKey = createHash('sha256').update(`entryway:${env.PDS_JWT_SECRET}`).digest('hex')
+  const rotationKey = env.PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX!
+  const member: Record<string, string> = {
+    ...env,
+    PDS_ENTRYWAY_URL: `https://${HOSTS.entryway}`,
+    PDS_ENTRYWAY_DID: `did:web:${HOSTS.entryway}`,
+    PDS_ENTRYWAY_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX: k256Public(signingKey).toString('hex'),
+    PDS_ENTRYWAY_PLC_ROTATION_KEY: k256DidKey(rotationKey),
+    PDS_ENTRYWAY_ADMIN_TOKEN: env.PDS_ADMIN_PASSWORD!,
+  }
+  delete member.PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX
+  const entryway: Record<string, string> = {
+    ...env,
+    PDS_HOSTNAME: HOSTS.entryway,
+    PDS_MEMBER_URL: `https://${HOSTS.pds}`,
+    PDS_MEMBER_INTERNAL_URL: 'http://pds:3000',
+    PDS_MEMBER_ADMIN_PASSWORD: env.PDS_ADMIN_PASSWORD!,
+    PDS_ENTRYWAY_JWT_SIGNING_KEY_K256_PRIVATE_KEY_HEX: signingKey,
+  }
+  return { member, entryway }
+}
+
 export function writePdsEnv(spec: TargetSpec, env: Record<string, string>): void {
-  const lines = Object.entries(env).map(([key, value]) => `${key}=${value}`)
-  writeFileSync(join(spec.runDir, 'pds.env'), lines.join('\n') + '\n', { mode: 0o600 })
+  const write = (name: string, values: Record<string, string>) => {
+    const lines = Object.entries(values).map(([key, value]) => `${key}=${value}`)
+    writeFileSync(join(spec.runDir, name), lines.join('\n') + '\n', { mode: 0o600 })
+  }
+  if (entrywayMode(spec)) {
+    const { member, entryway } = entrywayEnvs(env)
+    write('pds.env', member)
+    write('entryway.env', entryway)
+  } else {
+    write('pds.env', env)
+  }
 }

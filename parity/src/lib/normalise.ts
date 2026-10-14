@@ -16,7 +16,8 @@ const RULES: Rule[] = [
   { kind: 'multikey', pattern: /\bz(?:Q3s|Dn)[1-9A-HJ-NP-Za-km-z]{40,}/g },
   { kind: 'cid', pattern: /\bbaf[a-z2-7]{56}\b/g },
   { kind: 'tid', pattern: /\b[2-7][2-7a-z]{12}\b/g },
-  { kind: 'invite', pattern: /\bpds-linkjar-social-[a-z2-7]{5}-[a-z2-7]{5}\b/g },
+  // An entryway names its codes (src/stack/env.ts, entrywayMode).
+  { kind: 'invite', pattern: /\b(?:pds|entryway)-linkjar-social-[a-z2-7]{5}-[a-z2-7]{5}\b/g },
   { kind: 'oauth', pattern: /\b(?:req|cod|tok|ref|dev|ses)-[0-9a-f]{16,}\b/g },
   { kind: 'email-token', pattern: /\b[A-Z2-7]{5}-[A-Z2-7]{5}\b/g },
   { kind: 'app-password', pattern: /\b[a-z2-7]{4}-[a-z2-7]{4}-[a-z2-7]{4}-[a-z2-7]{4}\b/g },

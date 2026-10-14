@@ -4,7 +4,7 @@ import { execFile, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { ensureSecrets, pdsEnv, writePdsEnv } from './env.ts'
+import { ensureSecrets, entrywayMode, pdsEnv, writePdsEnv } from './env.ts'
 import type { Profile, Secrets } from './env.ts'
 import { COMPOSE_FILE, EDGE_NAMES, TARGET_NAMES, composeImages, targetSpec } from './targets.ts'
 import type { TargetName, TargetSpec } from './targets.ts'
@@ -20,6 +20,8 @@ export type StackState = {
   fixturePort: number
   caFile: string
   secrets: Secrets
+  /** The Candidate is a member host behind an entryway (env.ts, entrywayMode). */
+  entryway?: boolean
 }
 
 type RunResult = { status: number; stdout: string; stderr: string }
@@ -56,6 +58,8 @@ function composeEnv(spec: TargetSpec, secrets: Secrets, image?: string): NodeJS.
     FIXTURE_PORT: String(spec.fixturePort),
     RELAY_ADMIN_PASSWORD: secrets.relayAdminPassword,
     PUBNET_SUBNET: `2001:db8:5eed:${TARGET_NAMES.indexOf(spec.name)}::/64`,
+    // The entryway and its volume exist only in the topology with an entryway.
+    ...(entrywayMode(spec) ? { COMPOSE_PROFILES: 'entryway', HANDLE_DID_UPSTREAM: 'entryway:3000' } : {}),
   }
 }
 
@@ -117,6 +121,7 @@ export async function up(target: TargetName, profile: Profile, opts: { fresh?: b
     fixturePort: spec.fixturePort,
     caFile: join(spec.runDir, 'ca/ca.crt'),
     secrets,
+    entryway: entrywayMode(spec),
   }
   writeFileSync(stateFile(target), JSON.stringify(state, null, 2) + '\n', { mode: 0o600 })
   return state
@@ -152,10 +157,15 @@ export function down(target: TargetName): void {
   rmSync(stateFile(target), { force: true })
 }
 
-/** Restarts the PDS container and waits until it is healthy again. */
+/**
+ * Restarts the PDS container and waits until it is healthy again. Behind
+ * an entryway the entryway restarts too: it keeps the sessions and the
+ * caches of the authorization server.
+ */
 export function restartPds(target: TargetName): void {
-  compose(target, ['restart', 'pds'])
-  compose(target, ['up', '--detach', '--wait', '--wait-timeout', '120', 'pds'])
+  const services = entrywayMode(targetSpec(target)) ? ['pds', 'entryway'] : ['pds']
+  compose(target, ['restart', ...services])
+  compose(target, ['up', '--detach', '--wait', '--wait-timeout', '120', ...services])
 }
 
 /** Runs a command inside the PDS container. */
@@ -217,7 +227,9 @@ export function sqlite(target: TargetName, database: Database, sql: string, para
     const shard = createHash('sha256').update(database.actor).digest('hex').slice(0, 2)
     file = `/app/data/actors/${shard}/${database.actor}/store.sqlite`
   }
-  const run = compose(target, ['run', '--rm', '--no-deps', '-T', 'sqlite'], { input: JSON.stringify({ file, sql, params }) })
+  // Behind an entryway the accounts are the entryway's.
+  const service = database === 'account' && entrywayMode(targetSpec(target)) ? 'sqlite-entryway' : 'sqlite'
+  const run = compose(target, ['run', '--rm', '--no-deps', '-T', service], { input: JSON.stringify({ file, sql, params }) })
   return JSON.parse(run.stdout)
 }
 

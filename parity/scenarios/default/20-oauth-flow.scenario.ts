@@ -9,9 +9,9 @@ import { makeClient } from '../../src/lib/oauth.ts'
 import { describeSession, signIn, viaSession } from '../../src/oracles/oauth.ts'
 import { checkRepo } from '../../src/oracles/repo.ts'
 import { refused, scenario } from '../../src/scenario.ts'
-import { HOSTS } from '../../src/stack/targets.ts'
+import { HOSTS, accountHost, behindEntryway } from '../../src/stack/targets.ts'
 
-const ISSUER = `https://${HOSTS.pds}`
+const ISSUER = `https://${accountHost()}`
 const NOTE = 'com.example.parity.note'
 
 scenario('20-oauth-flow', { timeoutMs: 300_000 }, async (s) => {
@@ -31,7 +31,8 @@ scenario('20-oauth-flow', { timeoutMs: 300_000 }, async (s) => {
   assert.ok(metadata.grant_types_supported.includes('authorization_code'))
   assert.ok(metadata.grant_types_supported.includes('refresh_token'))
   assert.ok(metadata.scopes_supported.includes('atproto'))
-  assert.deepEqual(metadata.protected_resources, [ISSUER])
+  // An entryway protects its member host too (SPEC 21.3).
+  assert.deepEqual(metadata.protected_resources, behindEntryway() ? [ISSUER, `https://${HOSTS.pds}`] : [ISSUER])
   const resource = (await s.http('protected resource metadata', { path: '/.well-known/oauth-protected-resource' })).json
   assert.deepEqual(resource.authorization_servers, [ISSUER])
   await s.http('JWKS', { path: '/oauth/jwks' })
@@ -53,9 +54,10 @@ scenario('20-oauth-flow', { timeoutMs: 300_000 }, async (s) => {
   assert.equal(a.facts.showsClientName, false)
 
   // The access token: signed with the server's HS256 key, bound to the DPoP key (SPEC 11.3, 5.5).
+  // An entryway signs with its ES256K key, which its member host checks (SPEC 21.3).
   const saved = client.sessions.get(alice.did)!
   const access = decodeJwt(saved.tokenSet.access_token)
-  assert.equal(access.header.alg, 'HS256')
+  assert.equal(access.header.alg, behindEntryway() ? 'ES256K' : 'HS256')
   assert.equal(access.header.typ, 'at+jwt')
   assert.equal(access.claims.sub, alice.did)
   assert.equal(access.claims.iss, ISSUER)

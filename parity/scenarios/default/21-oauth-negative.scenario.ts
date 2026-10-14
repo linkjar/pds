@@ -11,9 +11,9 @@ import type { RawClient } from '../../src/lib/oauth-raw.ts'
 import { driveAuthorization } from '../../src/oracles/oauth.ts'
 import { refused, scenario } from '../../src/scenario.ts'
 import type { Account, Scenario } from '../../src/scenario.ts'
-import { HOSTS } from '../../src/stack/targets.ts'
+import { HOSTS, accountHost } from '../../src/stack/targets.ts'
 
-const ISSUER = `https://${HOSTS.pds}`
+const ISSUER = `https://${accountHost()}`
 const SCOPE = 'atproto transition:generic'
 
 type Grant = { code: string; verifier: string; requestUri: string }

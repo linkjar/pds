@@ -8,7 +8,7 @@ import { Agent, buildConnector, fetch as undiciFetch } from 'undici'
 import WebSocket from 'ws'
 import { bootPds, execPds, readState, restartPds, sqlite } from '../stack/compose.ts'
 import type { Database, StackState } from '../stack/compose.ts'
-import { HOSTS, isTargetName } from '../stack/targets.ts'
+import { HOSTS, accountHost, isTargetName } from '../stack/targets.ts'
 import type { TargetName } from '../stack/targets.ts'
 
 export type FetchLike = typeof globalThis.fetch
@@ -85,6 +85,17 @@ export class Target {
   /** An SDK agent for the PDS. */
   agent(opts: ClientOptions = {}): AtpAgent {
     return new AtpAgent({ service: this.pdsUrl, fetch: this.fetch(opts) })
+  }
+
+  /**
+   * The host a request goes to. Behind an entryway a client signs up at
+   * the entryway, as a member host refuses an account without a DID, and
+   * the OAuth endpoints are the entryway's. Every other request goes to the
+   * member host, which passes the methods of the entryway on.
+   */
+  hostFor(path: string): string {
+    const atEntryway = path === '/xrpc/com.atproto.server.createAccount' || path.startsWith('/oauth/') || path === '/.well-known/oauth-authorization-server'
+    return atEntryway ? accountHost() : HOSTS.pds
   }
 
   adminAuth(): string {

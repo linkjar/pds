@@ -4,7 +4,7 @@
 
 import assert from 'node:assert/strict'
 import { scenario } from '../../src/scenario.ts'
-import { HOSTS, upstream } from '../../src/stack/targets.ts'
+import { HOSTS, accountHost, upstream } from '../../src/stack/targets.ts'
 
 scenario('01-server', {}, async (s) => {
   const health = await s.http('health', { path: '/xrpc/_health' })
@@ -100,5 +100,5 @@ scenario('01-server', {}, async (s) => {
   assert.equal(tokenPreflight.headers.get('access-control-max-age'), '86400')
   const resource = await s.http('VP-11 protected resource metadata with Origin', { path: '/.well-known/oauth-protected-resource', headers: { origin } })
   assert.equal(resource.headers.get('access-control-allow-origin'), '*')
-  assert.deepEqual(resource.json.authorization_servers, [`https://${HOSTS.pds}`])
+  assert.deepEqual(resource.json.authorization_servers, [`https://${accountHost()}`])
 })

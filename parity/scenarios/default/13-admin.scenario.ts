@@ -9,7 +9,7 @@ import { describeMail, nextMail } from '../../src/lib/mail.ts'
 import { NOTE, surfaces } from '../../src/oracles/account-surfaces.ts'
 import { summariseAll } from '../../src/oracles/firehose.ts'
 import { refused, scenario } from '../../src/scenario.ts'
-import { HOSTS } from '../../src/stack/targets.ts'
+import { HOSTS, accountHost } from '../../src/stack/targets.ts'
 
 scenario('13-admin', {}, async (s) => {
   const alice = await s.createAccount('alice')
@@ -122,7 +122,8 @@ scenario('13-admin', {}, async (s) => {
   // Invite administration works with invites not required.
   const code = await s.procedure('createInviteCode', 'com.atproto.server.createInviteCode', { useCount: 2 }, { auth: 'admin' })
   assert.equal(code.status, 200)
-  assert.match(code.json.code, /^pds-linkjar-social-[a-z2-7]{5}-[a-z2-7]{5}$/)
+  // The server that keeps the accounts names its codes: the entryway behind one.
+  assert.match(code.json.code, new RegExp(`^${accountHost().replaceAll('.', '-')}-[a-z2-7]{5}-[a-z2-7]{5}$`))
   refused(await s.procedure('createInviteCode without the admin credential', 'com.atproto.server.createInviteCode', { useCount: 1 }, { auth: alice }))
   const codes = await s.query('getInviteCodes', 'com.atproto.admin.getInviteCodes', {}, { auth: 'admin' })
   assert.ok(codes.json.codes.some((c: { code: string }) => c.code === code.json.code))
