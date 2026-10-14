@@ -128,7 +128,17 @@ pub fn optional_credentials(
     };
     match kind.to_ascii_uppercase().as_str() {
         "BASIC" => admin(token, config),
-        "BEARER" => access(token, config, additional, now_s),
+        // A service token that the entry point took from a member host
+        // carries its account in a grant (SPEC §21.3).
+        "BEARER" => crate::oauth::resource::grant().map_or_else(
+            || access(token, config, additional, now_s),
+            |grant| {
+                Ok(Credentials::Access {
+                    did: grant.did,
+                    scope: SCOPE_ACCESS.to_owned(),
+                })
+            },
+        ),
         // An OAuth access token. The entry point checked it, and what it
         // found travels with the task. The methods it may call are an allow
         // list there, so here it counts as a full session.

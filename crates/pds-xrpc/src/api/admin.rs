@@ -280,6 +280,18 @@ pub async fn update_subject_status(
     }
     let is_account =
         subject.get("$type").and_then(Value::as_str) == Some("com.atproto.admin.defs#repoRef");
+    // An entryway keeps the status of an account. A record or a blob is
+    // in a repository, which the member host keeps.
+    if !is_account && let Some(host) = state.config().member_host.clone() {
+        let answer = super::entryway::ask_member(
+            state,
+            &host,
+            "com.atproto.admin.updateSubjectStatus",
+            &Value::Object(input.clone()),
+        )
+        .await?;
+        return Ok(json_response(StatusCode::OK, &answer));
+    }
     let did = subject
         .get("did")
         .and_then(Value::as_str)
@@ -319,6 +331,19 @@ pub async fn update_subject_status(
                 Ok(())
             })
             .await?;
+    }
+    // The entryway of a member host keeps the sessions: it refuses them
+    // for an account that is taken down (SPEC §21.3). The entryway does not
+    // send a takedown back.
+    if is_account && let (Some(takedown), Some(entryway)) = (&takedown, &state.config().entryway) {
+        let input = serde_json::json!({ "subject": subject, "takedown": takedown });
+        super::entryway::ask_entryway(
+            state,
+            entryway,
+            "com.atproto.admin.updateSubjectStatus",
+            &input,
+        )
+        .await?;
     }
     if is_account && applied(&deactivated) == Some(false) {
         super::lifecycle::activate(state, did).await?;

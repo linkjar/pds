@@ -414,6 +414,9 @@ pub async fn entry(State(state): State<AppState>, request: axum::extract::Reques
         // An OAuth access token is checked once, here (SPEC §11.3).
         let granted = match limited {
             Ok(()) if dpop => oauth_grant(&state, nsid, &method, path, &parts.headers).await,
+            Ok(()) if member_call(&state, nsid, &parts.headers) => {
+                member_grant(&state, nsid, &parts.headers).await
+            }
             Ok(()) => Ok(None),
             Err(refusal) => Err(Box::new(refusal.into_response())),
         };
@@ -583,6 +586,47 @@ async fn audit_request(
     crate::audit::record(state, what).await;
 }
 
+/// Whether the request is a member host asking its entryway for an
+/// account with a service token (SPEC §21.3): see
+/// [`entryway::takes_service_token`].
+fn member_call(state: &AppState, nsid: &str, headers: &HeaderMap) -> bool {
+    state.config().member_host.is_some()
+        && entryway::takes_service_token(nsid)
+        && crate::service_auth::is_service_token(headers)
+}
+
+/// The grant of a member call. The member host checked the OAuth token
+/// and its scope; the service token names the method, and the account
+/// signed it. The grant lets the handler see the email address, which the
+/// member host removes when the token does not allow it.
+async fn member_grant(
+    state: &AppState,
+    nsid: &str,
+    headers: &HeaderMap,
+) -> Result<Option<crate::oauth::resource::Grant>, Box<Response>> {
+    let did = crate::service_auth::verify(state, headers, nsid)
+        .await
+        .map_err(|refusal| Box::new(refusal.into_response()))?;
+    // The OAuth session that the member host checked, which the receipt of
+    // a sign-up belongs to.
+    let claims = crate::service_auth::claims(headers).unwrap_or_default();
+    let claim = |name: &str| {
+        claims
+            .get(name)
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_owned()
+    };
+    Ok(Some(crate::oauth::resource::Grant {
+        did,
+        client_id: claim(entryway::CLIENT_CLAIM),
+        token_id: claim(entryway::SESSION_CLAIM),
+        permissions: pds_oauth::scope::Permissions::new(
+            "atproto transition:generic transition:email identity:handle account:status?action=manage",
+        ),
+    }))
+}
+
 /// The grant of a request with an OAuth access token, when the token is
 /// good and may call the method.
 async fn oauth_grant(
@@ -702,6 +746,7 @@ async fn xrpc(
     // A member host passes the methods of its entryway on (SPEC §21.3).
     if let Some(entryway) = &state.config().entryway
         && entryway::is_forwarded(nsid)
+        && !entryway::from_entryway(headers)
     {
         return entryway::forward(state, entryway, nsid, method, raw_query, headers, body).await;
     }

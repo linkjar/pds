@@ -17,6 +17,13 @@ const SIGNING_ALGS: [&str; 2] = ["ES256", "ES256K"];
 /// `GET /.well-known/oauth-authorization-server`.
 pub fn authorization_server(state: &AppState) -> Response {
     let issuer = issuer(state);
+    // An entryway also protects its member host. An atproto client
+    // refuses an authorization server that does not name the server of
+    // the account.
+    let mut resources = vec![issuer.clone()];
+    if let Some(host) = &state.config().member_host {
+        resources.push(host.url.clone());
+    }
     answer(
         StatusCode::OK,
         &json!({
@@ -45,7 +52,7 @@ pub fn authorization_server(state: &AppState) -> Response {
             "pushed_authorization_request_endpoint": format!("{issuer}/oauth/par"),
             "require_pushed_authorization_requests": true,
             "dpop_signing_alg_values_supported": SIGNING_ALGS,
-            "protected_resources": [issuer],
+            "protected_resources": resources,
             "client_id_metadata_document_supported": true,
         }),
     )

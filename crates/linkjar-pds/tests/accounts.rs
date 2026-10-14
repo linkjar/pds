@@ -2821,6 +2821,7 @@ async fn an_entryway_keeps_the_accounts_of_a_member_host() {
                 &signing_public,
             ),
             ("PDS_ENTRYWAY_PLC_ROTATION_KEY", &rotation.did_key()),
+            ("PDS_ENTRYWAY_ADMIN_TOKEN", common::ADMIN_PASSWORD),
             ("PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX", ""),
         ],
     )
@@ -2946,6 +2947,75 @@ async fn an_entryway_keeps_the_accounts_of_a_member_host() {
         json!(["at://nora2.pds-users.org"])
     );
 
+    // The authorization server of the entryway protects the member host.
+    let metadata: Value = entryway
+        .http
+        .get(format!(
+            "{}/.well-known/oauth-authorization-server",
+            entryway.origin
+        ))
+        .send()
+        .await
+        .unwrap()
+        .bytes()
+        .await
+        .map(|bytes| serde_json::from_slice(&bytes).unwrap())
+        .unwrap();
+    assert_eq!(
+        metadata["protected_resources"],
+        json!(["https://entryway.test", "https://pds.test"])
+    );
+
+    // The admin of the member host reads the account where it is kept:
+    // the entryway has the email address.
+    let info = member
+        .http
+        .get(format!(
+            "{}/xrpc/com.atproto.admin.getAccountInfo?did={did}",
+            member.origin
+        ))
+        .basic_auth("admin", Some("member-admin"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(info.status(), 200);
+    let info: Value = serde_json::from_slice(&info.bytes().await.unwrap()).unwrap();
+    assert_eq!(info["email"], "nora@example.com", "{info}");
+
+    // A deactivation at the member host goes to the entryway, which keeps
+    // the status and has the member host announce it. The activation
+    // checks the identity against the rotation key of the entryway.
+    let deactivated = |server: &Server| -> bool {
+        common::open(&server.dir.config.layout.account_db)
+            .query_row(
+                r#"select "deactivatedAt" is not null from "actor" where "did" = ?1"#,
+                [&did],
+                |row| row.get(0),
+            )
+            .unwrap()
+    };
+    let (status, body) = member
+        .post(
+            "com.atproto.server.deactivateAccount",
+            Some(&access),
+            &json!({}),
+        )
+        .await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!((deactivated(&entryway), deactivated(&member)), (true, true));
+    let (status, body) = member
+        .post(
+            "com.atproto.server.activateAccount",
+            Some(&access),
+            &json!({}),
+        )
+        .await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(
+        (deactivated(&entryway), deactivated(&member)),
+        (false, false)
+    );
+
     // A session from before the entryway: its refresh token, signed with
     // the secret of the old server for the old server, is taken once.
     let old = pds_xrpc::auth::AuthConfig {
@@ -2996,6 +3066,58 @@ async fn an_entryway_keeps_the_accounts_of_a_member_host() {
         )
         .await;
     assert_eq!(status, 200, "{body}");
+
+    // The admin of the member host renames the account: the entryway
+    // keeps the handle and tells the member host, which does not pass
+    // that call back.
+    let renamed = member
+        .http
+        .post(format!(
+            "{}/xrpc/com.atproto.admin.updateAccountHandle",
+            member.origin
+        ))
+        .basic_auth("admin", Some("member-admin"))
+        .header("content-type", "application/json")
+        .body(json!({"did": did, "handle": "nora3.pds-users.org"}).to_string())
+        .send()
+        .await
+        .unwrap();
+    let (status, body) = (renamed.status(), renamed.text().await.unwrap());
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(handle(&entryway).as_deref(), Some("nora3.pds-users.org"));
+    assert_eq!(handle(&member).as_deref(), Some("nora3.pds-users.org"));
+
+    // A takedown at the member host reaches the entryway, which refuses a
+    // session of the account.
+    let takedown = |applied: bool| {
+        json!({
+            "subject": {"$type": "com.atproto.admin.defs#repoRef", "did": did},
+            "takedown": {"applied": applied, "ref": "parity"},
+        })
+    };
+    let status = member
+        .http
+        .post(format!(
+            "{}/xrpc/com.atproto.admin.updateSubjectStatus",
+            member.origin
+        ))
+        .basic_auth("admin", Some("member-admin"))
+        .header("content-type", "application/json")
+        .body(takedown(true).to_string())
+        .send()
+        .await
+        .unwrap();
+    let (status, body) = (status.status(), status.text().await.unwrap());
+    assert_eq!(status, 200, "{body}");
+    let login = json!({"identifier": "nora3.pds-users.org", "password": PASSWORD});
+    let (status, refused) = member
+        .post("com.atproto.server.createSession", None, &login)
+        .await;
+    assert_eq!(
+        (status, text(&refused, "error")),
+        (401, "AccountTakedown"),
+        "{refused}"
+    );
 
     // The admin of the entryway deletes the account on both servers.
     let gone = entryway
