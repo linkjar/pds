@@ -1,7 +1,7 @@
-// Oracle O3, last clause: a Sync 1.1 relay in strict mode accepts every
-// commit. The relay drops a commit that fails validation (signature, MST
-// inversion against `prevData`, data limits), so a commit that reaches the
-// relay's own firehose was accepted.
+// The firehose check of SPEC 17.3, last clause: a Sync 1.1 relay in strict
+// mode accepts every commit. The relay drops a commit that fails validation
+// (signature, MST inversion against `prevData`, data limits), so a commit
+// that reaches the relay's own firehose was accepted.
 //
 // This is `default/07-relay` without the account events of unit 5. In the
 // Candidate's pass the relay first followed the Reference on this data

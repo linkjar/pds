@@ -1,5 +1,6 @@
-// Rate limits: SPEC 4.3 and VP-12. Every limiter of the Reference is read
-// off the response headers of one request, and two are driven to 429.
+// Rate limits: SPEC 4.3 and the rate limiters of verify-at-pin. Every limiter
+// of the Reference is read off the response headers of one request, and two
+// are driven to 429.
 //
 // Requests here do not send the bypass key, and each group uses its own
 // client address so that no bucket is shared with another scenario.
@@ -56,7 +57,7 @@ scenario('09-rate-limits', { timeoutMs: 300_000 }, async (s) => {
   see('server.requestAccountDelete', await xrpcPost('requestAccountDelete', 'com.atproto.server.requestAccountDelete', undefined, ip(11), { auth: alice }))
   see('identity.updateHandle', await xrpcPost('updateHandle', 'com.atproto.identity.updateHandle', { handle: s.handle('alicia') }, ip(12), { auth: alice }))
   see('repo.uploadBlob', await limited('uploadBlob', { method: 'POST', path: '/xrpc/com.atproto.repo.uploadBlob', body: 'limited', contentType: 'text/plain', auth: alice }, ip(13)))
-  s.note('VP-12 limiter reported by each route', observed)
+  s.note('limiter reported by each route', observed)
   assert.deepEqual(observed, {
     'sync.getRepo': { policy: '6000;w=300', remaining: 5999 },
     'server.createAccount': { policy: '100;w=300', remaining: 99 },
@@ -100,7 +101,7 @@ scenario('09-rate-limits', { timeoutMs: 300_000 }, async (s) => {
       ],
     }, ip(23), { auth: bob }),
   )
-  s.note('VP-12 repository write limiter', writes)
+  s.note('repository write limiter', writes)
   // 5,000 - 3 (first write) - 2,400 (fill) = 2,597, then 3, 2, 1, and 3 + 3 + 2 + 1.
   assert.deepEqual(writes, {
     create: { policy: '5000;w=3600', remaining: 2594 },

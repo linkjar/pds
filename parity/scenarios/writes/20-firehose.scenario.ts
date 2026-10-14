@@ -1,5 +1,5 @@
-// The firehose of commits: SPEC 7.1 (events), 7.2 (framing) and 7.3
-// (cursors, VP-1). Oracle O3.
+// The firehose of commits: SPEC 7.1 (events), 7.2 (framing) and 7.3 (cursors,
+// and the backfill cursor of verify-at-pin). The firehose check of SPEC 17.3.
 //
 // This is `default/06-firehose` without the account events of SPEC 10.4,
 // which need the account endpoints of unit 5. The account exists before the
@@ -64,13 +64,13 @@ scenario('20-firehose', {}, async (s) => {
   assert.equal(new Set(seqs).size, seqs.length, 'no duplicates')
   s.note('event types from cursor 0', [...new Set((await summariseAll(fromZero.frames)).map((e) => e.type))].sort())
 
-  // VP-1: a cursor inside the window is exclusive. The first frame is cursor + 1.
+  // The backfill cursor: a cursor inside the window is exclusive. The first frame is cursor + 1.
   const mid = firstSeq + 1
   const fromMid = subscribe(s.target, HOSTS.pds, mid)
   s.onCleanup(() => fromMid.close())
   await fromMid.waitFor((f) => isEvent(f) && f.body.seq === lastSeq)
-  assert.equal(fromMid.frames.filter(isEvent)[0]!.body.seq, mid + 1, 'VP-1: backfill is exclusive of the cursor')
-  s.note('VP-1 first seq minus cursor', (fromMid.frames.filter(isEvent)[0]!.body.seq as number) - mid)
+  assert.equal(fromMid.frames.filter(isEvent)[0]!.body.seq, mid + 1, 'backfill is exclusive of the cursor')
+  s.note('first seq minus cursor', (fromMid.frames.filter(isEvent)[0]!.body.seq as number) - mid)
 
   // Backfill, then live, without a gap or a duplicate.
   await s.procedure('a write after the backfill', 'com.atproto.repo.createRecord', { repo: alice.did, collection: POST, rkey: '3aaaaaaaaaaa5', record: post('four') }, { auth: alice, silent: true })

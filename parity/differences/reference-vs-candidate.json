@@ -92,189 +92,189 @@
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-7: a key at the wrong layer",
+    "step": "a key at the wrong layer",
     "path": "note.error",
     "left": null,
     "right": "InvalidRequest"
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-7: a key at the wrong layer",
+    "step": "a key at the wrong layer",
     "path": "note.headMoved",
     "left": true,
     "right": false
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-7: a key at the wrong layer",
+    "step": "a key at the wrong layer",
     "path": "note.status",
     "left": 200,
     "right": 400
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-7: keys out of order across nodes",
+    "step": "keys out of order across nodes",
     "path": "note.error",
     "left": null,
     "right": "InvalidRequest"
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-7: keys out of order across nodes",
+    "step": "keys out of order across nodes",
     "path": "note.headMoved",
     "left": true,
     "right": false
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-7: keys out of order across nodes",
+    "step": "keys out of order across nodes",
     "path": "note.status",
     "left": 200,
     "right": 400
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-7: an empty node below the root",
+    "step": "an empty node below the root",
     "path": "note.error",
     "left": "InternalServerError",
     "right": "InvalidRequest"
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-7: an empty node below the root",
+    "step": "an empty node below the root",
     "path": "note.status",
     "left": 500,
     "right": 400
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-8: map keys out of canonical order",
+    "step": "map keys out of canonical order",
     "path": "note.error",
     "left": null,
     "right": "InvalidRequest"
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-8: map keys out of canonical order",
+    "step": "map keys out of canonical order",
     "path": "note.headMoved",
     "left": true,
     "right": false
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-8: map keys out of canonical order",
+    "step": "map keys out of canonical order",
     "path": "note.status",
     "left": 200,
     "right": 400
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-8: a float with a whole value",
+    "step": "a float with a whole value",
     "path": "note.error",
     "left": null,
     "right": "InvalidRequest"
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-8: a float with a whole value",
+    "step": "a float with a whole value",
     "path": "note.headMoved",
     "left": true,
     "right": false
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-8: a float with a whole value",
+    "step": "a float with a whole value",
     "path": "note.status",
     "left": 200,
     "right": 400
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-8: undefined",
+    "step": "undefined",
     "path": "note.error",
     "left": null,
     "right": "InvalidRequest"
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-8: undefined",
+    "step": "undefined",
     "path": "note.headMoved",
     "left": true,
     "right": false
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-8: undefined",
+    "step": "undefined",
     "path": "note.status",
     "left": 200,
     "right": 400
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-14: a commit that another key signed",
+    "step": "a commit that another key signed",
     "path": "note.error",
     "left": null,
     "right": "InvalidRequest"
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-14: a commit that another key signed",
+    "step": "a commit that another key signed",
     "path": "note.headMoved",
     "left": true,
     "right": false
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-14: a commit that another key signed",
+    "step": "a commit that another key signed",
     "path": "note.status",
     "left": 200,
     "right": 400
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-14: a commit for another account",
+    "step": "a commit for another account",
     "path": "note.error",
     "left": null,
     "right": "InvalidRequest"
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-14: a commit for another account",
+    "step": "a commit for another account",
     "path": "note.headMoved",
     "left": true,
     "right": false
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-14: a commit for another account",
+    "step": "a commit for another account",
     "path": "note.status",
     "left": 200,
     "right": 400
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-9: a blob reference with size zero",
+    "step": "a blob reference with size zero",
     "path": "note.error",
     "left": null,
     "right": "InvalidRequest"
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-9: a blob reference with size zero",
+    "step": "a blob reference with size zero",
     "path": "note.status",
     "left": 200,
     "right": 400
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-9: a blob reference with an empty mimeType",
+    "step": "a blob reference with an empty mimeType",
     "path": "note.error",
     "left": null,
     "right": "InvalidRequest"
   },
   {
     "scenario": "writes/22-elsewhere",
-    "step": "DD-9: a blob reference with an empty mimeType",
+    "step": "a blob reference with an empty mimeType",
     "path": "note.status",
     "left": 200,
     "right": 400

@@ -1,7 +1,7 @@
-// Oracle O1 across two targets: compares the transcripts of the same
-// scenarios. Two boots of the same image must show no difference, which is
-// the check on the normaliser itself. Reference against Stock Reference must
-// show exactly the differences recorded in `differences/`.
+// The response comparison across two targets: compares the transcripts of the
+// same scenarios. Two boots of the same image must show no difference, which
+// is the check on the normaliser itself. Reference against Stock Reference
+// must show exactly the differences recorded in `differences/`.
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'

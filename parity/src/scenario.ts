@@ -1,8 +1,8 @@
 // The scenario runtime. A scenario is one `node:test` test that drives one
 // target and writes a transcript: every HTTP exchange and every observation,
-// normalised for oracle O1. Assertions inside a scenario state what the SPEC
-// requires of any conforming server; the transcript is what two targets are
-// compared on afterwards (`pnpm parity compare`).
+// normalised for the response comparison. Assertions inside a scenario state
+// what the SPEC requires of any conforming server; the transcript is what two
+// targets are compared on afterwards (`pnpm parity compare`).
 
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
@@ -198,7 +198,7 @@ export class Scenario {
   private recordedBody(type: string, text: string, json: unknown, bytes: Uint8Array): unknown {
     if (json !== undefined) return this.norm.value(json)
     if (bytes.byteLength === 0) return ''
-    // HTML pages are outside C6: the Candidate renders its own.
+    // HTML pages are outside stock equivalence: the Candidate renders its own.
     if (type.includes('html')) return '<html>'
     if (text) return this.norm.text(text)
     return `<bytes:${bytes.byteLength}>`

@@ -55,5 +55,5 @@ scenario('24-create-account', {}, async (s) => {
 
   const written = await s.procedure('createRecord', 'com.atproto.repo.createRecord', { repo: account.did, collection: NOTE, rkey: 'first', record: { $type: NOTE, text: 'hello' } }, { auth: account })
   assert.equal(written.status, 200, written.text)
-  await checkRepo(s, 'O2 for the new account', account)
+  await checkRepo(s, 'for the new account', account)
 })

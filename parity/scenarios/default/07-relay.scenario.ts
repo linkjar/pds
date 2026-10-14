@@ -1,8 +1,8 @@
-// Oracle O3, last clause: a Sync 1.1 relay in strict mode accepts every
-// frame. The relay drops a commit that fails validation (signature, MST
-// inversion against `prevData`, data limits), so a commit that reaches the
-// relay's own firehose was accepted. SPEC 7.6: the PDS asked for the crawl
-// itself.
+// The firehose check of SPEC 17.3, last clause: a Sync 1.1 relay in strict
+// mode accepts every frame. The relay drops a commit that fails validation
+// (signature, MST inversion against `prevData`, data limits), so a commit
+// that reaches the relay's own firehose was accepted. SPEC 7.6: the PDS asked
+// for the crawl itself.
 
 import assert from 'node:assert/strict'
 import { forDids, isEvent, subscribe } from '../../src/lib/firehose.ts'

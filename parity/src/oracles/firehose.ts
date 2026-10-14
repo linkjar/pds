@@ -1,5 +1,5 @@
-// Oracle O3 (SPEC 17.3, 7.1): what a firehose frame must contain, checked
-// frame by frame, and a summary of each event for the transcript.
+// The firehose check (SPEC 17.3, 7.1): what a firehose frame must contain,
+// checked frame by frame, and a summary of each event for the transcript.
 
 import assert from 'node:assert/strict'
 import * as dagCbor from '@ipld/dag-cbor'

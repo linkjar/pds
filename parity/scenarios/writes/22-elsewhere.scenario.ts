@@ -1,5 +1,8 @@
 // Data from elsewhere: what each server answers where the Candidate checks
-// more than the Reference at the pin (SPEC 2.3, DD-7 to DD-9 and DD-14).
+// more than the Reference at the pin: the import checks of SPEC 2.3 (a
+// malformed tree, record blocks that are not canonical DAG-CBOR, a commit
+// that another key signed or that names another account) and a blob reference
+// with size zero or an empty MIME type.
 //
 // Every case runs on an account of its own, because a server that accepts
 // an import has replaced the repository. A CAR is signed with the account's
@@ -99,8 +102,8 @@ scenario('22-elsewhere', { timeoutMs: 300_000 }, async (s) => {
     return carOf(blocks, account.did, await blocks.add({ l: null, e: [entry(keyAt(0, 'a'), record)] }), keypair)
   })
 
-  // DD-7: a tree that is not a Merkle search tree.
-  await importCase(s, 'DD-7: a key at the wrong layer', async (account, keypair) => {
+  // A tree that is not a Merkle search tree.
+  await importCase(s, 'a key at the wrong layer', async (account, keypair) => {
     const blocks = new BlockMap()
     const record = await blocks.add({ $type: NOTE, text: 'layer' })
     // Two keys of different layers in one node, in key order.
@@ -108,7 +111,7 @@ scenario('22-elsewhere', { timeoutMs: 300_000 }, async (s) => {
     const node = { l: null, e: [entry(keys[0]!, record), { ...entry(keys[1]!, record), p: 0 }] }
     return carOf(blocks, account.did, await blocks.add(node), keypair)
   })
-  await importCase(s, 'DD-7: keys out of order across nodes', async (account, keypair) => {
+  await importCase(s, 'keys out of order across nodes', async (account, keypair) => {
     const blocks = new BlockMap()
     const record = await blocks.add({ $type: NOTE, text: 'order' })
     // The left subtree holds a key that sorts after the key above it.
@@ -118,14 +121,14 @@ scenario('22-elsewhere', { timeoutMs: 300_000 }, async (s) => {
     const left = await blocks.add({ l: null, e: [entry(below, record)] })
     return carOf(blocks, account.did, await blocks.add({ l: left, e: [entry(above, record)] }), keypair)
   })
-  await importCase(s, 'DD-7: an empty node below the root', async (account, keypair) => {
+  await importCase(s, 'an empty node below the root', async (account, keypair) => {
     const blocks = new BlockMap()
     const record = await blocks.add({ $type: NOTE, text: 'empty' })
     const empty = await blocks.add({ l: null, e: [] })
     return carOf(blocks, account.did, await blocks.add({ l: empty, e: [entry(keyAt(1, 'a'), record)] }), keypair)
   })
 
-  // DD-8: a record block that is not canonical DAG-CBOR.
+  // A record block that is not canonical DAG-CBOR.
   const withRecord = (bytes: number[]) => async (account: Account, keypair: Keypair) => {
     const blocks = new BlockMap()
     const record = await addRaw(blocks, Uint8Array.from(bytes))
@@ -133,28 +136,28 @@ scenario('22-elsewhere', { timeoutMs: 300_000 }, async (s) => {
   }
   const type = [0x65, ...text.encode('$type'), 0x77, ...text.encode(NOTE)]
   // {"$type": NOTE, "a": 1} with the longer key first.
-  await importCase(s, 'DD-8: map keys out of canonical order', withRecord([0xa2, ...type, 0x61, 0x61, 0x01]))
+  await importCase(s, 'map keys out of canonical order', withRecord([0xa2, ...type, 0x61, 0x61, 0x01]))
   // {"a": 1.0, "$type": NOTE}: a float with a whole value.
-  await importCase(s, 'DD-8: a float with a whole value', withRecord([0xa2, 0x61, 0x61, 0xfb, 0x3f, 0xf0, 0, 0, 0, 0, 0, 0, ...type]))
+  await importCase(s, 'a float with a whole value', withRecord([0xa2, 0x61, 0x61, 0xfb, 0x3f, 0xf0, 0, 0, 0, 0, 0, 0, ...type]))
   // {"a": undefined, "$type": NOTE}.
-  await importCase(s, 'DD-8: undefined', withRecord([0xa2, 0x61, 0x61, 0xf7, ...type]))
+  await importCase(s, 'undefined', withRecord([0xa2, 0x61, 0x61, 0xf7, ...type]))
 
-  // DD-14: the commit.
+  // The commit.
   const valid = async (did: string, keypair: Keypair) => {
     const blocks = new BlockMap()
     const record = await blocks.add({ $type: NOTE, text: 'commit' })
     return carOf(blocks, did, await blocks.add({ l: null, e: [entry(keyAt(0, 'a'), record)] }), keypair)
   }
-  await importCase(s, 'DD-14: a commit that another key signed', async (account) => valid(account.did, await Secp256k1Keypair.create()))
-  await importCase(s, 'DD-14: a commit for another account', async (_account, keypair) => valid('did:plc:aaaaaaaaaaaaaaaaaaaaaaaa', keypair))
+  await importCase(s, 'a commit that another key signed', async (account) => valid(account.did, await Secp256k1Keypair.create()))
+  await importCase(s, 'a commit for another account', async (_account, keypair) => valid('did:plc:aaaaaaaaaaaaaaaaaaaaaaaa', keypair))
 
-  // DD-9: a blob reference with a size of zero. An empty upload is accepted
-  // (SPEC 6.4); a record that references it states size 0.
+  // A blob reference with a size of zero. An empty upload is accepted (SPEC
+  // 6.4); a record that references it states size 0.
   const owner = await s.createAccount('blob-owner')
   const empty = await s.http('upload of zero bytes', { method: 'POST', path: '/xrpc/com.atproto.repo.uploadBlob', body: new Uint8Array(0), contentType: 'text/plain', auth: owner, silent: true })
   assert.equal(empty.status, 200, empty.text)
   const zero = await s.procedure('record referencing an empty blob', 'com.atproto.repo.createRecord', { repo: owner.did, collection: NOTE, rkey: 'zero', record: { $type: NOTE, file: empty.json.blob } }, { auth: owner, silent: true })
-  s.note('DD-9: a blob reference with size zero', { status: zero.status, error: zero.json?.error ?? null })
+  s.note('a blob reference with size zero', { status: zero.status, error: zero.json?.error ?? null })
   const noType = await s.procedure('record with an empty mimeType', 'com.atproto.repo.createRecord', { repo: owner.did, collection: NOTE, rkey: 'untyped', record: { $type: NOTE, file: { ...empty.json.blob, mimeType: '' } } }, { auth: owner, silent: true })
-  s.note('DD-9: a blob reference with an empty mimeType', { status: noType.status, error: noType.json?.error ?? null })
+  s.note('a blob reference with an empty mimeType', { status: noType.status, error: noType.json?.error ?? null })
 })

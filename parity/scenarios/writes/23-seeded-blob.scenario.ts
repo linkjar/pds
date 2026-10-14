@@ -39,5 +39,5 @@ scenario('23-seeded-blob', {}, async (s) => {
   }
   const none = await s.query('listBlobs at the end', 'com.atproto.sync.listBlobs', { did: account.did })
   assert.deepEqual(none.json.cids, [])
-  await checkRepo(s, 'O2 after the blob writes', account)
+  await checkRepo(s, 'after the blob writes', account)
 })

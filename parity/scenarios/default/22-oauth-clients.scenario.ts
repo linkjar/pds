@@ -1,7 +1,7 @@
-// OAuth client kinds and account states: SPEC 11.2 and the rest of oracle
-// O4: a confidential client and what happens when its key is removed, a
-// loopback client, how a trusted client is shown against an untrusted one,
-// and a deactivated account.
+// OAuth client kinds and account states: SPEC 11.2 and the rest of the OAuth
+// flows of SPEC 17.3: a confidential client and what happens when its key is
+// removed, a loopback client, how a trusted client is shown against an
+// untrusted one, and a deactivated account.
 
 import assert from 'node:assert/strict'
 import { JoseKey } from '@atproto/oauth-client-node'
@@ -28,8 +28,9 @@ scenario('22-oauth-clients', { timeoutMs: 300_000 }, async (s) => {
   const refreshed = await confidential.client.restore(alice.did, true)
   assert.equal((await viaSession(s, 'getSession after a confidential refresh', refreshed, '/xrpc/com.atproto.server.getSession')).status, 200)
 
-  // O4: the client removes its key from its metadata. The session was bound
-  // to that key, so the next refresh must fail once the server sees the new document.
+  // The client removes its key from its metadata. The session was bound to
+  // that key, so the next refresh must fail once the server sees the new
+  // document.
   const replacement = await JoseKey.generate(['ES256'], 'conf-key-2')
   await s.fixtures.serve({ host: HOSTS.client, path: new URL(confidential.clientId).pathname, body: JSON.stringify({ ...confidential.metadata, jwks: { keys: [replacement.publicJwk] } }) })
   // The Reference keeps client metadata in a memory cache, so the session
@@ -62,7 +63,7 @@ scenario('22-oauth-clients', { timeoutMs: 300_000 }, async (s) => {
   assert.equal(u.facts.showsClientId, true)
   assert.equal(u.facts.showsClientName, false)
 
-  // A deactivated account (O4). Its OAuth session cannot write, and it can still be read.
+  // A deactivated account. Its OAuth session cannot write, and it can still be read.
   const victim = await signIn(s, await device(), untrusted, bob, { label: 'bob signs in before deactivating' })
   await s.procedure('deactivateAccount', 'com.atproto.server.deactivateAccount', {}, { auth: bob })
   refused(await viaSession(s, 'createRecord through OAuth while deactivated', victim.session, '/xrpc/com.atproto.repo.createRecord', { json: { repo: bob.did, collection: NOTE, rkey: 'x', record: { $type: NOTE } } }), 'AccountDeactivated')

@@ -1,5 +1,5 @@
-// Blobs: SPEC 6.4, and VP-10 (what happens to a blob when its last
-// reference goes).
+// Blobs: SPEC 6.4, and the blob grace period of verify-at-pin (what happens
+// to a blob when its last reference goes).
 
 import assert from 'node:assert/strict'
 import { createHash, randomBytes } from 'node:crypto'
@@ -91,9 +91,9 @@ scenario('05-blobs', {}, async (s) => {
   const stillThere = await s.query('getBlob while one reference remains', 'com.atproto.sync.getBlob', { did: alice.did, cid: blob.ref.$link })
   assert.equal(stillThere.status, 200)
 
-  // VP-10: the Reference deletes a blob when the commit that removes its
-  // last reference lands. There is no grace period. The harness measures
-  // how long the blob stays downloadable.
+  // The blob grace period: the Reference deletes a blob when the commit that
+  // removes its last reference lands. There is no grace period. The harness
+  // measures how long the blob stays downloadable.
   const started = Date.now()
   await s.procedure('delete the last reference', 'com.atproto.repo.deleteRecord', { repo: alice.did, collection: NOTE, rkey: 'two' }, { auth: alice })
   await s.eventually('the blob to stop being served', async () => {
@@ -103,8 +103,8 @@ scenario('05-blobs', {}, async (s) => {
   const gone = await s.query('getBlob after the last reference went', 'com.atproto.sync.getBlob', { did: alice.did, cid: blob.ref.$link })
   refused(gone, 'InvalidRequest')
   const elapsed = Date.now() - started
-  assert.ok(elapsed < 5_000, `VP-10: gone within seconds, took ${elapsed} ms`)
-  s.note('VP-10 blob removed within five seconds of the last dereference', true)
+  assert.ok(elapsed < 5_000, `gone within seconds, took ${elapsed} ms`)
+  s.note('blob removed within five seconds of the last dereference', true)
   const afterDelete = await s.query('listBlobs after the last reference went', 'com.atproto.sync.listBlobs', { did: alice.did })
   assert.deepEqual(afterDelete.json.cids, [])
 
@@ -119,5 +119,5 @@ scenario('05-blobs', {}, async (s) => {
   const finalList = await s.query('listBlobs at the end', 'com.atproto.sync.listBlobs', { did: alice.did })
   assert.deepEqual(finalList.json.cids, [other.json.blob.ref.$link])
 
-  await checkRepo(s, 'O2 after the blob writes', alice)
+  await checkRepo(s, 'after the blob writes', alice)
 })

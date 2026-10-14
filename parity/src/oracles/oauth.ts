@@ -1,9 +1,9 @@
-// Oracle O4 (SPEC 17.3): OAuth flows driven by the official client and a
-// real browser. The page driver states the contract the authorization pages
-// must keep for any target: a password field and a submit button on the
-// sign-in step, a button named "Authorize" and one named "Deny access" on
-// the consent step. HTML is otherwise outside the comparison (C6); what a
-// page shows is recorded as facts, not as markup.
+// The OAuth flows (SPEC 17.3), driven by the official client and a real
+// browser. The page driver states the contract the authorization pages must
+// keep for any target: a password field and a submit button on the sign-in
+// step, a button named "Authorize" and one named "Deny access" on the consent
+// step. HTML is otherwise outside stock equivalence; what a page shows is
+// recorded as facts, not as markup.
 
 import assert from 'node:assert/strict'
 import type { OAuthSession } from '@atproto/oauth-client-node'

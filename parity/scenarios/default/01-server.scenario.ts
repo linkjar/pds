@@ -1,6 +1,7 @@
-// Server surface that needs no account: SPEC 4.1 routes, 4.2 conventions,
-// and the Appendix A classifications that verify-at-pin settled (VP-5 to
-// VP-7, VP-11).
+// Server surface that needs no account: SPEC 4.1 routes, 4.2 conventions, and
+// the Appendix A classifications that verify-at-pin settled: `getHead` and
+// `getCheckout`, `resolveLexicon`, `listReposByCollection`, and the CORS
+// headers.
 
 import assert from 'node:assert/strict'
 import { scenario } from '../../src/scenario.ts'
@@ -31,12 +32,14 @@ scenario('01-server', {}, async (s) => {
 
   // A method with no local handler falls to the catch-all proxy (SPEC 4.4),
   // which wants a session before it looks at the target. Without one the
-  // answer is 401, never 501. VP-6 and VP-7 are two such methods; the
+  // answer is 401, never 501. `resolveLexicon` and `listReposByCollection`
+  // are
+// two such methods; the
   // forwarded half is in 08-proxy.
   for (const [label, nsid, params] of [
     ['unknown method', 'com.example.doesNotExist', {}],
-    ['VP-6 resolveLexicon', 'com.atproto.lexicon.resolveLexicon', { nsid: 'app.bsky.feed.post' }],
-    ['VP-7 listReposByCollection', 'com.atproto.sync.listReposByCollection', { collection: 'app.bsky.feed.post' }],
+    ['resolveLexicon', 'com.atproto.lexicon.resolveLexicon', { nsid: 'app.bsky.feed.post' }],
+    ['listReposByCollection', 'com.atproto.sync.listReposByCollection', { collection: 'app.bsky.feed.post' }],
     ['relay-only getHostStatus', 'com.atproto.sync.getHostStatus', { hostname: HOSTS.pds }],
     ['relay-only listHosts', 'com.atproto.sync.listHosts', {}],
   ] as const) {
@@ -71,12 +74,12 @@ scenario('01-server', {}, async (s) => {
   assert.equal(badToken.status, 400)
   assert.equal(badToken.json.error, 'InvalidToken')
 
-  // VP-11: CORS. The XRPC surface answers any origin and caches the
+  // The CORS headers. The XRPC surface answers any origin and caches the
   // preflight for one day; the OAuth endpoints carry their own headers.
   const origin = 'https://app.example'
-  const simple = await s.query('VP-11 GET with Origin', 'com.atproto.server.describeServer', {}, { headers: { origin }, bypass: false })
+  const simple = await s.query('GET with Origin', 'com.atproto.server.describeServer', {}, { headers: { origin }, bypass: false })
   assert.equal(simple.headers.get('access-control-allow-origin'), '*')
-  const preflight = await s.http('VP-11 preflight', {
+  const preflight = await s.http('preflight', {
     method: 'OPTIONS',
     path: '/xrpc/com.atproto.repo.createRecord',
     headers: { origin, 'access-control-request-method': 'POST', 'access-control-request-headers': 'authorization,content-type,atproto-proxy' },
@@ -86,10 +89,10 @@ scenario('01-server', {}, async (s) => {
   assert.equal(preflight.headers.get('access-control-max-age'), '86400')
   assert.equal(preflight.headers.get('access-control-allow-headers'), 'authorization,content-type,atproto-proxy')
   assert.equal(preflight.headers.get('access-control-allow-methods'), 'GET,HEAD,PUT,PATCH,POST,DELETE')
-  const metadata = await s.http('VP-11 OAuth metadata with Origin', { path: '/.well-known/oauth-authorization-server', headers: { origin } })
+  const metadata = await s.http('OAuth metadata with Origin', { path: '/.well-known/oauth-authorization-server', headers: { origin } })
   assert.equal(metadata.status, 200)
   assert.equal(metadata.headers.get('access-control-allow-origin'), '*')
-  const tokenPreflight = await s.http('VP-11 token endpoint preflight', {
+  const tokenPreflight = await s.http('token endpoint preflight', {
     method: 'OPTIONS',
     path: '/oauth/token',
     headers: { origin, 'access-control-request-method': 'POST', 'access-control-request-headers': 'content-type,dpop' },
@@ -98,7 +101,7 @@ scenario('01-server', {}, async (s) => {
   assert.equal(tokenPreflight.headers.get('access-control-allow-methods'), '*')
   assert.equal(tokenPreflight.headers.get('access-control-allow-headers'), 'Content-Type,DPoP')
   assert.equal(tokenPreflight.headers.get('access-control-max-age'), '86400')
-  const resource = await s.http('VP-11 protected resource metadata with Origin', { path: '/.well-known/oauth-protected-resource', headers: { origin } })
+  const resource = await s.http('protected resource metadata with Origin', { path: '/.well-known/oauth-protected-resource', headers: { origin } })
   assert.equal(resource.headers.get('access-control-allow-origin'), '*')
   assert.deepEqual(resource.json.authorization_servers, [`https://${accountHost()}`])
 })

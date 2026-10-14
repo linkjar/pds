@@ -1,5 +1,5 @@
-// Legacy sessions and app passwords: SPEC 5.1 and 5.2, and VP-9 (token
-// lifetimes and the refresh grace period).
+// Legacy sessions and app passwords: SPEC 5.1 and 5.2, and the legacy token
+// lifetimes and the refresh grace period of verify-at-pin.
 
 import assert from 'node:assert/strict'
 import { decodeJwt, reissue } from '../../src/lib/jwt.ts'
@@ -11,7 +11,7 @@ const HOUR = 60 * 60
 scenario('02-sessions', {}, async (s) => {
   const alice = await s.createAccount('alice')
 
-  // VP-9: an access token lives 120 minutes, a refresh token 90 days.
+  // An access token lives 120 minutes, a refresh token 90 days.
   const access = decodeJwt(alice.accessJwt)
   const refresh = decodeJwt(alice.refreshJwt)
   // An entryway signs with its ES256K key, and names itself (SPEC 21.3).
@@ -20,10 +20,10 @@ scenario('02-sessions', {}, async (s) => {
   assert.equal(access.claims.scope, 'com.atproto.access')
   assert.equal(access.claims.sub, alice.did)
   assert.equal(access.claims.aud, `did:web:${accountHost()}`)
-  assert.equal(access.claims.exp - access.claims.iat, 2 * HOUR, 'VP-9 access lifetime')
+  assert.equal(access.claims.exp - access.claims.iat, 2 * HOUR, 'access lifetime')
   assert.deepEqual(refresh.header, { typ: 'refresh+jwt', alg })
   assert.equal(refresh.claims.scope, 'com.atproto.refresh')
-  assert.equal(refresh.claims.exp - refresh.claims.iat, 90 * 24 * HOUR, 'VP-9 refresh lifetime')
+  assert.equal(refresh.claims.exp - refresh.claims.iat, 90 * 24 * HOUR, 'refresh lifetime')
   assert.ok(typeof refresh.claims.jti === 'string', 'a refresh token carries jti')
 
   // Sign-in by handle, by email and by DID.
@@ -82,8 +82,8 @@ scenario('02-sessions', {}, async (s) => {
   const next = decodeJwt(rotated.json.refreshJwt)
   assert.notEqual(next.claims.jti, refresh.claims.jti)
 
-  // VP-9: the rotated token stays usable for a grace period of two hours and
-  // leads to the same successor, so two racing clients end with one session.
+  // The rotated token stays usable for a grace period of two hours and leads
+  // to the same successor, so two racing clients end with one session.
   const again = await s.procedure('refreshSession with the rotated token, inside the grace period', 'com.atproto.server.refreshSession', undefined, { auth: alice.refreshJwt })
   assert.equal(again.status, 200)
   assert.equal(decodeJwt(again.json.refreshJwt).claims.jti, next.claims.jti, 'the same successor')
@@ -92,8 +92,8 @@ scenario('02-sessions', {}, async (s) => {
     "select (julianday(expiresAt) - julianday('now')) * 24 as hours from refresh_token where id = ?",
     [refresh.claims.jti],
   )
-  assert.ok(row[0] && Math.abs(Number(row[0].hours) - 2) < 0.05, `VP-9 grace period is two hours, saw ${JSON.stringify(row)}`)
-  s.note('VP-9 refresh grace period, hours', Math.round(Number(row[0]!.hours)))
+  assert.ok(row[0] && Math.abs(Number(row[0].hours) - 2) < 0.05, `grace period is two hours, saw ${JSON.stringify(row)}`)
+  s.note('refresh grace period, hours', Math.round(Number(row[0]!.hours)))
 
   // After the grace period the rotated token is dead. The harness ages the row instead of waiting.
   await s.target.sqlite('account', "update refresh_token set expiresAt = '2000-01-01T00:00:00.000Z' where id = ?", [refresh.claims.jti])
@@ -115,8 +115,8 @@ scenario('02-sessions', {}, async (s) => {
   const privileged = await s.procedure('createAppPassword, privileged', 'com.atproto.server.createAppPassword', { name: 'chat', privileged: true }, { auth: alice })
   assert.equal(privileged.json.privileged, true)
   // Reference defect, recorded as observed: the unique constraint surfaces as
-  // 500 InternalServerError. The Candidate answers 400 (SPEC 2.3, DD-3), so
-  // the scenario only requires a refusal.
+  // 500 InternalServerError. The Candidate answers 400, a deliberate
+  // difference (SPEC 2.3), so the scenario only requires a refusal.
   const duplicate = await s.procedure('createAppPassword with a used name', 'com.atproto.server.createAppPassword', { name: 'reader' }, { auth: alice })
   assert.ok(duplicate.status >= 400)
 

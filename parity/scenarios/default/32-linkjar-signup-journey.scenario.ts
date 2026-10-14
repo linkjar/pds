@@ -41,7 +41,7 @@ scenario('32-linkjar-signup-journey', { linkjar: true, timeoutMs: 300_000 }, asy
   const { session } = await app.client.callback(first.redirect.searchParams)
   const me = await viaSession(s, 'getSession of the new member', session, '/xrpc/com.atproto.server.getSession')
   assert.equal(me.json.handle, s.handle('member'))
-  await checkRepo(s, 'O2 for an account created on the sign-up page', { did: session.did })
+  await checkRepo(s, 'for an account created on the sign-up page', { did: session.did })
 
   // The session that created the account holds a receipt (patch 099b).
   const receipt = await viaSession(s, 'getSignupReceipt after an email sign-up', session, '/xrpc/io.linkjar.account.getSignupReceipt')
