@@ -3,8 +3,11 @@
 packages:
   - "."
 
-# core-js runs a postinstall banner only. Nothing here needs a build script.
+# core-js runs a postinstall banner only, and the postinstall of the MCP
+# Inspector installs the clients of its development tree; the published
+# package runs without it. Nothing here needs a build script.
 allowBuilds:
+  '@modelcontextprotocol/inspector': false
   core-js: false
 
 # The SDK's own dependencies, held at the versions of the pinned commit
