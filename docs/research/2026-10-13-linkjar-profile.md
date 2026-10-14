@@ -43,9 +43,9 @@ because the Candidate stands in for the production build.
   a database that the other migrated.
 - **Transactions.** The identity, the confirmed address, the handle
   policy row and the creation receipt are written in the transaction that
-  creates the account (EX-4). A link, an unlink and a password change
+  creates the account, as the extension rules of SPEC §12.1 require. A link, an unlink and a password change
   write their notice in the transaction of the change.
-- **No request field** selects an extension flag (EX-3). The server passes
+- **No request field** selects an extension flag (SPEC §12.1). The server passes
   the identity and the authorization of a sign-up as arguments of account
   creation; the JSON of `createAccount` cannot set them.
 

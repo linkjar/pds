@@ -1,7 +1,8 @@
-# The repository crate: decision D2
+# The repository crate: the decision on the repository engine
 
 Research record, 2026-10-12. Companion to [SPEC.md](../SPEC.md) §3.1, §6,
-§16 and §17.2, and to Appendix D, D2. It records the decision of unit 2,
+§16 and §17.2, and to the decision on the repository engine in Appendix D.
+It records the decision of unit 2,
 the evidence for it, and what the comparison found on the way.
 
 **Decision.** The repository engine is written in this repository, in
@@ -57,7 +58,8 @@ argument. It builds on `pds-types` for DAG-CBOR and CIDs and has no other
 dependency of its own beyond `sha2`, `cid` and `thiserror`. For
 comparison, `rsky-repo` 0.0.6 is 7,353 lines.
 
-**Other crates were not run.** D2 names two options. Three more Rust crates
+**Other crates were not run.** The decision on the repository engine
+names two options. Three more Rust crates
 implement the tree; they are listed so that the next reader does not have
 to search.
 
@@ -176,7 +178,7 @@ advisories are in code the engine never calls, and they would still need an
 `ignore` entry with a reason and an expiry (§14.5).
 Observed 2026-10-12 with cargo-deny 0.20.2.
 
-## 5. Micro-benchmarks for S1 to S3
+## 5. Micro-benchmarks for the single-write, batch-write and export scenarios
 
 **Host.** Apple M1 Pro, 10 cores, 16 GiB, macOS 27.0 (darwin 27.0.0,
 arm64). The machine was in use: a backup and a file synchroniser ran
@@ -184,7 +186,7 @@ beside the measurements. Rust 1.99.0, release profile with fat LTO; Node
 24.21.0.
 
 **Method.** [`bench/README.md`](../../bench/README.md) has it in full. In
-short: the four programs replay the harness's S1 to S3 sequence against a
+short: the four programs replay the harness's single-write, batch-write and export sequence against a
 block store in memory. One sample is the engine's share of one write: from
 validated record values to the commit applied to the store, with the CAR
 of the firehose blocks written and the commit signed. HTTP, SQLite,
@@ -197,7 +199,7 @@ parentheses. Raw results:
 **All four build the same repository.** Each printed the tree root
 `bafyreibhl26xxjw367r4sv3oyafituicjxxuntlzhl3k4wzkd2dlvkawqq` after 101,100 records.
 
-**S1, one create: p50 in ms.**
+**Single write, one create: p50 in ms.**
 
 | Records at the start | In-house | `rsky-repo` 0.0.6 | `rsky-repo` 0.1.4 | `@atproto/repo` |
 |---|---|---|---|---|
@@ -206,7 +208,7 @@ parentheses. Raw results:
 | 10,000 | 0.072 (0.071 to 0.073) | 1.160 (1.139 to 1.194) | 1.380 (1.338 to 1.492) | 1.235 (1.185 to 1.281) |
 | 100,000 | 0.070 (0.068 to 0.071) | 0.615 (0.603 to 0.631) | 0.769 (0.755 to 0.783) | 1.083 (1.049 to 1.222) |
 
-**S1: p99 in ms.**
+**Single write: p99 in ms.**
 
 | Records at the start | In-house | `rsky-repo` 0.0.6 | `rsky-repo` 0.1.4 | `@atproto/repo` |
 |---|---|---|---|---|
@@ -215,7 +217,7 @@ parentheses. Raw results:
 | 10,000 | 0.106 (0.084 to 0.145) | 1.530 (1.507 to 1.614) | 1.923 (1.817 to 20.1) | 4.157 (3.411 to 9.312) |
 | 100,000 | 0.144 (0.079 to 0.374) | 0.837 (0.787 to 0.903) | 1.053 (1.037 to 1.124) | 3.881 (3.315 to 4.781) |
 
-**S1: what a write produces.** Bytes of the CAR of the firehose blocks;
+**Single write: what a write produces.** Bytes of the CAR of the firehose blocks;
 blocks added to the store; blocks removed from the store. Means over the
 100 writes.
 
@@ -226,7 +228,7 @@ blocks added to the store; blocks removed from the store. Means over the
 | 10,000 | 4,287; 9.85; 8.74 | 4,214; 9.85; 8.74 | 4,287; 9.85; 8.74 | 4,287; 9.85; 8.74 |
 | 100,000 | 3,511; 10.79; 9.57 | 3,444; 10.79; 9.57 | 3,511; 10.79; 9.57 | 3,511; 10.79; 9.57 |
 
-**S2, a batch of 200 creates: p50 of five batches, in ms.**
+**Batch write, a batch of 200 creates: p50 of five batches, in ms.**
 
 | Records at the start | In-house | `rsky-repo` 0.0.6 | `rsky-repo` 0.1.4 | `@atproto/repo` |
 |---|---|---|---|---|
@@ -235,7 +237,7 @@ blocks added to the store; blocks removed from the store. Means over the
 | 10,100 | 1.181 (1.158 to 1.215) | 29.3 (28.5 to 29.7) | 78.6 (76.1 to 82.8) | 101 (98.4 to 110) |
 | 100,100 | 1.431 (1.264 to 1.643) | 28.2 (27.8 to 28.4) | 75.1 (73.5 to 81.4) | 115 (108 to 120) |
 
-**S2: the slowest of five batches, in ms.**
+**Batch write: the slowest of five batches, in ms.**
 
 | Records at the start | In-house | `rsky-repo` 0.0.6 | `rsky-repo` 0.1.4 | `@atproto/repo` |
 |---|---|---|---|---|
@@ -244,7 +246,7 @@ blocks added to the store; blocks removed from the store. Means over the
 | 10,100 | 1.294 (1.178 to 1.516) | 32.7 (32.4 to 33.1) | 90.1 (85.8 to 105) | 116 (110 to 229) |
 | 100,100 | 1.939 (1.332 to 2.298) | 32.7 (32.2 to 33.0) | 86.2 (85.7 to 111) | 128 (120 to 134) |
 
-**S3, export of 101,100 records.** The fastest of three exports in each
+**Export of 101,100 records.** The fastest of three exports in each
 run.
 
 | Engine | Wall ms | CAR bytes | Blocks | Peak heap above the start, MiB |
@@ -258,12 +260,13 @@ run.
 The harness read 1,548, 2,801, 4,287 and 3,511 bytes of new blocks per
 write off the firehose of the reference image, and net block rows of 1.3,
 1.3, 1.1 and 1.2 per write
-([perf-reference.md](../../parity/results/perf-reference.md), S1). The
+([perf-reference.md](../../parity/results/perf-reference.md), the
+single-write scenario). The
 in-house engine, the Reference's library and `rsky-repo` 0.1.4 give those
 CAR sizes exactly, and added less removed blocks come to 1.31, 1.25, 1.11
 and 1.22. `rsky-repo` 0.0.6 gives smaller CARs: its commits lack proof
 blocks (§2). The export has the 128,312 blocks and 19.8 MiB that the
-harness measured in S3.
+harness measured in the export scenario.
 
 **Reading the numbers.**
 
@@ -309,8 +312,8 @@ In-house, for these reasons, in the order they weigh:
    Each one needs a change to `rsky-repo`'s public API.
 4. **The supply chain stays small.** 57 crates against 256, no HTTP client
    and no DNS resolver in the engine, and a clean `cargo deny`.
-5. **It is faster by an order of magnitude** on the engine's share of S1
-   and S2. This reason is last: the Reference's library is already fast
+5. **It is faster by an order of magnitude** on the engine's share of the
+   single-write and batch-write scenarios. This reason is last: the Reference's library is already fast
    enough for one user, and SQLite will set the pace of a write.
 
 What the decision costs:
@@ -336,7 +339,8 @@ is listed in SPEC §2.3. Each needs a scenario that records what the pin
 does, and then a decision: list it, or follow the pin. None is reachable
 before the unit named.
 
-1. **Imported trees (D17, unit 4 and 8).** `read_tree` refuses a tree with
+1. **Imported trees (the decision on stricter checks on data from
+   elsewhere, unit 4 and 8).** `read_tree` refuses a tree with
    a key at the wrong layer, keys out of order across nodes, an empty node
    below the root, or a node referenced more than once. The Reference's
    import checks none of these

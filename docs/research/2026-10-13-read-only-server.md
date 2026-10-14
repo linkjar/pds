@@ -158,7 +158,9 @@ request.
 | The metrics and ops listeners, OTLP (SPEC §14.4) | Logs only: JSON lines on standard error. | 8, 9 |
 | Safe fetch in the DID resolver (SPEC §15.1) | The resolver checks the syntax of a `did:web` host name, not the address the name resolves to. It fetches the document of a `did:web` whose name resolves to a loopback, private, link-local or multicast address. It bounds the time and the size of a fetch. | 4, with the proxy, the first unit that fetches a URL a client can choose |
 
-DD-11 and DD-12 of SPEC §2.3 were planned for this unit. Neither can be
+Two deliberate differences of SPEC §2.3 were planned for this unit:
+handle verification with two TXT records or a multi-line HTTPS body, and
+the strict checks of a DID document. Neither can be
 observed yet: the server does not verify a handle itself, and
 `describeRepo` returns the DID document as it was resolved. Their scenarios
 move to unit 5, with `updateHandle` and inbound service auth.
@@ -186,7 +188,7 @@ blob store was not checked.
 | `root-mismatch` | `account.sqlite` and the actor store name different commits or revisions, or `account.sqlite` has no root row for the actor. |
 | `commit-invalid`, `commit-did` | The commit block does not decode, or names another account. |
 | `key-unreadable`, `signature-invalid` | The key file does not load as a secp256k1 key, or it did not sign the commit. |
-| `tree-shared-node` | The tree references a node more than once. An unpatched Reference accepts such an import (SPEC §2.3, DD-6). |
+| `tree-shared-node` | The tree references a node more than once. An unpatched Reference accepts such an import: a deliberate difference (SPEC §2.3), an import of a tree that references a node more than once. |
 | `tree-block-missing`, `tree-invalid` | A tree node is absent, or the tree has another defect of SPEC §6.1. |
 | `record-index-mismatch`, `record-uri` | The record index and the tree do not hold the same keys and records, or the index holds a record of another repository. |
 | `root-recompute-mismatch`, `root-recompute-failed` | The record index, written into an empty tree, does not give the commit's root. |
@@ -258,7 +260,8 @@ without the page cache. The Candidate opens a SQLite connection for each
 read in this unit; the actor store cache of SPEC §8.3 arrives with the
 write path.
 
-The export is the request of S3 in SPEC §16.1. The `perf` profile, which
-holds S1 to S5, S8 and S9, has not run against the Candidate: its scenarios
+The export is the request of the export scenario in SPEC §16.1. The
+`perf` profile, which holds the single-write, batch-write, export,
+fan-out, backfill, concurrent-uploads and many-writers scenarios, has not run against the Candidate: its scenarios
 write. The Reference's baseline for those scenarios is in
 [perf-reference.md](../../parity/results/perf-reference.md).

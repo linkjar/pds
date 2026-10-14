@@ -182,7 +182,8 @@ Recommendation for the SPEC (new §8.4 and §12.10):
 
 - Define the seams at the domain level: `ActorStore`, `AccountStore`,
   `SequencerStore`, `BlobStore`, `DidCache`, `AuditStore`, each with a
-  transaction type the extension hooks join (EX-4 already requires this).
+  transaction type the extension hooks join (the extension rule that hook changes commit in the account's
+  transaction already requires this).
 - Per-actor SQLite is not swappable in version 1. The swappable surfaces
   are the shared tier and the blob store. This matches every implementation
   surveyed.
@@ -366,7 +367,7 @@ setting.
 | §20 (new) | Audit log: DAG-CBOR entries, hash chain, five-minute signed checkpoints, checkpoint record published to the operator repository, standalone verifier, scope. |
 | §21 (new) | Deployment topologies: single node, single node with Litestream restore, entryway plus members, shared-database cluster as documented alternative. |
 | §14.5 | The gate list from §7 above, and devenv as the toolchain definition. |
-| Appendix D | D2 note: `rsky-repo` remains the candidate crate; rsky's own PDS now uses the upstream layout. New D11: audit checkpoint key custody. New D12: entryway mode in version 2 or version 3. |
+| Appendix D | A note on the repository engine: `rsky-repo` remains the candidate crate; rsky's own PDS now uses the upstream layout. New decision: the custody of the audit checkpoint key. New decision: entryway mode in version 2 or version 3. |
 
 Units: add a simulation unit between writes and OAuth, an audit-log unit
 after OAuth, and move "entryway mode" into the post-cutover units next to

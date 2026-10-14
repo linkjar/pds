@@ -1,6 +1,6 @@
 # Sidecars: the operations console and the MCP server
 
-Design, revision 0, 2026-10-08. Extends [SPEC.md](SPEC.md). Two containers
+Design, 2026-10-08. Extends [SPEC.md](SPEC.md). Two containers
 run beside the PDS. Neither holds a database connection or a signing key;
 both talk to the PDS over authenticated APIs, so the PDS stays the single
 writer and the audit log (SPEC §20, from the research record) sees every
