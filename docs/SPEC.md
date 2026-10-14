@@ -1,6 +1,6 @@
 # LinkJar PDS Specification
 
-Status: Draft, revision 16, 2026-10-14
+Status: Draft, revision 17, 2026-10-14
 Normative keywords: **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, **MAY** ([RFC 2119](https://www.rfc-editor.org/rfc/rfc2119))
 
 LinkJar PDS is an AT Protocol Personal Data Server written in Rust. It is
@@ -111,6 +111,9 @@ member host
 ([unit record](research/2026-10-14-entryway.md)). The changes are listed
 in Appendix T.
 
+Revision 17 follows the run of the Harness with a member host behind an
+entryway. The changes are listed in Appendix U.
+
 ## Table of Contents
 
 - [0. Conventions and Terminology](#0-conventions-and-terminology)
@@ -156,6 +159,7 @@ in Appendix T.
 - [Appendix R. Changes in Revision 14](#appendix-r-changes-in-revision-14)
 - [Appendix S. Changes in Revision 15](#appendix-s-changes-in-revision-15)
 - [Appendix T. Changes in Revision 16](#appendix-t-changes-in-revision-16)
+- [Appendix U. Changes in Revision 17](#appendix-u-changes-in-revision-17)
 
 ## 0. Conventions and Terminology
 
@@ -2111,10 +2115,17 @@ As of unit 12:
   `_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX` and `_PLC_ROTATION_KEY`. It takes
   access tokens that the entryway signed with ES256K, for its own DID or
   for the DID of the entryway, and no token of its own secret. It passes
-  the methods of sessions, credentials, email, the handle and the
-  deletion of an account on to the entryway with the credential of the
-  client. It creates an account from a DID and the PLC operation that the
-  entryway signed, for a signing key that it reserved. It answers 404 on
+  the methods of sessions, credentials, email, the handle, the status and
+  the deletion of an account on to the entryway with the credential of
+  the client, and the address of the client in `X-Forwarded-For`. For an
+  OAuth token it checks the token and its scope itself and sends a
+  service token of the account instead, as the Reference does: a DPoP
+  proof names one server. The admin methods of credentials, handles,
+  email, invites and account reads go to the entryway with its admin
+  credential. A takedown of an account reaches the entryway. It creates
+  an account from a DID and the PLC operation that the entryway signed,
+  for a signing key that it reserved. It checks DID documents against the
+  rotation key of the entryway. It answers 404 on
   `/.well-known/atproto-did`, names the entryway as its authorization
   server, and serves no authorization endpoint.
 - **An entryway** is a server with `PDS_MEMBER_URL`,
@@ -2123,8 +2134,9 @@ As of unit 12:
   accounts and signs the tokens. At a sign-up it asks the member host
   for a signing key, signs the PLC operation, has the member host create
   the repository, and keeps the credentials. It passes every method that
-  is not its own on to the member host. After a handle change and after a
-  deletion it tells the member host.
+  is not its own on to the member host. After a handle change, a change
+  of status and a deletion it tells the member host. Its authorization
+  server metadata names the member host as a protected resource.
 - **Adoption.** The old server becomes the member host and keeps its
   address, so no DID document changes. The entryway takes the account
   database, the rotation key and the JWT secret of the old server. A
@@ -2138,11 +2150,12 @@ As of unit 12:
   reads the scope from the token: it has no row of the session. A session
   that the entryway ended is refused at the member host when its access
   token ends, at most 60 minutes later.
+- **The Harness** runs the default scenarios with the Candidate as a
+  member host behind an entryway (`PARITY_CANDIDATE_ENTRYWAY=1`).
 - **Not built:** more than one member host and the account-to-host map;
-  the operation log that resumes a workflow after a crash; activation and
-  deactivation at the entryway; requests above 1 MiB and the firehose
-  through the entryway; a session method with an OAuth token at a member
-  host.
+  the operation log that resumes a workflow after a crash; a takedown at
+  the entryway that reaches the member host; requests above 1 MiB and the
+  firehose through the entryway.
 
 ## 22. Sidecars
 
@@ -2700,3 +2713,16 @@ Revision 16 follows unit 12.
   single node, and what is not built.
 - Appendix C: the `PDS_ENTRYWAY_*` variables are read, and the
   `PDS_MEMBER_*` variables are new.
+
+## Appendix U. Changes in Revision 17
+
+Revision 17 follows the run of the Harness with a member host behind an
+entryway ([unit record](research/2026-10-14-entryway.md)).
+
+- §21.3: a member host passes on activation, deactivation, the receipt of
+  a sign-up and the admin methods of accounts and invites; sends a
+  service token for an OAuth token; sends the address of the client;
+  checks DID documents against the rotation key of the entryway; and
+  sends a takedown of an account to the entryway. The authorization
+  server metadata of an entryway names its member host. A handle host
+  must reach the entryway for `/.well-known/atproto-did`.
