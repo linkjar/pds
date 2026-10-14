@@ -43,8 +43,15 @@ directory. Production is touched only at cutover.
 7. **Leave the secrets as they are:** `PDS_JWT_SECRET`, `PDS_DPOP_SECRET`,
    the rotation key, the admin password, the SMTP and the provider
    credentials. Sessions from before the cutover depend on them.
-8. **Update `linkjar/infra`:** the service definition for the new binary,
-   the alert rules for the metrics below, and the recovery runbook.
+8. **Choose the image.** Each push to `main` publishes the server as
+   `ghcr.io/linkjar/pds-server`, for `amd64` and `arm64`, and the run of
+   the "Server images" workflow lists the digest in its summary. Deploy
+   `ghcr.io/linkjar/pds-server@sha256:…`, never a tag. The sidecars are
+   `ghcr.io/linkjar/pds-console` and `ghcr.io/linkjar/pds-mcp`.
+9. **Update `linkjar/infra`:** the service definition for the new image,
+   the alert rules for the metrics below, and the recovery runbook. The
+   recovery service must also copy `audit.sqlite` and `ops.sqlite`, the
+   Candidate's own files in the data directory.
 
 ## 2. The cutover
 

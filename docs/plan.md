@@ -85,7 +85,8 @@ full list of what each unit left out.
 - [ ] **8. Cutover.** Account migration in, metrics, the data-directory
   lock, and the [cutover runbook](runbooks/cutover.md)
   ([record](research/2026-10-13-migration-and-telemetry.md)).
-  - [x] Migration in, metrics, the runbook.
+  - [x] Migration in, metrics, the runbook, and the server and sidecar
+    images published from `main`.
   - [ ] The performance targets of SPEC §16 measured on production
     hardware (owner's step).
   - [ ] The restore drill, the cutover and the 48-hour watch (owner's
