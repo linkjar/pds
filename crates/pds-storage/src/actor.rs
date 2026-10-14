@@ -107,6 +107,17 @@ impl ActorDb {
         })
     }
 
+    /// Starts a read transaction that lasts as long as the connection.
+    ///
+    /// Every read after it sees the store as it is at the first read, also
+    /// when a commit lands in between. An export needs this: it reads the
+    /// root and then the blocks, and a commit removes blocks that the old
+    /// root needs.
+    pub fn begin_read(&self) -> Result<(), StorageError> {
+        self.conn.execute_batch("begin")?;
+        Ok(())
+    }
+
     pub(crate) const fn from_connection(conn: Connection) -> Self {
         Self { conn }
     }
@@ -498,5 +509,75 @@ impl ActorDb {
 impl BlockStore for ActorDb {
     fn get(&self, cid: &Cid) -> Result<Option<Vec<u8>>, StoreError> {
         self.block(cid).map_err(|e| StoreError(Box::new(e)))
+    }
+}
+
+#[cfg(test)]
+mod snapshot_tests {
+    use super::*;
+
+    #[test]
+    fn a_read_transaction_sees_the_blocks_of_its_root_after_a_commit() {
+        let dir = std::env::temp_dir().join(format!("pds-actor-snapshot-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("store.sqlite");
+        let writer = crate::schema::create_actor_store(&path, "2026-10-14T00:00:00.000Z").unwrap();
+        let put = |cid: &str, rev: &str| {
+            writer
+                .execute(
+                    r#"insert into "repo_block" ("cid", "repoRev", "size", "content") values (?1, ?2, 1, x'00')"#,
+                    [cid, rev],
+                )
+                .unwrap();
+        };
+        put("old-root", "1");
+        put("old-node", "1");
+        writer
+            .execute(
+                r#"insert into "repo_root" values ('did:plc:a', 'old-root', '1', '2026-10-14T00:00:00.000Z')"#,
+                [],
+            )
+            .unwrap();
+
+        let cids = |store: &ActorDb| -> Vec<String> {
+            store
+                .block_page(None, None)
+                .unwrap()
+                .into_iter()
+                .map(|block| block.cid)
+                .collect()
+        };
+        let rev = |store: &ActorDb| -> String {
+            store
+                .conn()
+                .query_row(r#"select "rev" from "repo_root""#, [], |row| row.get(0))
+                .unwrap()
+        };
+        let snapshot = ActorDb::open(&path).unwrap();
+        snapshot.begin_read().unwrap();
+        let plain = ActorDb::open(&path).unwrap();
+        assert_eq!(rev(&snapshot), "1");
+
+        // A commit: a new root, and the nodes of the old one go.
+        put("new-root", "2");
+        writer
+            .execute(r#"delete from "repo_block" where "repoRev" = '1'"#, [])
+            .unwrap();
+        writer
+            .execute(
+                r#"update "repo_root" set "cid" = 'new-root', "rev" = '2'"#,
+                [],
+            )
+            .unwrap();
+
+        // Without the transaction a reader that had the old root finds its
+        // blocks gone. With it the reader has the whole old repository.
+        assert_eq!(cids(&plain), ["new-root"]);
+        assert_eq!(cids(&snapshot), ["old-root", "old-node"]);
+        assert_eq!(rev(&snapshot), "1");
+        assert_eq!(rev(&plain), "2");
+        drop((snapshot, plain, writer));
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

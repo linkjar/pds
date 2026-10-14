@@ -30,8 +30,13 @@ fn io_error(error: impl std::fmt::Display) -> std::io::Error {
 }
 
 /// The store of a hosted account and its latest commit.
+///
+/// Every read of the store after this sees the repository of that commit:
+/// a commit that lands during an export removes blocks that the export
+/// still has to send.
 fn open_with_root(state: &AppState, did: &str) -> Result<(ActorDb, RepoRoot), XrpcError> {
     let store = ActorDb::open(&state.layout().actor_db(did))?;
+    store.begin_read()?;
     let root = store
         .root()?
         .ok_or_else(|| XrpcError::internal("the store has no repository root"))?;
