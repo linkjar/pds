@@ -10,27 +10,27 @@ One run on the host below. It places the two servers beside each other on that h
 | Upstream | `@atproto/pds@0.5.34` at `7ca16cc6` |
 | Candidate | `linkjar-pds:candidate` |
 | Records in the repository | 100,000 |
-| Measured | 2026-10-12 |
+| Measured | 2026-10-14 |
 | Host | Apple M1 Pro, 10 cores, 16 GiB, darwin 27.0.0 arm64, Docker |
 
 ## The export: `sync.getRepo`
 
 |  | Reference | Candidate | Reference ÷ Candidate |
 |---|---|---|---|
-| Median of 5 runs, ms | 1,385 | 167 | 8.3× |
-| The 5 runs, ms | 1660, 1435, 1364, 1362, 1385 | 270, 235, 167, 158, 162 |  |
+| Median of 5 runs, ms | 1,588 | 268 | 5.9× |
+| The 5 runs, ms | 1993, 1541, 1528, 1588, 1591 | 406, 254, 268, 336, 251 |  |
 | CAR MiB | 22.3 | 22.3 |  |
-| Memory growth over the 5 runs, MiB | 89.6 | 3.1 |  |
-| Memory before the first request, MiB | 280.4 | 5.4 | 51.9× |
+| Memory growth over the 5 runs, MiB | 104.6 | 2.7 |  |
+| Memory before the first request, MiB | 286.6 | 6.1 | 47× |
 
 ## Point reads: p50 / p99 ms over 200 requests
 
 | Method | Reference | Candidate | Reference ÷ Candidate at p50 |
 |---|---|---|---|
-| `sync.getLatestCommit` | 2.7 / 9 | 1.4 / 2.8 | 1.9× |
-| `repo.getRecord` | 2.6 / 5 | 1.7 / 4.8 | 1.5× |
-| `sync.getRecord` (record with proof) | 5.5 / 14 | 1.5 / 3.5 | 3.7× |
-| `repo.listRecords`, 100 records | 118.6 / 215.7 | 108.4 / 210.4 | 1.1× |
-| `repo.describeRepo` | 8.5 / 14.9 | 6.3 / 8.6 | 1.3× |
+| `sync.getLatestCommit` | 2.8 / 9.6 | 2 / 5.9 | 1.4× |
+| `repo.getRecord` | 2.7 / 5.9 | 2.2 / 6.1 | 1.2× |
+| `sync.getRecord` (record with proof) | 7.2 / 17.9 | 2.3 / 7 | 3.1× |
+| `repo.listRecords`, 100 records | 189.2 / 1027.2 | 3.7 / 7.7 | 51.1× |
+| `repo.describeRepo` | 14 / 125.1 | 2.2 / 7.8 | 6.4× |
 
 The requests are sequential, so the numbers say nothing about throughput under load. The Candidate opens a SQLite connection for each read in this unit; the actor store cache of SPEC §8.3 arrives with the write path.
