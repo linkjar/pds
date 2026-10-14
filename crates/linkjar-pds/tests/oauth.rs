@@ -1410,7 +1410,29 @@ async fn mcp_authorize(
         .append_pair("scope", scope)
         .append_pair("resource", &format!("{MCP_PUBLIC}/mcp"))
         .finish();
-    let request = ai.http.get(format!("{}/authorize?{query}", ai.origin));
+    let url = format!("{}/authorize?{query}", ai.origin);
+    let back = mcp_browser(
+        ai, server, sidecar_id, &url, "Test AI", MCP_PUBLIC, decision,
+    )
+    .await;
+    assert!(back.as_str().starts_with(AI_REDIRECT), "{back}");
+    back
+}
+
+/// The browser of the person from the authorization URL of an AI client
+/// to the redirect back to it: the pages of the PDS, and the consent page
+/// of the MCP server, which names the client `name`. `public` is the
+/// public address of the MCP server.
+async fn mcp_browser(
+    ai: &mut AiClient,
+    server: &mut Server,
+    sidecar_id: &str,
+    url: &str,
+    name: &str,
+    public: &str,
+    decision: &str,
+) -> reqwest::Url {
+    let request = ai.http.get(url);
     let start = ai.send(request).await;
     assert_eq!(start.status, 303, "{}", start.text);
     let to = reqwest::Url::parse(start.header("location").unwrap()).unwrap();
@@ -1428,7 +1450,7 @@ async fn mcp_authorize(
     let back = server.authorize_as(sidecar_id, &request_uri, false).await;
     assert!(
         back.as_str()
-            .starts_with(&format!("{MCP_PUBLIC}/oauth/pds-callback?")),
+            .starts_with(&format!("{public}/oauth/pds-callback?")),
         "{back}"
     );
     let path = format!("{}?{}", back.path(), back.query().unwrap());
@@ -1447,7 +1469,7 @@ async fn mcp_authorize(
     let consent = ai.send(request).await;
     assert_eq!(consent.status, 200, "{}", consent.text);
     assert!(
-        consent.text.contains("<strong>Test AI</strong>"),
+        consent.text.contains(&format!("<strong>{name}</strong>")),
         "{}",
         consent.text
     );
@@ -1476,9 +1498,7 @@ async fn mcp_authorize(
     ];
     let decided = ai.form("/authorize/decision", &form).await;
     assert_eq!(decided.status, 303, "{}", decided.text);
-    let back = reqwest::Url::parse(decided.header("location").unwrap()).unwrap();
-    assert!(back.as_str().starts_with(AI_REDIRECT), "{back}");
-    back
+    reqwest::Url::parse(decided.header("location").unwrap()).unwrap()
 }
 
 fn parameter(url: &reqwest::Url, name: &str) -> Option<String> {
@@ -1778,6 +1798,151 @@ async fn an_ai_client_reaches_a_repository_through_the_mcp_server() {
     assert_eq!(ai.form("/revoke", &[("token", &access)]).await.status, 200);
     assert_eq!(ai.rpc(Some(&access), "ping", json!({})).await.status, 401);
     assert_eq!(sessions(&server), 0);
+    let _ = std::fs::remove_file(&known);
+}
+
+/// One line of JSON from the official client, read without blocking the
+/// servers that the client talks to.
+async fn client_line(
+    out: std::sync::Arc<std::sync::Mutex<std::io::BufReader<std::process::ChildStdout>>>,
+) -> Value {
+    tokio::task::spawn_blocking(move || {
+        use std::io::BufRead;
+        let mut line = String::new();
+        out.lock().unwrap().read_line(&mut line).unwrap();
+        let value = serde_json::from_str(&line);
+        assert!(value.is_ok(), "not a line of the client: {line:?}");
+        value.unwrap()
+    })
+    .await
+    .unwrap()
+}
+
+/// The gate of unit 10: the official MCP TypeScript client signs in
+/// through the pages of the PDS, uses the tools, refreshes and revokes.
+/// It runs when `PDS_TEST_MCP_CLIENT` names a Node binary and the
+/// dependencies of `parity/` are installed. With `MCP_INSPECTOR` set to
+/// the binary of the MCP Inspector, the Inspector lists the tools too.
+#[tokio::test(flavor = "multi_thread")]
+#[allow(clippy::too_many_lines)] // one client, from the challenge to the revocation
+async fn the_official_mcp_client_signs_in_through_the_pds() {
+    let Ok(node) = std::env::var("PDS_TEST_MCP_CLIENT") else {
+        return;
+    };
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let mcp_origin = format!("http://{}", listener.local_addr().unwrap());
+    let vars = |pds: &str, internal: &str| -> std::collections::BTreeMap<String, String> {
+        [
+            ("MCP_PUBLIC_URL", MCP_PUBLIC),
+            ("MCP_PDS_PUBLIC_URL", pds),
+            ("MCP_PDS_INTERNAL_URL", internal),
+            ("MCP_WRITE_COLLECTIONS", NOTE),
+            (
+                "MCP_CLIENT_KEY_P256_PRIVATE_KEY_HEX",
+                "0707070707070707070707070707070707070707070707070707070707070707",
+            ),
+        ]
+        .iter()
+        .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
+        .collect()
+    };
+    let draft = pds_mcp::config::Config::from_vars(&vars("https://pds.test", "http://127.0.0.1:1"))
+        .unwrap();
+    let sidecar_id = draft.client_id();
+    let known = std::env::temp_dir().join(format!(
+        "linkjar-pds-official-client-{}.json",
+        std::process::id()
+    ));
+    let mut clients = serde_json::Map::new();
+    clients.insert(sidecar_id.clone(), draft.client_metadata());
+    std::fs::write(&known, Value::Object(clients).to_string()).unwrap();
+    let mut server = Server::start_with(&[
+        ("PDS_OAUTH_KNOWN_CLIENTS_FILE", known.to_str().unwrap()),
+        ("PDS_MCP_CLIENT_IDS", &sidecar_id),
+    ])
+    .await;
+    let config = pds_mcp::config::Config::from_vars(&vars(&server.issuer, &server.origin)).unwrap();
+    let mcp = pds_mcp::Mcp::new(config).unwrap();
+    tokio::spawn(async move { axum::serve(listener, pds_mcp::router(mcp)).await });
+    let mut ai = AiClient {
+        origin: mcp_origin.clone(),
+        http: reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .unwrap(),
+        cookie: None,
+        serial: 0,
+    };
+
+    let script = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../parity/mcp/official-client.ts"
+    );
+    let mut child = std::process::Command::new(node)
+        .arg(script)
+        .arg(format!("{MCP_PUBLIC}/mcp"))
+        .arg(&mcp_origin)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let out = std::sync::Arc::new(std::sync::Mutex::new(std::io::BufReader::new(
+        child.stdout.take().unwrap(),
+    )));
+    let mut input = child.stdin.take().unwrap();
+
+    // The SDK found the server, registered, and sends the person to sign in.
+    let step = client_line(out.clone()).await;
+    assert!(step["authorize"].is_string(), "{step}");
+    let url = step["authorize"].as_str().unwrap();
+    let url = url.replace(MCP_PUBLIC, &mcp_origin);
+    let back = mcp_browser(
+        &mut ai,
+        &mut server,
+        &sidecar_id,
+        &url,
+        "Official SDK",
+        MCP_PUBLIC,
+        "allow",
+    )
+    .await;
+    assert!(
+        back.as_str()
+            .starts_with("http://127.0.0.1/official-callback?"),
+        "{back}"
+    );
+    std::io::Write::write_all(&mut input, format!("{back}\n").as_bytes()).unwrap();
+
+    let done = client_line(out).await;
+    let results = &done["done"];
+    assert_eq!(results["registered"], true, "{done}");
+    assert_eq!(
+        results["authorizeResource"],
+        format!("{MCP_PUBLIC}/mcp"),
+        "{done}"
+    );
+    assert_eq!(results["state"], true, "{done}");
+    // The SDK asks for every scope of `scopes_supported` (SEP-835) when the
+    // challenge names none, and the person allows them on the consent page.
+    let every = "account:read repo:read repo:write repo:write:com.example.note";
+    assert_eq!(results["authorizeScope"], every, "{done}");
+    assert_eq!(results["scope"], every, "{done}");
+    assert_eq!(results["tools"].as_array().unwrap().len(), 8, "{done}");
+    assert_eq!(results["did"], ALICE, "{done}");
+    let uri = format!("at://{ALICE}/{NOTE}/official");
+    assert_eq!(results["created"], uri.as_str(), "{done}");
+    assert_eq!(results["read"], true, "{done}");
+    assert_eq!(results["prompts"], 2, "{done}");
+    if std::env::var_os("MCP_INSPECTOR").is_some() {
+        assert_eq!(results["inspectorTools"], 8, "{done}");
+    }
+    assert_eq!(results["refresh"], "AUTHORIZED", "{done}");
+    assert_eq!(results["rotated"], true, "{done}");
+    assert_eq!(results["oldAccess"], 401, "{done}");
+    assert_eq!(results["newAccess"], 200, "{done}");
+    assert_eq!(results["revoked"], 200, "{done}");
+    assert_eq!(results["afterRevocation"], 401, "{done}");
+    assert!(child.wait().unwrap().success());
     let _ = std::fs::remove_file(&known);
 }
 
