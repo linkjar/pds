@@ -31,7 +31,10 @@ fn io_error(error: impl std::fmt::Display) -> std::io::Error {
 
 /// The store of a hosted account and its latest commit.
 fn open_with_root(state: &AppState, did: &str) -> Result<(ActorDb, RepoRoot), XrpcError> {
-    let store = ActorDb::open(&state.layout().actor_db(did))?;
+    with_root(ActorDb::open(&state.layout().actor_db(did))?)
+}
+
+fn with_root(store: ActorDb) -> Result<(ActorDb, RepoRoot), XrpcError> {
     let root = store
         .root()?
         .ok_or_else(|| XrpcError::internal("the store has no repository root"))?;
@@ -45,6 +48,11 @@ fn open_with_root(state: &AppState, did: &str) -> Result<(ActorDb, RepoRoot), Xr
 /// down, then by CID down. That order comes from the block table and not
 /// from the tree, so the export is the same bytes as the Reference's for the
 /// same data directory.
+///
+/// The root and every page are read in one read transaction. A write that
+/// commits during the export deletes the blocks its new tree no longer
+/// references, and pages read outside the root's snapshot would miss some
+/// of the blocks the root's tree needs.
 pub async fn get_repo(
     state: &AppState,
     query: &Query<'_>,
@@ -67,7 +75,7 @@ pub async fn get_repo(
     let (store, root) = state
         .blocking(move |state| {
             repo_availability(state, &did, credentials.is_admin_or(&did))?;
-            let (store, root) = open_with_root(state, &did)?;
+            let (store, root) = with_root(ActorDb::open_snapshot(&state.layout().actor_db(&did))?)?;
             Ok((store, root.cid))
         })
         .await?;

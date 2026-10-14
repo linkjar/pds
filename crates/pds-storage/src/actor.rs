@@ -107,6 +107,16 @@ impl ActorDb {
         })
     }
 
+    /// Opens the store for reading inside one read transaction. The first
+    /// read fixes what every later read sees, so the reads agree with each
+    /// other while a writer commits. The transaction ends when the value is
+    /// dropped.
+    pub fn open_snapshot(path: &Path) -> Result<Self, StorageError> {
+        let conn = open_read_only(path)?;
+        conn.execute_batch("begin")?;
+        Ok(Self { conn })
+    }
+
     pub(crate) const fn from_connection(conn: Connection) -> Self {
         Self { conn }
     }
