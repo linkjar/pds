@@ -1,0 +1,111 @@
+name: Server images
+
+# The images of the Rust server and its two sidecars (docs/SPEC.md §14.5):
+# `Dockerfile`, `Dockerfile.mcp` and `Dockerfile.console`. A pull request
+# builds them for both architectures and publishes nothing. A push to `main`
+# publishes each as a multi-architecture image tagged with the commit,
+# `ghcr.io/linkjar/pds-server:sha-<commit>` and the same for `pds-mcp` and
+# `pds-console`, and moves the `main` tag. The run's summary names each
+# digest; a deployment pins the digest, never a tag.
+#
+# The reference image of `legacy/` is built by build.yml and is unchanged.
+# Actions are pinned by commit SHA; the comment names the release.
+
+on:
+  pull_request:
+    paths: ['crates/**', 'lexicons/**', 'xtask/**', 'Cargo.toml', 'Cargo.lock', 'Dockerfile*', '.dockerignore', '.github/workflows/server-images.yml']
+  push:
+    branches: [main]
+    paths: ['crates/**', 'lexicons/**', 'xtask/**', 'Cargo.toml', 'Cargo.lock', 'Dockerfile*', '.dockerignore', '.github/workflows/server-images.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: server-images-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  PUBLISH: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+
+jobs:
+  build:
+    name: ${{ matrix.image }} (${{ matrix.arch }})
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [server, mcp, console]
+        arch: [amd64, arm64]
+        include:
+          - image: server
+            file: Dockerfile
+          - image: mcp
+            file: Dockerfile.mcp
+          - image: console
+            file: Dockerfile.console
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@5ac4a31b15f1c45ec652b8af78c2096c3a08368c
+      - if: env.PUBLISH == 'true'
+        uses: docker/login-action@0a596b2e7a325f0cedf8e9bd21ab002cbd3c9241
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Each architecture builds natively and is pushed under a tag of its
+      # own; the manifest job joins the two.
+      - uses: docker/build-push-action@91670ba5a4df99a24efff8637a78c83fd1b0f6b1
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          platforms: linux/${{ matrix.arch }}
+          push: ${{ env.PUBLISH == 'true' }}
+          provenance: ${{ env.PUBLISH == 'true' && 'mode=max' || 'false' }}
+          sbom: ${{ env.PUBLISH == 'true' }}
+          tags: ghcr.io/linkjar/pds-${{ matrix.image }}:build-${{ github.sha }}-${{ matrix.arch }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=pds-${{ matrix.image }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=pds-${{ matrix.image }}-${{ matrix.arch }}
+
+  manifest:
+    name: Publish
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: docker/setup-buildx-action@5ac4a31b15f1c45ec652b8af78c2096c3a08368c
+      - uses: docker/login-action@0a596b2e7a325f0cedf8e9bd21ab002cbd3c9241
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Join the architectures and record the digests
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          {
+            echo "| Image | Digest |"
+            echo "|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for image in server mcp console; do
+            name="ghcr.io/linkjar/pds-$image"
+            docker buildx imagetools create \
+              --tag "$name:sha-$SHA" --tag "$name:main" \
+              "$name:build-$SHA-amd64" "$name:build-$SHA-arm64"
+            digest=$(docker buildx imagetools inspect "$name:sha-$SHA" --format '{{.Manifest.Digest}}')
+            echo "| \`$name\` | \`$name@$digest\` |" >> "$GITHUB_STEP_SUMMARY"
+          done
