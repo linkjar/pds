@@ -2894,6 +2894,67 @@ async fn an_entryway_keeps_the_accounts_of_a_member_host() {
     let store = pds_storage::ActorDb::open(&member.dir.config.layout.actor_db(&did)).unwrap();
     assert_eq!(store.counts().unwrap().0, 2);
 
+    // The entryway serves the firehose of the member host: it has commits,
+    // which the entryway alone never writes.
+    let firehose = entryway.origin.replacen("http://", "ws://", 1)
+        + "/xrpc/com.atproto.sync.subscribeRepos?cursor=0";
+    let (mut socket, _) = tokio_tungstenite::connect_async(firehose.as_str())
+        .await
+        .unwrap();
+    let commit = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        use futures_util::StreamExt as _;
+        while let Some(Ok(frame)) = socket.next().await {
+            if let tokio_tungstenite::tungstenite::Message::Binary(bytes) = frame
+                && bytes.windows(7).any(|window| window == b"#commit")
+            {
+                return true;
+            }
+        }
+        false
+    })
+    .await;
+    assert_eq!(commit, Ok(true));
+    drop(socket);
+
+    // A blob larger than a buffered request goes through the entryway and
+    // back as a stream.
+    let blob: Vec<u8> = (0..2 * 1024 * 1024).map(|i: u32| (i % 251) as u8).collect();
+    let uploaded = entryway
+        .http
+        .post(format!(
+            "{}/xrpc/com.atproto.repo.uploadBlob",
+            entryway.origin
+        ))
+        .bearer_auth(&access)
+        .header("content-type", "application/octet-stream")
+        .body(blob.clone())
+        .send()
+        .await
+        .unwrap();
+    let (status, body) = (uploaded.status(), uploaded.text().await.unwrap());
+    assert_eq!(status, 200, "{body}");
+    let uploaded: Value = serde_json::from_str(&body).unwrap();
+    let cid = uploaded["blob"]["ref"]["$link"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let file = json!({"repo": did, "collection": "com.example.file", "record": {"$type": "com.example.file", "file": uploaded["blob"]}});
+    let (status, body) = entryway
+        .post("com.atproto.repo.createRecord", Some(&access), &file)
+        .await;
+    assert_eq!(status, 200, "{body}");
+    let fetched = entryway
+        .http
+        .get(format!(
+            "{}/xrpc/com.atproto.sync.getBlob?did={did}&cid={cid}",
+            entryway.origin
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(fetched.status(), 200);
+    assert_eq!(fetched.bytes().await.unwrap().as_ref(), blob.as_slice());
+
     // A client of the member host signs in and refreshes there: the
     // entryway answers.
     let login = json!({"identifier": "nora.pds-users.org", "password": PASSWORD});
@@ -3118,6 +3179,74 @@ async fn an_entryway_keeps_the_accounts_of_a_member_host() {
         (401, "AccountTakedown"),
         "{refused}"
     );
+
+    // The admin of the entryway lifts it, and the member host learns it.
+    let taken = |server: &Server| -> bool {
+        common::open(&server.dir.config.layout.account_db)
+            .query_row(
+                r#"select "takedownRef" is not null from "actor" where "did" = ?1"#,
+                [&did],
+                |row| row.get(0),
+            )
+            .unwrap()
+    };
+    assert_eq!((taken(&entryway), taken(&member)), (true, true));
+    let lifted = entryway
+        .http
+        .post(format!(
+            "{}/xrpc/com.atproto.admin.updateSubjectStatus",
+            entryway.origin
+        ))
+        .basic_auth("admin", Some(common::ADMIN_PASSWORD))
+        .header("content-type", "application/json")
+        .body(takedown(false).to_string())
+        .send()
+        .await
+        .unwrap();
+    let (status, body) = (lifted.status(), lifted.text().await.unwrap());
+    assert_eq!(status, 200, "{body}");
+    assert_eq!((taken(&entryway), taken(&member)), (false, false));
+    let (status, body) = member
+        .post("com.atproto.server.createSession", None, &login)
+        .await;
+    assert_eq!(status, 200, "{body}");
+
+    // A sign-up that stopped after the member host created the repository:
+    // `reconcile` finds it, keeps it while it is young, and removes it on
+    // request after that.
+    let (status, orphan) = entryway
+        .create(&json!({"handle": "orphan.pds-users.org", "email": "orphan@example.com", "password": PASSWORD}))
+        .await;
+    assert_eq!(status, 200, "{orphan}");
+    let orphan = text(&orphan, "did").to_owned();
+    let entryway_db = common::open(&entryway.dir.config.layout.account_db);
+    for table in ["account", "actor"] {
+        entryway_db
+            .execute(
+                &format!(r#"delete from "{table}" where "did" = ?1"#),
+                [&orphan],
+            )
+            .unwrap();
+    }
+    let now = linkjar_pds::serve::now_ms().unsigned_abs() * 1000;
+    let report = linkjar_pds::reconcile::reconcile_at(&entryway.dir.config, true, now)
+        .await
+        .unwrap();
+    assert_eq!(report.only_at_member, std::slice::from_ref(&orphan));
+    assert_eq!(report.young, std::slice::from_ref(&orphan));
+    assert_eq!(report.removed.len(), 0);
+    assert!(member.dir.config.layout.actor_db(&orphan).exists());
+    let later = now + 60 * 60 * 1_000_000;
+    let report = linkjar_pds::reconcile::reconcile_at(&entryway.dir.config, true, later)
+        .await
+        .unwrap();
+    assert_eq!(report.removed, std::slice::from_ref(&orphan));
+    assert_eq!(report.only_at_entryway.len(), 0, "{report}");
+    assert!(!member.dir.config.layout.actor_db(&orphan).exists());
+    let report = linkjar_pds::reconcile::reconcile_at(&entryway.dir.config, false, later)
+        .await
+        .unwrap();
+    assert!(report.is_clean(), "{report}");
 
     // The admin of the entryway deletes the account on both servers.
     let gone = entryway

@@ -332,18 +332,23 @@ pub async fn update_subject_status(
             })
             .await?;
     }
-    // The entryway of a member host keeps the sessions: it refuses them
-    // for an account that is taken down (SPEC §21.3). The entryway does not
-    // send a takedown back.
-    if is_account && let (Some(takedown), Some(entryway)) = (&takedown, &state.config().entryway) {
+    // A takedown of an account reaches the other server (SPEC §21.3): the
+    // entryway refuses the sessions, and the member host the repository.
+    // A call of either server carries its mark, so the other does not
+    // send it back.
+    if is_account && let Some(takedown) = &takedown {
         let input = serde_json::json!({ "subject": subject, "takedown": takedown });
-        super::entryway::ask_entryway(
-            state,
-            entryway,
-            "com.atproto.admin.updateSubjectStatus",
-            &input,
-        )
-        .await?;
+        let nsid = "com.atproto.admin.updateSubjectStatus";
+        if let Some(entryway) = &state.config().entryway
+            && !super::entryway::from_entryway(headers)
+        {
+            super::entryway::ask_entryway(state, entryway, nsid, &input).await?;
+        }
+        if let Some(host) = &state.config().member_host
+            && !super::entryway::from_member(headers)
+        {
+            super::entryway::ask_member(state, host, nsid, &input).await?;
+        }
     }
     if is_account && applied(&deactivated) == Some(false) {
         super::lifecycle::activate(state, did).await?;

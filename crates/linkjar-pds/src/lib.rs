@@ -3,5 +3,6 @@
 //! `main.rs`.
 
 pub mod config;
+pub mod reconcile;
 pub mod serve;
 pub mod verify;

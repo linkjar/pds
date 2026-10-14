@@ -83,6 +83,7 @@ sqlite-plugin = "0.11"
 turmoil = "0.7"
 hyper = { version = "1", default-features = false, features = ["client", "server", "http1"] }
 hyper-util = { version = "0.1", default-features = false, features = ["tokio", "service"] }
+http-body = "1"
 http-body-util = "0.1"
 tokio-tungstenite = { version = "0.29", default-features = false, features = ["connect"] }
 anyhow = "1"

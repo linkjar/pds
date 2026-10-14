@@ -28,6 +28,10 @@ Usage: linkjar-pds <command>
   migrate-storage --to postgres|sqlite
                      copy the shared databases between the files of the data
                      directory and PDS_POSTGRES_URL, and compare the two
+  reconcile [--remove-orphans]
+                     at an entryway, compare the accounts with the repositories of
+                     the member host; exit 1 when they differ. --remove-orphans
+                     removes the repositories without an account
   check-config       validate the configuration and exit
   health             ask the local server's health route; exit 0 when it answers 200,
                      and 1 otherwise
@@ -183,6 +187,17 @@ fn run(args: &[String]) -> Result<ExitCode, Failure> {
         ["migrate-storage", "--to", target] => {
             migrate_storage(&config, target)?;
             Ok(ExitCode::SUCCESS)
+        }
+        ["reconcile"] | ["reconcile", "--remove-orphans"] => {
+            let runtime = runtime()?;
+            let report =
+                runtime.block_on(linkjar_pds::reconcile::reconcile(&config, words.len() == 2))?;
+            print!("{report}");
+            Ok(if report.is_clean() {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            })
         }
         ["check-config"] => {
             warn_unknown(&config);
