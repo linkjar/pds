@@ -8,6 +8,17 @@ pub enum StorageError {
     /// SQLite reported an error.
     #[error("sqlite: {0}")]
     Sqlite(#[from] rusqlite::Error),
+    /// Postgres reported an error.
+    #[error("{0}")]
+    Postgres(#[from] crate::pg::PgError),
+    /// A column of a result holds another type than the code reads.
+    #[error("column {index}: expected {expected}")]
+    Column {
+        /// The column, from 0.
+        index: usize,
+        /// What the code reads.
+        expected: &'static str,
+    },
     /// The file system reported an error.
     #[error("{path}: {source}")]
     Io {
@@ -38,6 +49,18 @@ impl StorageError {
         Self::Io {
             path: path.into(),
             source,
+        }
+    }
+}
+
+impl From<crate::sql::Error> for StorageError {
+    fn from(error: crate::sql::Error) -> Self {
+        use crate::sql::Error;
+        match error {
+            Error::Sqlite(error) => Self::Sqlite(error),
+            Error::Postgres(error) => Self::Postgres(error),
+            Error::NoRows => Self::Sqlite(rusqlite::Error::QueryReturnedNoRows),
+            Error::Type { index, expected } => Self::Column { index, expected },
         }
     }
 }

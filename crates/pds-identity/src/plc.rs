@@ -83,6 +83,35 @@ pub fn create_op(
     }
 }
 
+/// Whether `key`, a `did:key`, signed the operation: the signature is
+/// over the DAG-CBOR of the operation without its `sig`, as
+/// `assureValidSig` of the library checks it.
+pub fn is_signed_by(operation: &serde_json::Value, key: &str) -> bool {
+    let Ok(Data::Object(mut fields)) = Data::from_json_str(&operation.to_string()) else {
+        return false;
+    };
+    let Some(Data::String(signature)) = fields.remove("sig") else {
+        return false;
+    };
+    let (Ok(signature), Ok(key)) = (
+        BASE64URL_NOPAD.decode(signature.as_bytes()),
+        crate::PublicKey::from_did_key(key),
+    ) else {
+        return false;
+    };
+    key.verify(&Data::Object(fields).to_dag_cbor(), &signature)
+        .is_ok()
+}
+
+/// The DID that a genesis operation creates: `did:plc:` and the first 24
+/// characters of the base32 SHA-256 of the signed operation.
+pub fn did_of_genesis(operation: &serde_json::Value) -> Option<String> {
+    let complete = Data::from_json_str(&operation.to_string()).ok()?;
+    let digest: [u8; 32] = Sha256::digest(complete.to_dag_cbor()).into();
+    let hash = BASE32_NOPAD.encode(&digest).to_lowercase();
+    Some(format!("did:plc:{}", hash.get(..24)?))
+}
+
 /// Why an operation cannot follow the last one of a DID.
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum UpdateError {
@@ -215,6 +244,32 @@ pub fn update_handle_op(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_genesis_operation_names_its_did_and_its_signer() {
+        let signer = Keypair::generate(crate::Algorithm::Secp256k1, |bytes| bytes.fill(3));
+        let other = Keypair::generate(crate::Algorithm::Secp256k1, |bytes| bytes.fill(4));
+        let genesis = create_op(
+            &other.did_key(),
+            &[signer.did_key()],
+            "alice.test",
+            "https://pds.test",
+            &signer,
+        );
+        assert_eq!(
+            did_of_genesis(&genesis.operation).as_deref(),
+            Some(genesis.did.as_str())
+        );
+        assert!(is_signed_by(&genesis.operation, &signer.did_key()));
+        assert!(!is_signed_by(&genesis.operation, &other.did_key()));
+        let mut changed = genesis.operation;
+        changed["alsoKnownAs"] = serde_json::json!(["at://mallory.test"]);
+        assert!(!is_signed_by(&changed, &signer.did_key()));
+        assert!(!is_signed_by(
+            &serde_json::json!({"type": "plc_operation"}),
+            &signer.did_key()
+        ));
+    }
     use crate::Algorithm;
 
     #[test]

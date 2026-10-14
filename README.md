@@ -29,11 +29,14 @@ instead of source patches. Dual-licensed MIT or Apache-2.0.
 > a [cutover runbook](docs/runbooks/cutover.md); the cutover itself is the
 > owner's. Unit 9 adds the ops listener, operator roles and the
 > [operations console](docs/sidecars.md#16-state-after-unit-9), and unit
-> 10 the [MCP server](docs/sidecars.md#28-state-after-unit-10). Not built
-> yet: Postgres and the entryway. The repository engine
+> 10 the [MCP server](docs/sidecars.md#28-state-after-unit-10). From unit
+> 11 the accounts and the event log can be in
+> [Postgres](docs/runbooks/postgres.md). Unit 12 adds a member host and
+> an entryway with one member host
+> ([record](docs/research/2026-10-14-entryway.md)). The repository engine
 > is written here and gives the same bytes as `@atproto/repo` at the pin
 > ([decision D2](docs/research/2026-10-12-repository-crate.md)). The
-> specification is at revision 14. The reference image under
+> specification is at revision 16. The reference image under
 > [`legacy/`](legacy/README.md) remains the deployed server until cutover.
 > Progress is logged in [docs/plan.md](docs/plan.md#status).
 

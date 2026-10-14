@@ -80,7 +80,9 @@ pub async fn deactivate_account(
             if !updated {
                 return Err(not_found());
             }
-            let actor = AccountDb::open(&state.layout().account_db)?
+            let actor = state
+                .layout()
+                .accounts()?
                 .actor(&did, Availability::ANY)?
                 .ok_or_else(not_found)?;
             writes
@@ -216,7 +218,9 @@ pub(crate) async fn activate(state: &AppState, did: String) -> Result<(), XrpcEr
             if !writes.with_accounts(|accounts| accounts.activate(&did))? {
                 return Err(not_found());
             }
-            let actor = AccountDb::open(&state.layout().account_db)?
+            let actor = state
+                .layout()
+                .accounts()?
                 .actor(&did, Availability::ANY)?
                 .ok_or_else(not_found)?;
             let store = ActorDb::open(&state.layout().actor_db(&did))?;
@@ -256,7 +260,9 @@ pub async fn check_account_status(
                 .root()?
                 .ok_or_else(|| XrpcError::internal("the store has no repository root"))?;
             let (records, blobs, referenced) = store.counts()?;
-            let activated = AccountDb::open(&state.layout().account_db)?
+            let activated = state
+                .layout()
+                .accounts()?
                 .actor(&did, Availability::ACTIVE)?
                 .is_some();
             Ok(json!({
@@ -439,7 +445,7 @@ pub(crate) async fn change_handle(
         let did = did.clone();
         state
             .blocking(move |state| {
-                let accounts = AccountDb::open(&state.layout().account_db)?;
+                let accounts = state.layout().accounts()?;
                 let availability = Availability {
                     include_taken_down: false,
                     include_deactivated: true,
@@ -463,15 +469,31 @@ pub(crate) async fn change_handle(
             })
             .await?
     };
-    if !hosted {
-        assert_handle_resolves(state, &handle, &did).await?;
+    // A member host tracks the handle that its entryway set: the entryway
+    // checked it and wrote the PLC operation (SPEC §21.3).
+    if state.config().entryway.is_none() {
+        if !hosted {
+            assert_handle_resolves(state, &handle, &did).await?;
+        }
+        if !did.starts_with("did:plc:") {
+            return Err(XrpcError::invalid_request(
+                "DID is not properly configured for handle",
+            ));
+        }
+        publish_handle(state, &identity, &did, &handle).await?;
     }
-    if !did.starts_with("did:plc:") {
-        return Err(XrpcError::invalid_request(
-            "DID is not properly configured for handle",
-        ));
+    // The member host of an entryway keeps the repository: it learns the
+    // handle and announces it on its firehose.
+    if let Some(host) = state.config().member_host.clone() {
+        let change = serde_json::json!({ "did": did, "handle": handle });
+        super::entryway::ask_member(
+            state,
+            &host,
+            "com.atproto.admin.updateAccountHandle",
+            &change,
+        )
+        .await?;
     }
-    publish_handle(state, &identity, &did, &handle).await?;
     state
         .blocking(move |state| {
             let writes = writes(state)?;
@@ -491,6 +513,16 @@ pub(crate) async fn change_handle(
             Ok(())
         })
         .await?;
+    Ok(())
+}
+
+/// At an entryway, removes the account from the member host too, which
+/// has its repository.
+pub(crate) async fn tell_member_of_deletion(state: &AppState, did: &str) -> Result<(), XrpcError> {
+    if let Some(host) = state.config().member_host.clone() {
+        let gone = serde_json::json!({ "did": did });
+        super::entryway::ask_member(state, &host, "com.atproto.admin.deleteAccount", &gone).await?;
+    }
     Ok(())
 }
 
@@ -546,7 +578,9 @@ pub async fn request_account_delete(
         state
             .blocking(move |state| {
                 super::repo_write::find_account(state, &did, true, false)?;
-                AccountDb::open(&state.layout().account_db)?
+                state
+                    .layout()
+                    .accounts()?
                     .account(&did, false, Availability::ANY)?
                     .ok_or_else(|| XrpcError::invalid_request("account not found"))?
                     .email
@@ -598,9 +632,10 @@ pub async fn delete_account(
             "Password too long. Consider resetting your password.",
         ));
     }
+    let deleted = did.clone();
     state
         .blocking(move |state| {
-            let accounts = AccountDb::open(&state.layout().account_db)?;
+            let accounts = state.layout().accounts()?;
             if accounts.actor(&did, Availability::ANY)?.is_none() {
                 return Err(XrpcError::invalid_request("account not found"));
             }
@@ -615,5 +650,6 @@ pub async fn delete_account(
             delete_account_now(state, &did)
         })
         .await?;
+    tell_member_of_deletion(state, &deleted).await?;
     Ok(StatusCode::OK.into_response())
 }

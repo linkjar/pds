@@ -3,6 +3,7 @@
 pub mod account;
 pub mod admin;
 pub mod email;
+pub mod entryway;
 pub mod identity;
 pub mod import;
 pub mod invites;
@@ -23,7 +24,7 @@ pub mod sync;
 use axum::extract::State;
 use axum::http::{HeaderMap, Method};
 use axum::response::{IntoResponse, Response};
-use pds_storage::{AccountDb, Actor, Availability};
+use pds_storage::{Actor, Availability};
 
 use crate::auth::{Credentials, optional_credentials};
 use crate::error::XrpcError;
@@ -385,7 +386,7 @@ pub async fn entry(State(state): State<AppState>, request: axum::extract::Reques
             .await
             .unwrap_or_else(|| root::not_found(&method, path))
         };
-        return crate::ratelimit::scope(&state, &parts.headers, peer, oauth).await;
+        return Box::pin(crate::ratelimit::scope(&state, &parts.headers, peer, oauth)).await;
     }
     let Some(nsid) = path_nsid(path) else {
         return XrpcError::invalid_request("invalid xrpc path").into_response();
@@ -698,6 +699,20 @@ async fn xrpc(
     headers: &HeaderMap,
     body: &mut Option<Body>,
 ) -> Result<Response, XrpcError> {
+    // A member host passes the methods of its entryway on (SPEC §21.3).
+    if let Some(entryway) = &state.config().entryway
+        && entryway::is_forwarded(nsid)
+    {
+        return entryway::forward(state, entryway, nsid, method, raw_query, headers, body).await;
+    }
+    // An entryway keeps no repository: what is not its own method goes to
+    // its member host.
+    if let Some(host) = &state.config().member_host
+        && !entryway::is_entryway_method(nsid)
+    {
+        return entryway::forward_to_member(state, host, nsid, method, raw_query, headers, body)
+            .await;
+    }
     // The methods of the profile exist in that profile only (EX-7).
     if state.writes().is_some()
         && let Some(response) = linkjar::serve(state, nsid, method, headers).await
@@ -790,7 +805,7 @@ pub fn repo_availability(
     handle_or_did: &str,
     admin_or_self: bool,
 ) -> Result<Actor, XrpcError> {
-    let accounts = AccountDb::open(&state.layout().account_db)?;
+    let accounts = state.layout().accounts()?;
     let actor = accounts
         .actor(handle_or_did, Availability::ANY)?
         .ok_or_else(|| {

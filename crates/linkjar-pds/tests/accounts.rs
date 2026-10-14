@@ -76,9 +76,21 @@ struct Server {
 
 impl Server {
     async fn start(extra: &[(&str, &str)]) -> Self {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let (plc, ops) = plc().await;
+        Self::start_on(listener, &plc, ops, extra).await
+    }
+
+    /// A server on a listener that exists, with a PLC directory that
+    /// another server may share.
+    async fn start_on(
+        listener: tokio::net::TcpListener,
+        plc: &str,
+        ops: Ops,
+        extra: &[(&str, &str)],
+    ) -> Self {
         let mut vars = vec![
-            ("PDS_DID_PLC_URL", plc.as_str()),
+            ("PDS_DID_PLC_URL", plc),
             ("PDS_SERVICE_HANDLE_DOMAINS", ".pds-users.org"),
             (
                 "PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX",
@@ -87,7 +99,6 @@ impl Server {
         ];
         vars.extend_from_slice(extra);
         let dir = DataDir::new_with(1, &vars);
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let origin = format!("http://{}", listener.local_addr().unwrap());
         // The start of the server applies the migrations of the profile.
         linkjar_pds::serve::create_missing_databases(&dir.config).unwrap();
@@ -2329,4 +2340,674 @@ async fn a_subscriber_is_seen_live_and_disconnected_by_the_operator() {
         .operate("internal.ops.listSubscribers", None, None)
         .await;
     assert_eq!(listed["subscribers"], json!([]));
+}
+
+/// The variables of a server whose shared tier is in the Postgres that
+/// `PDS_TEST_POSTGRES_URL` names, in schemas of its own. `None` without
+/// the variable: the test then does nothing.
+fn postgres(name: &str) -> Option<(String, String)> {
+    let url = std::env::var("PDS_TEST_POSTGRES_URL").ok()?;
+    Some((url, format!("t{}_{name}", std::process::id())))
+}
+
+#[tokio::test]
+async fn the_shared_tier_runs_on_postgres() {
+    use futures_util::StreamExt as _;
+    use tokio_tungstenite::tungstenite::Message;
+    let Some((url, prefix)) = postgres("accounts") else {
+        return;
+    };
+    let server = Server::start(&[
+        ("PDS_POSTGRES_URL", &url),
+        ("PDS_POSTGRES_SCHEMA_PREFIX", &prefix),
+        ("PDS_PROFILE", "linkjar"),
+        ("PDS_SERVICE_HANDLE_DOMAINS", ".linkjar.social"),
+        ("PDS_ADMIN_PASSWORD", common::ADMIN_PASSWORD),
+    ])
+    .await;
+    let tier = server.dir.config.layout.shared.clone().unwrap();
+
+    // An account, with its rows in Postgres and none in the SQLite files.
+    let account = json!({"handle": "petra.linkjar.social", "email": "petra@example.com", "password": PASSWORD});
+    let (status, made) = server.create(&account).await;
+    assert_eq!(status, 200, "{made}");
+    let did = text(&made, "did").to_owned();
+    let access = text(&made, "accessJwt").to_owned();
+    let in_files: i64 = common::open(&server.dir.config.layout.account_db)
+        .query_row(
+            r#"select count(*) from "actor" where "did" = ?1"#,
+            [&did],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(in_files, 0);
+    assert_eq!(server.create(&account).await.0, 400);
+
+    // Sessions.
+    let login = json!({"identifier": "petra.linkjar.social", "password": PASSWORD});
+    let (status, session) = server
+        .post("com.atproto.server.createSession", None, &login)
+        .await;
+    assert_eq!(status, 200, "{session}");
+    let (status, refreshed) = server
+        .post(
+            "com.atproto.server.refreshSession",
+            Some(text(&session, "refreshJwt")),
+            &json!({}),
+        )
+        .await;
+    assert_eq!(status, 200, "{refreshed}");
+    let (status, _) = server
+        .post(
+            "com.atproto.server.refreshSession",
+            Some(text(&session, "refreshJwt")),
+            &json!({}),
+        )
+        .await;
+    assert_ne!(status, 500);
+    // A token that the server never sent is refused, not an error of the
+    // server: the statement compares a parameter with NULL.
+    let wrong = json!({"email": "petra@example.com", "token": "aaaaa-bbbbb"});
+    let (status, refused) = server
+        .post("com.atproto.server.confirmEmail", Some(&access), &wrong)
+        .await;
+    assert_eq!(
+        (status, text(&refused, "error")),
+        (400, "InvalidToken"),
+        "{refused}"
+    );
+    let reset = json!({"token": "aaaaa-bbbbb", "password": "another-password"});
+    let (status, refused) = server
+        .post("com.atproto.server.resetPassword", None, &reset)
+        .await;
+    assert_eq!(status, 400, "{refused}");
+    let app = json!({"name": "phone"});
+    let (status, body) = server
+        .post("com.atproto.server.createAppPassword", Some(&access), &app)
+        .await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(
+        server
+            .post("com.atproto.server.createAppPassword", Some(&access), &app)
+            .await
+            .0,
+        400
+    );
+
+    // Records and the event log.
+    for n in 0..3 {
+        let record = json!({"repo": did, "collection": "com.example.note", "record": {"$type": "com.example.note", "n": n}});
+        let (status, body) = server
+            .post("com.atproto.repo.createRecord", Some(&access), &record)
+            .await;
+        assert_eq!(status, 200, "{body}");
+    }
+    let listed = server
+        .http
+        .get(format!("{}/xrpc/com.atproto.sync.listRepos", server.origin))
+        .send()
+        .await
+        .unwrap();
+    let repos: Value = serde_json::from_slice(&listed.bytes().await.unwrap()).unwrap();
+    assert!(
+        repos["repos"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|repo| repo["did"] == did.as_str()),
+        "{repos}"
+    );
+    let mut firehose = tokio_tungstenite::connect_async(format!(
+        "{}/xrpc/com.atproto.sync.subscribeRepos?cursor=0",
+        server.origin.replace("http://", "ws://")
+    ))
+    .await
+    .unwrap()
+    .0;
+    // The identity, the account, and four commits: the first of the
+    // repository and one for each record.
+    for _ in 0..6 {
+        assert!(matches!(
+            firehose.next().await,
+            Some(Ok(Message::Binary(_)))
+        ));
+    }
+
+    // The admin, the operator's state, and the audit log.
+    let (status, codes) = server
+        .operate(
+            "com.atproto.server.createInviteCodes",
+            Some("a test"),
+            Some(&json!({"codeCount": 2, "useCount": 1})),
+        )
+        .await;
+    assert_eq!(status, 200, "{codes}");
+    let takedown = json!({
+        "subject": {"$type": "com.atproto.admin.defs#repoRef", "did": did},
+        "takedown": {"applied": true, "ref": "pg-1"},
+    });
+    let (status, body) = server
+        .operate(
+            "com.atproto.admin.updateSubjectStatus",
+            Some("a test"),
+            Some(&takedown),
+        )
+        .await;
+    assert_eq!(status, 200, "{body}");
+    let (status, card) = server
+        .operate(&format!("internal.ops.getAccount?did={did}"), None, None)
+        .await;
+    assert_eq!(status, 200, "{card}");
+    assert_eq!(card["status"], "takendown");
+    assert_eq!(card["email"], "petra@example.com");
+    let (status, overview) = server.operate("internal.ops.getOverview", None, None).await;
+    assert_eq!(status, 200, "{overview}");
+    assert_eq!(overview["accounts"], 1);
+    assert!(overview["sequencer"]["head"].as_i64().unwrap() >= 6);
+    let (status, audit) = server
+        .operate("internal.ops.listAudit?limit=3", None, None)
+        .await;
+    assert_eq!(status, 200, "{audit}");
+    assert_eq!(
+        audit["entries"][0]["action"],
+        "com.atproto.admin.updateSubjectStatus"
+    );
+    let (status, _) = server
+        .operate("internal.ops.checkpoint", Some("a test"), Some(&json!({})))
+        .await;
+    assert_eq!(status, 200);
+
+    // A second server on the tier does not get the lease of the event log.
+    assert!(tier.sequencer_lease().unwrap().is_some());
+    let held = tier.sequencer_lease().unwrap().unwrap();
+    assert!(tier.sequencer_lease().unwrap().is_none());
+    drop(held);
+    tier.drop_schemas().unwrap();
+}
+
+/// What a stand-in entryway was asked: the path, the credential and the
+/// body of each request.
+type Asked = Arc<Mutex<Vec<(String, Option<String>, String)>>>;
+
+/// An entryway that records each request and answers with the method it
+/// was asked.
+async fn entryway() -> (String, Asked) {
+    let asked = Asked::default();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let origin = format!("http://{}", listener.local_addr().unwrap());
+    let app = axum::Router::new()
+        .fallback(
+            |State(asked): State<Asked>, request: axum::extract::Request| async move {
+                let path = request.uri().path().to_owned();
+                let credential = request
+                    .headers()
+                    .get("authorization")
+                    .and_then(|value| value.to_str().ok())
+                    .map(str::to_owned);
+                let body = axum::body::to_bytes(request.into_body(), 65_536)
+                    .await
+                    .unwrap();
+                let body = String::from_utf8_lossy(&body).into_owned();
+                asked.lock().unwrap().push((path.clone(), credential, body));
+                let answer = json!({"answeredBy": "entryway", "method": path}).to_string();
+                ([("content-type", "application/json")], answer)
+            },
+        )
+        .with_state(Arc::clone(&asked));
+    tokio::spawn(async move { axum::serve(listener, app).await });
+    (origin, asked)
+}
+
+/// A token as an entryway signs it.
+fn entryway_token(key: &pds_identity::Keypair, claims: &Value) -> String {
+    use base64::Engine as _;
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+    let head = URL_SAFE_NO_PAD.encode(json!({"typ": "at+jwt", "alg": "ES256K"}).to_string());
+    let body = URL_SAFE_NO_PAD.encode(claims.to_string());
+    let signature = key.sign(format!("{head}.{body}").as_bytes());
+    format!("{head}.{body}.{}", URL_SAFE_NO_PAD.encode(signature))
+}
+
+#[tokio::test]
+async fn a_member_host_keeps_repositories_and_leaves_accounts_to_its_entryway() {
+    use pds_identity::{Algorithm, Keypair};
+    let (entryway_url, asked) = entryway().await;
+    let jwt_key = Keypair::generate(Algorithm::Secp256k1, |bytes| bytes.fill(21));
+    let rotation = Keypair::generate(Algorithm::Secp256k1, |bytes| bytes.fill(22));
+    let jwt_public = data_encoding::HEXLOWER.encode(&jwt_key.public_key().to_compressed());
+    let server = Server::start(&[
+        ("PDS_ADMIN_PASSWORD", common::ADMIN_PASSWORD),
+        ("PDS_ENTRYWAY_URL", &entryway_url),
+        ("PDS_ENTRYWAY_DID", "did:web:entryway.test"),
+        (
+            "PDS_ENTRYWAY_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX",
+            &jwt_public,
+        ),
+        ("PDS_ENTRYWAY_PLC_ROTATION_KEY", &rotation.did_key()),
+        ("PDS_ENTRYWAY_ADMIN_TOKEN", "entryway-admin"),
+        // A member host has no rotation key of its own.
+        ("PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX", ""),
+    ])
+    .await;
+    let create = "com.atproto.server.createAccount";
+
+    // The entryway makes an account: it asks the host for a signing key,
+    // signs the operation that creates the DID, and hands both over.
+    let (status, reserved) = server
+        .post("com.atproto.server.reserveSigningKey", None, &json!({}))
+        .await;
+    assert_eq!(status, 200, "{reserved}");
+    let signing_key = text(&reserved, "signingKey").to_owned();
+    let genesis = pds_identity::plc::create_op(
+        &signing_key,
+        &[rotation.did_key()],
+        "mia.pds-users.org",
+        "https://pds.test",
+        &rotation,
+    );
+    let account =
+        json!({"did": genesis.did, "handle": "mia.pds-users.org", "plcOp": genesis.operation});
+
+    // What the host refuses: no operation, an operation that another key
+    // signed, and a handle that the operation does not name.
+    let plain =
+        json!({"handle": "mia.pds-users.org", "email": "mia@example.com", "password": PASSWORD});
+    let (status, refused) = server.post(create, None, &plain).await;
+    assert_eq!(status, 400, "{refused}");
+    assert_eq!(
+        text(&refused, "message"),
+        "non-entryway pds requires bringing a DID and plcOp"
+    );
+    let stranger = Keypair::generate(Algorithm::Secp256k1, |bytes| bytes.fill(23));
+    let forged = pds_identity::plc::create_op(
+        &signing_key,
+        &[rotation.did_key()],
+        "mia.pds-users.org",
+        "https://pds.test",
+        &stranger,
+    );
+    let forged =
+        json!({"did": forged.did, "handle": "mia.pds-users.org", "plcOp": forged.operation});
+    let (status, refused) = server.post(create, None, &forged).await;
+    assert_eq!(
+        (status, text(&refused, "error")),
+        (400, "IncompatibleDidDoc"),
+        "{refused}"
+    );
+    let mut renamed = account.clone();
+    renamed["handle"] = json!("other.pds-users.org");
+    let (status, refused) = server.post(create, None, &renamed).await;
+    assert_eq!(
+        (status, text(&refused, "error")),
+        (400, "IncompatibleDidDoc"),
+        "{refused}"
+    );
+
+    let before = server.ops.lock().unwrap().len();
+    let (status, made) = server.post(create, None, &account).await;
+    assert_eq!(status, 200, "{made}");
+    assert_eq!(text(&made, "did"), genesis.did);
+    // The host opens no session, sends the operation to the directory,
+    // keeps the repository, and keeps no credential.
+    assert_eq!(text(&made, "accessJwt"), "");
+    assert_eq!(server.ops.lock().unwrap().len(), before + 1);
+    let accounts = common::open(&server.dir.config.layout.account_db);
+    let count = |table: &str| -> i64 {
+        accounts
+            .query_row(
+                &format!(r#"select count(*) from "{table}" where "did" = ?1"#),
+                [&genesis.did],
+                |row| row.get(0),
+            )
+            .unwrap()
+    };
+    assert_eq!(
+        (count("actor"), count("account"), count("repo_root")),
+        (1, 0, 1)
+    );
+    // The reserved key is the account's now: a second creation finds none.
+    let (status, refused) = server.post(create, None, &account).await;
+    assert_eq!(status, 400, "{refused}");
+
+    // A token of the entryway writes to the repository. A token that the
+    // host's own secret signed has ended.
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let token = entryway_token(
+        &jwt_key,
+        &json!({"sub": genesis.did, "aud": "did:web:pds.test", "scope": "com.atproto.access", "exp": now + 600}),
+    );
+    let record = json!({"repo": genesis.did, "collection": "com.example.note", "record": {"$type": "com.example.note"}});
+    let (status, written) = server
+        .post("com.atproto.repo.createRecord", Some(&token), &record)
+        .await;
+    assert_eq!(status, 200, "{written}");
+    let forged = entryway_token(
+        &stranger,
+        &json!({"sub": genesis.did, "aud": "did:web:pds.test", "scope": "com.atproto.access", "exp": now + 600}),
+    );
+    let (status, _) = server
+        .post("com.atproto.repo.createRecord", Some(&forged), &record)
+        .await;
+    assert_eq!(status, 400);
+
+    // Sessions and credentials go to the entryway, with the credential
+    // of the client.
+    let login = json!({"identifier": "mia.pds-users.org", "password": PASSWORD});
+    let (status, answer) = server
+        .post("com.atproto.server.createSession", None, &login)
+        .await;
+    assert_eq!(status, 200, "{answer}");
+    assert_eq!(answer["answeredBy"], "entryway");
+    let (status, _) = server
+        .post(
+            "com.atproto.server.refreshSession",
+            Some("a-refresh-token"),
+            &json!({}),
+        )
+        .await;
+    assert_eq!(status, 200);
+    {
+        let asked = asked.lock().unwrap();
+        assert_eq!(asked[0].0, "/xrpc/com.atproto.server.createSession");
+        assert_eq!(serde_json::from_str::<Value>(&asked[0].2).unwrap(), login);
+        assert_eq!(asked[1].1.as_deref(), Some("Bearer a-refresh-token"));
+    }
+    // An admin method of the entryway needs the admin of this host, and
+    // goes on with the admin credential of the entryway.
+    let change = json!({"did": genesis.did, "password": "a-new-password"});
+    let (status, _) = server
+        .post(
+            "com.atproto.admin.updateAccountPassword",
+            Some(&token),
+            &change,
+        )
+        .await;
+    assert_eq!(status, 401);
+    let passed = server
+        .http
+        .post(format!(
+            "{}/xrpc/com.atproto.admin.updateAccountPassword",
+            server.origin
+        ))
+        .basic_auth("admin", Some(common::ADMIN_PASSWORD))
+        .header("content-type", "application/json")
+        .body(change.to_string())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(passed.status(), 200);
+    {
+        use base64::Engine as _;
+        let basic = base64::engine::general_purpose::STANDARD.encode("admin:entryway-admin");
+        let asked = asked.lock().unwrap();
+        assert_eq!(
+            asked.len(),
+            3,
+            "the refused request did not reach the entryway"
+        );
+        assert_eq!(
+            asked[2].1.as_deref(),
+            Some(format!("Basic {basic}").as_str())
+        );
+    }
+
+    // The host answers for no handle and is no authorization server.
+    let get = |path: &'static str| {
+        let request = server
+            .http
+            .get(format!("{}{path}", server.origin))
+            .header("host", "mia.pds-users.org");
+        async move { request.send().await.unwrap() }
+    };
+    assert_eq!(get("/.well-known/atproto-did").await.status(), 404);
+    assert_eq!(get("/oauth/authorize").await.status(), 404);
+    assert_eq!(
+        get("/.well-known/oauth-authorization-server")
+            .await
+            .status(),
+        404
+    );
+    let resource = get("/.well-known/oauth-protected-resource").await;
+    let resource: Value = serde_json::from_slice(&resource.bytes().await.unwrap()).unwrap();
+    assert_eq!(resource["authorization_servers"], json!([entryway_url]));
+}
+
+#[tokio::test]
+async fn an_entryway_keeps_the_accounts_of_a_member_host() {
+    use pds_identity::{Algorithm, Keypair};
+    let (plc_url, ops) = plc().await;
+    let member_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let entryway_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let member_origin = format!("http://{}", member_listener.local_addr().unwrap());
+    let entryway_origin = format!("http://{}", entryway_listener.local_addr().unwrap());
+    let rotation_hex = "0707070707070707070707070707070707070707070707070707070707070707";
+    let rotation = Keypair::from_secret_bytes(
+        Algorithm::Secp256k1,
+        &data_encoding::HEXLOWER
+            .decode(rotation_hex.as_bytes())
+            .unwrap(),
+    )
+    .unwrap();
+    let signing_hex = "0808080808080808080808080808080808080808080808080808080808080808";
+    let signing = Keypair::from_secret_bytes(
+        Algorithm::Secp256k1,
+        &data_encoding::HEXLOWER
+            .decode(signing_hex.as_bytes())
+            .unwrap(),
+    )
+    .unwrap();
+    let signing_public = data_encoding::HEXLOWER.encode(&signing.public_key().to_compressed());
+
+    // The member host is `pds.test`. The entryway is `entryway.test`.
+    let member = Server::start_on(
+        member_listener,
+        &plc_url,
+        Arc::clone(&ops),
+        &[
+            ("PDS_ADMIN_PASSWORD", "member-admin"),
+            ("PDS_ENTRYWAY_URL", &entryway_origin),
+            ("PDS_ENTRYWAY_DID", "did:web:entryway.test"),
+            (
+                "PDS_ENTRYWAY_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX",
+                &signing_public,
+            ),
+            ("PDS_ENTRYWAY_PLC_ROTATION_KEY", &rotation.did_key()),
+            ("PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX", ""),
+        ],
+    )
+    .await;
+    let entryway = Server::start_on(
+        entryway_listener,
+        &plc_url,
+        Arc::clone(&ops),
+        &[
+            ("PDS_HOSTNAME", "entryway.test"),
+            ("PDS_ADMIN_PASSWORD", common::ADMIN_PASSWORD),
+            ("PDS_MEMBER_URL", "https://pds.test"),
+            ("PDS_MEMBER_INTERNAL_URL", &member_origin),
+            ("PDS_MEMBER_ADMIN_PASSWORD", "member-admin"),
+            (
+                "PDS_ENTRYWAY_JWT_SIGNING_KEY_K256_PRIVATE_KEY_HEX",
+                signing_hex,
+            ),
+            ("PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX", rotation_hex),
+        ],
+    )
+    .await;
+
+    // A sign-up at the entryway: the credentials stay there, the
+    // repository is on the member host, and the directory hears once.
+    let before = ops.lock().unwrap().len();
+    let account =
+        json!({"handle": "nora.pds-users.org", "email": "nora@example.com", "password": PASSWORD});
+    let (status, made) = entryway.create(&account).await;
+    assert_eq!(status, 200, "{made}");
+    let did = text(&made, "did").to_owned();
+    let access = text(&made, "accessJwt").to_owned();
+    assert_eq!(ops.lock().unwrap().len(), before + 1);
+    let operation = ops.lock().unwrap().last().unwrap().1.clone();
+    assert_eq!(
+        operation["services"]["atproto_pds"]["endpoint"],
+        "https://pds.test"
+    );
+    let rows = |server: &Server, table: &str| -> i64 {
+        common::open(&server.dir.config.layout.account_db)
+            .query_row(
+                &format!(r#"select count(*) from "{table}" where "did" = ?1"#),
+                [&did],
+                |row| row.get(0),
+            )
+            .unwrap()
+    };
+    assert_eq!(
+        (rows(&entryway, "account"), rows(&entryway, "repo_root")),
+        (1, 0)
+    );
+    assert_eq!(
+        (rows(&member, "account"), rows(&member, "repo_root")),
+        (0, 1)
+    );
+    assert!(member.dir.config.layout.actor_db(&did).exists());
+    assert!(!entryway.dir.config.layout.actor_db(&did).exists());
+
+    // The token of the entryway writes at the member host, and at the
+    // entryway, which passes the request on.
+    let record = |n: u8| json!({"repo": did, "collection": "com.example.note", "record": {"$type": "com.example.note", "n": n}});
+    let (status, body) = member
+        .post("com.atproto.repo.createRecord", Some(&access), &record(1))
+        .await;
+    assert_eq!(status, 200, "{body}");
+    let (status, body) = entryway
+        .post("com.atproto.repo.createRecord", Some(&access), &record(2))
+        .await;
+    assert_eq!(status, 200, "{body}");
+    let store = pds_storage::ActorDb::open(&member.dir.config.layout.actor_db(&did)).unwrap();
+    assert_eq!(store.counts().unwrap().0, 2);
+
+    // A client of the member host signs in and refreshes there: the
+    // entryway answers.
+    let login = json!({"identifier": "nora.pds-users.org", "password": PASSWORD});
+    let (status, session) = member
+        .post("com.atproto.server.createSession", None, &login)
+        .await;
+    assert_eq!(status, 200, "{session}");
+    assert_eq!(text(&session, "did"), did);
+    let wrong = json!({"identifier": "nora.pds-users.org", "password": "not-the-password"});
+    assert_eq!(
+        member
+            .post("com.atproto.server.createSession", None, &wrong)
+            .await
+            .0,
+        401
+    );
+    let (status, refreshed) = member
+        .post(
+            "com.atproto.server.refreshSession",
+            Some(text(&session, "refreshJwt")),
+            &json!({}),
+        )
+        .await;
+    assert_eq!(status, 200, "{refreshed}");
+    let access = text(&refreshed, "accessJwt").to_owned();
+    let (status, body) = member
+        .post("com.atproto.repo.createRecord", Some(&access), &record(3))
+        .await;
+    assert_eq!(status, 200, "{body}");
+
+    // A handle change goes to the entryway, which writes the directory
+    // and tells the member host.
+    let rename = json!({"handle": "nora2.pds-users.org"});
+    let (status, body) = member
+        .post("com.atproto.identity.updateHandle", Some(&access), &rename)
+        .await;
+    assert_eq!(status, 200, "{body}");
+    let handle = |server: &Server| -> Option<String> {
+        common::open(&server.dir.config.layout.account_db)
+            .query_row(
+                r#"select "handle" from "actor" where "did" = ?1"#,
+                [&did],
+                |row| row.get(0),
+            )
+            .unwrap()
+    };
+    assert_eq!(handle(&entryway).as_deref(), Some("nora2.pds-users.org"));
+    assert_eq!(handle(&member).as_deref(), Some("nora2.pds-users.org"));
+    assert_eq!(
+        ops.lock().unwrap().last().unwrap().1["alsoKnownAs"],
+        json!(["at://nora2.pds-users.org"])
+    );
+
+    // A session from before the entryway: its refresh token, signed with
+    // the secret of the old server for the old server, is taken once.
+    let old = pds_xrpc::auth::AuthConfig {
+        jwt_secret: common::JWT_SECRET.as_bytes().to_vec(),
+        admin_password: String::new(),
+        service_did: "did:web:pds.test".to_owned(),
+        entryway: None,
+        signer: None,
+    };
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let now = i64::try_from(now).unwrap();
+    let (legacy, expires) = pds_xrpc::auth::mint_refresh(&old, &did, "legacy-session", now);
+    common::open(&entryway.dir.config.layout.account_db)
+        .execute(
+            r#"insert into "refresh_token" ("id", "did", "expiresAt") values ('legacy-session', ?1, ?2)"#,
+            [&did, &pds_sequencer::iso_millis(expires * 1000)],
+        )
+        .unwrap();
+    let old_access = pds_xrpc::auth::mint_access(&old, &did, "com.atproto.access", now);
+    let (status, ended) = member
+        .post(
+            "com.atproto.repo.createRecord",
+            Some(&old_access),
+            &record(4),
+        )
+        .await;
+    assert_eq!(
+        (status, text(&ended, "error")),
+        (400, "ExpiredToken"),
+        "{ended}"
+    );
+    let (status, renewed) = member
+        .post(
+            "com.atproto.server.refreshSession",
+            Some(&legacy),
+            &json!({}),
+        )
+        .await;
+    assert_eq!(status, 200, "{renewed}");
+    let (status, body) = member
+        .post(
+            "com.atproto.repo.createRecord",
+            Some(text(&renewed, "accessJwt")),
+            &record(4),
+        )
+        .await;
+    assert_eq!(status, 200, "{body}");
+
+    // The admin of the entryway deletes the account on both servers.
+    let gone = entryway
+        .http
+        .post(format!(
+            "{}/xrpc/com.atproto.admin.deleteAccount",
+            entryway.origin
+        ))
+        .basic_auth("admin", Some(common::ADMIN_PASSWORD))
+        .header("content-type", "application/json")
+        .body(json!({"did": did}).to_string())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(gone.status(), 200);
+    assert_eq!(
+        (rows(&entryway, "account"), rows(&member, "repo_root")),
+        (0, 0)
+    );
+    assert!(!member.dir.config.layout.actor_db(&did).exists());
 }

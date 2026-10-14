@@ -80,24 +80,17 @@ impl DidCache for SqliteDidCache {
 /// Reference creates them at the pin. A database that exists is left as it
 /// is.
 pub fn create_missing_databases(config: &Config) -> Result<(), ServeError> {
-    use pds_storage::{schema, schema_shared};
     let now = pds_sequencer::iso_millis(now_ms());
     let layout = &config.layout;
-    for (path, shared) in [
-        (&layout.account_db, &schema_shared::ACCOUNT),
-        (&layout.sequencer_db, &schema_shared::SEQUENCER),
-        (&layout.did_cache_db, &schema_shared::DID_CACHE),
-    ] {
-        if !path.exists() {
-            drop(
-                schema::create_shared(path, shared, &now)
-                    .map_err(|error| ServeError::Storage(error.to_string()))?,
-            );
-            tracing::info!(path = %path.display(), "created a database of the data directory");
-        }
+    let created = layout
+        .create_missing(&now)
+        .map_err(|error| ServeError::Storage(error.to_string()))?;
+    for database in created {
+        tracing::info!(database, "created a database of the shared tier");
     }
     if config.profile == crate::config::ProfileName::Linkjar {
-        let applied = pds_storage::AccountDb::open_writable(&layout.account_db)
+        let applied = layout
+            .accounts_writable()
             .and_then(|mut accounts| accounts.apply_linkjar_migrations(&now))
             .map_err(|error| ServeError::Storage(error.to_string()))?;
         if applied > 0 {
@@ -109,6 +102,16 @@ pub fn create_missing_databases(config: &Config) -> Result<(), ServeError> {
 
 /// The settings of the HTTP surface, from the configuration.
 fn server_config(config: &Config, jwt_secret: &str, admin_password: &str) -> ServerConfig {
+    // The key of an entryway. The configuration refused a value that is
+    // not a key.
+    let entryway_key = config.member_host.as_ref().and_then(|host| {
+        pds_identity::Keypair::from_secret_bytes(
+            pds_identity::Algorithm::Secp256k1,
+            &host.signing_key,
+        )
+        .ok()
+        .map(Arc::new)
+    });
     ServerConfig {
         hostname: config.hostname.clone(),
         version: config.version.clone(),
@@ -127,12 +130,53 @@ fn server_config(config: &Config, jwt_secret: &str, admin_password: &str) -> Ser
             jwt_secret: jwt_secret.as_bytes().to_vec(),
             admin_password: admin_password.to_owned(),
             service_did: config.service_did.clone(),
+            entryway: config
+                .entryway
+                .as_ref()
+                .map(|entryway| pds_xrpc::auth::EntrywayAuth {
+                    did: entryway.did.clone(),
+                    key: entryway.jwt_key,
+                })
+                // An entryway takes its own tokens as its member hosts do.
+                .or_else(|| {
+                    entryway_key
+                        .as_ref()
+                        .map(|key| pds_xrpc::auth::EntrywayAuth {
+                            did: config.service_did.clone(),
+                            key: key.public_key(),
+                        })
+                }),
+            signer: config
+                .member_host
+                .as_ref()
+                .zip(entryway_key)
+                .map(|(host, key)| pds_xrpc::auth::EntrywaySigner {
+                    key,
+                    legacy_audience: Some(host.did.clone()),
+                }),
         },
         mail: config.mail.clone(),
         rate_limits: config.rate_limits.clone(),
         oauth: config.oauth.clone(),
         ops_client_ids: config.ops_client_ids.clone(),
         mcp_client_ids: config.mcp_client_ids.clone(),
+        member_host: config
+            .member_host
+            .as_ref()
+            .map(|host| pds_xrpc::state::MemberHost {
+                url: host.url.clone(),
+                internal_url: host.internal_url.clone(),
+                admin_password: host.admin_password.clone(),
+            }),
+        entryway: config
+            .entryway
+            .as_ref()
+            .map(|entryway| pds_xrpc::state::Entryway {
+                url: entryway.url.clone(),
+                did: entryway.did.clone(),
+                plc_rotation_key: entryway.plc_rotation_key.clone(),
+                admin_token: entryway.admin_token.clone(),
+            }),
         audit_repo: config.audit_repo.clone(),
         profile: if config.profile == crate::config::ProfileName::Linkjar {
             Arc::new(pds_ext_linkjar::Linkjar {
@@ -142,15 +186,19 @@ fn server_config(config: &Config, jwt_secret: &str, admin_password: &str) -> Ser
             Arc::new(pds_ext::Stock)
         },
         appview_cdn_url_pattern: config.appview_cdn_url_pattern.clone(),
-        identity: config.plc_rotation_key.clone().map(|rotation_key| {
-            pds_xrpc::state::IdentityConfig {
+        // A member host has no rotation key: its entryway signs the PLC
+        // operations. It still knows the directory and its own address.
+        identity: config
+            .plc_rotation_key
+            .clone()
+            .or_else(|| config.entryway.as_ref().map(|_| Vec::new()))
+            .map(|rotation_key| pds_xrpc::state::IdentityConfig {
                 plc_url: config.plc_url.trim_end_matches('/').to_owned(),
                 public_url: config.public_url(),
                 rotation_key,
                 recovery_did_key: config.recovery_did_key.clone(),
                 dev_mode: config.dev_mode,
-            }
-        }),
+            }),
     }
 }
 
@@ -161,7 +209,7 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
         .user_agent(concat!("linkjar-pds/", env!("CARGO_PKG_VERSION")))
         .redirect(reqwest::redirect::Policy::none())
         .build()?;
-    let cache: Option<Arc<dyn DidCache>> = match DidCacheDb::open(&config.layout.did_cache_db) {
+    let cache: Option<Arc<dyn DidCache>> = match config.layout.did_cache() {
         Ok(db) => Some(Arc::new(SqliteDidCache(Mutex::new(db)))),
         Err(error) => {
             tracing::warn!(%error, "the DID cache is unavailable; every DID is resolved on the network");
@@ -187,8 +235,7 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
         config.crawlers.clone(),
         http.clone(),
     );
-    let sequencer =
-        Sequencer::open(&config.layout.sequencer_db, crawlers, now_ms).map_err(storage)?;
+    let sequencer = Sequencer::open_in(&config.layout, crawlers, now_ms).map_err(storage)?;
     let writes = WriteState::open(
         &config.layout,
         Arc::new(sequencer),
@@ -222,7 +269,7 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
 /// Takes the lock file of the data directory, and refuses when another
 /// server of this kind holds it. The Reference takes no such lock: against
 /// it the runbook stops one server before it starts the other.
-fn lock_data_directory(config: &Config) -> Result<std::fs::File, ServeError> {
+pub fn lock_data_directory(config: &Config) -> Result<std::fs::File, ServeError> {
     let dir = config
         .layout
         .account_db
@@ -353,7 +400,7 @@ fn open_audit_log(config: &Config, state: &AppState) -> Result<(), ServeError> {
         })?),
         None => None,
     };
-    let audit = pds_xrpc::audit::AuditLog::open(&config.layout.audit_db, signer)
+    let audit = pds_xrpc::audit::AuditLog::open_in(&config.layout, signer)
         .map_err(|error| ServeError::Storage(format!("audit log: {error}")))?;
     state.set_audit(audit);
     Ok(())
@@ -411,6 +458,35 @@ pub async fn serve(config: &Config) -> Result<(), ServeError> {
     // One server for a data directory (SPEC §8.3, §18.4). The lock goes
     // when the process ends, however it ends.
     let _lock = lock_data_directory(config)?;
+    // An entryway says what its member host must be configured with.
+    if let Some(host) = &config.member_host
+        && let Ok(key) = pds_identity::Keypair::from_secret_bytes(
+            pds_identity::Algorithm::Secp256k1,
+            &host.signing_key,
+        )
+    {
+        tracing::info!(
+            entryway_did = %config.service_did,
+            jwt_verify_key_k256_public_key_hex =
+                %data_encoding::HEXLOWER.encode(&key.public_key().to_compressed()),
+            member_host = %host.url,
+            "serving as an entryway; the member host needs these two values"
+        );
+    }
+    // On Postgres one process appends to the event log (SPEC §21.2).
+    let _lease = match &config.layout.shared {
+        Some(tier) => Some(
+            tier.sequencer_lease()
+                .map_err(|error| ServeError::Storage(error.to_string()))?
+                .ok_or_else(|| {
+                    ServeError::Storage(
+                        "another server holds the lease of the event log in this Postgres database"
+                            .to_owned(),
+                    )
+                })?,
+        ),
+        None => None,
+    };
     create_missing_databases(config)?;
     let state = app_state(config)?;
     // Commits that were in flight at the last stop are settled before the

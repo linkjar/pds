@@ -8,7 +8,8 @@
 
 use std::path::Path;
 
-use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
+use crate::sql::{Connection, OptionalExtension, Row, params};
+use rusqlite::OpenFlags;
 
 use crate::error::StorageError;
 
@@ -53,10 +54,10 @@ fn seq(value: u64) -> i64 {
     i64::try_from(value).unwrap_or(i64::MAX)
 }
 
-fn checkpoint_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<CheckpointRow> {
+fn checkpoint_from_row(row: &Row<'_>) -> crate::sql::Result<CheckpointRow> {
     Ok(CheckpointRow {
-        first: u64::try_from(row.get::<_, i64>(0)?).unwrap_or(0),
-        last: u64::try_from(row.get::<_, i64>(1)?).unwrap_or(0),
+        first: u64::try_from(row.get::<i64>(0)?).unwrap_or(0),
+        last: u64::try_from(row.get::<i64>(1)?).unwrap_or(0),
         root: row.get(2)?,
         head: row.get(3)?,
         time: row.get(4)?,
@@ -67,7 +68,26 @@ fn checkpoint_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<CheckpointRo
 
 const CHECKPOINT_COLUMNS: &str = r#""first", "last", "root", "head", "time", "keyId", "signature""#;
 
+/// The tables of the log on Postgres. A trigger refuses every update and
+/// every delete, as on SQLite.
+const SCHEMA_POSTGRES: &str = r#"
+create table if not exists "entry" ("seq" bigint primary key, "hash" bytea not null, "bytes" bytea not null);
+create table if not exists "checkpoint" ("last" bigint primary key, "first" bigint not null, "root" bytea not null, "head" bytea not null, "time" varchar not null, "keyId" varchar not null, "signature" bytea not null);
+create table if not exists "key" ("keyId" varchar primary key, "publicKey" bytea not null);
+create or replace function "audit_inserts_only"() returns trigger language plpgsql as $f$ begin raise exception 'the audit log takes inserts only'; end $f$;
+create or replace trigger "key_inserts_only" before update or delete on "key" for each row execute function "audit_inserts_only"();
+create or replace trigger "entry_inserts_only" before update or delete on "entry" for each row execute function "audit_inserts_only"();
+create or replace trigger "checkpoint_inserts_only" before update or delete on "checkpoint" for each row execute function "audit_inserts_only"();
+"#;
+
 impl AuditDb {
+    /// The log over a connection to Postgres. It creates the tables that
+    /// are not there.
+    pub(crate) fn over(conn: Connection) -> Result<Self, StorageError> {
+        conn.execute_batch(SCHEMA_POSTGRES)?;
+        Ok(Self { conn })
+    }
+
     /// Opens the database, and creates it when the data directory has
     /// none.
     pub fn open(path: &Path) -> Result<Self, StorageError> {
@@ -78,7 +98,7 @@ impl AuditDb {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         conn.pragma_update(None, "journal_mode", "wal")?;
         conn.execute_batch(SCHEMA)?;
-        Ok(Self { conn })
+        Ok(Self { conn: conn.into() })
     }
 
     /// Appends an entry. `build` gets the number and the bytes of the
@@ -91,7 +111,7 @@ impl AuditDb {
     ) -> Result<u64, StorageError> {
         let txn = self
             .conn
-            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+            .transaction_with_behavior(crate::sql::TransactionBehavior::Immediate)?;
         let last: Option<(i64, Vec<u8>)> = txn
             .query_row(
                 r#"select "seq", "bytes" from "entry" order by "seq" desc limit 1"#,
@@ -125,10 +145,7 @@ impl AuditDb {
             r#"select "seq", "bytes" from "entry" where "seq" >= ?1 and "seq" <= ?2 order by "seq""#,
         )?;
         let rows = statement.query_map(params![seq(from), seq(to)], |row| {
-            Ok((
-                u64::try_from(row.get::<_, i64>(0)?).unwrap_or(0),
-                row.get(1)?,
-            ))
+            Ok((u64::try_from(row.get::<i64>(0)?).unwrap_or(0), row.get(1)?))
         })?;
         Ok(rows.collect::<Result<_, _>>()?)
     }

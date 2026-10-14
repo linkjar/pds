@@ -13,7 +13,7 @@ use data_encoding::HEXLOWER;
 use pds_identity::{Algorithm, Keypair, check_handle_policy, plc, reserved};
 use pds_repo::{MemoryBlockStore, Repo};
 use pds_sequencer::{account_event, commit_event, identity_event, sync_event};
-use pds_storage::{AccountDb, ActorDb, Availability, NewAccount, Refused, schema};
+use pds_storage::{ActorDb, Availability, NewAccount, Refused, schema};
 use pds_types::{Did, Handle};
 use serde_json::{Map, Value};
 
@@ -153,6 +153,21 @@ pub(crate) struct Request {
     /// deactivated, the server writes nothing to the PLC directory, and
     /// no event goes out until the account is activated.
     pub(crate) brought_did: Option<String>,
+    /// The account as its entryway made it, on a member host (SPEC
+    /// §21.3). Only a server with an entryway sets it.
+    pub(crate) member: Option<Member>,
+}
+
+/// An account that an entryway creates on a member host: the DID, the
+/// signed PLC operation that creates it, and the signing key that the
+/// host reserved for it.
+#[derive(Debug, Clone)]
+pub(crate) struct Member {
+    did: String,
+    operation: Value,
+    key: Vec<u8>,
+    /// The file of the reserved key, which goes when the account exists.
+    reserved: std::path::PathBuf,
 }
 
 /// A new account.
@@ -215,7 +230,7 @@ pub(crate) fn validate(
     }
     identity(state)?;
     let (handle, _) = checked_handle(state, &handle, did.is_some(), false)?;
-    let accounts = AccountDb::open(&state.layout().account_db)?;
+    let accounts = state.layout().accounts()?;
     if required
         && let Some(code) = &invite_code
         && !accounts.invite_available(code)?
@@ -254,9 +269,102 @@ pub(crate) fn validate(
             legacy_session: true,
             signup: None,
             brought_did: None,
+            member: None,
         },
         did,
     ))
+}
+
+/// Checks the account that an entryway asks a member host to create, as
+/// `validateInputsForEntrywayPds` of the Reference: a DID with the PLC
+/// operation that creates it, signed with the rotation key of the
+/// entryway, for a signing key that this host reserved, with this host as
+/// its PDS.
+fn validate_for_entryway(
+    state: &AppState,
+    entryway: &crate::state::Entryway,
+    input: &Map<String, Value>,
+) -> Result<Request, XrpcError> {
+    let incompatible = |message: &str| refuse("IncompatibleDidDoc", message);
+    let handle = input
+        .get("handle")
+        .and_then(Value::as_str)
+        .ok_or_else(|| XrpcError::invalid_request("Input must have the property \"handle\""))?
+        .to_ascii_lowercase();
+    let (Some(did), Some(operation)) = (
+        input.get("did").and_then(Value::as_str),
+        input.get("plcOp").filter(|op| op.is_object()),
+    ) else {
+        return Err(XrpcError::invalid_request(
+            "non-entryway pds requires bringing a DID and plcOp",
+        ));
+    };
+    let listed = |key: &str| -> Vec<&str> {
+        operation
+            .get(key)
+            .and_then(Value::as_array)
+            .map(|values| values.iter().filter_map(Value::as_str).collect())
+            .unwrap_or_default()
+    };
+    if !listed("rotationKeys").contains(&entryway.plc_rotation_key.as_str()) {
+        return Err(incompatible(
+            "PLC DID does not include service rotation key",
+        ));
+    }
+    let signed = plc::is_signed_by(operation, &entryway.plc_rotation_key);
+    if !signed || plc::did_of_genesis(operation).as_deref() != Some(did) {
+        return Err(incompatible("invalid plc operation"));
+    }
+    let signing_key = operation
+        .pointer("/verificationMethods/atproto")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let layout = state.layout();
+    let reserved = [layout.reserved_key(did), layout.reserved_key(signing_key)]
+        .into_iter()
+        .find_map(|path| std::fs::read(&path).ok().map(|key| (path, key)));
+    let Some((reserved, key)) = reserved else {
+        return Err(XrpcError::invalid_request(
+            "reserved signing key does not exist",
+        ));
+    };
+    let keypair =
+        Keypair::from_secret_bytes(Algorithm::Secp256k1, &key).map_err(XrpcError::internal)?;
+    let endpoint = operation
+        .pointer("/services/atproto_pds/endpoint")
+        .and_then(Value::as_str);
+    if keypair.did_key() != signing_key {
+        return Err(incompatible(
+            "DID document signing key does not match service-reserved key",
+        ));
+    }
+    if endpoint != Some(state.config().public_url().as_str()) {
+        return Err(incompatible(
+            "DID document pds endpoint does not match service endpoint",
+        ));
+    }
+    if listed("alsoKnownAs").first().copied() != Some(format!("at://{handle}").as_str()) {
+        return Err(incompatible(
+            "provided handle does not match DID document handle",
+        ));
+    }
+    Ok(Request {
+        handle,
+        email: String::new(),
+        password: None,
+        invite_code: None,
+        recovery_key: None,
+        external: None,
+        legacy_session: false,
+        signup: None,
+        brought_did: None,
+        member: Some(Member {
+            did: did.to_owned(),
+            operation: operation.clone(),
+            key,
+            reserved,
+        }),
+    })
 }
 
 pub(crate) fn identity(state: &AppState) -> Result<&IdentityConfig, XrpcError> {
@@ -318,6 +426,24 @@ pub async fn create_account(
     body: &mut Option<Body>,
 ) -> Result<Response, XrpcError> {
     let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
+    // A member host creates the accounts that its entryway made, and no
+    // other (SPEC §21.3).
+    if let Some(entryway) = state.config().entryway.clone() {
+        let request = {
+            let input = input.clone();
+            state
+                .blocking(move |state| validate_for_entryway(state, &entryway, &input))
+                .await?
+        };
+        let created = create(state, request).await?;
+        crate::audit::set_subject(&created.did);
+        // The entryway opens the session: this host signs no token.
+        let out = serde_json::json!({
+            "handle": created.handle, "did": created.did,
+            "accessJwt": "", "refreshJwt": "",
+        });
+        return Ok(json_response(StatusCode::OK, &out));
+    }
     crate::ratelimit::route(
         state,
         &[(
@@ -381,7 +507,114 @@ pub async fn create_account(
 
 /// Creates the account of a checked request: the identity, the store, the
 /// rows and the events.
+/// Creates the account that an entryway made: the host has its signing
+/// key, and the entryway signed its PLC operation.
+async fn create_for_entryway(
+    state: &AppState,
+    request: Request,
+    member: &Member,
+) -> Result<Created, XrpcError> {
+    let identity = identity(state)?.clone();
+    let keypair = Keypair::from_secret_bytes(Algorithm::Secp256k1, &member.key)
+        .map_err(XrpcError::internal)?;
+    let genesis = plc::Genesis {
+        did: member.did.clone(),
+        operation: member.operation.clone(),
+    };
+    let now = pds_sequencer::iso_millis(state.now_ms());
+    let commit = {
+        let (did, now) = (member.did.clone(), now.clone());
+        state
+            .blocking(move |state| create_store(state, &did, &keypair, &now))
+            .await?
+    };
+    let created = finish(
+        state,
+        &identity,
+        &request,
+        &member.did,
+        Some(&genesis),
+        Some(&commit),
+        &now,
+    )
+    .await;
+    let (did, reserved, failed) = (
+        member.did.clone(),
+        member.reserved.clone(),
+        created.is_err(),
+    );
+    let _ = state
+        .blocking(move |state| {
+            if failed {
+                destroy_store(state, &did);
+            } else {
+                // The key is the account's now.
+                let _ = std::fs::remove_file(&reserved);
+            }
+            Ok(())
+        })
+        .await;
+    created
+}
+
+/// Creates an account at an entryway (SPEC §21.3): the member host
+/// reserves the signing key and keeps the repository, and the entryway
+/// signs the PLC operation and keeps the credentials.
+async fn create_at_entryway(
+    state: &AppState,
+    request: Request,
+    host: &crate::state::MemberHost,
+) -> Result<Created, XrpcError> {
+    let identity = identity(state)?.clone();
+    let signer = Keypair::from_secret_bytes(Algorithm::Secp256k1, &identity.rotation_key)
+        .map_err(XrpcError::internal)?;
+    let reserved = super::entryway::ask_member(
+        state,
+        host,
+        "com.atproto.server.reserveSigningKey",
+        &serde_json::json!({}),
+    )
+    .await?;
+    let signing_key = reserved
+        .get("signingKey")
+        .and_then(Value::as_str)
+        .ok_or_else(|| XrpcError::internal("the member host reserved no signing key"))?;
+    let mut rotation_keys = vec![signer.did_key()];
+    if let Some(recovery) = &identity.recovery_did_key {
+        rotation_keys.insert(0, recovery.clone());
+    }
+    if let Some(recovery) = &request.recovery_key {
+        rotation_keys.insert(0, recovery.clone());
+    }
+    let genesis = plc::create_op(
+        signing_key,
+        &rotation_keys,
+        &request.handle,
+        &host.url,
+        &signer,
+    );
+    let account = serde_json::json!({
+        "did": genesis.did, "handle": request.handle, "plcOp": genesis.operation,
+    });
+    super::entryway::ask_member(state, host, "com.atproto.server.createAccount", &account).await?;
+    let now = pds_sequencer::iso_millis(state.now_ms());
+    let created = finish(state, &identity, &request, &genesis.did, None, None, &now).await;
+    if created.is_err() {
+        // The host has a repository that no account owns: it goes again.
+        let gone = serde_json::json!({ "did": genesis.did });
+        let _ = super::entryway::ask_member(state, host, "com.atproto.admin.deleteAccount", &gone)
+            .await;
+    }
+    created
+}
+
 pub(crate) async fn create(state: &AppState, request: Request) -> Result<Created, XrpcError> {
+    if let Some(member) = request.member.clone() {
+        return create_for_entryway(state, request, &member).await;
+    }
+    if let Some(host) = state.config().member_host.clone() {
+        return create_at_entryway(state, request, &host).await;
+    }
     let identity = identity(state)?.clone();
     let writes = writes(state)?;
     let signer = Keypair::from_secret_bytes(Algorithm::Secp256k1, &identity.rotation_key)
@@ -434,7 +667,7 @@ pub(crate) async fn create(state: &AppState, request: Request) -> Result<Created
         &request,
         &did,
         genesis.as_ref(),
-        &commit,
+        Some(&commit),
         &now,
     )
     .await;
@@ -458,7 +691,7 @@ fn store_rows(
     request: &Request,
     did: &str,
     now: &str,
-    root: &(String, String),
+    root: Option<&(String, String)>,
     session: &(String, String),
     salt: &str,
 ) -> Result<Result<(), Refused>, XrpcError> {
@@ -494,7 +727,7 @@ fn store_rows(
         refresh_token: request
             .legacy_session
             .then_some((session.0.as_str(), session.1.as_str())),
-        repo_root: (&root.0, &root.1),
+        repo_root: root.map(|root| (root.0.as_str(), root.1.as_str())),
         now,
         delete_after: None,
         deactivated: request.brought_did.is_some(),
@@ -510,7 +743,7 @@ async fn finish(
     request: &Request,
     did: &str,
     genesis: Option<&plc::Genesis>,
-    commit: &pds_repo::CommitData,
+    commit: Option<&pds_repo::CommitData>,
     now: &str,
 ) -> Result<Created, XrpcError> {
     if let Some(genesis) = genesis {
@@ -550,10 +783,12 @@ async fn finish(
     let stored = {
         let request = request.clone();
         let (did, now) = (did.to_owned(), now.to_owned());
-        let root = (commit.cid.to_string(), commit.rev.as_str().to_owned());
+        let root = commit.map(|commit| (commit.cid.to_string(), commit.rev.as_str().to_owned()));
         let session = (id, expires_at);
         state
-            .blocking(move |state| store_rows(state, &request, &did, &now, &root, &session, &salt))
+            .blocking(move |state| {
+                store_rows(state, &request, &did, &now, root.as_ref(), &session, &salt)
+            })
             .await?
     };
     match stored {
@@ -572,13 +807,16 @@ async fn finish(
         }
     }
 
-    let block = commit
-        .new_blocks
-        .get(&commit.cid)
-        .ok_or_else(|| XrpcError::internal("the first commit has no block"))?;
     // An account that moved here says nothing on the firehose until it is
-    // activated.
-    if request.brought_did.is_none() {
+    // activated. An entryway has no repository to announce: its member
+    // host does that.
+    if let Some(commit) = commit
+        && request.brought_did.is_none()
+    {
+        let block = commit
+            .new_blocks
+            .get(&commit.cid)
+            .ok_or_else(|| XrpcError::internal("the first commit has no block"))?;
         let events = [
             identity_event(did, Some(&request.handle), now),
             account_event(did, None, now),

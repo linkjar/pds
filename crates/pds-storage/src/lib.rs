@@ -23,11 +23,14 @@ pub mod fail;
 pub mod io;
 pub mod layout;
 pub mod linkjar;
+pub mod migrate;
 pub mod oauth;
 pub mod ops;
+pub mod pg;
 pub mod schema;
 pub mod schema_shared;
 pub mod sequencer;
+pub mod sql;
 
 pub use account::{
     Account, AccountDb, Actor, AppPassword, Availability, InviteCode, Invites, NewAccount,
@@ -40,6 +43,7 @@ pub use actor_txn::{ActorTxn, Backlink, MissingBlob, PendingUpload, StoredBlob};
 pub use audit::{AuditDb, CheckpointRow};
 pub use did_cache::{CachedDoc, DidCacheDb};
 pub use error::StorageError;
-pub use layout::DataLayout;
+pub use layout::{DataLayout, SequencerLease, SharedDb, SharedTier};
 pub use ops::{BlockedEmailDomain, OperatorRole, OpsDb, PendingCommit};
+pub use pg::PgTarget;
 pub use sequencer::{SeqGap, SeqInsert, SeqRow, SequencerDb};

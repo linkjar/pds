@@ -33,6 +33,25 @@ jobs:
     name: fmt, clippy, test, codegen
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    # The tests of the shared tier on Postgres (SPEC §21.2) run when
+    # PDS_TEST_POSTGRES_URL names a server. The password is for this
+    # container, which lives as long as the job.
+    services:
+      postgres:
+        image: postgres@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873 # 18-alpine
+        env:
+          POSTGRES_USER: pds
+          POSTGRES_PASSWORD: test-password
+          POSTGRES_DB: pds
+        ports:
+          - 127.0.0.1:54329:5432
+        options: >-
+          --health-cmd "pg_isready -U pds"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PDS_TEST_POSTGRES_URL: postgres://pds:test-password@127.0.0.1:54329/pds
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

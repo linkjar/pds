@@ -2,7 +2,7 @@
 
 use axum::http::{HeaderMap, HeaderValue, Method, StatusCode, header};
 use axum::response::{IntoResponse, Response};
-use pds_storage::{AccountDb, Availability};
+use pds_storage::Availability;
 
 use crate::error::json_response;
 use crate::state::AppState;
@@ -57,7 +57,7 @@ pub fn robots() -> Response {
 pub async fn health(state: &AppState) -> Response {
     let version = state.config().version.clone();
     let reachable = state
-        .blocking(|state| Ok(AccountDb::open(&state.layout().account_db)?.ping()?))
+        .blocking(|state| Ok(state.layout().accounts()?.ping()?))
         .await;
     let mut body = serde_json::Map::new();
     if let Some(version) = version {
@@ -76,6 +76,10 @@ pub async fn health(state: &AppState) -> Response {
 pub async fn atproto_did(state: &AppState, headers: &HeaderMap) -> Response {
     // Express sends a string without a type as HTML.
     let not_found = || html(StatusCode::NOT_FOUND, "User not found".to_owned());
+    // Behind an entryway the handles are the entryway's (SPEC §21.3).
+    if state.config().entryway.is_some() {
+        return not_found();
+    }
     let host = headers
         .get(header::HOST)
         .and_then(|value| value.to_str().ok())
@@ -90,7 +94,7 @@ pub async fn atproto_did(state: &AppState, headers: &HeaderMap) -> Response {
     }
     let found = state
         .blocking(move |state| {
-            let accounts = AccountDb::open(&state.layout().account_db)?;
+            let accounts = state.layout().accounts()?;
             Ok(accounts.actor(&host, Availability::ACTIVE)?)
         })
         .await;
@@ -161,7 +165,7 @@ async fn profile_redirect(state: &AppState, host: String) -> Response {
         let host = host.clone();
         state
             .blocking(move |state| {
-                let accounts = AccountDb::open(&state.layout().account_db)?;
+                let accounts = state.layout().accounts()?;
                 Ok(accounts.actor(&host, Availability::ACTIVE)?)
             })
             .await

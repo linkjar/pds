@@ -1,11 +1,11 @@
 //! The event log and its subscriptions (`docs/SPEC.md` §7).
 
 use std::collections::VecDeque;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
-use pds_storage::{SeqInsert, SeqRow, SequencerDb, StorageError};
+use pds_storage::{DataLayout, SeqInsert, SeqRow, SequencerDb, StorageError};
 use tokio::sync::watch;
 
 use crate::crawlers::Crawlers;
@@ -82,7 +82,7 @@ impl Refusal {
 
 /// The event log: one writer, and a wakeup for subscribers.
 pub struct Sequencer {
-    path: PathBuf,
+    layout: DataLayout,
     writer: Mutex<SequencerDb>,
     /// The newest sequence number this process knows of.
     head: watch::Sender<i64>,
@@ -102,7 +102,7 @@ struct FrameCache {
 impl std::fmt::Debug for Sequencer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Sequencer")
-            .field("path", &self.path)
+            .field("path", &self.layout.sequencer_db)
             .field("head", &*self.head.borrow())
             .finish_non_exhaustive()
     }
@@ -115,10 +115,22 @@ impl Sequencer {
         crawlers: Crawlers,
         now_ms: impl Fn() -> i64 + Send + Sync + 'static,
     ) -> Result<Self, StorageError> {
-        let writer = SequencerDb::open_writable(path)?;
+        let mut layout = DataLayout::new(path.parent().unwrap_or_else(|| Path::new(".")));
+        path.clone_into(&mut layout.sequencer_db);
+        Self::open_in(&layout, crawlers, now_ms)
+    }
+
+    /// Opens the log of a data directory, in the file or in the shared
+    /// tier that the layout names.
+    pub fn open_in(
+        layout: &DataLayout,
+        crawlers: Crawlers,
+        now_ms: impl Fn() -> i64 + Send + Sync + 'static,
+    ) -> Result<Self, StorageError> {
+        let writer = layout.sequencer_writable()?;
         let head = writer.current()?.unwrap_or(0);
         Ok(Self {
-            path: path.to_owned(),
+            layout: layout.clone(),
             writer: Mutex::new(writer),
             head: watch::Sender::new(head),
             crawlers,
@@ -170,7 +182,7 @@ impl Sequencer {
 
     /// A read connection to the log.
     pub fn reader(&self) -> Result<SequencerDb, StorageError> {
-        SequencerDb::open(&self.path)
+        self.layout.sequencer()
     }
 
     fn cached(&self, seq: i64) -> Option<Frame> {

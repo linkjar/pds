@@ -135,24 +135,86 @@ const KNOWN: &[&str] = &[
     "PDS_OPS_CLIENT_IDS",
     "PDS_MCP_CLIENT_IDS",
     "PDS_OAUTH_KNOWN_CLIENTS_FILE",
+    "PDS_POSTGRES_URL",
+    "PDS_POSTGRES_SCHEMA_PREFIX",
     "PDS_OTLP_ENDPOINT",
 ];
 
 /// The families that Appendix C names with a `*`.
 const KNOWN_PREFIXES: &[&str] = &["PDS_BLOBSTORE_S3_", "PDS_PROXY_", "PDS_AUDIT_KEY_"];
 
-/// The entryway variables: "Refused until the entryway unit ships".
+/// The variables of a member host behind an entryway (SPEC §21.3).
 const ENTRYWAY: &[&str] = &[
     "PDS_ENTRYWAY_URL",
     "PDS_ENTRYWAY_DID",
     "PDS_ENTRYWAY_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX",
     "PDS_ENTRYWAY_PLC_ROTATION_KEY",
     "PDS_ENTRYWAY_ADMIN_TOKEN",
+    // An entryway: its member host, and the key of its tokens.
+    "PDS_MEMBER_URL",
+    "PDS_MEMBER_INTERNAL_URL",
+    "PDS_MEMBER_ADMIN_PASSWORD",
+    "PDS_MEMBER_DID",
+    "PDS_ENTRYWAY_JWT_SIGNING_KEY_K256_PRIVATE_KEY_HEX",
 ];
+
+/// What makes a server an entryway (SPEC §21.3): the member host that
+/// keeps the repositories, and the key that signs the tokens.
+#[derive(Clone)]
+pub struct MemberHostConfig {
+    /// `PDS_MEMBER_URL`: the public address of the host.
+    pub url: String,
+    /// `PDS_MEMBER_INTERNAL_URL`: where this server reaches it. Default:
+    /// the public address.
+    pub internal_url: String,
+    /// `PDS_MEMBER_ADMIN_PASSWORD`.
+    pub admin_password: String,
+    /// `PDS_MEMBER_DID`: the DID of the host, which signed the sessions
+    /// from before the entryway. Default: `did:web:` and the host name of
+    /// `PDS_MEMBER_URL`.
+    pub did: String,
+    /// `PDS_ENTRYWAY_JWT_SIGNING_KEY_K256_PRIVATE_KEY_HEX`: 32 bytes.
+    pub signing_key: Vec<u8>,
+}
+
+impl std::fmt::Debug for MemberHostConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MemberHostConfig")
+            .field("url", &self.url)
+            .field("did", &self.did)
+            .finish_non_exhaustive()
+    }
+}
+
+/// The entryway of a member host.
+#[derive(Clone)]
+pub struct EntrywayConfig {
+    /// `PDS_ENTRYWAY_URL`, without a slash at its end.
+    pub url: String,
+    /// `PDS_ENTRYWAY_DID`.
+    pub did: String,
+    /// `PDS_ENTRYWAY_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX`: the key that
+    /// signs the tokens of the entryway.
+    pub jwt_key: pds_identity::PublicKey,
+    /// `PDS_ENTRYWAY_PLC_ROTATION_KEY`: a `did:key`.
+    pub plc_rotation_key: String,
+    /// `PDS_ENTRYWAY_ADMIN_TOKEN`.
+    pub admin_token: Option<String>,
+}
+
+impl std::fmt::Debug for EntrywayConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EntrywayConfig")
+            .field("url", &self.url)
+            .field("did", &self.did)
+            .finish_non_exhaustive()
+    }
+}
 
 /// Whether Appendix C names the variable.
 fn is_known(name: &str) -> bool {
     KNOWN.contains(&name)
+        || ENTRYWAY.contains(&name)
         || KNOWN_PREFIXES
             .iter()
             .any(|prefix| name.starts_with(prefix))
@@ -167,9 +229,7 @@ fn is_known(name: &str) -> bool {
 
 /// Why Appendix C refuses the variable, when it does.
 fn refusal(name: &str) -> Option<&'static str> {
-    if ENTRYWAY.contains(&name) {
-        Some("this version has no entryway mode")
-    } else if name.starts_with("PDS_REDIS_SCRATCH_") {
+    if name.starts_with("PDS_REDIS_SCRATCH_") {
         Some("version 1 has no Redis scratch store")
     } else {
         None
@@ -263,6 +323,10 @@ pub struct Config {
     /// `PDS_MCP_CLIENT_IDS`: the OAuth client ids of the MCP sidecars of
     /// this server, separated by commas (SPEC §22.2).
     pub mcp_client_ids: Vec<String>,
+    /// The entryway, when the server is a member host (SPEC §21.3).
+    pub entryway: Option<EntrywayConfig>,
+    /// The member host, when the server is an entryway (SPEC §21.3).
+    pub member_host: Option<MemberHostConfig>,
     /// `PDS_PROFILE` (SPEC §12.1).
     pub profile: ProfileName,
     /// `PDS_EXTERNAL_<PROVIDER>_CLIENT_ID` and `_CLIENT_SECRET`, for the
@@ -558,6 +622,177 @@ impl Env<'_> {
         })
     }
 
+    /// `PDS_POSTGRES_URL`: the shared tier on Postgres (SPEC §21.2). The
+    /// schemas are named with `PDS_POSTGRES_SCHEMA_PREFIX`, `pds` when it
+    /// is not set. A file location for a database of the tier is refused
+    /// beside it: the server has no second place to fall back to.
+    fn shared_tier(&self) -> Result<Option<pds_storage::SharedTier>, ConfigError> {
+        const URL: &str = "PDS_POSTGRES_URL";
+        const PREFIX: &str = "PDS_POSTGRES_SCHEMA_PREFIX";
+        let Some(url) = self.text(URL) else {
+            return Ok(None);
+        };
+        // The value holds a password, so an error does not repeat it.
+        let target = pds_storage::PgTarget::parse(&url).map_err(|reason| ConfigError::Invalid {
+            name: URL,
+            value: "(not shown)".to_owned(),
+            reason,
+        })?;
+        for file in [
+            "PDS_ACCOUNT_DB_LOCATION",
+            "PDS_SEQUENCER_DB_LOCATION",
+            "PDS_DID_CACHE_DB_LOCATION",
+        ] {
+            if let Some(value) = self.text(file) {
+                return Err(ConfigError::Invalid {
+                    name: file,
+                    value,
+                    reason: "PDS_POSTGRES_URL is set: the database is in Postgres and has no file",
+                });
+            }
+        }
+        let prefix = self.text(PREFIX).unwrap_or_else(|| "pds".to_owned());
+        let shape_ok = prefix.len() <= 40
+            && prefix.starts_with(|c: char| c.is_ascii_lowercase())
+            && prefix
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
+        if !shape_ok {
+            return Err(ConfigError::Invalid {
+                name: PREFIX,
+                value: prefix,
+                reason: "expected a lower-case letter, then at most 39 lower-case letters, digits and underscores",
+            });
+        }
+        Ok(Some(pds_storage::SharedTier::new(target, &prefix)))
+    }
+
+    /// The member host of an entryway. `PDS_MEMBER_URL` needs the admin
+    /// password of the host and the signing key of the entryway. A server
+    /// is an entryway or a member host, not both.
+    fn member_host(&self) -> Result<Option<MemberHostConfig>, ConfigError> {
+        const URL: &str = "PDS_MEMBER_URL";
+        const KEY: &str = "PDS_ENTRYWAY_JWT_SIGNING_KEY_K256_PRIVATE_KEY_HEX";
+        let Some(url) = self.text(URL) else {
+            return Ok(None);
+        };
+        let refused = |reason| ConfigError::Refused {
+            name: URL.to_owned(),
+            reason,
+        };
+        if self.text("PDS_ENTRYWAY_URL").is_some() {
+            return Err(refused(
+                "a server is an entryway or a member host, not both",
+            ));
+        }
+        if self
+            .text("PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX")
+            .is_none()
+        {
+            return Err(refused(
+                "an entryway signs PLC operations: set PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX",
+            ));
+        }
+        let (Some(admin_password), Some(signing_key)) = (
+            self.text("PDS_MEMBER_ADMIN_PASSWORD"),
+            self.secret_bytes(KEY)?,
+        ) else {
+            return Err(refused(
+                "an entryway needs PDS_MEMBER_ADMIN_PASSWORD and PDS_ENTRYWAY_JWT_SIGNING_KEY_K256_PRIVATE_KEY_HEX",
+            ));
+        };
+        if pds_identity::Keypair::from_secret_bytes(
+            pds_identity::Algorithm::Secp256k1,
+            &signing_key,
+        )
+        .is_err()
+        {
+            return Err(ConfigError::Invalid {
+                name: KEY,
+                value: "(hidden)".to_owned(),
+                reason: "expected a secp256k1 private key",
+            });
+        }
+        let url = url.trim_end_matches('/').to_owned();
+        let host = url
+            .strip_prefix("https://")
+            .or_else(|| url.strip_prefix("http://"))
+            .filter(|host| !host.is_empty() && !host.contains('/'))
+            .ok_or_else(|| ConfigError::Invalid {
+                name: URL,
+                value: url.clone(),
+                reason: "expected an http or https origin without a path",
+            })?;
+        let did = self
+            .text("PDS_MEMBER_DID")
+            .unwrap_or_else(|| format!("did:web:{}", host.replace(':', "%3A")));
+        Ok(Some(MemberHostConfig {
+            internal_url: self.text("PDS_MEMBER_INTERNAL_URL").map_or_else(
+                || url.clone(),
+                |internal| internal.trim_end_matches('/').to_owned(),
+            ),
+            url,
+            admin_password,
+            did,
+            signing_key,
+        }))
+    }
+
+    /// The entryway of a member host. With `PDS_ENTRYWAY_URL` the DID, the
+    /// key of the tokens and the PLC rotation key are required, as in the
+    /// Reference.
+    fn entryway(&self) -> Result<Option<EntrywayConfig>, ConfigError> {
+        const URL: &str = "PDS_ENTRYWAY_URL";
+        const KEY: &str = "PDS_ENTRYWAY_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX";
+        let Some(url) = self.text(URL) else {
+            return Ok(None);
+        };
+        let all = (
+            self.text("PDS_ENTRYWAY_DID"),
+            self.text(KEY),
+            self.text("PDS_ENTRYWAY_PLC_ROTATION_KEY"),
+        );
+        let (Some(did), Some(key), Some(plc_rotation_key)) = all else {
+            return Err(ConfigError::Refused {
+                name: URL.to_owned(),
+                reason: "if entryway url is configured, must include all required entryway configuration",
+            });
+        };
+        let invalid = |name, value: &str, reason| ConfigError::Invalid {
+            name,
+            value: value.to_owned(),
+            reason,
+        };
+        if !(url.starts_with("https://") || url.starts_with("http://")) {
+            return Err(invalid(URL, &url, "expected an http or https URL"));
+        }
+        if did.parse::<pds_types::Did>().is_err() {
+            return Err(invalid("PDS_ENTRYWAY_DID", &did, "expected a DID"));
+        }
+        if !plc_rotation_key.starts_with("did:key:") {
+            return Err(invalid(
+                "PDS_ENTRYWAY_PLC_ROTATION_KEY",
+                &plc_rotation_key,
+                "expected a did:key",
+            ));
+        }
+        let jwt_key = data_encoding::HEXLOWER_PERMISSIVE
+            .decode(key.as_bytes())
+            .ok()
+            .and_then(|bytes| {
+                pds_identity::PublicKey::from_sec1_bytes(pds_identity::Algorithm::Secp256k1, &bytes)
+                    .ok()
+            })
+            .ok_or_else(|| invalid(KEY, &key, "expected a secp256k1 public key in hexadecimal"))?;
+        Ok(Some(EntrywayConfig {
+            url: url.trim_end_matches('/').to_owned(),
+            did,
+            jwt_key,
+            plc_rotation_key,
+            admin_token: self.text("PDS_ENTRYWAY_ADMIN_TOKEN"),
+        }))
+    }
+
     /// The values of a variable that holds a list with commas.
     fn list(&self, name: &'static str) -> Vec<String> {
         self.text(name)
@@ -731,6 +966,7 @@ impl Config {
         let path =
             |name: &'static str, default: PathBuf| env.text(name).map_or(default, PathBuf::from);
         let layout = DataLayout {
+            shared: env.shared_tier()?,
             account_db: path("PDS_ACCOUNT_DB_LOCATION", default_layout.account_db),
             sequencer_db: path("PDS_SEQUENCER_DB_LOCATION", default_layout.sequencer_db),
             did_cache_db: path("PDS_DID_CACHE_DB_LOCATION", default_layout.did_cache_db),
@@ -794,6 +1030,8 @@ impl Config {
                 .transpose()?,
             ops_client_ids: env.list("PDS_OPS_CLIENT_IDS"),
             mcp_client_ids: env.list("PDS_MCP_CLIENT_IDS"),
+            entryway: env.entryway()?,
+            member_host: env.member_host()?,
             profile: env.profile()?,
             external_providers: env.external_providers()?,
             oauth: env.oauth()?,
@@ -1021,6 +1259,39 @@ mod tests {
 
     #[test]
     fn a_refused_variable_stops_the_start() {
+        // An entryway needs its DID, its token key and its rotation key.
+        let key = pds_identity::Keypair::generate(pds_identity::Algorithm::Secp256k1, |bytes| {
+            bytes.fill(9);
+        });
+        let public = data_encoding::HEXLOWER.encode(&key.public_key().to_compressed());
+        let rotation = key.did_key();
+        let member = [
+            ("PDS_ENTRYWAY_URL", "https://entryway.test/"),
+            ("PDS_ENTRYWAY_DID", "did:web:entryway.test"),
+            (
+                "PDS_ENTRYWAY_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX",
+                public.as_str(),
+            ),
+            ("PDS_ENTRYWAY_PLC_ROTATION_KEY", rotation.as_str()),
+        ];
+        let entryway = Config::from_vars(&vars(&member)).unwrap().entryway.unwrap();
+        assert_eq!(entryway.url, "https://entryway.test");
+        assert_eq!(entryway.admin_token, None);
+        assert!(!format!("{entryway:?}").contains("jwt_key"));
+        for (index, wrong) in ["ftp://e.test", "not-a-did", "abcd", "not-a-key"]
+            .iter()
+            .enumerate()
+        {
+            let mut changed = member;
+            changed[index].1 = wrong;
+            assert!(
+                matches!(
+                    Config::from_vars(&vars(&changed)),
+                    Err(ConfigError::Invalid { .. })
+                ),
+                "{wrong}"
+            );
+        }
         for name in ["PDS_ENTRYWAY_URL", "PDS_REDIS_SCRATCH_ADDRESS"] {
             assert!(
                 matches!(Config::from_vars(&vars(&[(name, "x")])), Err(ConfigError::Refused { name: n, .. }) if n == name),

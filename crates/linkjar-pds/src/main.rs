@@ -25,6 +25,9 @@ Usage: linkjar-pds <command>
                      their repository heads, for the history before the log
   audit verify <file>
                      check a bundle offline; exit 1 when it finds a problem
+  migrate-storage --to postgres|sqlite
+                     copy the shared databases between the files of the data
+                     directory and PDS_POSTGRES_URL, and compare the two
   check-config       validate the configuration and exit
   health             ask the local server's health route; exit 0 when it answers 200,
                      and 1 otherwise
@@ -169,12 +172,16 @@ fn run(args: &[String]) -> Result<ExitCode, Failure> {
                 Some(text) => text.parse::<u64>().map_err(|_| Failure::from(USAGE)),
                 None => Ok(default),
             };
-            let log = pds_xrpc::audit::AuditLog::open(&config.layout.audit_db, None)?;
+            let log = pds_xrpc::audit::AuditLog::open_in(&config.layout, None)?;
             println!("{}", log.export(bound(0, 1)?, bound(1, u64::MAX)?)?);
             Ok(ExitCode::SUCCESS)
         }
         ["audit", "seal"] => {
             audit_seal(&config)?;
+            Ok(ExitCode::SUCCESS)
+        }
+        ["migrate-storage", "--to", target] => {
+            migrate_storage(&config, target)?;
             Ok(ExitCode::SUCCESS)
         }
         ["check-config"] => {
@@ -185,6 +192,48 @@ fn run(args: &[String]) -> Result<ExitCode, Failure> {
         }
         _ => Err(USAGE.into()),
     }
+}
+
+/// `migrate-storage --to postgres|sqlite` (SPEC §8.4): copies the shared
+/// tier to the other backend and compares the two. The configuration
+/// names both: the files of the data directory, and `PDS_POSTGRES_URL`.
+/// The target must be empty. No server may run: the command takes the
+/// lock of the data directory and the lease of the event log.
+#[allow(clippy::print_stdout)] // a command reports on standard output
+fn migrate_storage(config: &Config, target: &str) -> Result<(), Failure> {
+    let postgres = config.layout.clone();
+    if postgres.shared.is_none() {
+        return Err("migrate-storage needs PDS_POSTGRES_URL: the Postgres side of the copy".into());
+    }
+    let files = pds_storage::DataLayout {
+        shared: None,
+        ..postgres.clone()
+    };
+    let (from, to) = match target {
+        "postgres" => (&files, &postgres),
+        "sqlite" => (&postgres, &files),
+        _ => return Err(USAGE.into()),
+    };
+    let _lock = serve::lock_data_directory(config)?;
+    let _lease = postgres
+        .shared
+        .as_ref()
+        .map(pds_storage::SharedTier::sequencer_lease)
+        .transpose()?
+        .flatten()
+        .ok_or(
+            "a server holds the lease of the event log in this Postgres database; stop it first",
+        )?;
+    let now = pds_sequencer::iso_millis(serve::now_ms());
+    let copied = pds_storage::migrate::copy_shared(from, to, &now)?;
+    for table in &copied {
+        println!("{}.{}: {} rows", table.database, table.table, table.rows);
+    }
+    println!(
+        "copied {} tables to {target}; the row counts, the head of the event log and the last checkpoint are the same",
+        copied.len()
+    );
+    Ok(())
 }
 
 /// `audit seal` (SPEC §20.4): the one entry that stands for the history
@@ -203,11 +252,11 @@ fn audit_seal(config: &Config) -> Result<(), Failure> {
         None => None,
     };
     let has_key = signer.is_some();
-    let log = pds_xrpc::audit::AuditLog::open(&config.layout.audit_db, signer)?;
+    let log = pds_xrpc::audit::AuditLog::open_in(&config.layout, signer)?;
     if !log.is_empty()? {
         return Err("the audit log has entries already; a seal is its first entry".into());
     }
-    let accounts = pds_storage::AccountDb::open(&config.layout.account_db)?;
+    let accounts = config.layout.accounts()?;
     let mut digest = Sha256::new();
     let mut count = 0_u64;
     for actor in accounts.all_actors()? {

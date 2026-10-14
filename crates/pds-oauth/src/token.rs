@@ -173,6 +173,10 @@ pub fn verify_access(secret: &[u8], issuer: &str, token: &str) -> Option<AccessC
     if body.get("iss").and_then(Value::as_str) != Some(issuer) {
         return None;
     }
+    claims_of(&body)
+}
+
+fn claims_of(body: &Value) -> Option<AccessClaims> {
     let text = |key: &str| body.get(key).and_then(Value::as_str).map(str::to_owned);
     Some(AccessClaims {
         jti: text("jti")?,
@@ -186,6 +190,75 @@ pub fn verify_access(secret: &[u8], issuer: &str, token: &str) -> Option<AccessC
             .map(str::to_owned),
         client_id: text("client_id")?,
     })
+}
+
+/// Signs an access token of an entryway with its secp256k1 key (SPEC
+/// §21.3). The token carries its scope, because a member host has no row
+/// to read it from.
+pub fn mint_access_es256k(
+    key: &pds_identity::Keypair,
+    issuer: &str,
+    aud: &str,
+    claims: &AccessClaims,
+    scope: &str,
+) -> String {
+    let mut body = json!({
+        "jti": claims.jti,
+        "sub": claims.sub,
+        "iat": claims.iat,
+        "exp": claims.exp,
+        "aud": aud,
+        "client_id": claims.client_id,
+        "iss": issuer,
+        "scope": scope,
+    });
+    if let Some(jkt) = &claims.jkt {
+        body["cnf"] = json!({ "jkt": jkt });
+    }
+    let input = format!(
+        "{}.{}",
+        URL_SAFE_NO_PAD.encode(json!({ "alg": "ES256K", "typ": "at+jwt" }).to_string()),
+        URL_SAFE_NO_PAD.encode(body.to_string())
+    );
+    format!(
+        "{input}.{}",
+        URL_SAFE_NO_PAD.encode(key.sign(input.as_bytes()))
+    )
+}
+
+/// Reads an access token that the entryway `issuer` signed with `key`.
+/// Gives the claims and the scope. The expiry is the caller's to check.
+pub fn verify_access_es256k(
+    key: &pds_identity::PublicKey,
+    issuer: &str,
+    token: &str,
+) -> Option<(AccessClaims, String)> {
+    let mut parts = token.split('.');
+    let (Some(head), Some(body), Some(signature), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return None;
+    };
+    let json = |part: &str| -> Option<Value> {
+        serde_json::from_slice(&URL_SAFE_NO_PAD.decode(part).ok()?).ok()
+    };
+    let header = json(head)?;
+    if header.get("alg").and_then(Value::as_str) != Some("ES256K")
+        || header.get("typ").and_then(Value::as_str) != Some("at+jwt")
+    {
+        return None;
+    }
+    key.verify_any_s(
+        format!("{head}.{body}").as_bytes(),
+        &URL_SAFE_NO_PAD.decode(signature).ok()?,
+    )
+    .ok()?;
+    let body = json(body)?;
+    if body.get("iss").and_then(Value::as_str) != Some(issuer) {
+        return None;
+    }
+    let scope = body.get("scope").and_then(Value::as_str)?.to_owned();
+    Some((claims_of(&body)?, scope))
 }
 
 /// Signs the proof of a sign-in that the device does not remember. It
