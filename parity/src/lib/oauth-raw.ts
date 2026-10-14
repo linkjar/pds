@@ -5,10 +5,10 @@
 
 import { createHash, randomBytes, webcrypto } from 'node:crypto'
 import type { Result, Scenario } from '../scenario.ts'
-import { HOSTS } from '../stack/targets.ts'
+import { HOSTS, accountHost } from '../stack/targets.ts'
 
 const b64url = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url')
-const ISSUER = `https://${HOSTS.pds}`
+const ISSUER = `https://${accountHost()}`
 
 export type DpopKey = { privateKey: webcrypto.CryptoKey; jwk: Record<string, unknown>; thumbprint: string }
 
@@ -93,7 +93,8 @@ export async function resource(
   opts: { key?: DpopKey; scheme?: 'DPoP' | 'Bearer' } = {},
 ): Promise<Result> {
   const method = request.method ?? (request.json === undefined ? 'GET' : 'POST')
-  const url = `${ISSUER}${request.path}`
+  // The resource server is the PDS, also when the issuer is an entryway.
+  const url = `https://${HOSTS.pds}${request.path}`
   const send = async () => {
     const result = await s.http(step, {
       method,

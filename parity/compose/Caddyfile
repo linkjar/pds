@@ -20,8 +20,35 @@ import /etc/caddy/handles
 	tls /tls/edge.crt /tls/edge.key
 }
 
+# The entryway of the topology with an entryway (src/stack/env.ts). Without
+# that topology the name has no server.
+https://entryway.linkjar.social {
+	import edge_tls
+	reverse_proxy entryway:3000
+}
+
 https://pds.linkjar.social, https://*.linkjar.social {
 	import edge_tls
+	# The topology with an entryway: the entryway keeps the handles, and a
+	# member host answers no handle (SPEC 21.3), so a handle host names its
+	# DID through the entryway. Without that topology the variable is empty.
+	@entryway_did {
+		not host pds.linkjar.social
+		path /.well-known/atproto-did
+		expression `{env.HANDLE_DID_UPSTREAM} != ""`
+	}
+	# The headers and the cookies as in the production snippet.
+	handle @entryway_did {
+		header {
+			Content-Security-Policy "default-src 'none'; sandbox"
+			X-Content-Type-Options nosniff
+			Referrer-Policy no-referrer
+		}
+		reverse_proxy {env.HANDLE_DID_UPSTREAM} {
+			header_up -Cookie
+			header_down -Set-Cookie
+		}
+	}
 	import linkjar_handle_hosts
 }
 

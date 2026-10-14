@@ -130,7 +130,7 @@ export class Scenario {
 
   async http(step: string, request: Request): Promise<Result> {
     const method = request.method ?? (request.json !== undefined || request.body !== undefined ? 'POST' : 'GET')
-    const url = new URL(`https://${request.host ?? HOSTS.pds}${request.path}`)
+    const url = new URL(`https://${request.host ?? this.target.hostFor(request.path)}${request.path}`)
     for (const [key, value] of Object.entries(request.query ?? {})) {
       if (value === undefined) continue
       for (const item of Array.isArray(value) ? value : [value]) url.searchParams.append(key, String(item))

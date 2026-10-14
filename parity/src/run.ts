@@ -78,6 +78,7 @@ export async function runFiles(target: TargetName, files: string[], env: Record<
 export function saveLogs(target: TargetName): string {
   const dir = join(targetSpec(target).runDir, 'logs')
   mkdirSync(dir, { recursive: true })
-  for (const service of ['pds', 'relay', 'plc', 'edge']) writeFileSync(join(dir, `${service}.log`), logs(target, service, 2000))
+  const services = readState(target).entryway ? ['pds', 'entryway', 'relay', 'plc', 'edge'] : ['pds', 'relay', 'plc', 'edge']
+  for (const service of services) writeFileSync(join(dir, `${service}.log`), logs(target, service, 2000))
   return dir
 }

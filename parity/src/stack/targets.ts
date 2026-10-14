@@ -92,6 +92,8 @@ export const composeImages = () => ({
 /** Names every stack answers to. The PDS runs under the production identity. */
 export const HOSTS = {
   pds: 'pds.linkjar.social',
+  /** The entryway of the topology with an entryway (src/stack/env.ts). */
+  entryway: 'entryway.linkjar.social',
   handleDomain: '.linkjar.social',
   plc: 'plc.test',
   relay: 'relay.test',
@@ -104,6 +106,22 @@ export const HOSTS = {
   app: 'app.linkjar.io',
   web: 'linkjar.io',
 } as const
+
+/**
+ * Whether the scenarios run against the Candidate as a member host behind
+ * an entryway (PARITY_CANDIDATE_ENTRYWAY=1, src/stack/env.ts).
+ */
+export function behindEntryway(): boolean {
+  return process.env.PARITY_TARGET === 'candidate' && process.env.PARITY_CANDIDATE_ENTRYWAY === '1'
+}
+
+/**
+ * The server that keeps the accounts: it signs the tokens and is the OAuth
+ * issuer. The entryway behind one, the PDS otherwise.
+ */
+export function accountHost(): string {
+  return behindEntryway() ? HOSTS.entryway : HOSTS.pds
+}
 
 /** Subject alternative names of the edge certificate. */
 export const EDGE_NAMES = [

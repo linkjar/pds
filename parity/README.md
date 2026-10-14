@@ -53,6 +53,19 @@ fails, the logs of the PDS, relay, PLC directory and edge are saved under
 Other commands: `pnpm typecheck`, `pnpm test` (unit tests of the normaliser),
 `pnpm parity stack up|down|logs <target>`.
 
+Two variables change how the Candidate runs, for `run candidate`:
+
+- `PARITY_CANDIDATE_POSTGRES=1`: the shared tier is in the Postgres of
+  the stack (SPEC 21.2). A scenario that reads the account database reads
+  the schema there.
+- `PARITY_CANDIDATE_ENTRYWAY=1`: the Candidate is a member host behind an
+  entryway (SPEC 21.3), configured as `docs/runbooks/entryway.md` says.
+  The entryway is a second Candidate at `entryway.linkjar.social`. A
+  scenario signs up and uses OAuth there, and sends everything else to
+  the member host.
+
+The default profile passes 22 of 22 with either.
+
 ## How it is built
 
 | Part | Where | What it does |

@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict'
 import { decodeJwt, reissue } from '../../src/lib/jwt.ts'
 import { scenario } from '../../src/scenario.ts'
-import { HOSTS } from '../../src/stack/targets.ts'
+import { HOSTS, accountHost, behindEntryway } from '../../src/stack/targets.ts'
 
 const HOUR = 60 * 60
 
@@ -14,12 +14,14 @@ scenario('02-sessions', {}, async (s) => {
   // VP-9: an access token lives 120 minutes, a refresh token 90 days.
   const access = decodeJwt(alice.accessJwt)
   const refresh = decodeJwt(alice.refreshJwt)
-  assert.deepEqual(access.header, { typ: 'at+jwt', alg: 'HS256' })
+  // An entryway signs with its ES256K key, and names itself (SPEC 21.3).
+  const alg = behindEntryway() ? 'ES256K' : 'HS256'
+  assert.deepEqual(access.header, { typ: 'at+jwt', alg })
   assert.equal(access.claims.scope, 'com.atproto.access')
   assert.equal(access.claims.sub, alice.did)
-  assert.equal(access.claims.aud, `did:web:${HOSTS.pds}`)
+  assert.equal(access.claims.aud, `did:web:${accountHost()}`)
   assert.equal(access.claims.exp - access.claims.iat, 2 * HOUR, 'VP-9 access lifetime')
-  assert.deepEqual(refresh.header, { typ: 'refresh+jwt', alg: 'HS256' })
+  assert.deepEqual(refresh.header, { typ: 'refresh+jwt', alg })
   assert.equal(refresh.claims.scope, 'com.atproto.refresh')
   assert.equal(refresh.claims.exp - refresh.claims.iat, 90 * 24 * HOUR, 'VP-9 refresh lifetime')
   assert.ok(typeof refresh.claims.jti === 'string', 'a refresh token carries jti')
@@ -56,13 +58,22 @@ scenario('02-sessions', {}, async (s) => {
   const secret = s.target.state.secrets.jwtSecret
   const now = Math.floor(Date.now() / 1000)
   const sameSecret = await s.query('getSession with a token re-signed under the same secret', 'com.atproto.server.getSession', {}, { auth: reissue(secret, alice.accessJwt, { iat: now - 10, exp: now + 600 }) })
-  assert.equal(sameSecret.status, 200)
   const expired = await s.query('getSession with an expired access token', 'com.atproto.server.getSession', {}, { auth: reissue(secret, alice.accessJwt, { iat: now - 3 * HOUR, exp: now - HOUR }) })
-  assert.equal(expired.status, 400)
-  assert.equal(expired.json.error, 'ExpiredToken')
   const otherSecret = await s.query('getSession with a token signed under another secret', 'com.atproto.server.getSession', {}, { auth: reissue('another-secret', alice.accessJwt, {}) })
-  assert.equal(otherSecret.status, 400)
-  assert.equal(otherSecret.json.error, 'InvalidToken')
+  if (behindEntryway()) {
+    // Behind an entryway the tokens are ES256K tokens of the entryway, so
+    // no token signed with the secret passes for one (SPEC 21.3).
+    for (const forged of [sameSecret, expired, otherSecret]) {
+      assert.equal(forged.status, 400)
+      assert.equal(forged.json.error, 'InvalidToken')
+    }
+  } else {
+    assert.equal(sameSecret.status, 200)
+    assert.equal(expired.status, 400)
+    assert.equal(expired.json.error, 'ExpiredToken')
+    assert.equal(otherSecret.status, 400)
+    assert.equal(otherSecret.json.error, 'InvalidToken')
+  }
 
   // Rotation. The first refresh mints a new pair.
   const rotated = await s.procedure('refreshSession', 'com.atproto.server.refreshSession', undefined, { auth: alice.refreshJwt })
