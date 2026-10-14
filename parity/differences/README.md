@@ -1,6 +1,6 @@
 # Differences between targets
 
-[Harness README](../README.md) · [Specification §2.2, C6](../../docs/SPEC.md#22-definition-of-compatible) · [§2.3, deliberate differences](../../docs/SPEC.md#23-deliberate-differences)
+[Harness README](../README.md) · [Specification §2.2, stock equivalence](../../docs/SPEC.md#22-definition-of-compatible) · [§2.3, deliberate differences](../../docs/SPEC.md#23-deliberate-differences)
 
 `pnpm parity compare <left> <right>` compares the transcripts of two targets.
 The differences it may find are recorded here, one file per pair. A
@@ -14,7 +14,7 @@ recorded difference that no longer appears.
 | `stock` against `official` (the `PATCH_PROFILE=none` build against the upstream distribution `ghcr.io/bluesky-social/pds`) | none | None is allowed: the two are different packagings of the same package version. |
 | The Reference against the Candidate on one data directory (`pnpm parity restore`) | none | None is allowed: both servers read the same bytes, and bodies are also compared by hash. |
 | The Reference against the Candidate, each on a data directory the Reference started (`pnpm parity writes`) | [reference-vs-candidate.json](reference-vs-candidate.json) | 40, in the nine groups [below](#the-reference-against-the-candidate). |
-| The same, with blobs in the S3-compatible store (`pnpm parity writes --only=s3`) | [reference-s3-vs-candidate-s3.json](reference-s3-vs-candidate-s3.json) | 6, one answer in two scenarios: `getBlob` of an upload that no record references. The Reference answers 500 on this store and the Candidate 400 `InvalidRequest`, "Blob not found", as both do on the disk store (SPEC §2.3, DD-18). |
+| The same, with blobs in the S3-compatible store (`pnpm parity writes --only=s3`) | [reference-s3-vs-candidate-s3.json](reference-s3-vs-candidate-s3.json) | 6, one answer in two scenarios: `getBlob` of an upload that no record references. The Reference answers 500 on this store and the Candidate 400 `InvalidRequest`, "Blob not found", as both do on the disk store. This is a deliberate difference (SPEC §2.3). |
 
 Regenerate a file with `--update` after a change that is meant to move it,
 and review the result like code.
@@ -35,10 +35,10 @@ methods, invite administration, or the OAuth protocol.
 | LinkJar behaviour that a stock build does not have | 093, 099, 099b, 100, 102, 103 | `default/30-linkjar-external`, `31-linkjar-handles`, `32-linkjar-signup-journey`, `33-linkjar-signin-methods`, `invites/02-linkjar-invite-handoff` | The scenario is skipped on the stock build, so each is one recorded difference. On the production build they pass: external sign-in, derived handles, the creation receipt, the hosted handle policy and handle hosts, the sign-up journey, sign-in methods with their notices, and the invitation hand-off. |
 | Signup policy | 099c | `captcha/01-signup-policy` (22 differences) | With one of the three hCaptcha variables missing, the production build refuses to start and says "Partial hCaptcha config"; the stock build reads it as no hCaptcha and starts. With hCaptcha configured, the production build answers 400 "Create an account through the OAuth signup page" to a legacy `createAccount`; the stock build creates the account, which bypasses the CAPTCHA of the sign-up page. |
 | Account mail | 101 | `default/10-email` (4), `default/11-identity` (1) | The text of the five token mails: confirm email, update email, reset password, delete account, PLC operation. Subjects, sender and the presence of a text part are the same. The sixth template, the sign-in notice, exists only in the production build. |
-| Shared-node import | 104 | `default/15-import` (14) | A repository whose tree references one node more than once. The production build answers 400 `InvalidRequest`, "invalid MST: node referenced more than once", and keeps the repository. The stock build answers 200 and replaces the repository with the imported tree: the record written before is gone and the head has moved. This is SPEC §2.3, DD-6, observed on 2026-10-13 with a tree four levels deep. |
+| Shared-node import | 104 | `default/15-import` (14) | A repository whose tree references one node more than once. The production build answers 400 `InvalidRequest`, "invalid MST: node referenced more than once", and keeps the repository. The stock build answers 200 and replaces the repository with the imported tree: the record written before is gone and the head has moved. This is a deliberate difference (SPEC §2.3), observed on 2026-10-13 with a tree four levels deep. |
 | Page security header | 102 | `default/21-oauth-negative` (1) | The `Content-Security-Policy` of the authorization page gains `font-src 'self'` for the bundled font. |
 
-The pages themselves are outside the comparison (SPEC C6), so the visual
+The pages themselves are outside stock equivalence (SPEC §2.2), so the visual
 changes of patch 102 appear here only through that header and through the
 steps the page driver took.
 
@@ -62,19 +62,23 @@ difference in the wording of a refusal.
 
 | Difference | Scenario | Entries | What differs |
 |---|---|---|---|
-| DD-3 | `default/02-sessions`, "createAppPassword with a used name" | 3 | The Reference answers 500 `InternalServerError`; the Candidate answers 400 `InvalidRequest` and names the app password. |
-| DD-1 | `default/03-repo-writes`, "createRecord with a key that exists" | 3 | The Reference answers 500 `InternalServerError`; the Candidate answers 400 `InvalidRequest`, "Record already exists". |
-| DD-2 | `default/03-repo-writes`, "applyWrites with one invalid operation" | 3 | The same, for a batch that creates a key that exists. |
-| DD-15 | `default/15-import`, "importRepo of bytes that are not a CAR" | 3 | The Reference answers 500; the Candidate answers 400 `InvalidRequest`. |
-| DD-7 | `writes/22-elsewhere`, three steps | 8 | A key at the wrong layer and keys out of order across nodes: the Reference answers 200 and replaces the repository; the Candidate answers 400 and keeps it. An empty node below the root: 500 against 400, and both keep the repository. |
-| DD-8 | `writes/22-elsewhere`, three steps | 9 | Map keys out of canonical order, a float with a whole value, and `undefined` in a record block: the Reference answers 200 and replaces the repository; the Candidate answers 400. |
-| DD-14 | `writes/22-elsewhere`, two steps | 6 | A commit that another key signed, and a commit for another account: the Reference answers 200 and replaces the repository; the Candidate answers 400. |
-| DD-9 | `writes/22-elsewhere`, two steps | 4 | A record that references a blob with size zero, and one with an empty media type: the Reference answers 200; the Candidate answers 400 `InvalidRequest`. |
+| Duplicate app-password name | `default/02-sessions`, "createAppPassword with a used name" | 3 | The Reference answers 500 `InternalServerError`; the Candidate answers 400 `InvalidRequest` and names the app password. |
+| `createRecord` with a record key that exists | `default/03-repo-writes`, "createRecord with a key that exists" | 3 | The Reference answers 500 `InternalServerError`; the Candidate answers 400 `InvalidRequest`, "Record already exists". |
+| `applyWrites` with a create whose record key exists | `default/03-repo-writes`, "applyWrites with one invalid operation" | 3 | The same, for a batch that creates a key that exists. |
+| `importRepo` with bytes that are not a CAR | `default/15-import`, "importRepo of bytes that are not a CAR" | 3 | The Reference answers 500; the Candidate answers 400 `InvalidRequest`. |
+| `importRepo` with a malformed tree | `writes/22-elsewhere`, three steps | 8 | A key at the wrong layer and keys out of order across nodes: the Reference answers 200 and replaces the repository; the Candidate answers 400 and keeps it. An empty node below the root: 500 against 400, and both keep the repository. |
+| `importRepo` with record blocks that are not canonical DAG-CBOR | `writes/22-elsewhere`, three steps | 9 | Map keys out of canonical order, a float with a whole value, and `undefined` in a record block: the Reference answers 200 and replaces the repository; the Candidate answers 400. |
+| `importRepo` with a commit that another key signed or that names another account | `writes/22-elsewhere`, two steps | 6 | A commit that another key signed, and a commit for another account: the Reference answers 200 and replaces the repository; the Candidate answers 400. |
+| A blob reference with size zero or an empty MIME type | `writes/22-elsewhere`, two steps | 4 | A record that references a blob with size zero, and one with an empty media type: the Reference answers 200; the Candidate answers 400 `InvalidRequest`. |
 | Wording | `default/15-import`, "importRepo of a tree that shares nodes" | 1 | Both answer 400 `InvalidRequest`. The tree also hangs a subtree below layer zero; the Reference names the shared node and the Candidate the subtree. |
 
-DD-3 to DD-5 need the endpoints of unit 5. DD-6 does not show here: the
-production Reference carries upstream's fix and agrees with the Candidate.
-DD-10 cannot be observed in a run that does not last an hour (SPEC §2.3).
+Three deliberate differences need the endpoints of unit 5: the duplicate
+app-password name, an `atproto-proxy` value that does not start with a DID,
+and a replayed service token. The import of a tree that references a node
+more than once does not show here: the production Reference carries
+upstream's fix and agrees with the Candidate. The collection of uploads that
+no record references cannot be observed in a run that does not last an hour
+(SPEC §2.3).
 
 The scenarios do not reach the account events of the firehose, rate
 limits, OAuth and service tokens, or the proxy. The Candidate does not have

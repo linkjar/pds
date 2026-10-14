@@ -59,5 +59,5 @@ scenario('30-crash', { timeoutMs: 300_000 }, async (s) => {
   }, 60_000)
   assert.equal(latest.json.rev, next.json.commit.rev)
   s.note('after the repair', { syncSent: true, relayConverged: true })
-  await checkRepo(s, 'O2 after the repair', alice)
+  await checkRepo(s, 'after the repair', alice)
 })

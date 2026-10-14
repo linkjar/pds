@@ -1,6 +1,7 @@
 // The writes run: the Candidate takes over a data directory that the
 // Reference started, and must answer every write and serve the firehose as
-// the Reference does on a directory of its own (SPEC 17.3, O1 to O3).
+// the Reference does on a directory of its own (SPEC 17.3: the response
+// comparison, the repository CID check and the firehose check).
 //
 // The Candidate has no account endpoint yet, so every pass starts on the
 // Reference, which creates a pool of accounts (scenarios/writes/00-pool).
@@ -38,8 +39,9 @@ export type WritesOptions = {
   /** Run only the stages whose name contains this text. */
   only?: string
   /**
-   * Run the write measurements instead of the scenarios: SPEC 16.1, S1 to
-   * S3, on each server (scenarios/perf/01-repository).
+   * Run the write measurements instead of the scenarios: the single-write,
+   * batch-write and export scenarios of SPEC 16.1, on each server
+   * (scenarios/perf/01-repository).
    */
   perf?: boolean
 }

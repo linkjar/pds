@@ -1,6 +1,6 @@
 // Repository writes: SPEC 6.3 (writes, swaps, validation modes), 6.2 (record
-// keys) and 6.6 (determinism, oracle O2). Record keys and content are fixed
-// so that every target must arrive at the same MST root.
+// keys) and 6.6 (determinism, the repository CID check). Record keys and
+// content are fixed so that every target must arrive at the same MST root.
 
 import assert from 'node:assert/strict'
 import { checkRepo } from '../../src/oracles/repo.ts'
@@ -12,7 +12,7 @@ const post = (text: string) => ({ $type: POST, text, createdAt: '2026-01-01T00:0
 scenario('03-repo-writes', {}, async (s) => {
   const alice = await s.createAccount('alice')
   const bob = await s.createAccount('bob')
-  const empty = await checkRepo(s, 'O2 after account creation', alice)
+  const empty = await checkRepo(s, 'after account creation', alice)
   assert.equal(empty.records, 0)
 
   // createRecord with an explicit key.
@@ -23,7 +23,7 @@ scenario('03-repo-writes', {}, async (s) => {
   assert.ok(first.json.commit.cid && first.json.commit.rev)
   // The record CID covers content only, so it is the same on every target.
   s.exact('record CID of the first post', first.json.cid)
-  const afterFirst = await checkRepo(s, 'O2 after createRecord', alice)
+  const afterFirst = await checkRepo(s, 'after createRecord', alice)
   assert.equal(afterFirst.commit, first.json.commit.cid)
   assert.equal(afterFirst.rev, first.json.commit.rev)
   assert.ok(afterFirst.rev > empty.rev, 'rev increases (SPEC 6.2)')
@@ -50,10 +50,10 @@ scenario('03-repo-writes', {}, async (s) => {
   assert.equal(putNew.status, 200)
 
   // SPEC 6.3: a write that changes nothing makes no commit.
-  const before = await checkRepo(s, 'O2 before a no-op put', alice)
+  const before = await checkRepo(s, 'before a no-op put', alice)
   const noop = await s.procedure('putRecord with identical content', 'com.atproto.repo.putRecord', { repo: alice.did, collection: 'app.bsky.actor.profile', rkey: 'self', record: { $type: 'app.bsky.actor.profile', displayName: 'Alice' } }, { auth: alice })
   assert.equal(noop.status, 200)
-  const after = await checkRepo(s, 'O2 after a no-op put', alice)
+  const after = await checkRepo(s, 'after a no-op put', alice)
   assert.equal(after.commit, before.commit, 'no new commit')
 
   // Swaps.
@@ -150,7 +150,7 @@ scenario('03-repo-writes', {}, async (s) => {
   const deletedAgain = await s.procedure('deleteRecord of a record that is gone', 'com.atproto.repo.deleteRecord', { repo: alice.did, collection: POST, rkey: '3aaaaaaaaaaa7' }, { auth: alice })
   assert.equal(deletedAgain.status, 200)
 
-  const final = await checkRepo(s, 'O2 after every write', alice)
+  const final = await checkRepo(s, 'after every write', alice)
   assert.equal(final.records, 206)
-  await checkRepo(s, 'O2 on the untouched repository', bob)
+  await checkRepo(s, 'on the untouched repository', bob)
 })

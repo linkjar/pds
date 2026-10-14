@@ -1,5 +1,6 @@
 // Repository and sync reads: Appendix A read methods, the deprecated methods
-// that the pin still serves (VP-5), and `getRepo` with `since`.
+// that the pin still serves (`getHead` and `getCheckout`), and `getRepo` with
+// `since`.
 
 import assert from 'node:assert/strict'
 import { readCar, readCarWithRoot, verifyRecords } from '@atproto/repo'
@@ -103,11 +104,11 @@ scenario('04-repo-reads', {}, async (s) => {
   s.note('getRepo block counts', { full: fullCar.blocks.size, since: diffCar.blocks.size })
   refused(await s.query('getRepo for an unknown DID', 'com.atproto.sync.getRepo', { did: 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa' }), 'RepoNotFound')
 
-  // VP-5: the deprecated methods are still served at the pin.
-  const head = await s.query('VP-5 getHead', 'com.atproto.sync.getHead', { did: alice.did })
+  // The deprecated methods are still served at the pin.
+  const head = await s.query('getHead', 'com.atproto.sync.getHead', { did: alice.did })
   assert.equal(head.status, 200)
   assert.deepEqual(head.json, { root: latest.json.cid })
-  const checkout = await s.query('VP-5 getCheckout', 'com.atproto.sync.getCheckout', { did: alice.did })
+  const checkout = await s.query('getCheckout', 'com.atproto.sync.getCheckout', { did: alice.did })
   assert.equal(checkout.status, 200)
   assert.equal((await readCarWithRoot(checkout.bytes)).blocks.size, fullCar.blocks.size)
 })

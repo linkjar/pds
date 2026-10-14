@@ -1,4 +1,4 @@
-// SPEC 16.1, S8: twenty concurrent uploads of 5 MiB.
+// SPEC 16.1, the concurrent-uploads scenario: twenty uploads of 5 MiB.
 
 import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'

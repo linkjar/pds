@@ -1,7 +1,7 @@
-// Read measurements on a restored data directory: the same requests, timed
-// on the Reference and on the Candidate over the same bytes (SPEC 16.1, S3,
-// and the point reads beside it). Timings go to a file, not to the
-// transcript; the transcript holds what must be equal on both servers.
+// Read measurements on a restored data directory: the same requests, timed on
+// the Reference and on the Candidate over the same bytes (SPEC 16.1, the
+// export scenario and the point reads beside it). Timings go to a file, not
+// to the transcript; the transcript holds what must be equal on both servers.
 
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'

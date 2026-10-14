@@ -1,6 +1,6 @@
-// OAuth, what must be refused: oracle O4's negative cases and SPEC 11.3.
-// Duplicate code redemption, refresh reuse, a wrong DPoP key, PKCE and
-// redirect mismatches, and VP-8 (the lifetime of a pushed request).
+// OAuth, what must be refused: the negative cases of the OAuth flows (SPEC
+// 17.3) and SPEC 11.3. Duplicate code redemption, refresh reuse, a wrong DPoP
+// key, PKCE and redirect mismatches, and the lifetime of a pushed request.
 
 import assert from 'node:assert/strict'
 import { launchBrowser, newDevice } from '../../src/lib/browser.ts'
@@ -59,13 +59,13 @@ scenario('21-oauth-negative', { timeoutMs: 300_000 }, async (s) => {
   const newClient = async (): Promise<RawClient> => ({ clientId: published.clientId, redirectUri: published.redirectUri, key: await generateDpopKey(), nonce: {} })
   const device = () => newDevice(browser, { ip: s.ip })
 
-  // VP-8: a pushed request lives five minutes.
+  // A pushed request lives five minutes.
   const client = await newClient()
   const pushed = await push(s, 'PAR', client, alice)
   assert.equal(pushed.result.status, 201)
   assert.match(pushed.result.json.request_uri, /^urn:ietf:params:oauth:request_uri:req-[0-9a-f]+$/)
-  assert.ok(pushed.result.json.expires_in > 295 && pushed.result.json.expires_in <= 300, `VP-8: expires_in is ${pushed.result.json.expires_in}`)
-  s.note('VP-8 PAR lifetime, minutes', Math.round(pushed.result.json.expires_in / 60))
+  assert.ok(pushed.result.json.expires_in > 295 && pushed.result.json.expires_in <= 300, `expires_in is ${pushed.result.json.expires_in}`)
+  s.note('PAR lifetime, minutes', Math.round(pushed.result.json.expires_in / 60))
 
   // What PAR refuses (SPEC 11.3).
   refused(await push(s, 'PAR without a code challenge', client, alice, { code_challenge: '' }).then((r) => r.result))
@@ -89,15 +89,15 @@ scenario('21-oauth-negative', { timeoutMs: 300_000 }, async (s) => {
   s.note('authorize without a pushed request', { status: direct.status, location: direct.headers.get('location')?.replace(/state=[^&]+/, 'state=…') ?? null })
   assert.notEqual(direct.status, 200)
 
-  // VP-8, the other half: after five minutes the request is dead. The harness ages the row.
+  // The pushed-request lifetime, the other half: after five minutes the request is dead. The harness ages the row.
   const requestId = pushed.result.json.request_uri.split(':').at(-1)
   const rows = await s.target.sqlite('account', "select (julianday(expiresAt) - julianday('now')) * 1440 as minutes from authorization_request where id = ?", [requestId])
-  assert.ok(rows[0] && Math.abs(Number(rows[0].minutes) - 5) < 0.2, `VP-8: stored expiry is ${JSON.stringify(rows)}`)
+  assert.ok(rows[0] && Math.abs(Number(rows[0].minutes) - 5) < 0.2, `stored expiry is ${JSON.stringify(rows)}`)
   await s.target.sqlite('account', "update authorization_request set expiresAt = '2000-01-01T00:00:00.000Z' where id = ?", [requestId])
   const stalePage = await (await device()).newPage()
   const stale = await driveAuthorization(stalePage, `${ISSUER}/oauth/authorize?client_id=${encodeURIComponent(client.clientId)}&request_uri=${encodeURIComponent(pushed.result.json.request_uri)}`, { redirectUri: client.redirectUri, password: alice.password, allowError: true, timeoutMs: 8_000 })
   await stalePage.close()
-  s.note('VP-8 authorize with an expired request', stale.redirect ? Object.fromEntries([...stale.redirect.searchParams].filter(([k]) => k !== 'state')) : { page: stale.facts.error ?? 'no redirect' })
+  s.note('authorize with an expired request', stale.redirect ? Object.fromEntries([...stale.redirect.searchParams].filter(([k]) => k !== 'state')) : { page: stale.facts.error ?? 'no redirect' })
 
   // A good exchange, for reference.
   const grant = await authorize(s, await device(), client, alice, 'first flow')
@@ -110,7 +110,7 @@ scenario('21-oauth-negative', { timeoutMs: 300_000 }, async (s) => {
   const ok = await resource(s, 'resource call with the bound key', client, tokens.json.access_token, { path: '/xrpc/com.atproto.server.getSession' })
   assert.equal(ok.status, 200)
 
-  // A wrong DPoP key (O4).
+  // A wrong DPoP key.
   const otherKey = await generateDpopKey()
   const wrongKey = await resource(s, 'resource call with a proof from another key', client, tokens.json.access_token, { path: '/xrpc/com.atproto.server.getSession' }, { key: otherKey })
   assert.equal(wrongKey.status, 401)
@@ -121,7 +121,7 @@ scenario('21-oauth-negative', { timeoutMs: 300_000 }, async (s) => {
   const wrongKeyRefresh = await refresh(s, 'refresh with a proof from another key', { ...client, nonce: { ...client.nonce } }, tokens.json.refresh_token, { key: otherKey })
   refused(wrongKeyRefresh)
 
-  // Duplicate code redemption (O4): refused, and every token issued from the code is revoked.
+  // Duplicate code redemption: refused, and every token issued from the code is revoked.
   const replay = await exchange(s, 'the same code a second time', client, grant)
   refused(replay, 'invalid_grant')
   const afterReplay = await resource(s, 'resource call after the code was replayed', client, tokens.json.access_token, { path: '/xrpc/com.atproto.server.getSession' })
@@ -139,7 +139,7 @@ scenario('21-oauth-negative', { timeoutMs: 300_000 }, async (s) => {
   refused(await tokenEndpoint(s, 'token exchange with a code that was never issued', client, '/oauth/token', { grant_type: 'authorization_code', code: 'cod-' + '0'.repeat(64), code_verifier: pkce().verifier, redirect_uri: client.redirectUri }), 'invalid_grant')
   refused(await tokenEndpoint(s, 'token request with an unsupported grant type', client, '/oauth/token', { grant_type: 'password', username: alice.handle, password: alice.password }))
 
-  // Refresh reuse (O4): the old refresh token is refused and the session is gone.
+  // Refresh reuse: the old refresh token is refused and the session is gone.
   const fifth = await authorize(s, await device(), client, alice, 'fifth flow')
   const session = await exchange(s, 'token exchange for the refresh case', client, fifth)
   assert.equal(session.status, 200, session.text)

@@ -1,7 +1,8 @@
 // Fixtures for the Rust repository engine, written by the Reference's own
-// library: `@atproto/repo` at the pin, the engine behind oracle O2. The Rust
-// tests replay each commit and must produce the same tree root, the same
-// commit CID, the same sets of blocks and the same export bytes.
+// library: `@atproto/repo` at the pin, the engine behind the repository CID
+// check. The Rust tests replay each commit and must produce the same tree
+// root, the same commit CID, the same sets of blocks and the same export
+// bytes.
 //
 //   node src/tools/repo-fixtures.ts ../crates/pds-repo/tests/fixtures
 //

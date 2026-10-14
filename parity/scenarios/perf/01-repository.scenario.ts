@@ -1,5 +1,6 @@
-// SPEC 16.1, S1 to S3: one write on repositories of growing size, a batch of
-// 200 operations, and the export of the largest repository.
+// SPEC 16.1, the single-write, batch-write and export scenarios: one write on
+// repositories of growing size, a batch of 200 operations, and the export of
+// the largest repository.
 
 import assert from 'node:assert/strict'
 import { readCarWithRoot } from '@atproto/repo'
@@ -39,10 +40,11 @@ scenario('01-repository', { timeoutMs: 3 * 60 * 60 * 1000 }, async (s) => {
       const response = await batch(Math.min(200, size - written))
       assert.equal(response.status, 200, response.text)
     }
-    // S1: single creates at this size. What a write stores is read off its
-    // commit on the firehose: the CAR slice holds exactly the blocks that the
-    // revision added. The block table's net growth is smaller, because the
-    // Reference deletes the tree nodes and the commit that a write replaces.
+    // The single-write scenario: single creates at this size. What a write
+    // stores is read off its commit on the firehose: the CAR slice holds
+    // exactly the blocks that the revision added. The block table's net
+    // growth is smaller, because the Reference deletes the tree nodes and the
+    // commit that a write replaces.
     const before = await blocks(s, alice)
     const revs = new Set<string>()
     const commits: { rev: string; bytes: number }[] = []
@@ -72,7 +74,7 @@ scenario('01-repository', { timeoutMs: 3 * 60 * 60 * 1000 }, async (s) => {
       netBlockRowsPerWrite: Math.round(((after.rows - before.rows) / SAMPLES) * 10) / 10,
       netBlockBytesPerWrite: Math.round((after.bytes - before.bytes) / SAMPLES),
     })
-    // S2: batches of 200 at this size.
+    // The batch-write scenario: batches of 200 at this size.
     const batches: number[] = []
     for (let i = 0; i < 5; i++) {
       const [ms, response] = await timed(() => batch(200))
@@ -82,7 +84,7 @@ scenario('01-repository', { timeoutMs: 3 * 60 * 60 * 1000 }, async (s) => {
     s2.push({ records: size, ...summary(batches) })
   }
 
-  // S3: export of the largest repository.
+  // The export scenario: export of the largest repository.
   const [growth, [ms, exported]] = await memoryGrowth(s, () => timed(() => s.http('export', { path: '/xrpc/com.atproto.sync.getRepo', query: { did: alice.did }, silent: true })))
   assert.equal(exported.status, 200)
   const car = await readCarWithRoot(exported.bytes)

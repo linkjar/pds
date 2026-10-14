@@ -1,8 +1,9 @@
-// SPEC 16.1, S9, S5 and S4: many writers across actors, a long backfill, and
-// delivery lag with a growing number of subscribers.
+// SPEC 16.1, the many-writers, backfill and fan-out scenarios: many writers
+// across actors, a long backfill, and delivery lag with a growing number of
+// subscribers.
 //
-// S4 runs last, so that its largest step cannot disturb the other
-// measurements, and it records the write throughput of the same writers
+// The fan-out scenario runs last, so that its largest step cannot disturb the
+// other measurements, and it records the write throughput of the same writers
 // before the subscribers and after they left.
 
 import assert from 'node:assert/strict'
@@ -16,9 +17,9 @@ import { HOSTS } from '../../src/stack/targets.ts'
 
 const NOTE = 'com.example.parity.note'
 const SUBSCRIBERS = SCALE === 'full' ? [1, 10, 100, 1_000] : [1, 10, 50]
-const S4_SECONDS = SCALE === 'full' ? 10 : 3
-const S9 = SCALE === 'full' ? { writers: 50, seconds: 30 } : { writers: 10, seconds: 5 }
-const S5_EVENTS = SCALE === 'full' ? 100_000 : 3_000
+const FAN_OUT_SECONDS = SCALE === 'full' ? 10 : 3
+const MANY_WRITERS = SCALE === 'full' ? { writers: 50, seconds: 30 } : { writers: 10, seconds: 5 }
+const BACKFILL_EVENTS = SCALE === 'full' ? 100_000 : 3_000
 const BURST_SECONDS = SCALE === 'full' ? 10 : 4
 
 const write = (s: Scenario, account: Account, n: number) =>
@@ -100,7 +101,7 @@ scenario('02-firehose', { timeoutMs: 3 * 60 * 60 * 1000 }, async (s) => {
   await s.target.restart()
   const writer = await s.createAccount('writer', {}, { silent: true })
   const writers: Account[] = []
-  for (let i = 0; i < S9.writers; i++) writers.push(await s.createAccount(`w${i}`, {}, { silent: true }))
+  for (let i = 0; i < MANY_WRITERS.writers; i++) writers.push(await s.createAccount(`w${i}`, {}, { silent: true }))
   await new Promise((resolve) => setTimeout(resolve, 5_000))
 
   /** Every writer writes as fast as it is answered, for `seconds`. */
@@ -123,7 +124,7 @@ scenario('02-firehose', { timeoutMs: 3 * 60 * 60 * 1000 }, async (s) => {
     return { writers: writers.length, commitsPerSecond: Math.round(commits / seconds), failed, slowestMs: Math.round(slowest) }
   }
 
-  // S9: many writers across actors, two commits a second each.
+  // The many-writers scenario: many writers across actors, two commits a second each.
   const observer = listen(s, 1)
   await new Promise((resolve) => setTimeout(resolve, 2_000))
   const commitLatencies: number[] = []
@@ -131,31 +132,31 @@ scenario('02-firehose', { timeoutMs: 3 * 60 * 60 * 1000 }, async (s) => {
   const failedByAll: Record<string, number> = {}
   await Promise.all(
     writers.map(async (account) => {
-      const { sent, failed } = await paced(s, account, 2, S9.seconds, commitLatencies)
+      const { sent, failed } = await paced(s, account, 2, MANY_WRITERS.seconds, commitLatencies)
       for (const [rev, at] of sent) sentByAll.set(rev, at)
       for (const [status, count] of Object.entries(failed)) failedByAll[status] = (failedByAll[status] ?? 0) + count
     }),
   )
   await new Promise((resolve) => setTimeout(resolve, 2_500))
   const s9 = {
-    writers: S9.writers,
-    attempted: S9.writers * 2 * S9.seconds,
+    writers: MANY_WRITERS.writers,
+    attempted: MANY_WRITERS.writers * 2 * MANY_WRITERS.seconds,
     failed: failedByAll,
     commits: sentByAll.size,
     lagMs: summary(lags(observer, sentByAll)),
     commitMs: summary(commitLatencies),
-    // Not observable from outside the Reference. The Candidate reports its own counter (SPEC 16.2, T7).
+    // Not observable from outside the Reference. The Candidate reports its own counter (SPEC 16.2: fewer sequencer fsyncs per second than the commit rate).
     sequencerFsyncs: null,
   }
   observer.close()
 
-  // S5: backfill from a cursor. The events are produced first, across the same actors.
+  // The backfill scenario: backfill from a cursor. The events are produced first, across the same actors.
   const head = async () => {
     const [row] = await s.target.sqlite('sequencer', 'select max(seq) as seq from repo_seq')
     return Number(row!.seq)
   }
   let have = await head()
-  const perWriter = Math.ceil(Math.max(0, S5_EVENTS - have) / writers.length)
+  const perWriter = Math.ceil(Math.max(0, BACKFILL_EVENTS - have) / writers.length)
   const [seedMs] = await timed(() =>
     Promise.all(
       writers.map(async (account) => {
@@ -172,7 +173,7 @@ scenario('02-firehose', { timeoutMs: 3 * 60 * 60 * 1000 }, async (s) => {
     ),
   )
   have = await head()
-  const from = have - S5_EVENTS
+  const from = have - BACKFILL_EVENTS
   assert.ok(from >= 0, `only ${have} events were sequenced`)
   const [growth, backfillMs] = await memoryGrowth(s, async () => {
     let events = 0
@@ -200,12 +201,12 @@ scenario('02-firehose', { timeoutMs: 3 * 60 * 60 * 1000 }, async (s) => {
     }
     const elapsed = performance.now() - start
     sub.close()
-    assert.ok(events >= S5_EVENTS, `received ${events} of ${S5_EVENTS} events`)
+    assert.ok(events >= BACKFILL_EVENTS, `received ${events} of ${BACKFILL_EVENTS} events`)
     return elapsed
   })
-  const s5 = { events: S5_EVENTS, wallMs: Math.round(backfillMs), eventsPerSecond: Math.round(S5_EVENTS / (backfillMs / 1000)), memoryGrowthMiB: growth, seedCommitsPerSecond: Math.round((perWriter * writers.length) / (seedMs / 1000)) }
+  const s5 = { events: BACKFILL_EVENTS, wallMs: Math.round(backfillMs), eventsPerSecond: Math.round(BACKFILL_EVENTS / (backfillMs / 1000)), memoryGrowthMiB: growth, seedCommitsPerSecond: Math.round((perWriter * writers.length) / (seedMs / 1000)) }
 
-  // S4: one writer at 50 commits a second, with the write throughput around it.
+  // The fan-out scenario: one writer at 50 commits a second, with the write throughput around it.
   await new Promise((resolve) => setTimeout(resolve, 3_000))
   const before = await burst(BURST_SECONDS)
   const s4: Record<string, unknown>[] = []
@@ -215,11 +216,11 @@ scenario('02-firehose', { timeoutMs: 3 * 60 * 60 * 1000 }, async (s) => {
     const baseline = listeners.received()
     const latencies: number[] = []
     const memoryBefore = await memory(s)
-    const { sent, failed } = await paced(s, writer, 50, S4_SECONDS, latencies)
+    const { sent, failed } = await paced(s, writer, 50, FAN_OUT_SECONDS, latencies)
     await new Promise((resolve) => setTimeout(resolve, 3_000))
     s4.push({
       subscribers: count,
-      attempted: 50 * S4_SECONDS,
+      attempted: 50 * FAN_OUT_SECONDS,
       failed,
       commits: sent.size,
       delivered: listeners.received() - baseline,

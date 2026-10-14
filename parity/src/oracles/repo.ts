@@ -1,7 +1,7 @@
-// Oracle O2 (SPEC 17.3, 6.6): repository CIDs. The harness does not trust
-// the server's word for its own root. It exports the repository, verifies
-// the commit signature against the key in the PLC document, rebuilds the MST
-// from the records with the SDK's implementation, and compares the root.
+// The repository CID check (SPEC 17.3, 6.6). The harness does not trust the
+// server's word for its own root. It exports the repository, verifies the
+// commit signature against the key in the PLC document, rebuilds the MST from
+// the records with the SDK's implementation, and compares the root.
 
 import assert from 'node:assert/strict'
 import * as dagCbor from '@ipld/dag-cbor'

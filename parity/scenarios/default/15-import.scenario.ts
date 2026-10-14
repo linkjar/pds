@@ -1,5 +1,6 @@
 // Repository import: SPEC 6.5, and 6.1 for a tree that references one node
-// more than once (upstream #5584, carried as patch 104; SPEC 2.3, DD-6).
+// more than once (upstream #5584, carried as patch 104; a deliberate
+// difference of SPEC 2.3).
 //
 // The shared-node tree here is four levels deep, so that a build without the
 // fix walks it in a moment. The same shape forty levels deep is the case the
@@ -59,8 +60,9 @@ scenario('15-import', {}, async (s) => {
 
   refused(await importRepo(s, 'importRepo of bytes that are not a CAR', alice, new TextEncoder().encode('not a car')))
 
-  // DD-6. The production Reference carries the fix and answers 400; what a
-  // build without it answers is recorded by the transcript.
+  // A tree that references a node more than once, a deliberate difference
+  // (SPEC 2.3). The production Reference carries the fix and answers 400;
+  // what a build without it answers is recorded by the transcript.
   const shared = await importRepo(s, 'importRepo of a tree that shares nodes', alice, await sharedNodeCar(alice.did, 4))
   s.note('shared-node import', { status: shared.status, error: shared.json?.error ?? null })
 

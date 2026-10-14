@@ -1,15 +1,16 @@
-// The write measurements of `pnpm parity writes --perf` as one Markdown
-// page: SPEC 16.1, S1 to S3, on the Reference and on the Candidate.
+// The write measurements of `pnpm parity writes --perf` as one Markdown page:
+// the single-write, batch-write and export scenarios of SPEC 16.1, on the
+// Reference and on the Candidate.
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { arch, cpus, platform, release, totalmem } from 'node:os'
 import { join } from 'node:path'
 import { PARITY_DIR, targetSpec, upstream } from './stack/targets.ts'
 
-type S1 = { records: number; n: number; p50: number; p99: number; max: number; carBytesPerWrite: number; netBlockRowsPerWrite: number; netBlockBytesPerWrite: number }
-type S2 = { records: number; n: number; p50: number; p99: number; max: number }
-type S3 = { records: number; wallMs: number; carMiB: number; blocks: number; memoryGrowthMiB: number }
-type Saved = { scale: string; image: string; measuredAt: string; results: { S1: S1[]; S2: S2[]; S3: S3 } }
+type SingleWrite = { records: number; n: number; p50: number; p99: number; max: number; carBytesPerWrite: number; netBlockRowsPerWrite: number; netBlockBytesPerWrite: number }
+type BatchWrite = { records: number; n: number; p50: number; p99: number; max: number }
+type Export = { records: number; wallMs: number; carMiB: number; blocks: number; memoryGrowthMiB: number }
+type Saved = { scale: string; image: string; measuredAt: string; results: { S1: SingleWrite[]; S2: BatchWrite[]; S3: Export } }
 
 const table = (head: string[], rows: (string | number)[][]) =>
   [`| ${head.join(' | ')} |`, `|${head.map(() => '---').join('|')}|`, ...rows.map((row) => `| ${row.join(' | ')} |`)].join('\n')
@@ -27,7 +28,7 @@ export function writesReport(): string {
   const out = [
     '# Write measurements: the Reference and the Candidate',
     '',
-    'Measured by `pnpm parity writes --perf`: SPEC §16.1, S1 to S3. Each server runs the same scenario on a stack of its own. The Reference creates the account; in the Candidate\'s pass the Candidate then takes over the data directory and does every write. Latencies are wall-clock times at the client, through the TLS edge. Memory is the anonymous memory of the container.',
+    'Measured by `pnpm parity writes --perf`: the single-write, batch-write and export scenarios of SPEC §16.1. Each server runs the same scenario on a stack of its own. The Reference creates the account; in the Candidate\'s pass the Candidate then takes over the data directory and does every write. Latencies are wall-clock times at the client, through the TLS edge. Memory is the anonymous memory of the container.',
     '',
     'One run on the host below. It places the two servers beside each other on that host; it is not a benchmark of either. The requests are sequential, so the numbers say nothing about throughput under load.',
     '',
@@ -43,7 +44,7 @@ export function writesReport(): string {
       ],
     ),
     '',
-    `## S1: one \`createRecord\`, p50 / p99 ms over ${r.S1[0]?.n ?? 0} writes`,
+    `## Single write: one \`createRecord\`, p50 / p99 ms over ${r.S1[0]?.n ?? 0} writes`,
     '',
     table(
       ['Records in the repository', 'Reference', 'Candidate', 'Reference ÷ Candidate at p50', 'Bytes of new blocks per write, Reference', 'Candidate'],
@@ -55,7 +56,7 @@ export function writesReport(): string {
     '',
     'The bytes of new blocks are the CAR slice of the commit on the firehose: the commit, the tree nodes on the path to the record, and the record. The two servers build the same tree, so the same writes give the same slices.',
     '',
-    '## S2: `applyWrites` with 200 operations, p50 / max ms over five batches',
+    '## Batch write: `applyWrites` with 200 operations, p50 / max ms over five batches',
     '',
     table(
       ['Records in the repository', 'Reference', 'Candidate', 'Reference ÷ Candidate at p50'],
@@ -65,7 +66,7 @@ export function writesReport(): string {
       }),
     ),
     '',
-    '## S3: `getRepo` export',
+    '## Export: `getRepo`',
     '',
     table(
       ['', 'Reference', 'Candidate', 'Reference ÷ Candidate'],

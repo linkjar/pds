@@ -61,7 +61,7 @@ scenario('12-lifecycle', {}, async (s) => {
   assert.equal(activated.status, 200)
   const restored = await surfaces(s, 'reactivated', alice, blob.ref.$link)
   assert.deepEqual(restored, active)
-  await checkRepo(s, 'O2 after reactivation', alice)
+  await checkRepo(s, 'after reactivation', alice)
 
   // Deactivating twice and activating twice are both accepted.
   await s.procedure('deactivateAccount again', 'com.atproto.server.deactivateAccount', {}, { auth: alice })

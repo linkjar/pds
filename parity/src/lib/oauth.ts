@@ -1,5 +1,5 @@
-// The official OAuth client at the pin, pointed at a stack (SPEC 17.1,
-// oracle O4). Client metadata is served by the fixture server under the
+// The official OAuth client at the pin, pointed at a stack (SPEC 17.1, the
+// OAuth flows). Client metadata is served by the fixture server under the
 // client's own hostname, as a real client's would be.
 
 import { JoseKey, NodeOAuthClient, atprotoLoopbackClientMetadata } from '@atproto/oauth-client-node'

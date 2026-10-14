@@ -1,8 +1,9 @@
-// Normalisation for oracle O1 (SPEC 17.3). Two targets never agree on the
-// identifiers they generate, so each kind of server-generated value is
-// replaced by an alias numbered by first sight: the first DID a scenario sees
-// is `did:plc:<1>` on every target. Field order is ignored by sorting keys.
-// Times are replaced by a marker because the Reference has no clock hook.
+// Normalisation for the response comparison (SPEC 17.3). Two targets never
+// agree on the identifiers they generate, so each kind of server-generated
+// value is replaced by an alias numbered by first sight: the first DID a
+// scenario sees is `did:plc:<1>` on every target. Field order is ignored by
+// sorting keys. Times are replaced by a marker because the Reference has no
+// clock hook.
 
 import { CID } from 'multiformats/cid'
 

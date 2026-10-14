@@ -40,13 +40,14 @@ scenario('10-plain-routes', {}, async (s) => {
   const head = await s.http('HEAD of a query', { method: 'HEAD', path: '/xrpc/com.atproto.sync.getLatestCommit', query: { did: alice.did } })
   assert.equal(head.status, 200)
 
-  // CORS (VP-11).
+  // The CORS headers.
   const preflight = await s.http('preflight', { method: 'OPTIONS', path: '/xrpc/com.atproto.sync.getLatestCommit', headers: { origin: 'https://app.example', 'access-control-request-method': 'GET', 'access-control-request-headers': 'authorization, x-test' } })
   assert.equal(preflight.status, 204)
   await s.http('preflight without requested headers', { method: 'OPTIONS', path: '/xrpc/com.atproto.sync.getLatestCommit', headers: { origin: 'https://app.example' } })
   assert.equal((await get(s, 'a query with an Origin', 'com.atproto.sync.getLatestCommit', { did: alice.did }, { headers: { origin: 'https://app.example' } })).headers.get('access-control-allow-origin'), '*')
 
-  // A method without a handler wants a session before anything else (VP-6).
+  // A method without a handler wants a session before anything else, as
+  // `resolveLexicon` does.
   for (const nsid of ['com.atproto.nope.nope', 'nope', 'app.bsky.graph.getFollows', 'com.atproto.sync.listReposByCollection']) await get(s, `no handler, no credential: ${nsid}`, nsid)
   await read(s, 'no handler, POST, no credential', { method: 'POST', path: '/xrpc/com.atproto.nope.nope', json: {} })
   await get(s, 'no handler, the admin password', 'com.atproto.nope.nope', {}, { auth: 'admin' })

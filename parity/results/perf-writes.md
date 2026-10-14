@@ -1,6 +1,6 @@
 # Write measurements: the Reference and the Candidate
 
-Measured by `pnpm parity writes --perf`: SPEC §16.1, S1 to S3. Each server runs the same scenario on a stack of its own. The Reference creates the account; in the Candidate's pass the Candidate then takes over the data directory and does every write. Latencies are wall-clock times at the client, through the TLS edge. Memory is the anonymous memory of the container.
+Measured by `pnpm parity writes --perf`: the single-write, batch-write and export scenarios of SPEC §16.1. Each server runs the same scenario on a stack of its own. The Reference creates the account; in the Candidate's pass the Candidate then takes over the data directory and does every write. Latencies are wall-clock times at the client, through the TLS edge. Memory is the anonymous memory of the container.
 
 One run on the host below. It places the two servers beside each other on that host; it is not a benchmark of either. The requests are sequential, so the numbers say nothing about throughput under load.
 
@@ -13,7 +13,7 @@ One run on the host below. It places the two servers beside each other on that h
 | Measured | 2026-10-13 |
 | Host | Apple M1 Pro, 10 cores, 16 GiB, darwin 27.0.0 arm64, Docker |
 
-## S1: one `createRecord`, p50 / p99 ms over 100 writes
+## Single write: one `createRecord`, p50 / p99 ms over 100 writes
 
 | Records in the repository | Reference | Candidate | Reference ÷ Candidate at p50 | Bytes of new blocks per write, Reference | Candidate |
 |---|---|---|---|---|---|
@@ -24,7 +24,7 @@ One run on the host below. It places the two servers beside each other on that h
 
 The bytes of new blocks are the CAR slice of the commit on the firehose: the commit, the tree nodes on the path to the record, and the record. The two servers build the same tree, so the same writes give the same slices.
 
-## S2: `applyWrites` with 200 operations, p50 / max ms over five batches
+## Batch write: `applyWrites` with 200 operations, p50 / max ms over five batches
 
 | Records in the repository | Reference | Candidate | Reference ÷ Candidate at p50 |
 |---|---|---|---|
@@ -33,7 +33,7 @@ The bytes of new blocks are the CAR slice of the commit on the firehose: the com
 | 10,000 | 217.7 / 236.7 | 16.4 / 26.5 | 13.3× |
 | 100,000 | 274.7 / 340.2 | 31.4 / 83.1 | 8.7× |
 
-## S3: `getRepo` export
+## Export: `getRepo`
 
 |  | Reference | Candidate | Reference ÷ Candidate |
 |---|---|---|---|

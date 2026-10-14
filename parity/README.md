@@ -74,7 +74,7 @@ The default profile passes 22 of 22 with either.
 | Stack | [`compose/compose.yml`](compose/compose.yml), [`src/stack/`](src/stack/) | One compose project per target: the PDS, a PLC directory with its Postgres, a Sync 1.1 relay in strict mode, a mail catcher, an S3-compatible store and a Caddy edge. |
 | Fixtures | [`src/fixtures/`](src/fixtures/) | The outside world, served from the harness process: the AppView and report service the PDS forwards to, OAuth client metadata, a custom-domain handle, and stand-ins for Apple, Google, GitHub and hCaptcha. |
 | Scenarios | [`scenarios/<profile>/`](scenarios/), [`src/scenario.ts`](src/scenario.ts) | One `node:test` test per file. Assertions state what the SPEC requires. Every exchange and observation goes into a transcript. |
-| Oracles | [`src/oracles/`](src/oracles/), [`src/compare.ts`](src/compare.ts) | O1 response comparison, O2 repository CIDs, O3 firehose and relay, O4 OAuth, O9 verify at pin. |
+| Oracles | [`src/oracles/`](src/oracles/), [`src/compare.ts`](src/compare.ts) | The response comparison, the repository CID check, the firehose and relay check, the OAuth flows, and the verify-at-pin scenarios. |
 | Profiles | [`src/stack/env.ts`](src/stack/env.ts) | A profile changes a few environment variables for the scenarios that need them. |
 
 ### The stack
@@ -219,11 +219,11 @@ same sequence of writes.
 
 ### Oracles
 
-- **O1 response comparison.** `pnpm parity compare <left> <right>` compares
+- **The response comparison.** `pnpm parity compare <left> <right>` compares
   the transcripts of two targets and checks the result against
   `differences/<left>-vs-<right>.json`. No file means no difference is
   allowed. `--update` rewrites the file; a change to it is reviewed like code.
-- **O2 repository CIDs.** [`src/oracles/repo.ts`](src/oracles/repo.ts) exports
+- **The repository CID check.** [`src/oracles/repo.ts`](src/oracles/repo.ts) exports
   the repository, verifies the commit signature against the key in the PLC
   document, rebuilds the MST from the records with `@atproto/repo`, and
   compares the root with the signed one. The root over fixed keys and content
@@ -231,24 +231,24 @@ same sequence of writes.
   commit CID covers the DID, the `rev` and the signature, so it differs
   between targets until a Candidate takes its `rev` and key from a Reference
   data directory (SPEC §3.3, unit 4).
-- **O3 firehose.** [`src/oracles/firehose.ts`](src/oracles/firehose.ts) checks
+- **The firehose check.** [`src/oracles/firehose.ts`](src/oracles/firehose.ts) checks
   each commit frame: the frame limit, the CAR slice, the signature, `since`
   and `prevData` against the previous commit, and the `prev` of each
   operation. `default/06-firehose` and `firehose/01-cursor-limits` cover every
   row of SPEC §7.3 and the sequences of §10.4. `default/07-relay` requires
   the strict relay to re-emit every commit. The crash injection of §7.4 runs
   against a Candidate only and is not in this unit.
-- **O4 OAuth.** `default/20-oauth-flow`, `21-oauth-negative` and
+- **The OAuth flows.** `default/20-oauth-flow`, `21-oauth-negative` and
   `22-oauth-clients` use `@atproto/oauth-client-node` and Chromium for the
   flows, and a hand-written DPoP client
   ([`src/lib/oauth-raw.ts`](src/lib/oauth-raw.ts)) for the cases the official
   client will not produce.
-- **O9 verify at pin.** [verify-at-pin.md](verify-at-pin.md) names the
+- **The verify-at-pin scenarios.** [verify-at-pin.md](verify-at-pin.md) names the
   scenario for each item.
 
 ### The page contract
 
-HTML is outside the comparison (SPEC C6): the Candidate renders its own
+HTML is outside stock equivalence (SPEC §2.2): the Candidate renders its own
 pages. The page driver ([`src/oracles/oauth.ts`](src/oracles/oauth.ts),
 [`src/oracles/linkjar.ts`](src/oracles/linkjar.ts)) finds controls by name and
 records what a page showed as facts. A target's pages must therefore keep
@@ -272,15 +272,16 @@ these names:
 | `invites` | `PDS_INVITE_REQUIRED=true` | Invite administration; the invitation hand-off of patch 103. |
 | `firehose` | A five-second backfill window and a subscriber buffer of five events. | `OutdatedCursor` and `ConsumerTooSlow`. |
 | `captcha` | The three hCaptcha variables. | The signup policy of patch 099c. |
-| `perf` | Rate limits off, no crawler. | SPEC §16.1, S1 to S5, S8 and S9. See below. |
+| `perf` | Rate limits off, no crawler. | Seven performance scenarios of SPEC §16.1. See below. |
 | `restore` | Nothing: the production configuration. | The seed and the read scenarios of the [restore run](#the-restore-run). Run through `pnpm parity restore`, not `run`. |
 | `restore-perf` | Nothing: the production configuration. | The read measurements: one repository of 100,000 records, and the same reads timed on both servers. Run through `pnpm parity restore --perf`. See below. |
 | `writes`, `writes-firehose`, `writes-s3`, `writes-crash`, `writes-perf` | See [the writes run](#the-writes-run). | Run through `pnpm parity writes`, not `run`. |
 
 ## Performance scenarios
 
-`pnpm parity run reference --profile perf` runs S1 to S5, S8 and S9 of SPEC
-§16.1 and writes the measurements to `.run/reference/perf/`;
+`pnpm parity run reference --profile perf` runs the single-write,
+batch-write, export, fan-out, backfill, concurrent-uploads and many-writers
+scenarios of SPEC §16.1 and writes the measurements to `.run/reference/perf/`;
 `pnpm parity perf report reference` prints them as the table in
 [results/perf-reference.md](results/perf-reference.md). The run seeds a
 repository of 100,000 records and 100,000 firehose events, so it takes tens
@@ -288,10 +289,11 @@ of minutes and is not part of the pull-request gate.
 `PARITY_PERF_SCALE=smoke` runs the same code at a fraction of the size to
 check the harness; only a full run is a baseline.
 
-S6 (10,000 idle accounts) and S7 (the token endpoint under load) are account
-and OAuth paths. They are measured when the Candidate has those paths, in
-units 5 and 8. The sequencer fsync count of S9 cannot be read from outside
-the Reference; the Candidate reports its own counter.
+The idle-accounts scenario (10,000 accounts) and the token-endpoint scenario
+(the token endpoint under load) are account and OAuth paths. They are
+measured when the Candidate has those paths, in units 5 and 8. The sequencer
+fsync count of the many-writers scenario cannot be read from outside the
+Reference; the Candidate reports its own counter.
 
 ### Read measurements
 
@@ -308,8 +310,8 @@ host, not a benchmark and not a run against the targets of SPEC §16.2.
 
 ### Write measurements
 
-`pnpm parity writes --perf` runs `perf/01-repository`, SPEC §16.1 S1 to S3,
-on each server with the profile `writes-perf`: rate limits off and no
+`pnpm parity writes --perf` runs `perf/01-repository`, the single-write,
+batch-write and export scenarios of SPEC §16.1, on each server with the profile `writes-perf`: rate limits off and no
 crawler. The Reference creates the account; in the Candidate's pass the
 Candidate then takes over the data directory and does every write. When
 the run passes, it prints the table and writes it to
@@ -347,8 +349,9 @@ and are not part of this port.
   or mints a legacy token with the stack's own `PDS_JWT_SECRET`. Schema
   version 1 is the Reference schema, so the same statements work on a
   Candidate's data directory.
-- **Commit CIDs** are not compared across targets yet (see O2).
-- **Migration (O5), stock equivalence as a gate (O6) and the Bluesky app
-  (O8)** belong to later units.
+- **Commit CIDs** are not compared across targets yet (see the repository
+  CID check).
+- **The migration check, the stock-equivalence run as a gate and the
+  official-app acceptance** belong to later units.
 - **One address family for the relay.** The relay sees the PDS over IPv6
   only. Everything else in the stack is IPv4.

@@ -1,8 +1,8 @@
 # Performance baseline: reference
 
-SPEC §16.1 scenarios S1 to S5, S8 and S9, measured by the parity harness from outside the server. Latencies are wall-clock times at the client, through the TLS edge. Memory is the anonymous memory of the PDS container, without the page cache.
+The performance scenarios of SPEC §16.1 (single write, batch write, export, fan-out, backfill, concurrent uploads and many writers), measured by the parity harness from outside the server. Latencies are wall-clock times at the client, through the TLS edge. Memory is the anonymous memory of the PDS container, without the page cache.
 
-One run on the host below. It places the Reference for the comparison with the Candidate on the same host (SPEC §16.2, T1); it is not a benchmark of the Reference.
+One run on the host below. It places the Reference for the comparison with the Candidate on the same host, for the target that no scenario is slower than the Reference at p50 or p99 (SPEC §16.2). It is not a benchmark of the Reference.
 
 |  |  |
 |---|---|
@@ -12,7 +12,7 @@ One run on the host below. It places the Reference for the comparison with the C
 | Measured | 2026-10-09 |
 | Host | Apple M1 Pro, 10 cores, 16 GiB, darwin 27.0.0 arm64, Docker |
 
-## S1: one `createRecord`
+## Single write: one `createRecord`
 
 | Records in the repository | p50 / p99 ms | Bytes of new blocks per write | Net block rows per write | Net block bytes per write |
 |---|---|---|---|---|
@@ -23,7 +23,7 @@ One run on the host below. It places the Reference for the comparison with the C
 
 The bytes of new blocks are the CAR slice of the commit on the firehose: the commit, the tree nodes on the path to the record, and the record. Net growth is what the block table keeps after the Reference deletes the nodes and the commit that the write replaced.
 
-## S2: `applyWrites` with 200 operations
+## Batch write: `applyWrites` with 200 operations
 
 | Records in the repository | p50 / max ms |
 |---|---|
@@ -32,13 +32,13 @@ The bytes of new blocks are the CAR slice of the commit on the firehose: the com
 | 10,000 | 242 / 400 |
 | 100,000 | 255.5 / 453.7 |
 
-## S3: `getRepo` export
+## Export: `getRepo`
 
 | Records | Wall ms | CAR MiB | Blocks | Memory growth MiB |
 |---|---|---|---|---|
 | 101,100 | 1,642 | 19.8 | 128,312 | 49.1 |
 
-## S4: one writer at 50 commits a second
+## Fan-out: one writer at 50 commits a second
 
 | Subscribers | Writes answered 200 | Frames delivered | Lag p50 / p99 ms | Commit p50 / p99 ms | Memory MiB |
 |---|---|---|---|---|---|
@@ -51,7 +51,7 @@ Lag runs from the moment the write was sent to the moment a subscriber received 
 
 ### After the subscribers left
 
-Write throughput of 50 writers, each writing as fast as it is answered, around the S4 run that ended with 1,000 subscribers. Every subscriber had disconnected before the second and third measurement.
+Write throughput of 50 writers, each writing as fast as it is answered, around the fan-out run that ended with 1,000 subscribers. Every subscriber had disconnected before the second and third measurement.
 
 | When | Commits per second | Failed writes | Slowest write ms |
 |---|---|---|---|
@@ -59,22 +59,22 @@ Write throughput of 50 writers, each writing as fast as it is answered, around t
 | Right after they left | 125 | 0 | 1,857 |
 | Fifteen seconds later | 131 | 0 | 1,519 |
 
-## S5: backfill from a cursor
+## Backfill from a cursor
 
 | Events | Wall ms | Events per second | Memory growth MiB |
 |---|---|---|---|
 | 100,000 | 9,791 | 10,213 | 90.3 |
 
-## S9: writers across actors, two commits a second each
+## Many writers across actors, two commits a second each
 
 | Writers | Writes answered 200 | Lag p50 / p99 ms | Commit p50 / p99 ms | Sequencer fsyncs |
 |---|---|---|---|---|
 | 50 | 3,000 of 3,000 | 205.6 / 1122.7 | 167.2 / 374.1 | not observable from outside the Reference |
 
-## S8: concurrent uploads of 5 MiB
+## Concurrent uploads of 5 MiB
 
 | Uploads | Wall ms | Upload p50 / max ms | Memory growth MiB |
 |---|---|---|---|
 | 20 | 1,178 | 1114 / 1160.2 | 65.5 |
 
-S6 (idle accounts) and S7 (the token endpoint) are measured from unit 5 on. See the [harness README](../README.md#performance-scenarios).
+The idle-accounts and token-endpoint scenarios are measured from unit 5 on. See the [harness README](../README.md#performance-scenarios).

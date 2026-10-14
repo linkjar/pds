@@ -1,7 +1,8 @@
-// S1 to S3 of SPEC 16.1 as micro-benchmarks of the Reference's repository
-// library, `@atproto/repo` at the pin, with a memory block store. The same
-// sequence and the same records as `scenarios/perf/01-repository` and as
-// `bench/src/bin/repo-bench.rs`, so the three sets of numbers line up.
+// The single-write, batch-write and export scenarios of SPEC 16.1 as
+// micro-benchmarks of the Reference's repository library, `@atproto/repo` at
+// the pin, with a memory block store. The same sequence and the same records
+// as `scenarios/perf/01-repository` and as `bench/src/bin/repo-bench.rs`, so
+// the three sets of numbers line up.
 //
 //   node src/tools/repo-micro.ts [full|smoke] [out.json]
 //
@@ -84,7 +85,7 @@ for (const size of sizes) {
   console.error(`@atproto/repo: size ${size} done at ${((performance.now() - started) / 1000).toFixed(1)}s`)
 }
 
-// S3: three exports, bytes counted and dropped as a socket would take them.
+// The export scenario: three exports, bytes counted and dropped as a socket would take them.
 const exports: { ms: number; bytes: number }[] = []
 for (let i = 0; i < 3; i++) {
   const start = performance.now()

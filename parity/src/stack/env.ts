@@ -174,7 +174,7 @@ export function pdsEnv(spec: TargetSpec, profile: Profile, secrets: Secrets): Re
     env.LOG_LEVEL = 'warn'
     // The relay runs under emulation on an arm64 host; keep it out of the measurements.
     env.PDS_CRAWLERS = ''
-    // S4 measures up to a thousand subscribers, each allowed to fall behind as far as the default.
+    // The fan-out scenario measures up to a thousand subscribers, each allowed to fall behind as far as the default.
     env.PDS_REPO_BACKFILL_LIMIT_MS = String(7 * 24 * 60 * 60 * 1000)
   }
   // The Candidate stands in for the production build, so it runs the linkjar

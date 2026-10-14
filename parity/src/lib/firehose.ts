@@ -1,6 +1,6 @@
-// Firehose reading for oracle O3 (SPEC 17.3). Frames are decoded with the
-// same libraries the SDK uses: two DAG-CBOR objects per message, and the CAR
-// slice of a commit through `@atproto/repo`.
+// Firehose reading for the firehose check (SPEC 17.3). Frames are decoded
+// with the same libraries the SDK uses: two DAG-CBOR objects per message, and
+// the CAR slice of a commit through `@atproto/repo`.
 
 import { performance } from 'node:perf_hooks'
 import * as dagCbor from '@ipld/dag-cbor'

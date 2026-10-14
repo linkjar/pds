@@ -1,6 +1,7 @@
 // OAuth, the flows that must work: SPEC 11.1 (metadata), 11.3 (PAR,
-// authorize, token, refresh, revoke) and oracle O4's first clause: full flows
-// for two fixture users, and again after a server restart.
+// authorize, token, refresh, revoke) and the first clause of the OAuth flows
+// of SPEC 17.3: full flows for two fixture users, and again after a server
+// restart.
 
 import assert from 'node:assert/strict'
 import { launchBrowser, newDevice } from '../../src/lib/browser.ts'
@@ -74,7 +75,7 @@ scenario('20-oauth-flow', { timeoutMs: 300_000 }, async (s) => {
   assert.equal(session.json.email, undefined, 'the email needs transition:email')
   const written = await viaSession(s, 'createRecord through OAuth', a.session, '/xrpc/com.atproto.repo.createRecord', { json: { repo: alice.did, collection: NOTE, rkey: 'oauth', record: { $type: NOTE, via: 'oauth' } } })
   assert.equal(written.status, 200)
-  await checkRepo(s, 'O2 after a write through OAuth', alice)
+  await checkRepo(s, 'after a write through OAuth', alice)
   const proxied = await viaSession(s, 'a proxied call through OAuth', a.session, `/xrpc/app.bsky.graph.getFollows?actor=${alice.did}`)
   assert.equal(proxied.status, 200)
   // Cross-user access: alice's session cannot write to bob's repository.
@@ -94,7 +95,7 @@ scenario('20-oauth-flow', { timeoutMs: 300_000 }, async (s) => {
   s.note('tokens after a refresh', await describeSession(s, client, bob.did))
   assert.equal((await viaSession(s, 'getSession after a refresh', refreshed, '/xrpc/com.atproto.server.getSession')).status, 200)
 
-  // O4: after a server restart the sessions still work, refresh works, and a new flow works.
+  // After a server restart the sessions still work, refresh works, and a new flow works.
   await s.target.restart()
   const afterRestart = await client.client.restore(alice.did, false)
   assert.equal((await viaSession(s, 'getSession after a restart, same access token', afterRestart, '/xrpc/com.atproto.server.getSession')).status, 200)

@@ -1,6 +1,7 @@
-// Proxying and service auth: SPEC 4.4 and 5.4, with VP-2 (the `aud` of the
-// forwarded token), VP-3 (`lxm` on inbound service auth), VP-4 (token
-// lifetime), and the forwarded half of VP-6 and VP-7.
+// Proxying and service auth: SPEC 4.4 and 5.4, with the verify-at-pin items
+// on the `aud` of the forwarded token, `lxm` on inbound service auth, the
+// service-token lifetime, and the forwarded half of `resolveLexicon` and
+// `listReposByCollection`.
 
 import assert from 'node:assert/strict'
 import { bearer, verifyServiceToken } from '../../src/oracles/service-auth.ts'
@@ -27,11 +28,11 @@ scenario('08-proxy', {}, async (s) => {
   assert.equal(forwarded.query.actor, alice.did)
   assert.equal(forwarded.headers['atproto-accept-labelers'], `${MOD_DID};redact`, 'the labeler header goes out (SPEC 4.4)')
   let token = await verifyServiceToken(s, bearer(forwarded.headers), alice.did)
-  // VP-2: at the pin the outbound `aud` is the bare DID, without the service fragment.
-  assert.equal(token.claims.aud, APPVIEW_DID, 'VP-2')
+  // At the pin the outbound `aud` is the bare DID, without the service fragment.
+  assert.equal(token.claims.aud, APPVIEW_DID, 'the outbound aud is the bare DID')
   assert.equal(token.claims.lxm, 'app.bsky.graph.getFollows')
-  // VP-4: sixty seconds.
-  assert.equal(token.lifetime, 60, 'VP-4')
+  // The service-token lifetime: sixty seconds.
+  assert.equal(token.lifetime, 60, 'service-token lifetime')
   assert.ok(typeof token.claims.jti === 'string')
   s.note('forwarded token', { header: token.header, aud: token.claims.aud, lxm: token.claims.lxm, lifetime: token.lifetime, claims: Object.keys(token.claims).sort() })
   s.note('forwarded request headers', Object.keys(forwarded.headers).filter((h) => !['host', 'authorization', 'x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto', 'via', 'user-agent', 'accept-encoding', 'connection', 'content-length'].includes(h)).sort())
@@ -39,11 +40,12 @@ scenario('08-proxy', {}, async (s) => {
   // The proxy needs a session (SPEC 4.4).
   refused(await s.query('proxied query without a credential', 'app.bsky.graph.getFollows', { actor: alice.did }), 'AuthMissing')
 
-  // VP-6 and VP-7, forwarded half: no local handler, so with a session both
-  // go to the AppView like any unknown method.
+  // `resolveLexicon` and `listReposByCollection`, forwarded half: no local
+  // handler, so with a session both go to the AppView like any unknown
+  // method.
   for (const [label, nsid, params] of [
-    ['VP-6 resolveLexicon', 'com.atproto.lexicon.resolveLexicon', { nsid: 'app.bsky.feed.post' }],
-    ['VP-7 listReposByCollection', 'com.atproto.sync.listReposByCollection', { collection: 'app.bsky.feed.post' }],
+    ['resolveLexicon', 'com.atproto.lexicon.resolveLexicon', { nsid: 'app.bsky.feed.post' }],
+    ['listReposByCollection', 'com.atproto.sync.listReposByCollection', { collection: 'app.bsky.feed.post' }],
     ['unknown method', 'com.example.doesNotExist', {}],
   ] as const) {
     mark = await s.fixtures.cursor()
@@ -62,7 +64,7 @@ scenario('08-proxy', {}, async (s) => {
   const [toMod] = await s.fixtures.calls(HOSTS.mod, mark)
   assert.equal(toMod?.path, '/xrpc/com.example.parity.ping')
   token = await verifyServiceToken(s, bearer(toMod!.headers), alice.did)
-  assert.equal(token.claims.aud, MOD_DID, 'VP-2 holds for an explicit target')
+  assert.equal(token.claims.aud, MOD_DID, 'the outbound aud is the bare DID for an explicit target')
   refused(await s.query('proxy target with a service id the document lacks', 'com.example.parity.ping', {}, { auth: alice, headers: { 'atproto-proxy': `${MOD_DID}#no_such_service` } }))
   refused(await s.query('proxy target without a service id', 'com.example.parity.ping', {}, { auth: alice, headers: { 'atproto-proxy': MOD_DID } }))
   refused(await s.query('proxy target that is not a DID', 'com.example.parity.ping', {}, { auth: alice, headers: { 'atproto-proxy': 'not-a-did#service' } }))
@@ -96,11 +98,11 @@ scenario('08-proxy', {}, async (s) => {
   // Account management cannot be reached through a service token or the proxy.
   refused(await s.query('getServiceAuth for a protected method', 'com.atproto.server.getServiceAuth', { aud: APPVIEW_DID, lxm: 'com.atproto.server.createAppPassword' }, { auth: alice }))
 
-  // getServiceAuth (SPEC 5.4). VP-4: the default lifetime is sixty seconds.
+  // getServiceAuth (SPEC 5.4). The default lifetime is sixty seconds.
   const issued = await s.query('getServiceAuth', 'com.atproto.server.getServiceAuth', { aud: APPVIEW_DID, lxm: 'app.bsky.feed.getTimeline' }, { auth: alice })
   assert.equal(issued.status, 200)
   token = await verifyServiceToken(s, issued.json.token, alice.did)
-  assert.equal(token.lifetime, 60, 'VP-4')
+  assert.equal(token.lifetime, 60, 'service-token lifetime')
   assert.equal(token.claims.aud, APPVIEW_DID)
   assert.equal(token.claims.lxm, 'app.bsky.feed.getTimeline')
   // A requested expiry is an absolute time, so these exchanges are kept out
@@ -128,22 +130,22 @@ scenario('08-proxy', {}, async (s) => {
   const forUpload = await s.query('getServiceAuth for uploadBlob on this server', 'com.atproto.server.getServiceAuth', { aud: PDS_DID, lxm: 'com.atproto.repo.uploadBlob' }, { auth: alice })
   const accepted = await upload('uploadBlob with a service token', forUpload.json.token)
   assert.equal(accepted.status, 200)
-  // VP-3: a token without `lxm` is refused where a method is expected. On
-  // uploadBlob the Reference tells a service token from a session token by
-  // the presence of `lxm`, so a method-less token is read as a session token
-  // and fails as one. On createAccount it reaches the service-auth verifier,
-  // which names the missing claim.
-  refused(await upload('VP-3 uploadBlob with a service token that has no lxm', methodless.json.token), 'InvalidToken')
+  // `lxm` on inbound service auth: a token without it is refused where a
+  // method is expected. On uploadBlob the Reference tells a service token
+  // from a session token by the presence of `lxm`, so a method-less token is
+  // read as a session token and fails as one. On createAccount it reaches the
+  // service-auth verifier, which names the missing claim.
+  refused(await upload('uploadBlob with a service token that has no lxm', methodless.json.token), 'InvalidToken')
   const fresh = await s.query('getServiceAuth without lxm, again', 'com.atproto.server.getServiceAuth', { aud: PDS_DID }, { auth: alice })
-  const noLxm = await s.procedure('VP-3 createAccount with a service token that has no lxm', 'com.atproto.server.createAccount', { handle: s.handle('moved'), did: alice.did }, { auth: fresh.json.token })
+  const noLxm = await s.procedure('createAccount with a service token that has no lxm', 'com.atproto.server.createAccount', { handle: s.handle('moved'), did: alice.did }, { auth: fresh.json.token })
   refused(noLxm)
-  s.note('VP-3 createAccount without lxm', { status: noLxm.status, error: noLxm.json?.error, message: noLxm.json?.message })
+  s.note('createAccount without lxm', { status: noLxm.status, error: noLxm.json?.error, message: noLxm.json?.message })
   const otherMethod = await s.query('getServiceAuth for another method', 'com.atproto.server.getServiceAuth', { aud: PDS_DID, lxm: 'com.atproto.repo.createRecord' }, { auth: alice })
   refused(await upload('uploadBlob with a service token for another method', otherMethod.json.token))
   const otherAudience = await s.query('getServiceAuth for another audience', 'com.atproto.server.getServiceAuth', { aud: APPVIEW_DID, lxm: 'com.atproto.repo.uploadBlob' }, { auth: alice })
   refused(await upload('uploadBlob with a service token for another audience', otherAudience.json.token))
   // A replayed token: the same jti twice. The Reference accepts it; the
-  // Candidate refuses it (SPEC 2.3, DD-5).
+  // Candidate refuses it, a deliberate difference (SPEC 2.3).
   const replay = await upload('uploadBlob with the same service token again', forUpload.json.token)
   s.note('replayed service token', { status: replay.status, error: replay.json?.error })
 
