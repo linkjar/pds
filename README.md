@@ -4,41 +4,15 @@ An AT Protocol Personal Data Server in Rust, compatible with the reference
 implementation, with LinkJar's account behaviour as native extension points
 instead of source patches. Dual-licensed MIT or Apache-2.0.
 
-> Status: unit 5 of 13, in progress. The server reads and writes repositories and
-> serves the firehose, on a data directory that the reference server
-> started. Blobs are on disk or in an S3-compatible store with the
-> reference server's object names
-> ([unit record](docs/research/2026-10-13-s3-blob-store.md)). The [parity harness](parity/README.md) runs the same write,
-> blob, import and firehose scenarios on both servers and allows only the
-> differences the owner decided
-> ([unit record](docs/research/2026-10-13-writes-and-firehose.md)). A relay
-> in strict mode accepts every commit. When the server stops between a
-> commit and its event, it states the head with `#sync` at the next start.
-> A simulation runs seeded plans every night, with stops inside commits
-> and losses of power below SQLite.
-> A second set of plans runs the server, a strict relay and a client on a
-> simulated network with partitions. Unit 5 is built: accounts with a
-> `did:plc` identity, legacy sessions and app passwords, email, the account
-> lifecycle, admin, the proxy with read-after-write, rate limits, and the
-> OAuth authorization server with pages rendered on the server. Unit 6 is
-> built too: the `linkjar` profile, which has the behaviour of the eight
-> account patches. All 22 default scenarios of the harness pass against
-> the server alone. Unit 7 adds a tamper-evident audit log with signed
-> checkpoints and an offline verifier. From unit 8 the server takes an
-> account that moves here, serves metrics on a private listener, and has
-> a [cutover runbook](docs/runbooks/cutover.md); the cutover itself is the
-> owner's. Unit 9 adds the ops listener, operator roles and the
-> [operations console](docs/sidecars.md#16-state-after-unit-9), and unit
-> 10 the [MCP server](docs/sidecars.md#28-state-after-unit-10). From unit
-> 11 the accounts and the event log can be in
-> [Postgres](docs/runbooks/postgres.md). Unit 12 adds a member host and
-> an entryway with one member host
-> ([record](docs/research/2026-10-14-entryway.md)). The repository engine
-> is written here and gives the same bytes as `@atproto/repo` at the pin
-> ([decision D2](docs/research/2026-10-12-repository-crate.md)). The
-> specification is at revision 16. The reference image under
-> [`legacy/`](legacy/README.md) remains the deployed server until cutover.
-> Progress is logged in [docs/plan.md](docs/plan.md#status).
+> **Status, 2026-10-14.** Every unit of the [plan](docs/plan.md) has code
+> on `main`: reads, writes and the firehose on a data directory that the
+> reference server started; accounts, OAuth and the `linkjar` profile; the
+> audit log; the operations console and the MCP server; Postgres; and the
+> entryway. The [parity harness](parity/README.md) passes its default
+> scenarios against the server alone, on Postgres, and behind an entryway.
+> The reference image under [`legacy/`](legacy/README.md) remains the
+> deployed server until the cutover. The steps before the cutover are the
+> owner's; the plan lists them with checkboxes.
 
 ## Start here
 
@@ -47,7 +21,7 @@ instead of source patches. Dual-licensed MIT or Apache-2.0.
 | [docs/README.md](docs/README.md) | The documentation map |
 | [docs/architecture/README.md](docs/architecture/README.md) | One diagram per part of the system, rendered with beautiful-mermaid, kept current with the code |
 | [docs/SPEC.md](docs/SPEC.md) | The normative specification (RFC 2119) |
-| [docs/plan.md](docs/plan.md) | Decision record, owner decisions, delivery units, status |
+| [docs/plan.md](docs/plan.md) | Status of each unit, the owner's steps, what is not built, decisions |
 | [docs/sidecars.md](docs/sidecars.md) | The operations console and the MCP server |
 | [docs/research/](docs/research/) | What other systems do, and the gap report against atproto.com |
 | [.agent_sources/README.md](.agent_sources/README.md) | Checkouts of the pinned upstream sources for reading: `scripts/vendor-agent-sources.sh` |
@@ -175,11 +149,12 @@ Four files hold the numbers measured so far:
   p50; a batch of 200 took 190.3 ms and 14.3 ms. With 100,000 records the
   single write took 14.5 ms and 11.5 ms.
 - [parity/results/perf-reference.md](parity/results/perf-reference.md): the
-  reference server's baseline for scenarios S1 to S5, S8 and S9 of SPEC
+  reference server's baseline for the single-write, batch-write, export,
+  fan-out, backfill, concurrent-uploads and many-writers scenarios of SPEC
   §16.1.
 - [bench/README.md](bench/README.md): the repository engine beside
-  `rsky-repo` on the same vectors and workload, the evidence for decision
-  D2.
+  `rsky-repo` on the same vectors and workload, the evidence for the
+  decision on the repository engine.
 
 Each of the three result files is one run on one host, an Apple M1 Pro under
 Docker, and says of itself that it is not a benchmark. The requests in the
@@ -189,7 +164,7 @@ under load.
 ## Contributing
 
 Work happens in bounded units that each end in a merge with their gate green
-([docs/plan.md](docs/plan.md#delivery-units)). The specification is the
+([docs/plan.md](docs/plan.md#units)). The specification is the
 source of truth; a change in behaviour starts with a change there. Every
 architecture diagram in `docs/architecture/` is updated in the same change as
 the code it describes.

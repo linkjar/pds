@@ -94,14 +94,16 @@ About the Reference at the pin:
    replaces the repository with it. The caller must hold a full session of
    the account, so this is not a way into another account. It does mean
    that the Reference stores a repository whose commit its own key did not
-   sign, and serves it. The Candidate refuses both (DD-14).
+   sign, and serves it. The Candidate refuses both, a deliberate difference
+   (SPEC §2.3).
 2. **A tree that is not a Merkle search tree is accepted.** A key at the
    wrong layer and keys out of order across nodes are both stored. An empty
-   node below the root is 500 (DD-7).
+   node below the root is 500 (a deliberate difference, SPEC §2.3).
 3. **A record block that is not canonical DAG-CBOR is accepted**: map keys
-   out of order, the float `1.0`, and `undefined` (DD-8).
+   out of order, the float `1.0`, and `undefined` (a deliberate
+   difference, SPEC §2.3).
 4. **A record may reference a blob with size zero, and with an empty media
-   type** (DD-9). The second was not expected: the Reference compares the
+   type** (a deliberate difference, SPEC §2.3). The second was not expected: the Reference compares the
    record's media type with the stored one only while the blob still waits
    for its first record.
 5. **An import appends no event and does not write the account database's
@@ -116,7 +118,8 @@ About the Reference at the pin:
    it (`staleAccountRoots`) and calls only a root ahead of the store a
    difference.
 7. **A batch that updates or deletes a key with no record is 500.** The
-   owner's decision D15 names the create on a key that exists; the
+   owner's decision of 2026-10-09 to answer client errors with 400
+   names the create on a key that exists; the
    Candidate answers 500 to the other two, as the pin does.
 
 About the Candidate, found by its own tests and by the Harness, and fixed:
@@ -256,17 +259,18 @@ may name different ones (SPEC §6.3).
 ## 7. Measurements
 
 [perf-writes.md](../../parity/results/perf-writes.md), measured on 2026-10-13
-by `pnpm parity writes --perf`: SPEC §16.1, S1 to S3, on each server, on a
+by `pnpm parity writes --perf`: the single-write, batch-write and export
+scenarios of SPEC §16.1, on each server, on a
 stack of its own. One run on one host, sequential requests. It is not a
 benchmark and not a run against the targets of SPEC §16.2.
 
 | | Reference | Candidate |
 |---|---|---|
-| S1, one `createRecord`, 1,000 records in the repository, p50 / p99 ms | 14.4 / 43.4 | 4.9 / 10.8 |
-| S1, 100,000 records, p50 / p99 ms | 14.5 / 53.9 | 11.5 / 37.4 |
-| S2, `applyWrites` of 200, 1,000 records, p50 ms | 190.3 | 14.3 |
-| S2, 100,000 records, p50 ms | 274.7 | 31.4 |
-| S3, export of 101,100 records, ms | 1,529 | 201 |
+| Single write, one `createRecord`, 1,000 records in the repository, p50 / p99 ms | 14.4 / 43.4 | 4.9 / 10.8 |
+| Single write, 100,000 records, p50 / p99 ms | 14.5 / 53.9 | 11.5 / 37.4 |
+| Batch write, `applyWrites` of 200, 1,000 records, p50 ms | 190.3 | 14.3 |
+| Batch write, 100,000 records, p50 ms | 274.7 | 31.4 |
+| Export of 101,100 records, ms | 1,529 | 201 |
 
 The bytes of new blocks per write are the same on both servers at every
 size, and the export has the same 128,312 blocks.

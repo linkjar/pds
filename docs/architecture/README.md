@@ -273,7 +273,7 @@ distribution, then the three comparisons, and the restore run on the
 Candidate image that `./Dockerfile` builds. A tool in `parity/` writes
 fixtures with `@atproto/repo` at the pin, which the tests of `pds-repo`
 replay. [`bench/`](../../bench/README.md) runs `pds-repo` beside `rsky-repo`
-for decision D2; like `fuzz/`, it is outside the workspace and its gates. Source: [`18-repository.mmd`](diagrams/18-repository.mmd).
+for the decision on the repository engine; like `fuzz/`, it is outside the workspace and its gates. Source: [`18-repository.mmd`](diagrams/18-repository.mmd).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="svg/18-repository.dark.svg">

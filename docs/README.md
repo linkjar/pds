@@ -4,12 +4,18 @@
 
 ## Normative
 
-- [SPEC.md](SPEC.md): the LinkJar PDS specification, revision 6. Compatibility baseline, protocol surface, storage, identity, accounts, OAuth, extension points, the LinkJar profile, operations, security, performance, parity, cutover, simulation, audit log, topologies, sidecars.
+- [SPEC.md](SPEC.md): the LinkJar PDS specification. Compatibility baseline, protocol surface, storage, identity, accounts, OAuth, extension points, the LinkJar profile, operations, security, performance, parity, cutover, simulation, audit log, topologies, sidecars.
 
 ## Plan and decisions
 
-- [plan.md](plan.md): why the project exists, the owner's decisions, the thirteen delivery units with gates and allowances, and the dated status log.
+- [plan.md](plan.md): why the project exists, the thirteen units with a checkbox for each part of their gates, the owner's steps before the cutover, what is not built, and the decisions by date.
 - [sidecars.md](sidecars.md): the operations console and the MCP server, their contracts with the PDS, and what they may not hold.
+
+## Runbooks
+
+- [runbooks/cutover.md](runbooks/cutover.md): the cutover from the Reference to the Candidate on the same host name and data directory. The owner runs every step.
+- [runbooks/entryway.md](runbooks/entryway.md): a single node becomes an entryway and a member host, with no change of a DID document.
+- [runbooks/postgres.md](runbooks/postgres.md): the shared tier moves from SQLite files to Postgres, and back.
 
 ## Architecture
 
@@ -20,22 +26,29 @@
 - [../parity/README.md](../parity/README.md): how the harness is built and run, the oracles, the restore run and the writes run of the Candidate, the contract its page driver relies on, and the port of the legacy suites.
 - [../parity/verify-at-pin.md](../parity/verify-at-pin.md): the twelve "verify at pin" answers with source and scenario, the rate-limiter table, and what the scenarios corrected in the specification.
 - [../parity/differences/README.md](../parity/differences/README.md): how the stock build and the production build differ, by patch, and how the Reference and the Candidate differ, by deliberate difference.
-- [../parity/results/perf-writes.md](../parity/results/perf-writes.md): S1 to S3 on the Reference and on the Candidate.
+- [../parity/results/perf-writes.md](../parity/results/perf-writes.md): the single-write, batch-write and export scenarios on the Reference and on the Candidate.
 - [../parity/results/perf-reference.md](../parity/results/perf-reference.md): the Reference's baseline for the performance scenarios.
 
 ## Research
 
 - [research/2026-10-08-state-of-the-art.md](research/2026-10-08-state-of-the-art.md): how other PDS implementations, replication tools, simulation testers, transparency logs and supply-chain tooling solve what this project needs, with sources.
-- [research/2026-10-08-atproto-doc-sweep.md](research/2026-10-08-atproto-doc-sweep.md): the gap report of SPEC revision 0 against every atproto.com specification and guide page.
+- [research/2026-10-08-atproto-doc-sweep.md](research/2026-10-08-atproto-doc-sweep.md): the gap report of the first SPEC draft against every atproto.com specification and guide page.
 - [research/2026-10-09-parity-harness.md](research/2026-10-09-parity-harness.md): the relay, the PLC directory and the OAuth client the harness runs beside the PDS, with the source of each fact.
-- [research/2026-10-12-repository-crate.md](research/2026-10-12-repository-crate.md): decision D2. The in-house repository engine and `rsky-repo` on the same interop vectors, the same fixtures from `@atproto/repo` at the pin, and the same S1 to S3 workload, with the method and the host.
-
+- [research/2026-10-12-repository-crate.md](research/2026-10-12-repository-crate.md): the decision on the repository engine. The in-house repository engine and `rsky-repo` on the same interop vectors, the same fixtures from `@atproto/repo` at the pin, and the same single-write, batch-write and export workload, with the method and the host.
 - [research/2026-10-10-upstream-0.5.35-to-0.5.37.md](research/2026-10-10-upstream-0.5.35-to-0.5.37.md): what upstream released after the pin, the shared-node fix (#5584) for LinkJar's deployment, and the cost of each pin option.
 - [research/2026-10-13-accounts-and-sessions.md](research/2026-10-13-accounts-and-sessions.md): unit 5, first part. Account creation, legacy sessions and app passwords, and how the writes run holds them to the Reference.
 - [research/2026-10-13-power-loss-vfs.md](research/2026-10-13-power-loss-vfs.md): unit 4b, second part. The seam below SQLite, the VFS that loses power, what the seeds showed and what is not modelled.
 - [research/2026-10-13-s3-blob-store.md](research/2026-10-13-s3-blob-store.md): unit 4b, first part. The S3-compatible blob store, how it is held to the Reference on a store that checks signatures, and what the Reference answers there.
 - [research/2026-10-13-writes-and-firehose.md](research/2026-10-13-writes-and-firehose.md): unit 4. The write path, the event log and the firehose, the writes run that compares them with the Reference, what the Reference answers to data from elsewhere, the boundary between a commit and its event, the simulation, and what the unit leaves out.
 - [research/2026-10-13-read-only-server.md](research/2026-10-13-read-only-server.md): unit 3. What the read-only server serves, the restore run that compares it with the Reference on one data directory, what the comparison found, what `verify` checks, and what the unit leaves out.
+- [research/2026-10-13-oauth.md](research/2026-10-13-oauth.md): unit 5, ninth part. The OAuth authorization server, OAuth sessions on the XRPC routes, and an account's own writes in the AppView's reads.
+- [research/2026-10-13-linkjar-profile.md](research/2026-10-13-linkjar-profile.md): unit 6. The `linkjar` profile, which gives the Candidate the behaviour of the eight account patches.
+- [research/2026-10-13-audit-log.md](research/2026-10-13-audit-log.md): unit 7. The audit log that an operator cannot rewrite without it showing.
+- [research/2026-10-13-migration-and-telemetry.md](research/2026-10-13-migration-and-telemetry.md): unit 8, first part. Migration in, metrics, the lock on the data directory and the cutover runbook.
+- [research/2026-10-13-ops-console.md](research/2026-10-13-ops-console.md): unit 9. The ops listener and the operations console.
+- [research/2026-10-13-mcp-server.md](research/2026-10-13-mcp-server.md): unit 10. The MCP server for AI clients.
+- [research/2026-10-13-postgres.md](research/2026-10-13-postgres.md): unit 11. The shared tier on Postgres, and `migrate-storage`.
+- [research/2026-10-14-entryway.md](research/2026-10-14-entryway.md): unit 12. A member host and an entryway with one member host.
 
 ## Upstream sources
 

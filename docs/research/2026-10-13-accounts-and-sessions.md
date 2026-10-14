@@ -15,7 +15,8 @@ created. It now creates its own and opens their sessions.
 
 The writes run holds them to the Reference. `default/02-sessions` and the
 new `writes/24-create-account` pass on both servers, and the comparison
-recorded three new entries, all of them DD-3: a second app password of one
+recorded three new entries, all of them the duplicate app-password name,
+a deliberate difference (SPEC §2.3): a second app password of one
 name is 500 on the Reference and 400 on the Candidate.
 
 ## 2. How it is held to the Reference

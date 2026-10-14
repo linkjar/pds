@@ -76,8 +76,10 @@ record references yet. On the disk store it answers 400 `InvalidRequest`,
 `BlobNotFoundError`. The disk store maps a missing file.
 
 Production runs on R2, so production answers 500 here today. The Candidate
-answers 400 on both stores. This is SPEC §2.3, DD-18, a client error that
-the Reference answers with 500, as in decision D15. The owner confirmed it
+answers 400 on both stores. This is a deliberate difference (SPEC §2.3):
+`getBlob` of an unreferenced upload on the S3-compatible store. It is a
+client error that the Reference answers with 500, the subject of the
+decision of 2026-10-09 to answer client errors with 400. The owner confirmed it
 on 2026-10-13.
 
 ## 5. What the Candidate needs that the Reference does not

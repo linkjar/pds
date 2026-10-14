@@ -147,7 +147,7 @@ PLC client error with a status of 500 or more to `UpstreamFailure`, which is
 Source: `packages/pds/src/index.ts` lines 165 to 183 at the pin.
 
 **Under a thousand subscribers the Reference falls behind.** Observed in
-three full-scale runs of S4 on one host. With 1 and 10 subscribers a writer
+three full-scale runs of the fan-out scenario on one host. With 1 and 10 subscribers a writer
 at 50 commits a second sees a median delivery lag of about 11 ms and a 99th
 percentile near half a second, which is the idle poll. With 100 the median
 was between 12 and 41 ms. With 1,000 the median lag and the median commit
@@ -158,7 +158,7 @@ subscribers had left.
 Source: [`parity/results/perf-reference.md`](../../parity/results/perf-reference.md).
 
 **One run suggests that a large repository in the same process disturbs
-writes to other repositories.** Observed once: S9 ran in the process that
+writes to other repositories.** Observed once: the many-writers scenario ran in the process that
 had just built and exported a repository of 100,000 records, and 420 of
 3,000 writes across fifty other actors came back from the edge as 502, with
 a median commit time near four seconds. After a restart of the server the same scenario
