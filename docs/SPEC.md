@@ -2153,8 +2153,8 @@ As of unit 12:
   token ends, at most 60 minutes later.
 - **The Harness** runs the default scenarios with the Candidate as a
   member host behind an entryway (`PARITY_CANDIDATE_ENTRYWAY=1`).
-- **Streams and the firehose.** Requests and answers go through the
-  entryway as streams. At an entryway `subscribeRepos` is the firehose of
+- **Streams and the firehose.** A request or an answer above 1 MiB, or
+  of unknown length, goes through the entryway as a stream. At an entryway `subscribeRepos` is the firehose of
   the member host, and only the member host asks the crawlers.
 - **Reconciliation.** `linkjar-pds reconcile` at an entryway compares the
   accounts with the repositories of the member host and, with
