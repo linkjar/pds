@@ -1456,6 +1456,7 @@ dependencies = [
  "data-encoding",
  "futures-util",
  "hmac",
+ "http-body",
  "lettre",
  "pds-audit",
  "pds-blob",
@@ -1476,6 +1477,7 @@ dependencies = [
  "subtle",
  "thiserror",
  "tokio",
+ "tokio-tungstenite",
  "tracing",
  "url",
 ]

@@ -86,6 +86,15 @@ pub fn from_entryway(headers: &HeaderMap) -> bool {
     headers.contains_key(FROM_ENTRYWAY)
 }
 
+/// The header of a call that a member host makes on its entryway, which
+/// keeps the entryway from passing the call back. It grants nothing.
+pub const FROM_MEMBER: &str = "x-linkjar-member-call";
+
+/// Whether the request is a call of the member host, see [`FROM_MEMBER`].
+pub fn from_member(headers: &HeaderMap) -> bool {
+    headers.contains_key(FROM_MEMBER)
+}
+
 /// The headers of the client that go to the entryway.
 const PASSED_ON: &[HeaderName] = &[
     header::AUTHORIZATION,
@@ -187,7 +196,8 @@ pub async fn ask_entryway(
         .as_deref()
         .ok_or_else(|| unavailable("the server has no admin credential of the entryway"))?;
     let url = format!("{}/xrpc/{nsid}", entryway.url);
-    ask(state.http().post(url), state, password, input, "entryway").await
+    let request = state.http().post(url).header(FROM_MEMBER, "1");
+    ask(request, state, password, input, "entryway").await
 }
 
 async fn ask(
@@ -327,16 +337,16 @@ async fn pass_on(
             .ok_or_else(|| unavailable("the server has no admin credential of the entryway"))?;
         request = request.basic_auth("admin", Some(token));
     }
+    // The body goes on as it arrives: an upload may be larger than memory
+    // should hold, and the other server applies its own limits.
     if let Some(body) = body.take() {
-        let bytes = axum::body::to_bytes(body, BODY_LIMIT)
-            .await
-            .map_err(|_| XrpcError::invalid_request("request entity too large"))?;
-        request = request.body(bytes);
+        request = request.body(reqwest::Body::wrap(SyncBody(std::sync::Mutex::new(body))));
     }
-    let answer = request
-        .timeout(state.config().proxy_timeout)
-        .send()
+    // The time limit is for the answer to begin. An export or a blob may
+    // take longer to stream.
+    let answer = tokio::time::timeout(state.config().proxy_timeout, request.send())
         .await
+        .map_err(|_| unavailable("the entryway did not answer"))?
         .map_err(|_| unavailable("the entryway did not answer"))?;
     let status = StatusCode::from_u16(answer.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
     let mut passed = HeaderMap::new();
@@ -350,6 +360,18 @@ async fn pass_on(
             passed.insert(name, value);
         }
     }
+    // Only a session that the server changes on the way is read whole.
+    if service_token.is_none() || nsid != "com.atproto.server.getSession" {
+        let stream = futures_util::stream::unfold(Some(answer), |answer| async move {
+            let mut answer = answer?;
+            match answer.chunk().await {
+                Ok(Some(chunk)) => Some((Ok(chunk), Some(answer))),
+                Ok(None) => None,
+                Err(error) => Some((Err(error), None)),
+            }
+        });
+        return Ok((status, passed, Body::from_stream(stream)).into_response());
+    }
     let mut bytes = Vec::new();
     let mut answer = answer;
     while let Some(chunk) = answer
@@ -362,10 +384,39 @@ async fn pass_on(
         }
         bytes.extend_from_slice(&chunk);
     }
-    if service_token.is_some() {
-        bytes = hide_email(nsid, bytes);
+    Ok((status, passed, hide_email(nsid, bytes)).into_response())
+}
+
+/// A request body that the HTTP client can hold: it asks for `Sync`, and
+/// a body is `Send` only. The mutex is never locked: polling takes it by
+/// `&mut`.
+struct SyncBody(std::sync::Mutex<Body>);
+
+impl axum::body::HttpBody for SyncBody {
+    type Data = axum::body::Bytes;
+    type Error = axum::Error;
+
+    fn poll_frame(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Result<http_body::Frame<Self::Data>, Self::Error>>> {
+        let body = self
+            .get_mut()
+            .0
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        std::pin::Pin::new(body).poll_frame(cx)
     }
-    Ok((status, passed, bytes).into_response())
+
+    fn size_hint(&self) -> http_body::SizeHint {
+        self.0
+            .lock()
+            .map_or_else(|_| http_body::SizeHint::default(), |body| body.size_hint())
+    }
+
+    fn is_end_stream(&self) -> bool {
+        self.0.lock().is_ok_and(|body| body.is_end_stream())
+    }
 }
 
 /// The service token that replaces an OAuth token on the way to the
@@ -415,6 +466,87 @@ fn hide_email(nsid: &str, bytes: Vec<u8>) -> Vec<u8> {
         session.remove(field);
     }
     Value::Object(session).to_string().into_bytes()
+}
+
+/// Serves the firehose of the member host at an entryway: the frames of
+/// `com.atproto.sync.subscribeRepos` go through as they come, in both
+/// directions. `None` when the request is no WebSocket upgrade.
+///
+/// The connection to the member host is plain: its internal address is on
+/// a private network.
+pub async fn firehose(
+    host: &crate::state::MemberHost,
+    parts: &mut axum::http::request::Parts,
+) -> Option<Response> {
+    use axum::extract::FromRequestParts;
+    use axum::extract::ws::WebSocketUpgrade;
+    let upgrade = WebSocketUpgrade::from_request_parts(parts, &())
+        .await
+        .ok()?;
+    let base = host
+        .internal_url
+        .replacen("https://", "wss://", 1)
+        .replacen("http://", "ws://", 1);
+    let url = match parts.uri.query() {
+        Some(query) => format!("{base}/xrpc/com.atproto.sync.subscribeRepos?{query}"),
+        None => format!("{base}/xrpc/com.atproto.sync.subscribeRepos"),
+    };
+    Some(upgrade.on_upgrade(move |client| relay_frames(client, url)))
+}
+
+async fn relay_frames(client: axum::extract::ws::WebSocket, url: String) {
+    use axum::extract::ws::{CloseFrame, Message};
+    use futures_util::{SinkExt, StreamExt};
+    use tokio_tungstenite::tungstenite::Message as Upstream;
+    let (mut to_client, mut from_client) = client.split();
+    let Ok((upstream, _)) = tokio_tungstenite::connect_async(url.as_str()).await else {
+        tracing::warn!(%url, "the member host refused the firehose");
+        let close = CloseFrame {
+            code: 1011,
+            reason: "the member host is not reachable".into(),
+        };
+        let _ = to_client.send(Message::Close(Some(close))).await;
+        return;
+    };
+    let (mut to_member, mut from_member) = upstream.split();
+    let down = async {
+        while let Some(Ok(frame)) = from_member.next().await {
+            let message = match frame {
+                Upstream::Binary(bytes) => Message::Binary(bytes),
+                Upstream::Text(text) => Message::Text(text.as_str().into()),
+                Upstream::Close(frame) => Message::Close(frame.map(|frame| CloseFrame {
+                    code: frame.code.into(),
+                    reason: frame.reason.as_str().into(),
+                })),
+                // The libraries answer pings themselves.
+                Upstream::Ping(_) | Upstream::Pong(_) | Upstream::Frame(_) => continue,
+            };
+            let closing = matches!(message, Message::Close(_));
+            if to_client.send(message).await.is_err() || closing {
+                break;
+            }
+        }
+        let _ = to_client.close().await;
+    };
+    let up = async {
+        while let Some(Ok(message)) = from_client.next().await {
+            let frame = match message {
+                Message::Binary(bytes) => Upstream::Binary(bytes),
+                Message::Text(text) => Upstream::Text(text.as_str().into()),
+                Message::Close(_) => break,
+                Message::Ping(_) | Message::Pong(_) => continue,
+            };
+            if to_member.send(frame).await.is_err() {
+                break;
+            }
+        }
+        let _ = to_member.close().await;
+    };
+    // Either side that ends ends the other.
+    tokio::select! {
+        () = down => {}
+        () = up => {}
+    }
 }
 
 #[cfg(test)]

@@ -394,8 +394,7 @@ pub async fn entry(State(state): State<AppState>, request: axum::extract::Reques
     // The firehose is a WebSocket. Without an upgrade the method has no
     // route and falls through, as at the pin (SPEC §7.2).
     if nsid == subscribe::NSID
-        && state.writes().is_some()
-        && let Some(response) = subscribe::upgrade(&state, &mut parts).await
+        && let Some(response) = firehose(&state, &mut parts).await
     {
         return response;
     }
@@ -454,6 +453,16 @@ pub async fn entry(State(state): State<AppState>, request: axum::extract::Reques
         answer,
     ))
     .await
+}
+
+/// The firehose of a WebSocket upgrade: the server's own, or at an
+/// entryway the one of its member host (SPEC §21.3).
+async fn firehose(state: &AppState, parts: &mut axum::http::request::Parts) -> Option<Response> {
+    match state.config().member_host.clone() {
+        Some(host) => entryway::firehose(&host, parts).await,
+        None if state.writes().is_some() => subscribe::upgrade(state, parts).await,
+        None => None,
+    }
 }
 
 /// Whether the server has a handler for the method. Every other method

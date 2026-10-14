@@ -230,9 +230,15 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
     );
     let server = server_config(config, jwt_secret, admin_password);
     let storage = |error: pds_storage::StorageError| ServeError::Storage(error.to_string());
+    // An entryway keeps no repository: its member host has the firehose
+    // and asks the crawlers itself (SPEC §21.3).
     let crawlers = Crawlers::new(
         config.hostname.clone(),
-        config.crawlers.clone(),
+        if config.member_host.is_some() {
+            Vec::new()
+        } else {
+            config.crawlers.clone()
+        },
         http.clone(),
     );
     let sequencer = Sequencer::open_in(&config.layout, crawlers, now_ms).map_err(storage)?;
