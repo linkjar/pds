@@ -337,14 +337,28 @@ async fn pass_on(
             .ok_or_else(|| unavailable("the server has no admin credential of the entryway"))?;
         request = request.basic_auth("admin", Some(token));
     }
-    // The body goes on as it arrives: an upload may be larger than memory
-    // should hold, and the other server applies its own limits.
+    // A body of at most 1 MiB is read whole and sent with its length. A
+    // larger one, or one of unknown length, goes on as it arrives: an
+    // upload may be larger than memory should hold, and the other server
+    // applies its own limits.
+    let deadline = tokio::time::Instant::now() + state.config().proxy_timeout;
     if let Some(body) = body.take() {
-        request = request.body(reqwest::Body::wrap(SyncBody(std::sync::Mutex::new(body))));
+        let large = match declared_length(headers) {
+            Some(length) => length > BODY_LIMIT as u64,
+            None => headers.contains_key(header::TRANSFER_ENCODING),
+        };
+        request = if large {
+            request.body(reqwest::Body::wrap(SyncBody(std::sync::Mutex::new(body))))
+        } else {
+            let bytes = axum::body::to_bytes(body, BODY_LIMIT)
+                .await
+                .map_err(|_| XrpcError::invalid_request("request entity too large"))?;
+            request.body(bytes)
+        };
     }
-    // The time limit is for the answer to begin. An export or a blob may
-    // take longer to stream.
-    let answer = tokio::time::timeout(state.config().proxy_timeout, request.send())
+    // The time limit is for the answer to begin, and for a small answer
+    // to end. A large answer streams, with a limit for each piece.
+    let answer = tokio::time::timeout_at(deadline, request.send())
         .await
         .map_err(|_| unavailable("the entryway did not answer"))?
         .map_err(|_| unavailable("the entryway did not answer"))?;
@@ -360,23 +374,21 @@ async fn pass_on(
             passed.insert(name, value);
         }
     }
-    // Only a session that the server changes on the way is read whole.
-    if service_token.is_none() || nsid != "com.atproto.server.getSession" {
-        let stream = futures_util::stream::unfold(Some(answer), |answer| async move {
-            let mut answer = answer?;
-            match answer.chunk().await {
-                Ok(Some(chunk)) => Some((Ok(chunk), Some(answer))),
-                Ok(None) => None,
-                Err(error) => Some((Err(error), None)),
-            }
-        });
-        return Ok((status, passed, Body::from_stream(stream)).into_response());
+    // A large answer streams, unless the server changes it on the way:
+    // that is a session, which is small.
+    let large = answer
+        .content_length()
+        .is_none_or(|length| length > BODY_LIMIT as u64);
+    let changed = service_token.is_some() && nsid == "com.atproto.server.getSession";
+    if large && !changed {
+        let body = streamed(answer, state.config().proxy_timeout);
+        return Ok((status, passed, body).into_response());
     }
     let mut bytes = Vec::new();
     let mut answer = answer;
-    while let Some(chunk) = answer
-        .chunk()
+    while let Some(chunk) = tokio::time::timeout_at(deadline, answer.chunk())
         .await
+        .map_err(|_| unavailable("the entryway did not finish its answer"))?
         .map_err(|_| unavailable("the entryway did not finish its answer"))?
     {
         if bytes.len() + chunk.len() > BODY_LIMIT {
@@ -385,6 +397,31 @@ async fn pass_on(
         bytes.extend_from_slice(&chunk);
     }
     Ok((status, passed, hide_email(nsid, bytes)).into_response())
+}
+
+/// The answer as a body that streams. Each piece must come within `idle`:
+/// a stalled answer ends instead of holding the client.
+fn streamed(answer: reqwest::Response, idle: std::time::Duration) -> Body {
+    let stream = futures_util::stream::unfold(Some(answer), move |answer| async move {
+        let mut answer = answer?;
+        match tokio::time::timeout(idle, answer.chunk()).await {
+            Ok(Ok(Some(chunk))) => Some((Ok(chunk), Some(answer))),
+            Ok(Ok(None)) => None,
+            Ok(Err(error)) => Some((Err(axum::Error::new(error)), None)),
+            Err(elapsed) => Some((Err(axum::Error::new(elapsed)), None)),
+        }
+    });
+    Body::from_stream(stream)
+}
+
+/// The length a request declares in `Content-Length`.
+fn declared_length(headers: &HeaderMap) -> Option<u64> {
+    headers
+        .get(header::CONTENT_LENGTH)?
+        .to_str()
+        .ok()?
+        .parse()
+        .ok()
 }
 
 /// A request body that the HTTP client can hold: it asks for `Sync`, and

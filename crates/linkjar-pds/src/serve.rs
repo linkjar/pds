@@ -509,7 +509,11 @@ pub async fn serve(config: &Config) -> Result<(), ServeError> {
             "settled the commits that were in flight at the last stop"
         );
     }
-    tokio::spawn(collect_uploads(state.clone()));
+    // An entryway keeps no repository and so no upload: its member host
+    // collects them.
+    if config.member_host.is_none() {
+        tokio::spawn(collect_uploads(state.clone()));
+    }
     if let Some(address) = config.metrics_address {
         serve_metrics(address, state.clone()).await?;
     }
