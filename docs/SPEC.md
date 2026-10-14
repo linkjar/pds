@@ -1529,7 +1529,8 @@ gives the evidence.
 
 `linkjar-pds serve`, `migrate` (with `--allow-candidate-only`, §18.3),
 `migrate-storage` (§8.4), `check-config`, `verify` (§18.2), `repair` (§19.5),
-`export-car <did>`, `audit verify` and `audit export` (§20), `version`, and
+`export-car <did>`, `audit verify` and `audit export` (§20), `reconcile`
+(§21.3), `version`, and
 `health`, which asks the server on the same host for its health route and
 exits 0 when it answers 200. `health` is the container health check: the
 image holds no other program to make the request with.
@@ -2152,10 +2153,16 @@ As of unit 12:
   token ends, at most 60 minutes later.
 - **The Harness** runs the default scenarios with the Candidate as a
   member host behind an entryway (`PARITY_CANDIDATE_ENTRYWAY=1`).
+- **Streams and the firehose.** Requests and answers go through the
+  entryway as streams. At an entryway `subscribeRepos` is the firehose of
+  the member host, and only the member host asks the crawlers.
+- **Reconciliation.** `linkjar-pds reconcile` at an entryway compares the
+  accounts with the repositories of the member host and, with
+  `--remove-orphans`, removes a repository without an account that has
+  no commit of the last ten minutes. It repairs a sign-up that a crash
+  stopped.
 - **Not built:** more than one member host and the account-to-host map;
-  the operation log that resumes a workflow after a crash; a takedown at
-  the entryway that reaches the member host; requests above 1 MiB and the
-  firehose through the entryway.
+  an operation log that resumes a sign-up after a crash.
 
 ## 22. Sidecars
 
@@ -2726,3 +2733,7 @@ entryway ([unit record](research/2026-10-14-entryway.md)).
   sends a takedown of an account to the entryway. The authorization
   server metadata of an entryway names its member host. A handle host
   must reach the entryway for `/.well-known/atproto-did`.
+- §21.3: a takedown at the entryway reaches the member host; requests
+  and answers stream through the entryway; the entryway serves the
+  firehose of the member host; `reconcile`.
+- §14.2: the command `reconcile [--remove-orphans]`.

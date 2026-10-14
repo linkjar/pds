@@ -21,8 +21,8 @@ who use the apps before the day.
   when its access token ends, at most 60 minutes later.
 - Sessions with a password and with an app password go on: the client
   refreshes once and gets tokens of the entryway.
-- A client uploads blobs and reads the firehose at the member host. The
-  entryway passes on requests of at most 1 MiB.
+- The entryway passes uploads, exports and the firehose on to the member
+  host as streams. Only the member host asks the relay to crawl it.
 - A member host passes `activateAccount` and `deactivateAccount` on to
   the entryway. The entryway keeps the status and asks the member host to
   announce it.
@@ -87,7 +87,22 @@ who use the apps before the day.
    host.
 4. Change a handle. Both servers show it.
 
-## 5. Back to one server
+## 5. Reconcile
+
+A crash during a sign-up can leave a repository on the member host
+without an account at the entryway. At the entryway, run:
+
+```bash
+linkjar-pds reconcile
+```
+
+It lists each repository without an account and each account without a
+repository, and exits 1 when it finds one. To remove the repositories
+without an account, run it again with `--remove-orphans`. A repository
+with a commit of the last ten minutes stays: it may be a sign-up in
+progress.
+
+## 6. Back to one server
 
 Stop both. Remove the `PDS_ENTRYWAY_*` variables from the old server and
 give it its rotation key again. Copy `account.sqlite` of the entryway
