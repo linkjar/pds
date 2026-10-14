@@ -201,8 +201,15 @@ export function bootPds(target: TargetName, env: Record<string, string>, waitMs 
 
 export type Database = 'account' | 'sequencer' | 'did_cache' | { actor: string }
 
-/** Runs one SQL statement against a database of the target's data directory. */
+/**
+ * Runs one SQL statement against a database of the target's data directory.
+ * A Candidate on Postgres (PARITY_CANDIDATE_POSTGRES=1) keeps the shared
+ * tier in Postgres; the statement then goes there, see `postgres`.
+ */
 export function sqlite(target: TargetName, database: Database, sql: string, params: unknown[] = []): Record<string, unknown>[] {
+  if (target === 'candidate' && process.env.PARITY_CANDIDATE_POSTGRES === '1' && typeof database === 'string') {
+    return postgres(target, database, sql, params)
+  }
   let file: string
   if (typeof database === 'string') {
     file = `/app/data/${database}.sqlite`
@@ -212,6 +219,42 @@ export function sqlite(target: TargetName, database: Database, sql: string, para
   }
   const run = compose(target, ['run', '--rm', '--no-deps', '-T', 'sqlite'], { input: JSON.stringify({ file, sql, params }) })
   return JSON.parse(run.stdout)
+}
+
+/**
+ * Runs a statement written for SQLite against the schema of a shared
+ * database in the directory's Postgres, where the Candidate keeps it
+ * (SPEC 21.2). The scenarios write SQLite, so this translates the three
+ * things they use: `julianday`, camel-case column names, which Postgres
+ * folds to lower case unless quoted, and `?` parameters, which become
+ * literals.
+ */
+function postgres(target: TargetName, database: string, sql: string, params: unknown[]): Record<string, unknown>[] {
+  const literal = (value: unknown): string => {
+    if (value === null || value === undefined) return 'null'
+    if (typeof value === 'number' || typeof value === 'bigint') return String(value)
+    return `'${String(value).replaceAll("'", "''")}'`
+  }
+  let next = 0
+  // Odd parts are the string literals of the statement; they stay as written.
+  const statement = sql
+    .split(/('(?:[^']|'')*')/)
+    .map((part, index) =>
+      index % 2 === 1
+        ? part
+        : part
+            .replace(/\b([a-z]+[A-Z][A-Za-z]*)\b/g, '"$1"')
+            .replace(/\?/g, () => literal(params[next++])),
+    )
+    .join('')
+    .replace(/julianday\(([^()]*)\)/g, '(extract(epoch from cast($1 as timestamptz)) / 86400.0 + 2440587.5)')
+  const reads = /^\s*select\b/i.test(statement)
+  const script = [
+    `set search_path to pds_${database};`,
+    reads ? `select coalesce(json_agg(t), '[]'::json) from (${statement}) t;` : `${statement};`,
+  ].join('\n')
+  const run = compose(target, ['exec', '-T', 'plc-db', 'psql', '-U', 'plc', '-d', 'plc', '-qAt', '-v', 'ON_ERROR_STOP=1'], { input: script })
+  return reads ? JSON.parse(run.stdout) : []
 }
 
 /**
