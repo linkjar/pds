@@ -16,11 +16,10 @@ of the PDS.
 | MCP over Streamable HTTP | Built: JSON answers, eight tools, one resource template, two prompts. |
 | Audit of writes | Built in the PDS: the MCP server and the AI client. |
 | Known clients of the PDS | Built: `PDS_OAUTH_KNOWN_CLIENTS_FILE`. |
-| Official client and Inspector in the Harness | Not done. |
+| Official client and Inspector | Done on 2026-10-14, in the Rust tests and CI. |
 
 The gate of the unit names the official MCP client and the Inspector.
-They did not run. The test of this unit is a client written for it, so
-the unit proves the server against its own reading of the specification.
+On 2026-10-13 they did not run. On 2026-10-14 they ran, see §3.
 
 ## 2. How it is built
 
@@ -57,6 +56,19 @@ the unit proves the server against its own reading of the specification.
   form, a second browser, the code, the tools, a write outside the
   scope, a resource of another account, the audit entry, refresh
   rotation with a replay, and revocation on both sides.
+- `crates/linkjar-pds/tests/oauth.rs`,
+  `the_official_mcp_client_signs_in_through_the_pds`: the official MCP
+  TypeScript SDK 1.30.1 (`parity/mcp/official-client.ts`) finds the
+  server from its 401, registers, sends the person to sign in, exchanges
+  the code with PKCE, calls tools, reads a resource, refreshes and
+  revokes. The test is the browser on the pages of the PDS and of the MCP
+  server. The MCP Inspector 2.8.0 lists the tools with the token of the
+  SDK. CI runs the test with the versions of `parity/pnpm-lock.yaml`.
+  One finding: when the challenge names no scope, the SDK asks for every
+  scope of `scopes_supported`, `repo:write` too (SEP-835). A narrower
+  challenge does not help: on `insufficient_scope` with a refresh token
+  the SDK refreshes with the same scope and stops. The consent page is
+  where the person sees and refuses the scope.
 - `crates/pds-mcp`: the configuration and the client metadata, the
   scope map, the sessions and their budget, redirect URIs, the address
   check, the tool schemas and the prompts.
@@ -69,8 +81,8 @@ See [sidecars.md](../sidecars.md) §2.8. The three that matter most:
 
 1. **A store that outlives the process.** A restart ends every session,
    and two instances do not share one.
-2. **The official client and the Inspector.** Until they run, a
-   difference from what real clients send is possible.
+2. **Clients other than the official SDK.** Each AI product has its own
+   client. The SDK and the Inspector run; the others are not checked.
 3. **Schemas from the lexicons.** A model sees `record` as an object and
    learns its shape from a refusal of the PDS.
 

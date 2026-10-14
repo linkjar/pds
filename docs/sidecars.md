@@ -320,9 +320,10 @@ Not built:
 6. A fetch that pins the address it checked. The server checks the
    addresses of a client's host and then lets the HTTP client resolve the
    name again, as the PDS does.
-7. The run of the official MCP TypeScript client and of the MCP Inspector
-   in the Harness. The test of this unit drives the server as a client
-   written for the test.
+7. A scope step-up for the official client. On `insufficient_scope` the
+   SDK 1.30.1 refreshes with the scope it has, so a client that needs a
+   wider scope signs in again. The official client and the Inspector run
+   against the server in CI (`the_official_mcp_client_signs_in_through_the_pds`).
 8. The local mode for private data, which belongs to `linkjar.io`.
 
 ## 3. What this adds to the SPEC and the plan
