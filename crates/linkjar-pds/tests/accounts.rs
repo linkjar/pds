@@ -1811,7 +1811,13 @@ async fn a_checkpoint_is_published_as_a_record_of_the_operator() {
 
     let store = pds_storage::ActorDb::open(&dir.config.layout.actor_db(common::ALICE)).unwrap();
     let records = store
-        .list_records("io.linkjar.pds.audit.checkpoint", 10, true, None)
+        .list_records(
+            common::ALICE,
+            "io.linkjar.pds.audit.checkpoint",
+            10,
+            true,
+            None,
+        )
         .unwrap();
     assert_eq!(records.len(), 2);
     let fields = |row: &pds_storage::RecordRow| match pds_types::Data::from_dag_cbor(&row.content) {
