@@ -2,13 +2,13 @@
 //!
 //! The steps are those of `importRepo.ts` at the pin. Three checks are the
 //! Candidate's own, each a deliberate difference of SPEC §2.3: the tree is
-//! checked in full (DD-6, DD-7), a record block must be canonical DAG-CBOR
-//! (DD-8), and the commit must name the account and carry a signature of
-//! its key (DD-14). Bytes that are not a CAR are 400 (DD-15).
+//! checked in full, a record block must be canonical DAG-CBOR, and the
+//! commit must name the account and carry a signature of its key. Bytes
+//! that are not a CAR are 400, also a deliberate difference.
 //!
 //! An account that moves in is deactivated while it imports, and its
 //! activation emits `#sync`; the import appends no event, as at the pin.
-//! An import into an active account appends `#sync` (DD-19): the pin
+//! An import into an active account appends `#sync` (SPEC §2.3): the pin
 //! appends nothing, and a strict relay then drops the account's next
 //! commit, which does not follow the relay's copy.
 

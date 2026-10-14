@@ -767,7 +767,7 @@ async fn xrpc(
         return entryway::forward_to_member(state, host, nsid, method, raw_query, headers, body)
             .await;
     }
-    // The methods of the profile exist in that profile only (EX-7).
+    // The methods of the profile exist in that profile only (SPEC §12.1).
     if state.writes().is_some()
         && let Some(response) = linkjar::serve(state, nsid, method, headers).await
     {
@@ -841,7 +841,7 @@ async fn xrpc(
 }
 
 /// A method with no handler. At the pin it goes to the catch-all proxy,
-/// which wants a session first (SPEC §4.2, VP-6): no credential is 401, and
+/// which wants a session first (SPEC §4.2): no credential is 401, and
 /// the admin password is not a session. The proxy itself is not in this
 /// unit, so a request with a valid session is 501.
 fn unhandled(state: &AppState, nsid: &str, headers: &HeaderMap) -> XrpcError {

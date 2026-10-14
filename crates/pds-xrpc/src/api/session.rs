@@ -373,7 +373,8 @@ pub async fn create_app_password(
             let stored = writes.with_accounts(|accounts| {
                 accounts.create_app_password(&did, &name, &hash, &created_at, privileged)
             })?;
-            // The Reference answers 500 here (SPEC §2.3, DD-3).
+            // The Reference answers 500 here; 400 is a deliberate
+            // difference (SPEC §2.3).
             if !stored {
                 return Err(XrpcError::invalid_request(format!(
                     "An app password named \"{name}\" already exists"

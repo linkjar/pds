@@ -1,11 +1,12 @@
-//! S1 to S3 of SPEC §16.1 as micro-benchmarks of the repository engine.
+//! The single-write, batch-write and export scenarios of SPEC §16.1 as
+//! micro-benchmarks of the repository engine.
 //!
 //!   cargo run --release --bin repo-bench -- <inhouse|rsky|rsky-main> [full|smoke] [out.json]
 //!
 //! The sequence is the harness's (`parity/scenarios/perf/01-repository`):
 //! at each size, seed in batches of at most 200 until the repository has
-//! that many records, time 100 single creates (S1), then time five batches
-//! of 200 (S2). After the last size, export the repository (S3).
+//! that many records, time 100 single creates, then time five batches
+//! of 200. After the last size, export the repository.
 
 use std::time::{Duration, Instant};
 
@@ -68,7 +69,7 @@ fn main() {
         eprintln!("{}: size {size} done at {:.1}s", engine.name(), started.elapsed().as_secs_f64());
     }
 
-    // S3: three exports; the first one also pays for cold caches.
+    // The export: three exports; the first one also pays for cold caches.
     let exports: Vec<_> = (0..3).map(|_| engine.export()).collect();
     let best = exports.iter().min_by_key(|e| e.elapsed).copied().unwrap_or(exports[0]);
     let report = serde_json::json!({

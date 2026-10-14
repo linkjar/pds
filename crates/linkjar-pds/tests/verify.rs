@@ -276,7 +276,7 @@ fn a_record_of_another_repository_in_the_index_is_found() {
 }
 
 /// A tree whose root points at one node from both sides of its key: the
-/// shape an unpatched Reference accepts on import (SPEC §2.3, DD-6).
+/// shape an unpatched Reference accepts on import (SPEC §2.3).
 #[test]
 fn a_tree_that_shares_a_node_is_named_as_such() {
     use pds_repo::UnsignedCommit;

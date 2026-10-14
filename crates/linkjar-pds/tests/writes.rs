@@ -354,7 +354,7 @@ async fn a_write_is_refused_as_the_reference_refuses_it() {
     assert_eq!(stale.error(), (400, "InvalidSwap".to_owned()));
     assert_eq!(stale.json()["message"], format!("Commit was at {head}"));
 
-    // A key that exists: 400, where the Reference answers 500 (DD-1).
+    // A key that exists: 400, where the Reference answers 500 (SPEC §2.3).
     let clash = create(
         json!({"repo": ALICE, "collection": POST, "rkey": "r0000", "validate": false, "record": post("x")}),
     )
@@ -733,7 +733,7 @@ async fn an_import_replaces_the_repository_and_checks_the_commit() {
     assert_eq!(server.head().0, head);
     assert!(server.head().1 > rev);
     server.assert_verifies();
-    // The account is active, so the import states the head (DD-19). The
+    // The account is active, so the import states the head (SPEC §2.3). The
     // event names the revision of the commit block.
     assert_eq!(server.last_event(ALICE), ("sync".to_owned(), rev.clone()));
 

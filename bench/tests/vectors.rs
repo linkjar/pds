@@ -1,4 +1,4 @@
-//! Decision D2: both options on the same vectors.
+//! The decision on the repository engine: both options on the same vectors.
 //!
 //! Every test runs one group of vectors against the engine in
 //! `crates/pds-repo` and against `rsky-repo` with its sibling crates

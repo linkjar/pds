@@ -50,7 +50,7 @@ fn set(v: &Value) -> BTreeSet<String> {
 
 /// One line of the comparison, printed with `--nocapture`.
 fn report(group: &str, inhouse: &str, rsky: &str) {
-    eprintln!("D2 | {group} | in-house: {inhouse} | rsky-repo {VERSION}: {rsky}");
+    eprintln!("engine | {group} | in-house: {inhouse} | rsky-repo {VERSION}: {rsky}");
 }
 
 /// Runs `f` on its own thread and gives up after `limit`. A walk that does

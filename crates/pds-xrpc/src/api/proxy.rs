@@ -218,7 +218,8 @@ async fn from_header(state: &AppState, proxy_to: &str) -> Result<Target, XrpcErr
             did: did.to_owned(),
         });
     }
-    // A value that names no DID is the caller's error (SPEC §2.3, DD-4).
+    // A value that names no DID is the caller's error, a deliberate
+    // difference (SPEC §2.3).
     let unresolved = || XrpcError::invalid_request("could not resolve proxy did");
     let parsed: Did = did.parse().map_err(|_| unresolved())?;
     let doc = state

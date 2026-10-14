@@ -2,7 +2,7 @@
 //!
 //! `tests/fixtures/reference.json` and the CAR files beside it were written
 //! by `@atproto/repo` at the pin (`parity/src/tools/repo-fixtures.ts`), the
-//! library that oracle O2 of the parity harness uses. Each test replays
+//! library that the repository CID check of the parity harness uses. Each test replays
 //! what the library did and requires the same bytes: tree roots, commit
 //! CIDs, the blocks of every commit, and the export.
 
@@ -262,7 +262,7 @@ fn commits_and_export_are_the_reference_bytes() {
 
 #[test]
 fn the_reference_export_imports_and_rebuilds_to_the_signed_root() {
-    // Oracle O2 in Rust: verify the signature, read the tree, and rebuild
+    // The repository CID check in Rust: verify the signature, read the tree, and rebuild
     // the root from nothing but the record keys and CIDs.
     let reference = reference();
     let key = key_of(&reference);
