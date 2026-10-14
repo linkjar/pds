@@ -134,7 +134,7 @@ pub async fn list_records(state: &AppState, query: &Query<'_>) -> Result<Respons
                     XrpcError::invalid_request(format!("Could not find repo: {repo}"))
                 })?;
             let store = ActorDb::open(&state.layout().actor_db(&actor.did))?;
-            Ok(store.list_records(&collection, limit, reverse, cursor.as_deref())?)
+            Ok(store.list_records(&actor.did, &collection, limit, reverse, cursor.as_deref())?)
         })
         .await?;
     let mut body = Map::new();
