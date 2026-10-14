@@ -1,10 +1,11 @@
-//! Evidence for decision D2: the repository engine of `crates/pds-repo`
-//! and the `rsky-repo` crate behind one interface, driven by one workload.
+//! Evidence for the decision on the repository engine: the engine of
+//! `crates/pds-repo` and the `rsky-repo` crate behind one interface, driven
+//! by one workload.
 //!
 //! The workload is the one the parity harness ran against the Reference
-//! for SPEC §16.1, S1 to S3 (`parity/scenarios/perf/01-repository`): the
-//! same collection, record keys and record bodies, written in the same
-//! order. See `README.md` for what a sample includes and what it leaves
+//! for the single-write, batch-write and export scenarios of SPEC §16.1
+//! (`parity/scenarios/perf/01-repository`): the same collection, record
+//! keys and record bodies, written in the same order. See `README.md` for what a sample includes and what it leaves
 //! out.
 
 pub mod alloc;

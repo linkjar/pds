@@ -1,5 +1,5 @@
 //! The tables that the `linkjar` profile adds to `account.sqlite`
-//! (`docs/SPEC.md` §12.9, §13, EX-6).
+//! (`docs/SPEC.md` §12.1, §12.9, §13).
 //!
 //! The patch stack of the Reference adds them with four migrations. The
 //! Candidate applies the ones that a database lacks, under the same names,

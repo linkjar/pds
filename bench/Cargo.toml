@@ -1,4 +1,4 @@
-# The evidence for decision D2 (docs/research/2026-10-12-repository-crate.md):
+# The evidence for the decision on the repository engine (docs/research/2026-10-12-repository-crate.md):
 # the repository engine in crates/pds-repo and the rsky-repo crate, run on
 # the same vectors and the same workload. Like fuzz/, this package is
 # outside the workspace: rsky-repo and its dependency tree stay out of the

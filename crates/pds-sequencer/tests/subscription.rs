@@ -98,7 +98,8 @@ async fn a_cursor_replays_what_follows_it_and_no_cursor_replays_nothing() {
     let log = Log::new();
     log.append(5, 8);
 
-    // cursor=0: the whole log. A cursor inside it: exclusive (VP-1).
+    // cursor=0: the whole log. A cursor inside it: exclusive, to verify at
+    // the pin (`parity/verify-at-pin.md`, the backfill cursor).
     let mut from_zero = log.open(Some(0), 500).await.unwrap();
     assert_eq!(drain(&mut from_zero, 5).await.concat(), [1, 2, 3, 4, 5]);
     let mut from_three = log.open(Some(3), 500).await.unwrap();

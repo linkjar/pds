@@ -253,7 +253,7 @@ async fn app_passwords_are_created_listed_and_revoked() {
     let given = text(&made, "password").to_owned();
     assert_eq!(given.len(), 19);
     assert!(given.split('-').all(|part| part.len() == 4));
-    // A name in use is a client error (DD-3).
+    // A name in use is a client error, a deliberate difference (SPEC §2.3).
     let (status, body) = server
         .post(create, Some(access), Some(&json!({"name": "reader"})))
         .await;

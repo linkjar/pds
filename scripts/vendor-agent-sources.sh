@@ -88,6 +88,6 @@ mirror bluesky-social indigo "$RELAY" "parity/images.json relay.tag" \
 mirror did-method-plc did-method-plc "$PLC" "parity/images.json plc.commit" \
   "The PLC directory of the parity stack."
 mirror blacksky-algorithms rsky "$RSKY" "bench/Cargo.toml" \
-  "rsky-repo as compared in decision D2 (main branch form)."
+  "rsky-repo as compared in the decision on the repository engine (main branch form)."
 
 [[ "$MODE" == list ]] || echo "mirrors are under ${PREFIX}"

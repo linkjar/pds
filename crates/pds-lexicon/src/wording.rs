@@ -1,7 +1,7 @@
 //! The Reference's wording of a validation error.
 //!
 //! A client reads the `message` of a refused write, and the Harness compares
-//! it (`docs/SPEC.md` §17.3, O1). The Reference at the pin builds the
+//! it in the response comparison (`docs/SPEC.md` §17.3). The Reference at the pin builds the
 //! message from the issue and a JSON path
 //! (`packages/lex/lex-schema/src/core/validation-issue.ts`):
 //! `Missing required key "text" at $.record`.

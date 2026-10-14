@@ -352,8 +352,8 @@ fn parse_cid(text: &str) -> Result<Cid, XrpcError> {
 
 fn repo_error(error: RepoError) -> XrpcError {
     match error {
-        // The Reference answers 500 here; the owner decided 400
-        // (SPEC §2.3, DD-1 and DD-2).
+        // The Reference answers 500 here; the owner decided 400, a
+        // deliberate difference (SPEC §2.3).
         RepoError::KeyExists(key) => {
             XrpcError::invalid_request(format!("Record already exists: {key}"))
         }
@@ -822,7 +822,8 @@ pub fn emit_sync(state: &AppState, did: &str) -> Result<Option<i64>, XrpcError> 
 }
 
 /// How long an upload waits for a record before the server collects it:
-/// one hour (SPEC §6.4; §2.3, DD-10).
+/// one hour (SPEC §6.4). Collecting such uploads is a deliberate
+/// difference (SPEC §2.3).
 pub const UPLOAD_GRACE_MS: i64 = 60 * 60 * 1000;
 
 /// Removes the uploads that arrived more than [`UPLOAD_GRACE_MS`] ago and

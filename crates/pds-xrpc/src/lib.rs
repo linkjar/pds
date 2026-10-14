@@ -75,7 +75,7 @@ const OAUTH_CORS_ROUTES: [&str; 5] = [
     "/oauth/revoke",
 ];
 
-/// CORS as the Reference's middleware sets it (SPEC §4.2, §11.1, VP-11):
+/// CORS as the Reference's middleware sets it (SPEC §4.2, §11.1):
 /// every response allows any origin, and a preflight answers 204. On the
 /// routes of [`OAUTH_CORS_ROUTES`] a preflight answers 200, and every
 /// answer names the methods and the headers.

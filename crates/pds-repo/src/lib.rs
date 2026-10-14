@@ -1,7 +1,8 @@
 //! Repository engine: the Merkle search tree, commits, CAR files and the
 //! verification of repositories from elsewhere (`docs/SPEC.md` §6).
 //!
-//! The engine is written in this crate (decision D2, recorded in
+//! The engine is written in this crate (the decision of 2026-10-12 on the
+//! repository engine, recorded in
 //! `docs/research/2026-10-12-repository-crate.md`). It is synchronous and
 //! does no I/O of its own: blocks come from a [`BlockStore`], signatures
 //! from the caller's key, and the revision from the caller's clock, so the

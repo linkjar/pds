@@ -1,8 +1,8 @@
 # Repository engine comparison
 
-[Decision D2](../docs/research/2026-10-12-repository-crate.md) · [SPEC §16](../docs/SPEC.md#16-performance) · [Reference baseline](../parity/results/perf-reference.md)
+[Decision on the repository engine](../docs/research/2026-10-12-repository-crate.md) · [SPEC §16](../docs/SPEC.md#16-performance) · [Reference baseline](../parity/results/perf-reference.md)
 
-This package holds the evidence for decision D2: the repository engine in
+This package holds the evidence for the decision on the repository engine: the repository engine in
 [`crates/pds-repo`](../crates/pds-repo) beside the `rsky-repo` crate, on the
 same vectors and the same workload. It is outside the Cargo workspace, like
 `fuzz/`, so that `rsky-repo` and its dependencies stay out of the server's
@@ -34,7 +34,7 @@ constants, so the test fails when either side changes.
 | Trees that reference one node more than once | The same fixtures: the shapes of upstream's `mst-dag.test.ts` |
 | A commit signed with each curve | Built in the test |
 
-## Micro-benchmarks for S1 to S3
+## Micro-benchmarks for the single-write, batch-write and export scenarios
 
 ```sh
 cargo build --release --manifest-path bench/Cargo.toml
@@ -50,9 +50,9 @@ bench/target/release/repo-bench rsky-main full out.json   # 0.1.4
 record keys `r0000000` upward, the body `{$type, n, text}` of
 [`parity/scenarios/perf/01-repository`](../parity/scenarios/perf/01-repository.scenario.ts),
 written in the same order: for each size of 10, 1,000, 10,000 and 100,000
-records, seed in batches of at most 200, time 100 single creates (S1), then
-time five batches of 200 (S2). After the last size, export the 101,100
-records (S3). The four programs therefore build the same repository, and
+records, seed in batches of at most 200, time 100 single creates (the single-write
+scenario), then time five batches of 200 (the batch-write scenario). After
+the last size, export the 101,100 records (the export scenario). The four programs therefore build the same repository, and
 the tree root they print must be the same.
 
 **One sample is the engine's share of one write.** It starts with parsed
@@ -73,7 +73,7 @@ access token, lexicon validation, SQLite, the sequencer and the firehose.
 The Reference's numbers in `parity/results/perf-reference.md` include all
 of that, so they bound these from above and are not the same quantity.
 
-**S3** exports into a sink that counts bytes and drops them, as a socket
+**The export scenario** exports into a sink that counts bytes and drops them, as a socket
 would take them. The export is run three times and the fastest is
 reported. The two Rust programs also report the peak of the heap during
 the export above the heap before it, from a counting allocator; the
@@ -91,4 +91,4 @@ blocks an engine reads per write matters more there than here.
 completion on a current-thread tokio runtime.
 
 The published numbers, with the host and the versions, are in the
-[decision record](../docs/research/2026-10-12-repository-crate.md#5-micro-benchmarks-for-s1-to-s3).
+[decision record](../docs/research/2026-10-12-repository-crate.md#5-micro-benchmarks-for-the-single-write-batch-write-and-export-scenarios).

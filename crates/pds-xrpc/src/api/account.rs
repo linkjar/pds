@@ -139,14 +139,14 @@ pub(crate) struct Request {
     pub(crate) recovery_key: Option<String>,
     /// The identity that proved the email address. The account then has
     /// no password, a confirmed address and, in a profile that keeps one,
-    /// a handle policy row. No request field sets this (EX-3).
+    /// a handle policy row. No request field sets this (SPEC §12.1).
     pub(crate) external: Option<External>,
     /// Whether the creation opens a legacy session. A sign-up on the
     /// authorization pages opens none.
     pub(crate) legacy_session: bool,
     /// The authorization the account is created in: the pushed request,
     /// its client and the device. The server passes it; no request field
-    /// sets it (EX-3).
+    /// sets it (SPEC §12.1).
     pub(crate) signup: Option<(String, String, String)>,
     /// The DID of an account that moves here (SPEC §10.3). Its service
     /// token proved that the caller controls it. The account starts
@@ -241,7 +241,7 @@ pub(crate) fn validate(
         ));
     }
     // An account that is deactivated or taken down holds its handle and
-    // its email address too (SPEC §2.3, DD-16 and DD-17).
+    // its email address too, a deliberate difference (SPEC §2.3).
     if accounts
         .account(&handle, false, Availability::ANY)?
         .is_some()

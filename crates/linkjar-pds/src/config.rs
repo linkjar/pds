@@ -306,7 +306,7 @@ pub struct Config {
     /// `PDS_RATE_LIMIT_BYPASS_IPS`.
     pub rate_limits: pds_xrpc::ratelimit::RateLimitConfig,
     /// `PDS_AUDIT_KEY_ED25519_PRIVATE_KEY_HEX`: the 32-byte seed of the
-    /// key that signs audit checkpoints (SPEC §20.3, D11).
+    /// key that signs audit checkpoints (SPEC §20.3).
     pub audit_key: Option<Vec<u8>>,
     /// `PDS_AUDIT_CHECKPOINT_REPO`: the DID of the operator's account
     /// here whose repository publishes the checkpoints.

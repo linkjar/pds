@@ -63,7 +63,8 @@ pub fn key_id(public_key: &[u8]) -> String {
     id
 }
 
-/// The checkpoint key (SPEC §20.3, D11).
+/// The checkpoint key (SPEC §20.3; Appendix D, the custody of the audit
+/// checkpoint key).
 pub struct Signer {
     pair: Ed25519KeyPair,
 }
