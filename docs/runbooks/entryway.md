@@ -23,8 +23,15 @@ who use the apps before the day.
   refreshes once and gets tokens of the entryway.
 - A client uploads blobs and reads the firehose at the member host. The
   entryway passes on requests of at most 1 MiB.
-- An account is activated and deactivated at the member host. The
-  entryway does not learn it.
+- A member host passes `activateAccount` and `deactivateAccount` on to
+  the entryway. The entryway keeps the status and asks the member host to
+  announce it.
+- A member host answers no handle: `/.well-known/atproto-did` on a
+  handle host must reach the entryway.
+- The entryway limits requests by the address of the client. A member
+  host sends that address in `X-Forwarded-For`, and the entryway takes it
+  only from a private address. When the member host reaches the entryway
+  over the internet, the limits count the member host as one client.
 
 ## 2. Prepare
 
@@ -67,7 +74,9 @@ who use the apps before the day.
    - Remove `PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX`.
    - Keep `PDS_JWT_SECRET`: the member host answers `ExpiredToken` to a
      token from before, and the client then refreshes.
-5. Start the entryway, then the member host.
+5. Send `/.well-known/atproto-did` of the handle hosts to the entryway.
+   In `legacy/staging/Caddyfile.handles` this is the `@did` route.
+6. Start the entryway, then the member host.
 
 ## 4. Check
 
