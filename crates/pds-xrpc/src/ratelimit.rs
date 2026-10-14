@@ -143,6 +143,12 @@ tokio::task_local! {
     static CURRENT: RefCell<Current>;
 }
 
+/// The address of the client of the request this task serves, as the
+/// limiter counts it. `None` outside a request.
+pub fn current_ip() -> Option<String> {
+    CURRENT.try_with(|current| current.borrow().ip.clone()).ok()
+}
+
 fn trusted(address: IpAddr) -> bool {
     match address {
         IpAddr::V4(v4) => v4.is_loopback() || v4.is_link_local() || v4.is_private(),

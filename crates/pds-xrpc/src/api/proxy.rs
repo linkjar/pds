@@ -100,8 +100,26 @@ pub fn service_jwt(
     exp: i64,
     jti: &[u8; 16],
 ) -> String {
+    service_jwt_with(keypair, iss, aud, lxm, iat, exp, jti, &[])
+}
+
+/// [`service_jwt`] with more claims.
+#[allow(clippy::too_many_arguments)]
+fn service_jwt_with(
+    keypair: &Keypair,
+    iss: &str,
+    aud: &str,
+    lxm: Option<&str>,
+    iat: i64,
+    exp: i64,
+    jti: &[u8; 16],
+    extra: &[(&str, &str)],
+) -> String {
     let header = json!({"typ": "JWT", "alg": "ES256K"});
     let mut payload = serde_json::Map::new();
+    for (name, value) in extra {
+        payload.insert((*name).to_owned(), (*value).into());
+    }
     payload.insert("iat".to_owned(), iat.into());
     payload.insert("iss".to_owned(), iss.into());
     payload.insert("aud".to_owned(), aud.into());
@@ -127,6 +145,18 @@ pub(crate) async fn account_jwt(
     lxm: Option<&str>,
     exp: Option<i64>,
 ) -> Result<String, XrpcError> {
+    account_jwt_with(state, did, aud, lxm, exp, &[]).await
+}
+
+/// [`account_jwt`] with more claims.
+pub(crate) async fn account_jwt_with(
+    state: &AppState,
+    did: &str,
+    aud: &str,
+    lxm: Option<&str>,
+    exp: Option<i64>,
+    extra: &[(&str, &str)],
+) -> Result<String, XrpcError> {
     let key = {
         let did = did.to_owned();
         state
@@ -142,7 +172,7 @@ pub(crate) async fn account_jwt(
         }
     }
     let iat = state.now_s();
-    Ok(service_jwt(
+    Ok(service_jwt_with(
         &keypair,
         did,
         aud,
@@ -150,6 +180,7 @@ pub(crate) async fn account_jwt(
         iat,
         exp.unwrap_or(iat + 60),
         &jti,
+        extra,
     ))
 }
 

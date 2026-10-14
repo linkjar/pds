@@ -27,6 +27,16 @@ fn rotation_key(state: &AppState) -> Result<Keypair, XrpcError> {
         .map_err(XrpcError::internal)
 }
 
+/// The `did:key` of the rotation key that the DID documents of the
+/// accounts name: the key of the entryway on a member host, which holds
+/// no rotation key (SPEC §21.3), and the key of this server otherwise.
+pub(crate) fn rotation_did_key(state: &AppState) -> Result<String, XrpcError> {
+    match &state.config().entryway {
+        Some(entryway) => Ok(entryway.plc_rotation_key.clone()),
+        None => Ok(rotation_key(state)?.did_key()),
+    }
+}
+
 /// The `did:key` of the account's signing key.
 async fn signing_key(state: &AppState, did: &str) -> Result<String, XrpcError> {
     let did = did.to_owned();
@@ -64,7 +74,7 @@ pub async fn get_recommended_did_credentials(
 ) -> Result<Response, XrpcError> {
     let did = session(state, headers, None)?;
     let config = identity(state)?.clone();
-    let mut rotation_keys = vec![rotation_key(state)?.did_key()];
+    let mut rotation_keys = vec![rotation_did_key(state)?];
     if let Some(recovery) = &config.recovery_did_key {
         rotation_keys.insert(0, recovery.clone());
     }
@@ -229,7 +239,7 @@ pub async fn submit_plc_operation(
         return Err(XrpcError::invalid_request("Invalid operation"));
     }
     let config = identity(state)?.clone();
-    let rotation = rotation_key(state)?.did_key();
+    let rotation = rotation_did_key(state)?;
     let refuse = |message: &str| Err(XrpcError::invalid_request(message));
     if !op["rotationKeys"]
         .as_array()

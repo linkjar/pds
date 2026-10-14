@@ -69,6 +69,23 @@ pub async fn deactivate_account(
     let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
     let delete_after =
         body::string(&input, "deleteAfter", false, Format::Any, None, "$")?.map(str::to_owned);
+    // At an entryway the member host keeps the repository and announces
+    // the status (SPEC §21.3); the entryway keeps the account row.
+    if let Some(host) = state.config().member_host.clone() {
+        set_member_status(state, &host, &did, true).await?;
+        return state
+            .blocking(move |state| {
+                let now = pds_sequencer::iso_millis(state.now_ms());
+                let updated = writes(state)?.with_accounts(|accounts| {
+                    accounts.deactivate(&did, &now, delete_after.as_deref())
+                })?;
+                if !updated {
+                    return Err(XrpcError::invalid_request("Account not found"));
+                }
+                Ok(StatusCode::OK.into_response())
+            })
+            .await;
+    }
     state
         .blocking(move |state| {
             let writes = writes(state)?;
@@ -161,9 +178,7 @@ async fn assert_valid_did(state: &AppState, did: &str) -> Result<(), XrpcError> 
         .identity
         .as_ref()
         .ok_or_else(|| XrpcError::internal("the PLC rotation key is not configured"))?;
-    let rotation = Keypair::from_secret_bytes(Algorithm::Secp256k1, &identity.rotation_key)
-        .map_err(XrpcError::internal)?
-        .did_key();
+    let rotation = super::plc::rotation_did_key(state)?;
     if published
         .rotation_keys
         .as_ref()
@@ -202,8 +217,39 @@ pub async fn activate_account(
     headers: &HeaderMap,
 ) -> Result<Response, XrpcError> {
     let did = session(state, headers, Some(auth::ACCESS_FULL))?;
+    if let Some(host) = state.config().member_host.clone() {
+        // The member host checks the published identity and announces the
+        // account; the entryway keeps the account row.
+        set_member_status(state, &host, &did, false).await?;
+        state
+            .blocking(move |state| {
+                if !writes(state)?.with_accounts(|accounts| accounts.activate(&did))? {
+                    return Err(XrpcError::bad_request("AccountNotFound", "user not found"));
+                }
+                Ok(())
+            })
+            .await?;
+        return Ok(StatusCode::OK.into_response());
+    }
     activate(state, did).await?;
     Ok(StatusCode::OK.into_response())
+}
+
+/// Asks the member host of an entryway to deactivate or to activate the
+/// account `did`, as the Reference's entryway does.
+async fn set_member_status(
+    state: &AppState,
+    host: &crate::state::MemberHost,
+    did: &str,
+    deactivated: bool,
+) -> Result<(), XrpcError> {
+    let input = serde_json::json!({
+        "subject": { "$type": "com.atproto.admin.defs#repoRef", "did": did },
+        "deactivated": { "applied": deactivated },
+    });
+    super::entryway::ask_member(state, host, "com.atproto.admin.updateSubjectStatus", &input)
+        .await?;
+    Ok(())
 }
 
 /// Activates the account `did`, as `activateAccount` of the account

@@ -26,6 +26,14 @@ fn bearer(headers: &HeaderMap) -> Option<&str> {
     (kind.eq_ignore_ascii_case("bearer") && !token.is_empty()).then_some(token)
 }
 
+/// The claims of the service token of the request, unchecked. Read them
+/// after [`verify`].
+pub fn claims(headers: &HeaderMap) -> Option<Value> {
+    bearer(headers)
+        .and_then(|token| token.split('.').nth(1))
+        .and_then(part)
+}
+
 fn part(text: &str) -> Option<Value> {
     serde_json::from_slice(&URL_SAFE_NO_PAD.decode(text).ok()?).ok()
 }

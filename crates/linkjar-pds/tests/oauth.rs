@@ -2073,6 +2073,7 @@ async fn a_data_directory_moves_to_postgres_and_back_with_its_sessions() {
 }
 
 #[tokio::test]
+#[allow(clippy::too_many_lines)] // one client, at the entryway and at its member host
 async fn a_client_authorized_at_the_entryway_writes_at_the_member_host() {
     let signing_hex = "0808080808080808080808080808080808080808080808080808080808080808";
     let signing = Keypair::from_secret_bytes(
@@ -2176,10 +2177,23 @@ async fn a_client_authorized_at_the_entryway_writes_at_the_member_host() {
         .resource(&other, reqwest::Method::POST, write, &access, Some(&record))
         .await;
     assert_eq!(refused.status, 401, "{}", refused.text);
-    // A session method does not go through the member host with a proof:
-    // the proof names the member host, not the entryway.
+    // A session method goes on to the entryway with a service token of
+    // the account, as a proof names the member host only. The entryway of
+    // this test has no address, so the member host reports that it did not
+    // answer: it checked the proof and passed the call on. The Harness runs
+    // the whole way (parity, PARITY_CANDIDATE_ENTRYWAY=1).
     let passed = member
         .resource(&key, reqwest::Method::GET, GET_SESSION, &access, None)
         .await;
-    assert_eq!(passed.status, 400, "{}", passed.text);
+    assert_eq!(
+        (passed.status, passed.json()["error"].as_str()),
+        (502, Some("UpstreamFailure")),
+        "{}",
+        passed.text
+    );
+    // A proof of another key is refused at the member host first.
+    let refused = member
+        .resource(&other, reqwest::Method::GET, GET_SESSION, &access, None)
+        .await;
+    assert_eq!(refused.status, 401, "{}", refused.text);
 }
