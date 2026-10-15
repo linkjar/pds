@@ -249,7 +249,7 @@ pub fn verify_access_es256k(
         return None;
     }
     key.verify_any_s(
-        format!("{head}.{body}").as_bytes(),
+        &token.as_bytes()[..head.len() + 1 + body.len()],
         &URL_SAFE_NO_PAD.decode(signature).ok()?,
     )
     .ok()?;
@@ -353,8 +353,11 @@ pub fn check_assertion(
     let signature = URL_SAFE_NO_PAD
         .decode(signature)
         .map_err(|_| failed("signature verification failed"))?;
-    key.verify_any_s(format!("{head}.{body}").as_bytes(), &signature)
-        .map_err(|_| failed("signature verification failed"))?;
+    key.verify_any_s(
+        &assertion.as_bytes()[..head.len() + 1 + body.len()],
+        &signature,
+    )
+    .map_err(|_| failed("signature verification failed"))?;
     let text = |name: &str| claims.get(name).and_then(Value::as_str);
     if text("iss") != Some(client_id) || text("sub") != Some(client_id) {
         return Err(failed("unexpected \"iss\" or \"sub\" claim value"));

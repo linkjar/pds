@@ -138,7 +138,7 @@ pub fn check_proof(
     let signature = URL_SAFE_NO_PAD
         .decode(signature)
         .map_err(|_| failed("signature verification failed"))?;
-    key.verify_any_s(format!("{head}.{body}").as_bytes(), &signature)
+    key.verify_any_s(&proof.as_bytes()[..head.len() + 1 + body.len()], &signature)
         .map_err(|_| failed("signature verification failed"))?;
     let iat = claims
         .get("iat")

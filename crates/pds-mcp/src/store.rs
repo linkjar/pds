@@ -17,6 +17,10 @@ pub const REQUEST_LIFE: Duration = Duration::from_mins(10);
 pub const CODE_LIFE: Duration = Duration::from_mins(1);
 /// The most entries of each table. One more replaces the oldest.
 pub const MOST: usize = 4096;
+
+/// How many rotated-away refresh tokens a session remembers. A second use
+/// of one of them ends the session.
+const SPENT_KEPT: usize = 64;
 /// Calls of a session in a minute, and writes among them.
 pub const CALLS_PER_MINUTE: u32 = 120;
 /// Writes of a session in a minute.
@@ -29,19 +33,7 @@ pub const SCOPES: &[&str] = &["account:read", "repo:read", "repo:write"];
 /// The scopes of a request without a `scope`.
 pub const DEFAULT_SCOPE: &str = "account:read repo:read";
 
-/// Whether `text` has the shape of an NSID: three labels or more.
-pub fn is_nsid(text: &str) -> bool {
-    let labels: Vec<&str> = text.split('.').collect();
-    text.len() <= 317
-        && labels.len() >= 3
-        && labels.iter().all(|label| {
-            !label.is_empty()
-                && label.len() <= 63
-                && label
-                    .bytes()
-                    .all(|b| b.is_ascii_alphanumeric() || b == b'-')
-        })
-}
+pub use pds_oauth::scope::is_nsid;
 
 /// The scopes the server asks of the PDS for the scopes of an AI client
 /// (SPEC §22.2). Reads need the identity only.
@@ -207,6 +199,8 @@ struct Live {
     access_until: Instant,
     refresh: String,
     refresh_until: Instant,
+    /// The hashes of the refresh tokens rotated away, oldest first.
+    spent: Vec<String>,
 }
 
 #[derive(Debug, Default)]
@@ -229,10 +223,17 @@ pub struct Store {
     sessions: Mutex<Sessions>,
 }
 
-fn make_room<T>(map: &mut HashMap<String, T>, life: Duration, started: impl Fn(&T) -> Instant) {
+/// Drops the ended rows of a full table, and its oldest row when every
+/// row is live. `true` when a row went.
+fn make_room<T>(
+    map: &mut HashMap<String, T>,
+    life: Duration,
+    started: impl Fn(&T) -> Instant,
+) -> bool {
     if map.len() < MOST {
-        return;
+        return false;
     }
+    let before = map.len();
     map.retain(|_, entry| started(entry).elapsed() < life);
     if map.len() >= MOST {
         let oldest = map
@@ -243,6 +244,7 @@ fn make_room<T>(map: &mut HashMap<String, T>, life: Duration, started: impl Fn(&
             map.remove(&oldest);
         }
     }
+    map.len() < before
 }
 
 fn locked<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -330,14 +332,23 @@ impl Store {
         });
         let now = Instant::now();
         let mut sessions = locked(&self.sessions);
-        make_room(&mut sessions.live, REFRESH_LIFE, |live| {
-            live.refresh_until
+        let Sessions {
+            live,
+            by_access,
+            spent,
+        } = &mut *sessions;
+        if make_room(live, REFRESH_LIFE, |row| {
+            row.refresh_until
                 .checked_sub(REFRESH_LIFE)
-                .unwrap_or(live.refresh_until)
-        });
+                .unwrap_or(row.refresh_until)
+        }) {
+            // The rows of the sessions that went.
+            by_access.retain(|_, refresh| live.contains_key(refresh));
+            spent.retain(|_, refresh| live.contains_key(refresh));
+        }
         let (access, refresh) = (hash(&issued.access), hash(&issued.refresh));
-        sessions.by_access.insert(access.clone(), refresh.clone());
-        sessions.live.insert(
+        by_access.insert(access.clone(), refresh.clone());
+        live.insert(
             refresh.clone(),
             Live {
                 session,
@@ -345,8 +356,10 @@ impl Store {
                 access_until: now + ACCESS_LIFE,
                 refresh,
                 refresh_until: now + REFRESH_LIFE,
+                spent: Vec::new(),
             },
         );
+        drop(sessions);
         issued
     }
 
@@ -368,11 +381,12 @@ impl Store {
         let mut sessions = locked(&self.sessions);
         if let Some(current) = sessions.spent.remove(&given) {
             // A refresh token that was rotated away: someone copied it.
-            let ended = sessions.live.remove(&current);
-            sessions.spent.retain(|_, now| *now != current);
-            return match ended {
+            return match sessions.live.remove(&current) {
                 Some(live) => {
                     sessions.by_access.remove(&live.access);
+                    for old in &live.spent {
+                        sessions.spent.remove(old);
+                    }
                     Err(live.session)
                 }
                 None => Ok(None),
@@ -396,11 +410,15 @@ impl Store {
         live.access_until = now + ACCESS_LIFE;
         live.refresh = hash(&issued.refresh);
         live.refresh_until = now + REFRESH_LIFE;
-        // The tokens that were rotated away point at the one in use.
-        for current in sessions.spent.values_mut().filter(|now| **now == given) {
-            current.clone_from(&live.refresh);
+        // The tokens that were rotated away point at the one in use; a
+        // session remembers the last `SPENT_KEPT` of them.
+        live.spent.push(given);
+        if live.spent.len() > SPENT_KEPT {
+            sessions.spent.remove(&live.spent.remove(0));
         }
-        sessions.spent.insert(given, live.refresh.clone());
+        for old in &live.spent {
+            sessions.spent.insert(old.clone(), live.refresh.clone());
+        }
         sessions
             .by_access
             .insert(live.access.clone(), live.refresh.clone());
@@ -416,7 +434,9 @@ impl Store {
         let refresh = sessions.by_access.get(&given).cloned().unwrap_or(given);
         let live = sessions.live.remove(&refresh)?;
         sessions.by_access.remove(&live.access);
-        sessions.spent.retain(|_, now| *now != refresh);
+        for old in &live.spent {
+            sessions.spent.remove(old);
+        }
         drop(sessions);
         Some(live.session)
     }

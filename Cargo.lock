@@ -1464,9 +1464,9 @@ version = "0.0.1"
 name = "pds-audit"
 version = "0.0.1"
 dependencies = [
+ "aws-lc-rs",
  "base64 0.22.1",
  "pds-types",
- "ring",
  "serde_json",
  "sha2",
  "thiserror",
@@ -1522,13 +1522,13 @@ dependencies = [
 name = "pds-ext-linkjar"
 version = "0.0.1"
 dependencies = [
+ "aws-lc-rs",
  "base64 0.22.1",
  "icu_normalizer",
  "icu_properties",
  "pds-ext",
  "pds-identity",
  "pds-types",
- "ring",
  "serde_json",
  "url",
 ]

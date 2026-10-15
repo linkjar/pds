@@ -6,9 +6,9 @@
 //! provider answers. The endpoints are fixed. An identity is the pair of
 //! provider and subject, never an email address.
 
+use aws_lc_rs::signature::{RSA_PKCS1_2048_8192_SHA256, RsaPublicKeyComponents};
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use ring::signature::{RSA_PKCS1_2048_8192_SHA256, RsaPublicKeyComponents};
 use serde_json::Value;
 use url::Url;
 
@@ -429,7 +429,7 @@ fn verified_claims(token: &str, jwks: &Value) -> Result<Value, Refusal> {
         .ok_or("Invalid external provider signing keys")?;
     let kid = header.get("kid").and_then(Value::as_str);
     let signature = decode(signature)?;
-    let signed = format!("{head}.{body}");
+    let signed = &token[..head.len() + 1 + body.len()];
     let made_by = |key: &Value| -> bool {
         if key.get("kty").and_then(Value::as_str) != Some("RSA") {
             return false;
@@ -605,11 +605,15 @@ mod tests {
         );
     }
 
-    /// A key that exists for this test only.
+    /// A key that exists for this test only: 2048 bits.
     const TEST_KEY: &[u8] = include_bytes!("../tests/data/test-rsa-key.pk8");
+    /// Its modulus and exponent as a JWK carries them, from
+    /// `openssl pkey -inform DER -in tests/data/test-rsa-key.pk8 -noout -text`.
+    const TEST_N: &str = "zCiVkdpWjwQ0y8GJ1mWX0s9VWxxGl2V-OCWPNs78WqFwYhxpfVqXeePeszHH9mMukqtafCfKvxLB9Gpdxvjxqp0x9iKumMiujADLfRU6Zo1LeXUU8XIfqf8DCgeC_1hPT2yT9aj-yWHFqFV9s6UTQ1nkd7-lea_weeNGkDqAyXvniZhTlJOEJuVX_nuP9HrlekHmhtXXC8Asa8tZHYY_aPF0wEhVRJRWhSyxaEb4xcr1vz-3Ll1HS1VuMiaurWF-oY8ZGD9PLWitYti4qCk37C4ZBejqL1urFxnxVTsD6EnksAHf-a3Z0Epeh_QNV4SZZ5qhQUpN15YHlljI1BULhQ";
+    const TEST_E: &str = "AQAB";
 
     fn signed(claims: &Value) -> (String, Value) {
-        use ring::signature::{RSA_PKCS1_SHA256, RsaKeyPair};
+        use aws_lc_rs::signature::{RSA_PKCS1_SHA256, RsaKeyPair};
         let pair = RsaKeyPair::from_pkcs8(TEST_KEY).unwrap();
         let encode = |bytes: &[u8]| URL_SAFE_NO_PAD.encode(bytes);
         let head = encode(
@@ -618,20 +622,19 @@ mod tests {
                 .as_bytes(),
         );
         let body = encode(claims.to_string().as_bytes());
-        let mut signature = vec![0; pair.public().modulus_len()];
+        let mut signature = vec![0; 2048 / 8];
         pair.sign(
             &RSA_PKCS1_SHA256,
-            &ring::rand::SystemRandom::new(),
+            &aws_lc_rs::rand::SystemRandom::new(),
             format!("{head}.{body}").as_bytes(),
             &mut signature,
         )
         .unwrap();
-        let public = RsaPublicKeyComponents::<Vec<u8>>::from(pair.public());
         let jwks = json!({ "keys": [{
             "kty": "RSA",
             "kid": "k1",
-            "n": encode(&public.n),
-            "e": encode(&public.e),
+            "n": TEST_N,
+            "e": TEST_E,
         }] });
         (format!("{head}.{body}.{}", encode(&signature)), jwks)
     }

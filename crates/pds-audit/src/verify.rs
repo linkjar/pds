@@ -5,9 +5,11 @@
 //! nothing else: the tree and the signed bytes are computed here a second
 //! time, in another way, so that one mistake does not hide in both.
 
+use std::collections::HashMap;
+
+use aws_lc_rs::signature::{ED25519, UnparsedPublicKey};
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use ring::signature::{ED25519, UnparsedPublicKey};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -56,10 +58,18 @@ fn hex_id(head: &[u8]) -> String {
 }
 
 fn leaf_hash(entry: &[u8]) -> [u8; 32] {
-    let mut input = Vec::with_capacity(entry.len() + 1);
-    input.push(0);
-    input.extend_from_slice(entry);
-    Sha256::digest(input).into()
+    let mut hash = Sha256::new();
+    hash.update([0]);
+    hash.update(entry);
+    hash.finalize().into()
+}
+
+/// The array `name` of the bundle, or nothing.
+fn list<'a>(bundle: &'a Value, name: &str) -> &'a [Value] {
+    bundle
+        .get(name)
+        .and_then(Value::as_array)
+        .map_or(&[], Vec::as_slice)
 }
 
 fn node_hash(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
@@ -199,17 +209,10 @@ fn parse_checkpoint(value: &Value) -> Option<Parsed> {
 #[allow(clippy::too_many_lines)] // one pass over each part of the bundle
 pub fn verify(bundle: &Value) -> Report {
     let mut report = Report::default();
-    let list = |name: &str| {
-        bundle
-            .get(name)
-            .and_then(Value::as_array)
-            .cloned()
-            .unwrap_or_default()
-    };
 
     // The chain.
     let mut entries: Vec<(Entry, Vec<u8>)> = Vec::new();
-    for (at, item) in list("entries").iter().enumerate() {
+    for (at, item) in list(bundle, "entries").iter().enumerate() {
         match bytes_of(Some(item)).map(|bytes| (Entry::from_bytes(&bytes), bytes)) {
             Some((Ok(entry), bytes)) => entries.push((entry, bytes)),
             _ => report
@@ -218,6 +221,12 @@ pub fn verify(bundle: &Value) -> Report {
         }
     }
     report.entries = entries.len();
+    // Each entry by its number: the first of a number, when the bundle
+    // repeats one.
+    let mut by_seq: HashMap<u64, usize> = HashMap::new();
+    for (at, (entry, _)) in entries.iter().enumerate() {
+        by_seq.entry(entry.seq).or_insert(at);
+    }
     let mut expected = hash32(bundle.get("anchor"));
     if expected.is_none() && !entries.is_empty() {
         report.problems.push("the bundle has no anchor".to_owned());
@@ -242,7 +251,7 @@ pub fn verify(bundle: &Value) -> Report {
 
     // The keys.
     let mut keys: Vec<(String, Vec<u8>)> = Vec::new();
-    for key in list("keys") {
+    for key in list(bundle, "keys") {
         match (
             key.get("keyId").and_then(Value::as_str),
             bytes_of(key.get("publicKey")),
@@ -267,7 +276,7 @@ pub fn verify(bundle: &Value) -> Report {
 
     // The checkpoints.
     let mut checkpoints: Vec<Parsed> = Vec::new();
-    for (at, item) in list("checkpoints").iter().enumerate() {
+    for (at, item) in list(bundle, "checkpoints").iter().enumerate() {
         match parse_checkpoint(item) {
             Some(checkpoint) => checkpoints.push(checkpoint),
             None => report
@@ -308,12 +317,16 @@ pub fn verify(bundle: &Value) -> Report {
         }
         // With every entry of the range in the bundle, the root and the
         // head are recomputed.
-        let range: Vec<&(Entry, Vec<u8>)> = entries
-            .iter()
-            .filter(|(entry, _)| (checkpoint.first..=checkpoint.last).contains(&entry.seq))
-            .collect();
-        let size = usize::try_from(checkpoint.last - checkpoint.first + 1).unwrap_or(usize::MAX);
-        if range.len() == size {
+        let size = checkpoint.last - checkpoint.first + 1;
+        let range: Option<Vec<&(Entry, Vec<u8>)>> = (size
+            <= u64::try_from(entries.len()).unwrap_or(u64::MAX))
+        .then(|| {
+            (checkpoint.first..=checkpoint.last)
+                .map(|seq| by_seq.get(&seq).map(|&at| &entries[at]))
+                .collect()
+        })
+        .flatten();
+        if let Some(range) = range {
             report.roots_recomputed += 1;
             let leaves: Vec<[u8; 32]> = range.iter().map(|(_, bytes)| leaf_hash(bytes)).collect();
             if tree_root(&leaves) != checkpoint.root {
@@ -331,23 +344,23 @@ pub fn verify(bundle: &Value) -> Report {
         }
     }
 
-    // The inclusion proofs.
-    for proof in list("proofs") {
+    // The inclusion proofs. A proof names its checkpoint by the last entry.
+    let mut by_last: HashMap<u64, &Parsed> = HashMap::new();
+    for checkpoint in &checkpoints {
+        by_last.entry(checkpoint.last).or_insert(checkpoint);
+    }
+    for proof in list(bundle, "proofs") {
         report.proofs += 1;
         let seq = proof.get("seq").and_then(Value::as_u64);
         let covering = proof
             .get("checkpoint")
             .and_then(Value::as_u64)
-            .and_then(|last| {
-                checkpoints
-                    .iter()
-                    .find(|checkpoint| checkpoint.last == last)
-            });
+            .and_then(|last| by_last.get(&last).copied());
         let path: Option<Vec<[u8; 32]>> = proof
             .get("path")
             .and_then(Value::as_array)
             .map(|path| path.iter().filter_map(|hash| hash32(Some(hash))).collect());
-        let entry = seq.and_then(|seq| entries.iter().find(|(entry, _)| entry.seq == seq));
+        let entry = seq.and_then(|seq| by_seq.get(&seq).map(|&at| &entries[at]));
         let (Some(seq), Some(checkpoint), Some(path), Some((_, bytes))) =
             (seq, covering, path, entry)
         else {

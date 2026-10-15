@@ -100,8 +100,10 @@ fn uri_encode(text: &str, keep_slash: bool) -> String {
             }
             b'/' if keep_slash => out.push('/'),
             _ => {
+                const HEX: &[u8; 16] = b"0123456789ABCDEF";
                 out.push('%');
-                out.push_str(&data_encoding::HEXUPPER.encode(&[byte]));
+                out.push(char::from(HEX[usize::from(byte >> 4)]));
+                out.push(char::from(HEX[usize::from(byte & 0x0f)]));
             }
         }
     }

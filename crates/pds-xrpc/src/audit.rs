@@ -14,9 +14,11 @@ use std::time::Duration;
 
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use pds_audit::entry::GENESIS;
 use pds_audit::{Checkpoint, Draft, Entry, Signer, merkle};
 use pds_storage::{AuditDb, CheckpointRow, StorageError};
 use serde_json::{Map, Value, json};
+use sha2::{Digest, Sha256};
 
 use crate::error::XrpcError;
 use crate::state::AppState;
@@ -87,18 +89,19 @@ impl AuditLog {
     /// Appends an entry at the time `time` (ISO 8601). This call blocks.
     pub fn record(&self, time: &str, what: Draft) -> Result<u64, StorageError> {
         self.db().append(|last| {
-            let previous = last.and_then(|(_, bytes)| Entry::from_bytes(bytes).ok());
-            let entry = Entry::after(previous.as_ref(), time, what);
-            // An entry before it that does not decode still gives its
+            // The hash of a canonical entry is the hash of its bytes. An
+            // entry before it that does not decode still gives its
             // number, so the log goes on; the verifier names the break.
-            let entry = match (previous, last) {
-                (None, Some((seq, _))) => Entry {
-                    seq: seq + 1,
-                    ..entry
+            let (seq, prev) = match last {
+                None => (1, GENESIS),
+                Some((seq, bytes)) => match Entry::from_bytes(bytes) {
+                    Ok(previous) => (previous.seq + 1, Sha256::digest(bytes).into()),
+                    Err(_) => (seq + 1, GENESIS),
                 },
-                _ => entry,
             };
-            (entry.seq, entry.hash(), entry.to_bytes())
+            let entry = Entry::following(seq, prev, time, what);
+            let (bytes, hash) = entry.encode();
+            (entry.seq, hash, bytes)
         })
     }
 
@@ -237,7 +240,7 @@ impl AuditLog {
         let anchor = if from > 1 {
             db.entry_hash(from - 1)?.unwrap_or_default()
         } else {
-            pds_audit::entry::GENESIS.to_vec()
+            GENESIS.to_vec()
         };
         let checkpoints = db.checkpoints(from, to)?;
         let mut proofs = Vec::new();
