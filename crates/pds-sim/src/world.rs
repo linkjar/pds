@@ -189,6 +189,7 @@ async fn start(
         blob_upload_limit: 5 * 1024 * 1024,
         privacy_policy_url: None,
         terms_of_service_url: None,
+        branding: pds_xrpc::state::Branding::default(),
         contact_email: None,
         appview_url: None,
         appview_did: None,

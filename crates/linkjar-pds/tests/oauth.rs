@@ -371,7 +371,7 @@ impl Server {
             .await
         };
         let csrf = page.field("csrf").unwrap();
-        let consent = if page.text.contains(">Authorize</button>") {
+        let consent = if page.text.contains(">Authorize<") {
             page
         } else {
             let mut form = vec![
@@ -397,11 +397,7 @@ impl Server {
             return reqwest::Url::parse(consent.header("location").unwrap()).unwrap();
         }
         assert_eq!(consent.status, 200, "{}", consent.text);
-        assert!(
-            consent.text.contains(">Authorize</button>"),
-            "{}",
-            consent.text
-        );
+        assert!(consent.text.contains(">Authorize<"), "{}", consent.text);
         // A loopback client is not trusted: the page shows its identifier.
         if id.starts_with("http://localhost") {
             assert!(consent.text.contains("<code>http://localhost?"));
@@ -557,11 +553,40 @@ async fn a_client_is_authorized_and_its_session_is_used_refreshed_and_revoked() 
         )
         .await;
     assert!(page.text.contains("name=\"password\""), "{}", page.text);
+    let csp = page.header("content-security-policy").unwrap();
     assert!(
-        page.header("content-security-policy")
-            .unwrap()
-            .contains("frame-ancestors 'none'")
+        csp.contains("frame-ancestors 'none'") && csp.contains("font-src 'self'"),
+        "{csp}"
     );
+    // The typeface and the mark come from the server itself, kept for a year.
+    assert!(
+        page.text.contains("src=\"/oauth/assets/stock-mark.svg\""),
+        "{}",
+        page.text
+    );
+    let font = server
+        .send(
+            reqwest::Method::GET,
+            "/oauth/assets/geist-latin.woff2",
+            None,
+            &[],
+        )
+        .await;
+    assert_eq!(font.status, 200);
+    assert_eq!(font.header("content-type"), Some("font/woff2"));
+    assert_eq!(
+        font.header("cache-control"),
+        Some("public, max-age=31536000, immutable")
+    );
+    let missing = server
+        .send(
+            reqwest::Method::GET,
+            "/oauth/assets/missing.woff2",
+            None,
+            &[],
+        )
+        .await;
+    assert_eq!(missing.status, 404);
     let csrf = page.field("csrf").unwrap();
     let form = [
         ("client_id", id.as_str()),
@@ -771,7 +796,7 @@ async fn a_device_remembers_an_account_and_a_token_is_revoked() {
             &[],
         )
         .await;
-    assert!(page.text.contains(">Authorize</button>"), "{}", page.text);
+    assert!(page.text.contains(">Authorize<"), "{}", page.text);
     assert!(!page.text.contains("name=\"password\""));
     // "Deny access" returns an error to the client.
     let csrf = page.field("csrf").unwrap();
@@ -919,7 +944,7 @@ async fn the_account_page_lists_and_ends_sessions_and_devices() {
         "{}",
         page.text
     );
-    assert!(page.text.contains("(this device)"));
+    assert!(page.text.contains("This device"));
     let csrf = page.field("csrf").unwrap();
     let token_id = page.field("token_id").unwrap();
     let device_id = page.field("device_id").unwrap();
@@ -966,11 +991,7 @@ async fn the_account_page_lists_and_ends_sessions_and_devices() {
     let welcome = server
         .send(reqwest::Method::GET, "/account", None, &[])
         .await;
-    assert!(
-        welcome.text.contains(">Sign in</button>"),
-        "{}",
-        welcome.text
-    );
+    assert!(welcome.text.contains(">Sign in<"), "{}", welcome.text);
     let signed_out = server
         .send(reqwest::Method::GET, "/account?view=sign-in", None, &[])
         .await;
@@ -2289,4 +2310,43 @@ async fn a_client_authorized_at_the_entryway_writes_at_the_member_host() {
         .resource(&other, reqwest::Method::GET, GET_SESSION, &access, None)
         .await;
     assert_eq!(refused.status, 401, "{}", refused.text);
+}
+
+#[tokio::test]
+async fn the_pages_wear_the_brand_of_the_configuration() {
+    let mut server = Server::start_with(&[
+        ("PDS_PROFILE", "linkjar"),
+        ("PDS_SERVICE_NAME", "LinkJar"),
+        ("PDS_HOME_URL", "https://linkjar.io"),
+        ("PDS_TERMS_OF_SERVICE_URL", "https://linkjar.io/terms"),
+        ("PDS_SUPPORT_URL", "https://linkjar.io/support"),
+    ])
+    .await;
+    let page = server
+        .send(reqwest::Method::GET, "/account", None, &[])
+        .await;
+    assert_eq!(page.status, 200);
+    assert!(
+        page.text.contains("<title>Your account · LinkJar</title>"),
+        "{}",
+        page.text
+    );
+    assert!(page.text.contains(
+        "<header><a class=\"lj-brand\" href=\"https://linkjar.io\"><img src=\"/oauth/assets/linkjar-mark.png\" alt=\"\">LinkJar</a></header>"
+    ));
+    assert!(page.text.contains(
+        "<nav><a href=\"https://linkjar.io\">Home</a><a href=\"https://linkjar.io/terms\">Terms of Service</a><a href=\"https://linkjar.io/support\">Support</a></nav>"
+    ));
+    let mark = server
+        .send(
+            reqwest::Method::GET,
+            "/oauth/assets/linkjar-mark.png",
+            None,
+            &[],
+        )
+        .await;
+    assert_eq!(
+        (mark.status, mark.header("content-type")),
+        (200, Some("image/png"))
+    );
 }

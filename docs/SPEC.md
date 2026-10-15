@@ -1206,6 +1206,13 @@ emitting `#identity`.
   the §12.7 branding under `stock`.
 - Pages are usable at 390 px width and meet WCAG 2.1 AA for contrast and
   keyboard operation.
+- Every page wears the LinkJar journey (`crates/pds-oauth/src/theme.rs`):
+  the typeface and the marks are served from `/oauth/assets/` with a
+  one-year cache, and the page CSP adds `font-src 'self'` and `img-src
+  'self' https:`. `PDS_SERVICE_NAME`, `PDS_LOGO_URL`, `PDS_HOME_URL`,
+  `PDS_TERMS_OF_SERVICE_URL`, `PDS_PRIVACY_POLICY_URL` and `PDS_SUPPORT_URL`
+  name the brand; what is unset falls back to the host name and to the mark
+  of the profile.
 - The UI's JSON routes keep the Reference's CSRF, `Origin`, fetch-metadata,
   ephemeral-token and device checks.
 

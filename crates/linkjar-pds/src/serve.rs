@@ -120,6 +120,12 @@ fn server_config(config: &Config, jwt_secret: &str, admin_password: &str) -> Ser
         blob_upload_limit: config.blob_upload_limit,
         privacy_policy_url: config.privacy_policy_url.clone(),
         terms_of_service_url: config.terms_of_service_url.clone(),
+        branding: pds_xrpc::state::Branding {
+            service_name: config.mail.service_name.clone(),
+            logo_url: config.mail.logo_url.clone(),
+            home_url: config.mail.home_url.clone(),
+            support_url: config.support_url.clone(),
+        },
         contact_email: config.contact_email.clone(),
         appview_url: config.appview_url.clone(),
         appview_did: config.appview_did.clone(),

@@ -68,6 +68,8 @@ pub fn route_label(path: &str) -> String {
         "/oauth/authorize/*".to_owned()
     } else if path.starts_with("/oauth/external/") {
         "/oauth/external/*".to_owned()
+    } else if path.starts_with("/oauth/assets/") {
+        "/oauth/assets/*".to_owned()
     } else if path.starts_with("/account/") {
         "/account/*".to_owned()
     } else {

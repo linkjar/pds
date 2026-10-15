@@ -28,6 +28,7 @@ fn state() -> AppState {
         blob_upload_limit: 1024,
         privacy_policy_url: None,
         terms_of_service_url: None,
+        branding: pds_xrpc::state::Branding::default(),
         contact_email: None,
         appview_url: None,
         appview_did: None,
