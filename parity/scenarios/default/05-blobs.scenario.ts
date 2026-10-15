@@ -2,7 +2,7 @@
 // to a blob when its last reference goes).
 
 import assert from 'node:assert/strict'
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import { checkRepo } from '../../src/oracles/repo.ts'
 import { refused, scenario } from '../../src/scenario.ts'
 import type { Account, Scenario } from '../../src/scenario.ts'
@@ -11,6 +11,15 @@ const NOTE = 'com.example.parity.note'
 const text = Buffer.from('hello, blob\n')
 // The smallest valid PNG: one transparent pixel.
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64')
+
+/** `length` bytes that are the same on every run: SHA-256 of a counter. */
+function fixedBytes(length: number): Uint8Array {
+  const out = Buffer.alloc(length)
+  for (let at = 0, n = 0; at < length; at += 32, n++) {
+    createHash('sha256').update(`parity blob ${n}`).digest().copy(out, at)
+  }
+  return out
+}
 
 const upload = (s: Scenario, step: string, account: Account, body: Uint8Array, contentType?: string) =>
   s.http(step, { method: 'POST', path: '/xrpc/com.atproto.repo.uploadBlob', body, contentType, auth: account })
@@ -74,12 +83,14 @@ scenario('05-blobs', {}, async (s) => {
   const empty = await upload(s, 'uploadBlob of zero bytes', alice, new Uint8Array(0), 'text/plain')
   s.note('uploadBlob of zero bytes', empty.status)
 
-  // SPEC 6.4: the upload limit, 5 MiB by default.
+  // SPEC 6.4: the upload limit, 5 MiB by default. The bytes are the same on
+  // every run: the server sniffs the type of the content, and random bytes
+  // sometimes look like an MP3 frame, which made two boots of one image differ.
   const limit = 5 * 1024 * 1024
-  const atLimit = await upload(s, 'uploadBlob at the limit', alice, randomBytes(limit), 'application/octet-stream')
+  const atLimit = await upload(s, 'uploadBlob at the limit', alice, fixedBytes(limit), 'application/octet-stream')
   assert.equal(atLimit.status, 200)
   assert.equal(atLimit.json.blob.size, limit)
-  const overLimit = await upload(s, 'uploadBlob one byte over the limit', alice, randomBytes(limit + 1), 'application/octet-stream')
+  const overLimit = await upload(s, 'uploadBlob one byte over the limit', alice, fixedBytes(limit + 1), 'application/octet-stream')
   refused(overLimit)
   s.note('over the limit', { status: overLimit.status, error: overLimit.json?.error })
 
