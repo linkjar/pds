@@ -31,6 +31,8 @@ pub struct ServerConfig {
     pub privacy_policy_url: Option<String>,
     /// `PDS_TERMS_OF_SERVICE_URL`.
     pub terms_of_service_url: Option<String>,
+    /// The brand on the pages (SPEC §11.4).
+    pub branding: Branding,
     /// `PDS_CONTACT_EMAIL_ADDRESS`.
     pub contact_email: Option<String>,
     /// `PDS_BSKY_APP_VIEW_URL`, without a trailing slash.
@@ -163,6 +165,39 @@ impl ServerConfig {
             handle.ends_with(domain.as_str()) || Some(handle) == domain.strip_prefix('.')
         })
     }
+
+    /// The brand as the pages draw it: what is unset falls back to the
+    /// host name and to the mark of the profile.
+    pub fn brand(&self) -> pds_oauth::pages::Brand<'_> {
+        let branding = &self.branding;
+        let mark = if self.profile.name() == "linkjar" {
+            pds_oauth::theme::LINKJAR_MARK_PATH
+        } else {
+            pds_oauth::theme::STOCK_MARK_PATH
+        };
+        pds_oauth::pages::Brand {
+            name: branding.service_name.as_deref().unwrap_or(&self.hostname),
+            logo: Some(branding.logo_url.as_deref().unwrap_or(mark)),
+            home: branding.home_url.as_deref(),
+            terms: self.terms_of_service_url.as_deref(),
+            privacy: self.privacy_policy_url.as_deref(),
+            support: branding.support_url.as_deref(),
+        }
+    }
+}
+
+/// The brand on the pages of the server: the name, the mark and the
+/// links (SPEC §11.4, §12.7).
+#[derive(Debug, Clone, Default)]
+pub struct Branding {
+    /// `PDS_SERVICE_NAME`.
+    pub service_name: Option<String>,
+    /// `PDS_LOGO_URL`.
+    pub logo_url: Option<String>,
+    /// `PDS_HOME_URL`.
+    pub home_url: Option<String>,
+    /// `PDS_SUPPORT_URL`.
+    pub support_url: Option<String>,
 }
 
 /// The settings of the write path and of the firehose.
