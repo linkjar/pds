@@ -1075,9 +1075,7 @@ async fn sign_up_credentials(state: &AppState, posted: &Posted) -> Result<Respon
             .pending
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
-        if pending.len() >= super::TABLE_SWEEP_AT {
-            pending.retain(|_, kept| kept.expires_ms > now_ms);
-        }
+        pending.sweep(|kept| kept.expires_ms > now_ms);
         pending.insert(
             key.clone(),
             PendingSignUp {

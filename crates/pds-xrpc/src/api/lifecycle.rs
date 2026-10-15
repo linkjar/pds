@@ -11,19 +11,14 @@ use pds_storage::{AccountDb, ActorDb, Availability};
 use pds_types::Did;
 use serde_json::{Value, json};
 
+use super::writes;
 use crate::auth::{self, SCOPE_TAKENDOWN, session};
 use crate::body;
 use crate::error::{XrpcError, json_response};
 use crate::params::Format;
-use crate::state::{AppState, WriteState};
+use crate::state::AppState;
 
 const DEFAULT_JSON_LIMIT: usize = 100 * 1024;
-
-fn writes(state: &AppState) -> Result<&WriteState, XrpcError> {
-    state
-        .writes()
-        .ok_or_else(|| XrpcError::internal("the server is read-only"))
-}
 
 /// The session of a method that an account uses while it is taken down
 /// too: the account password's scope, or the scope of a taken-down
@@ -159,8 +154,7 @@ async fn published(state: &AppState, did: &str) -> Result<Published, XrpcError> 
         .await
         .map_err(XrpcError::internal)?
         .ok_or_else(|| XrpcError::invalid_request("Could not resolve DID"))?;
-    let doc = pds_identity::DidDocument::from_json(doc.to_string().as_bytes(), usize::MAX)
-        .map_err(XrpcError::internal)?;
+    let doc = pds_identity::DidDocument::from_value(&doc).map_err(XrpcError::internal)?;
     Ok(Published {
         pds_endpoint: doc.pds_endpoint().ok().map(|endpoint| endpoint.origin()),
         signing_key: doc.signing_key().ok().map(|key| key.to_did_key()),

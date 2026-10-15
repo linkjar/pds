@@ -276,9 +276,7 @@ pub async fn get(state: &AppState, client_id: &str) -> Result<Arc<LoadedClient>,
     let client = Arc::new(discover(state, client_id, &url).await?);
     {
         let mut cache = cache.lock().unwrap_or_else(PoisonError::into_inner);
-        if cache.len() >= super::TABLE_SWEEP_AT {
-            cache.retain(|_, (_, fetched)| now_ms - *fetched < CACHE_TTL_MS);
-        }
+        cache.sweep(|(_, fetched)| now_ms - *fetched < CACHE_TTL_MS);
         cache.insert(client_id.to_owned(), (Arc::clone(&client), now_ms));
     }
     Ok(client)

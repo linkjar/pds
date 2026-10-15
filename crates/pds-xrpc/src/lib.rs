@@ -23,6 +23,7 @@ pub mod service_auth;
 pub mod state;
 pub mod stream;
 pub mod subscribers;
+mod table;
 pub mod write;
 
 use axum::Router;

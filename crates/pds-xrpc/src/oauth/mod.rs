@@ -15,7 +15,7 @@ pub mod metadata;
 pub mod notices;
 pub mod resource;
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use axum::body::Body;
@@ -27,6 +27,7 @@ use serde_json::{Value, json};
 use sha2::Digest;
 
 use crate::state::AppState;
+use crate::table::Swept;
 
 pub use pds_oauth::client::validate as validate_client;
 
@@ -91,9 +92,9 @@ const TABLE_SWEEP_AT: usize = 4096;
 pub struct OAuthState {
     nonces: Nonces,
     /// Things that are good once, with the time each stops mattering.
-    seen: Mutex<HashMap<String, i64>>,
-    clients: Mutex<HashMap<String, (Arc<clients::LoadedClient>, i64)>>,
-    pending: Mutex<HashMap<String, authorize::PendingSignUp>>,
+    seen: Mutex<Swept<String, i64, TABLE_SWEEP_AT>>,
+    clients: Mutex<Swept<String, (Arc<clients::LoadedClient>, i64), TABLE_SWEEP_AT>>,
+    pending: Mutex<Swept<String, authorize::PendingSignUp, TABLE_SWEEP_AT>>,
     /// The sign-ins at identity providers that are in progress.
     pub(crate) flows: external::Flows,
 }
@@ -121,7 +122,7 @@ impl OAuthState {
                     }),
             ),
             seen: Mutex::default(),
-            clients: Mutex::new(clients::known(config)),
+            clients: Mutex::new(clients::known(config).into()),
             pending: Mutex::default(),
             flows: external::Flows::default(),
         }
@@ -131,9 +132,7 @@ impl OAuthState {
     /// before and that record still counts.
     pub fn unique(&self, key: String, until_ms: i64, now_ms: i64) -> bool {
         let mut seen = self.seen.lock().unwrap_or_else(PoisonError::into_inner);
-        if seen.len() >= TABLE_SWEEP_AT {
-            seen.retain(|_, until| *until > now_ms);
-        }
+        seen.sweep(|until| *until > now_ms);
         match seen.get(&key) {
             Some(until) if *until > now_ms => false,
             _ => {

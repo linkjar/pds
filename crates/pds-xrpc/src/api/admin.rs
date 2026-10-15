@@ -10,19 +10,14 @@ use pds_storage::{AccountDb, ActorDb, Availability, Invites};
 use serde_json::{Map, Value, json};
 
 use super::Query;
+use super::writes;
 use crate::auth::{self, Credentials};
 use crate::body;
 use crate::error::{XrpcError, json_response};
-use crate::state::{AppState, WriteState};
+use crate::state::AppState;
 use crate::write::transact;
 
 const DEFAULT_JSON_LIMIT: usize = 100 * 1024;
-
-fn writes(state: &AppState) -> Result<&WriteState, XrpcError> {
-    state
-        .writes()
-        .ok_or_else(|| XrpcError::internal("the server is read-only"))
-}
 
 /// Refuses a caller that is not the admin.
 pub(crate) fn require_admin(state: &AppState, headers: &HeaderMap) -> Result<(), XrpcError> {

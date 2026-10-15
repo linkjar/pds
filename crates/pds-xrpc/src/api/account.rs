@@ -17,6 +17,7 @@ use pds_storage::{ActorDb, Availability, NewAccount, Refused, schema};
 use pds_types::{Did, Handle};
 use serde_json::{Map, Value};
 
+use super::writes;
 use crate::auth::{self, SCOPE_ACCESS};
 use crate::body;
 use crate::error::{XrpcError, json_response};
@@ -373,12 +374,6 @@ pub(crate) fn identity(state: &AppState) -> Result<&IdentityConfig, XrpcError> {
         .identity
         .as_ref()
         .ok_or_else(|| XrpcError::internal("the PLC rotation key is not configured"))
-}
-
-fn writes(state: &AppState) -> Result<&WriteState, XrpcError> {
-    state
-        .writes()
-        .ok_or_else(|| XrpcError::internal("the server is read-only"))
 }
 
 /// The actor store of a new account: its directory, its signing key, and

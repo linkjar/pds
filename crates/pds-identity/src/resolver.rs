@@ -319,10 +319,10 @@ impl DidResolver {
             did: did.to_string(),
             source,
         };
-        DidDocument::from_json_for(&body, MAX_DID_DOC_LEN, did).map_err(document)?;
-        serde_json::from_slice(&body)
-            .map(Some)
-            .map_err(|e| document(DidDocError::Parse(e.to_string())))
+        let value: Value = serde_json::from_slice(&body)
+            .map_err(|e| document(DidDocError::Parse(e.to_string())))?;
+        DidDocument::from_value_for(&value, did).map_err(document)?;
+        Ok(Some(value))
     }
 }
 

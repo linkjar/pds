@@ -9,6 +9,7 @@ use data_encoding::HEXLOWER;
 use pds_storage::{Account, Availability};
 use serde_json::json;
 
+use super::writes;
 use crate::auth::{self, session};
 use crate::body;
 use crate::error::{XrpcError, json_response};
@@ -20,12 +21,6 @@ use crate::state::{AppState, WriteState};
 const DEFAULT_JSON_LIMIT: usize = 100 * 1024;
 /// How long an email token is valid: 15 minutes.
 const TOKEN_LIFETIME_MS: i64 = 15 * 60 * 1000;
-
-fn writes(state: &AppState) -> Result<&WriteState, XrpcError> {
-    state
-        .writes()
-        .ok_or_else(|| XrpcError::internal("the server is read-only"))
-}
 
 /// A new token: ten base32 characters in two groups, in upper case.
 pub(crate) fn new_token(writes: &WriteState) -> String {

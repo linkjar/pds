@@ -11,7 +11,7 @@ use futures_util::StreamExt as _;
 use pds_storage::{Actor, Availability};
 use serde_json::{Map, Value, json};
 
-use super::Query;
+use super::{Query, writes};
 use crate::auth::session;
 use crate::body;
 use crate::error::{XrpcError, json_response};
@@ -20,6 +20,7 @@ use crate::state::{AppState, WriteState};
 use crate::write::{
     BlobUse, Committed, Prepared, RecordWrite, Swap, prepare_record, record_uri, transact,
 };
+use cid::Cid;
 
 /// The most bytes of a JSON write (`jsonLimit` of the Reference's routes).
 const JSON_LIMIT: usize = 1_000_000;
@@ -30,12 +31,6 @@ const DEFAULT_JSON_LIMIT: usize = 100 * 1024;
 const CREATE: &str = "com.atproto.repo.applyWrites#create";
 const UPDATE: &str = "com.atproto.repo.applyWrites#update";
 const DELETE: &str = "com.atproto.repo.applyWrites#delete";
-
-fn write_state(state: &AppState) -> Result<&WriteState, XrpcError> {
-    state
-        .writes()
-        .ok_or_else(|| XrpcError::internal("the server is read-only"))
-}
 
 /// The account a request names, as `findAccount` of the Reference finds
 /// it. This call blocks.
@@ -84,7 +79,24 @@ fn commit_json(commit: &Committed) -> Value {
     json!({ "cid": commit.cid.to_string(), "rev": commit.rev })
 }
 
-fn written_json(write: &RecordWrite, commit: Option<&Committed>) -> Value {
+/// What the answer says of a written record.
+struct Written {
+    uri: String,
+    cid: Cid,
+    validation_status: Option<&'static str>,
+}
+
+impl Written {
+    fn of(write: &RecordWrite) -> Self {
+        Self {
+            uri: write.uri.clone(),
+            cid: write.cid,
+            validation_status: write.validation_status,
+        }
+    }
+}
+
+fn written_json(write: &Written, commit: Option<&Committed>) -> Value {
     let mut out = Map::new();
     out.insert("uri".to_owned(), Value::String(write.uri.clone()));
     out.insert("cid".to_owned(), Value::String(write.cid.to_string()));
@@ -122,9 +134,9 @@ pub async fn create_record(
     let swap_commit = body::cid(&input, "swapCommit", "$")?;
     crate::oauth::resource::check_repo(&collection, "create")?;
 
-    let (write, commit) = state
+    let (written, commit) = state
         .blocking(move |state| {
-            let writes = write_state(state)?;
+            let writes = writes(state)?;
             let did = own_repo(state, &repo, &caller)?;
             let write = prepare_record(
                 writes,
@@ -135,6 +147,7 @@ pub async fn create_record(
                 validate,
                 "$.record",
             )?;
+            let written = Written::of(&write);
             let commit = transact(state, &did, |session| {
                 // A new follow, block, like or repost replaces the one the
                 // account already has for the same subject.
@@ -156,15 +169,15 @@ pub async fn create_record(
                         }
                     }
                 }
-                batch.push(Prepared::Create(write.clone()));
+                batch.push(Prepared::Create(write));
                 session.process_writes(&batch, swap_commit.as_ref())
             })?;
-            Ok((write, commit))
+            Ok((written, commit))
         })
         .await?;
     Ok(json_response(
         StatusCode::OK,
-        &written_json(&write, Some(&commit)),
+        &written_json(&written, Some(&commit)),
     ))
 }
 
@@ -201,9 +214,9 @@ pub async fn put_record(
     crate::oauth::resource::check_repo(&collection, "create")?;
     crate::oauth::resource::check_repo(&collection, "update")?;
 
-    let (write, commit) = state
+    let (written, commit) = state
         .blocking(move |state| {
-            let writes = write_state(state)?;
+            let writes = writes(state)?;
             let did = own_repo(state, &repo, &caller)?;
             let uri = record_uri(&did, &collection, &rkey);
             transact(state, &did, |session| {
@@ -218,23 +231,24 @@ pub async fn put_record(
                     "$.record",
                 )?;
                 write.swap = swap;
+                let written = Written::of(&write);
                 // The same content makes no commit (SPEC §6.3).
                 if current.as_deref() == Some(write.cid.to_string().as_str()) {
-                    return Ok((write, None));
+                    return Ok((written, None));
                 }
                 let prepared = if current.is_some() {
-                    Prepared::Update(write.clone())
+                    Prepared::Update(write)
                 } else {
-                    Prepared::Create(write.clone())
+                    Prepared::Create(write)
                 };
                 let commit = session.process_writes(&[prepared], swap_commit.as_ref())?;
-                Ok((write, Some(commit)))
+                Ok((written, Some(commit)))
             })
         })
         .await?;
     Ok(json_response(
         StatusCode::OK,
-        &written_json(&write, commit.as_ref()),
+        &written_json(&written, commit.as_ref()),
     ))
 }
 
@@ -395,7 +409,7 @@ pub async fn apply_writes(
 
     let (prepared, commit) = state
         .blocking(move |state| {
-            let writes = write_state(state)?;
+            let writes = writes(state)?;
             let did = own_repo(state, &repo, &caller)?;
             if batch.len() > pds_repo::repo::MAX_WRITES {
                 return Err(XrpcError::invalid_request("Too many writes. Max: 200"));
@@ -544,7 +558,7 @@ pub async fn upload_blob(
     // through a short queue, so a slow disk slows the client down.
     let (chunks, mut queue) = tokio::sync::mpsc::channel::<axum::body::Bytes>(8);
     let did = caller.clone();
-    let key = staging_key(write_state(state)?);
+    let key = staging_key(writes(state)?);
     let writer = tokio::task::spawn_blocking(move || {
         let mut staging = blobs.stage(&did, &key).map_err(XrpcError::internal)?;
         while let Some(chunk) = queue.blocking_recv() {
@@ -588,7 +602,7 @@ pub async fn upload_blob(
             let cid = staged.cid.to_string();
             let mime_type = staged.sniffed.map_or(declared, str::to_owned);
             let size = i64::try_from(staged.size).map_err(XrpcError::internal)?;
-            let now = write_state(state)?.sequencer().now();
+            let now = writes(state)?.sequencer().now();
             let kept = transact(state, &did, |session| {
                 if session.txn().blob_is_taken_down(&cid)? {
                     return Err(XrpcError::invalid_request(

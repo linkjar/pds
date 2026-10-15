@@ -64,7 +64,7 @@ async fn signing_key(
         .await
         .map_err(|_| unresolved())?
         .ok_or_else(unresolved)?;
-    DidDocument::from_json(doc.to_string().as_bytes(), usize::MAX)
+    DidDocument::from_value(&doc)
         .ok()
         .and_then(|doc| doc.signing_key().ok())
         .ok_or_else(|| denied("AuthenticationRequired", "missing or bad key in did doc"))

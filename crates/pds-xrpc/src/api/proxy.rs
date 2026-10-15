@@ -228,7 +228,7 @@ async fn from_header(state: &AppState, proxy_to: &str) -> Result<Target, XrpcErr
         .await
         .map_err(|_| unresolved())?
         .ok_or_else(unresolved)?;
-    let endpoint = DidDocument::from_json(doc.to_string().as_bytes(), usize::MAX)
+    let endpoint = DidDocument::from_value(&doc)
         .ok()
         .and_then(|doc| doc.service_endpoint(&format!("#{service}"), None).ok())
         .ok_or_else(|| XrpcError::invalid_request("could not resolve proxy did service url"))?;

@@ -12,7 +12,6 @@
 #![allow(clippy::significant_drop_tightening)]
 
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::{Mutex, PoisonError};
 
@@ -21,6 +20,7 @@ use axum::response::Response;
 
 use crate::error::XrpcError;
 use crate::state::AppState;
+use crate::table::Swept;
 
 /// The settings: `PDS_RATE_LIMITS_ENABLED`, `PDS_RATE_LIMIT_BYPASS_KEY`
 /// and `PDS_RATE_LIMIT_BYPASS_IPS`.
@@ -94,10 +94,13 @@ struct Bucket {
     resets_at_ms: i64,
 }
 
+/// How many buckets the table holds before it drops the ended ones.
+const BUCKETS_SWEEP_AT: usize = 100_000;
+
 /// The buckets of every limiter.
 #[derive(Debug, Default)]
 pub struct Limiter {
-    buckets: Mutex<HashMap<(&'static str, String), Bucket>>,
+    buckets: Mutex<Swept<(&'static str, String), Bucket, BUCKETS_SWEEP_AT>>,
 }
 
 impl Limiter {
@@ -105,9 +108,7 @@ impl Limiter {
     pub fn consume(&self, limit: Limit, key: &str, points: i64, now_ms: i64) -> Status {
         let mut buckets = self.buckets.lock().unwrap_or_else(PoisonError::into_inner);
         // The table stays small: a bucket goes when its window is over.
-        if buckets.len() > 100_000 {
-            buckets.retain(|_, bucket| bucket.resets_at_ms > now_ms);
-        }
+        buckets.sweep(|bucket| bucket.resets_at_ms > now_ms);
         let bucket = buckets
             .entry((limit.name, key.to_owned()))
             .or_insert(Bucket {

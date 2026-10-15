@@ -214,6 +214,9 @@ impl WriteState {
         tids: TidGenerator,
         settings: WriteSettings,
     ) -> Result<Self, StorageError> {
+        // The bundled lexicons are parsed here, at start, and not in the
+        // first write that validates a record.
+        pds_lexicon::Corpus::bundled();
         Ok(Self {
             sequencer,
             ops: Mutex::new(OpsDb::open(&layout.ops_db)?),
