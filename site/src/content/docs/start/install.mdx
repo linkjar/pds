@@ -1,0 +1,140 @@
+---
+title: Install with Docker Compose
+description: Get the Compose file, fill in the secrets, start the server and Caddy.
+sidebar:
+  order: 3
+---
+
+import { Steps, Tabs, TabItem, FileTree } from '@astrojs/starlight/components';
+
+The deployment is four files from the repository: a Compose file with the
+server and Caddy, a Caddyfile, and two example environment files.
+
+<FileTree>
+- deploy/compose/
+  - compose.yml the server and Caddy
+  - Caddyfile certificates on demand, for the server and each handle
+  - example.env for Compose: the image, the name, your email
+  - example.pds.env for the server: secrets and settings
+</FileTree>
+
+<Steps>
+
+1. Get the files onto the host.
+
+   ```bash
+   git clone --depth 1 https://github.com/linkjar/pds.git
+   ```
+
+   ```bash
+   cd pds/deploy/compose
+   ```
+
+2. Choose the image.
+
+   <Tabs>
+     <TabItem label="Published image">
+       Every push to `main` publishes `ghcr.io/linkjar/pds-server` for
+       `amd64` and `arm64`. Resolve the `main` tag to a digest, and pin the
+       digest: a digest names one build, where a tag moves.
+
+       ```bash
+       docker buildx imagetools inspect ghcr.io/linkjar/pds-server:main --format '{{.Manifest.Digest}}'
+       ```
+
+       It prints `sha256:…`. The image is
+       `ghcr.io/linkjar/pds-server@sha256:…`.
+     </TabItem>
+     <TabItem label="Build from source">
+       The repository's `Dockerfile` builds the server with the pinned
+       toolchain. Run this from the repository root, on the host or on a
+       workstation with the same architecture. The first build takes a
+       few minutes.
+
+       ```bash
+       docker build -t linkjar-pds:local .
+       ```
+
+       The image is `linkjar-pds:local`.
+     </TabItem>
+   </Tabs>
+
+3. Write `.env`. Compose reads it; the server does not.
+
+   ```bash
+   cp example.env .env
+   ```
+
+   Set `PDS_IMAGE` to the image, `PDS_HOSTNAME` to `pds.example.com` and
+   `ACME_EMAIL` to `operator@example.com`.
+
+4. Write `pds.env`, the server's secrets and settings.
+
+   ```bash
+   cp example.pds.env pds.env
+   ```
+
+   ```bash
+   chmod 600 pds.env
+   ```
+
+   Generate the three secrets and paste each into its line. Keep them.
+   Sessions and the identities of the accounts depend on them, and a lost
+   rotation key is lost control of every account's DID.
+
+   The JWT secret:
+
+   ```bash
+   openssl rand --hex 16
+   ```
+
+   The admin password:
+
+   ```bash
+   openssl rand --hex 16
+   ```
+
+   The PLC rotation key:
+
+   ```bash
+   openssl ecparam --name secp256k1 --genkey --noout --outform DER | tail --bytes=+8 | head --bytes=32 | xxd --plain --cols 32
+   ```
+
+   The rest of the file holds settings with their usual values: the data
+   directory inside the container, the public PLC directory, the Bluesky
+   AppView and relay, and `PDS_INVITE_REQUIRED=true`.
+   [Environment variables](/configure/environment/) explains each.
+
+5. Create the data directory. The server runs as user id 1000 in the
+   image, so the directory belongs to that id.
+
+   ```bash
+   sudo install -d -o 1000 -g 1000 data
+   ```
+
+6. Check the configuration without starting the server.
+
+   ```bash
+   docker compose run --rm pds linkjar-pds check-config
+   ```
+
+   It prints `the configuration is valid`. A missing or malformed variable
+   is named instead; fix it and run the check again.
+
+7. Start the server and Caddy.
+
+   ```bash
+   docker compose up -d
+   ```
+
+   ```bash
+   docker compose logs pds
+   ```
+
+   The server logs JSON lines. A line with `"message":"serving"` and the
+   server's DID means it is up. Caddy asks for the server's certificate
+   the first time a client connects.
+
+</Steps>
+
+Next: [check that it works](/start/verify/) from outside the host.

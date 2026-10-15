@@ -1,6 +1,10 @@
 # Documentation
 
-[Repository README](../README.md) · [Specification](SPEC.md) · [Plan](plan.md) · [Architecture](architecture/README.md)
+[Repository README](../README.md) · [Specification](SPEC.md) · [Plan](plan.md) · [Architecture](architecture/README.md) · [Self-hosting guide](https://pds.linkjar.io)
+
+This directory is the engineering documentation. The guide for people who
+host the server is [pds.linkjar.io](https://pds.linkjar.io), with its
+source in [`../site/`](../site/README.md).
 
 ## Normative
 
@@ -13,7 +17,7 @@
 
 ## Runbooks
 
-- [runbooks/test-host.md](runbooks/test-host.md): the Candidate on a public test host with a name of its own, for the Bluesky app and the `linkjar.io` browser gate, and the smoke test that checks it from outside.
+- [runbooks/test-host.md](runbooks/test-host.md): the Candidate on a public test host with a name of its own, for the Bluesky app and the `linkjar.io` browser gate, and the smoke test that checks it from outside. The guide at [pds.linkjar.io](https://pds.linkjar.io) is the same deployment for anyone.
 - [runbooks/cutover.md](runbooks/cutover.md): the cutover from the Reference to the Candidate on the same host name and data directory. The owner runs every step.
 - [runbooks/entryway.md](runbooks/entryway.md): a single node becomes an entryway and a member host, with no change of a DID document.
 - [runbooks/postgres.md](runbooks/postgres.md): the shared tier moves from SQLite files to Postgres, and back.

@@ -1,0 +1,62 @@
+---
+title: How it fits together
+description: The parts of the server, what it writes to disk, and the two ways to deploy it, in three diagrams.
+sidebar:
+  order: 1
+---
+
+import Diagram from '../../../components/Diagram.astro';
+
+The server is one process with three listeners: the public one that Caddy
+forwards to, and two private ones for metrics and for the console. It
+keeps everything in one data directory.
+
+## Who talks to it
+
+<Diagram
+	name="02-system-context"
+	alt="System context: apps and clients reach the PDS over XRPC and OAuth; the PDS reaches the relay, the PLC directory, the AppView and SMTP; the console and the MCP server sit beside it"
+	caption="Apps sign in and read and write over XRPC. The relay subscribes to the firehose. The server registers DIDs with the PLC directory and forwards app requests to the AppView."
+/>
+
+Apps, the Bluesky app among them, sign in with OAuth or a password and
+read and write records over XRPC. The relay at `bsky.network` subscribes
+to the firehose and feeds the AppView, which serves timelines and
+notifications back to the apps through the server. The PLC directory holds
+the DID documents. The two sidecars are optional.
+
+## What it writes
+
+<Diagram
+	name="07-storage"
+	alt="Storage: the data directory with account.sqlite, sequencer.sqlite, did_cache.sqlite, audit.sqlite and ops.sqlite, one SQLite store and key per account, and the blobs on disk or in S3"
+	caption="The data directory has the reference server's layout: shared databases, one store and one signing key per account, and the blobs."
+/>
+
+Each account's repository is a SQLite file of its own, with its signing
+key beside it. The shared databases hold the accounts and sessions, the
+event log of the firehose, cached DID documents, the audit log, and the
+server's operator state. Blobs are files, or objects in a bucket.
+[Back up and restore](/operate/backup/) says which to keep.
+
+## One host, or an entryway
+
+<Diagram
+	name="15-topologies"
+	alt="Topologies: a single node with one data directory replicated to object storage, and an entryway that keeps the accounts in front of member hosts that keep the repositories"
+	caption="A single node is the usual deployment. An entryway splits accounts from repositories to grow past one host."
+/>
+
+A single node serves everything from one data directory, and this guide
+is written for it. An [entryway](/scale/entryway/) keeps the accounts and
+the OAuth server in front of a member host that keeps the repositories;
+today one member host is supported.
+
+## Further reading
+
+- [docs/architecture](https://github.com/linkjar/pds/blob/main/docs/architecture/README.md):
+  one diagram per part of the server, including the write path, the
+  firehose, OAuth and the extension model.
+- [docs/SPEC.md](https://github.com/linkjar/pds/blob/main/docs/SPEC.md):
+  the specification, which says what the server must do and where it
+  differs from the reference server on purpose.

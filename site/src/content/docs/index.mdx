@@ -1,0 +1,68 @@
+---
+title: LinkJar PDS
+description: Host your own AT Protocol Personal Data Server. A small Rust server, compatible with the reference PDS.
+template: splash
+hero:
+  title: Host your own PDS
+  tagline: LinkJar PDS is an AT Protocol Personal Data Server written in Rust. One binary, one data directory, the same layout and settings as the reference server. Run it for yourself, your family or your community.
+  image:
+    file: ../../assets/hero.svg
+    alt: A jar with a stream of records leaving it
+  actions:
+    - text: Get started
+      link: /start/requirements/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/linkjar/pds
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<CardGrid stagger>
+	<Card title="Running in fifteen minutes" icon="rocket">
+		A Compose file with the server and Caddy. Point DNS at the host, fill in
+		three secrets, start it. [What you need →](/start/requirements/)
+	</Card>
+	<Card title="A drop-in for the reference PDS" icon="random">
+		The same data directory, the same `PDS_*` variables, the same user id.
+		Stop one server, start the other; the relay resumes at its cursor.
+		[Switch over →](/operate/migrate-from-reference/)
+	</Card>
+	<Card title="Small and quick" icon="laptop">
+		The server starts in a few megabytes of memory. On a laptop it exported a
+		repository of 100,000 records in 167 ms, where the reference server took
+		1,385 ms. [Measurements →](https://github.com/linkjar/pds/blob/main/parity/results/perf-reads.md)
+	</Card>
+	<Card title="An audit log you can check offline" icon="approve-check">
+		Every account and admin action is an entry in a hash chain. Checkpoints are
+		signed, and a bundle verifies away from the host.
+		[Audit log →](/operate/audit-log/)
+	</Card>
+</CardGrid>
+
+## Where to go
+
+<CardGrid>
+	<LinkCard
+		title="Configure"
+		description="Environment variables, email, blob storage, handles and certificates."
+		href="/configure/environment/"
+	/>
+	<LinkCard
+		title="Operate"
+		description="Update, back up, watch the logs and metrics, manage accounts."
+		href="/operate/update/"
+	/>
+	<LinkCard
+		title="Scale"
+		description="Postgres for the shared tier, an entryway with a member host, the sidecars."
+		href="/scale/postgres/"
+	/>
+	<LinkCard
+		title="How it fits together"
+		description="The parts of the server and the files it writes, in three diagrams."
+		href="/reference/architecture/"
+	/>
+</CardGrid>

@@ -1,0 +1,27 @@
+---
+// One architecture diagram of docs/architecture, in the variant of the
+// current theme. The SVGs are rendered there with beautiful-mermaid
+// (`pnpm render` in docs/architecture); this site copies nothing.
+interface Props {
+	name: string;
+	alt: string;
+	caption?: string;
+}
+const { name, alt, caption } = Astro.props;
+const svgs = import.meta.glob('../../../docs/architecture/svg/*.svg', {
+	query: '?url',
+	import: 'default',
+	eager: true,
+}) as Record<string, string>;
+const light = svgs[`../../../docs/architecture/svg/${name}.svg`];
+const dark = svgs[`../../../docs/architecture/svg/${name}.dark.svg`];
+if (!light || !dark) {
+	throw new Error(`docs/architecture/svg has no diagram named ${name}`);
+}
+---
+
+<figure class="diagram">
+	<img src={light} alt={alt} class="dark:sl-hidden" loading="lazy" />
+	<img src={dark} alt={alt} class="light:sl-hidden" loading="lazy" />
+	{caption && <figcaption>{caption}</figcaption>}
+</figure>

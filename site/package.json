@@ -1,0 +1,23 @@
+{
+  "name": "linkjar-pds-site",
+  "private": true,
+  "type": "module",
+  "description": "The self-hosting guide for LinkJar PDS, built with Astro Starlight.",
+  "packageManager": "pnpm@12.4.1",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.42.6",
+    "@fontsource/ibm-plex-mono": "^5.2.6",
+    "@fontsource/ibm-plex-sans": "^5.2.6",
+    "astro": "^7.2.10",
+    "sharp": "^0.35.3"
+  }
+}
