@@ -3,6 +3,11 @@
 # The console is a sidecar: it holds no data directory and no secret of the
 # PDS. Publish its port on a loopback address of the host only, and reach
 # it through the VPN or an SSH tunnel.
+#
+# The build downloads the standalone Tailwind CLI that crates/pds-console/
+# build.rs pins by release and hash, and the executable then writes the
+# bundle of its assets (stylesheet, browser runtime, font, mark) next to
+# itself; the image carries both.
 
 FROM rust:1.99.0-slim-trixie AS build
 WORKDIR /src
@@ -13,6 +18,7 @@ COPY xtask xtask
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/target \
     cargo build --release --locked --package pds-console \
+ && target/release/linkjar-pds-console bundle-assets /assets \
  && cp target/release/linkjar-pds-console /linkjar-pds-console
 
 FROM debian:trixie-slim
@@ -21,6 +27,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && useradd --uid 1000 --create-home console
 COPY --from=build /linkjar-pds-console /usr/local/bin/linkjar-pds-console
+COPY --from=build /assets /usr/local/bin/assets
 
 EXPOSE 2585
 ENV CONSOLE_ADDRESS=0.0.0.0:2585

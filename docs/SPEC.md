@@ -2113,7 +2113,10 @@ As of unit 9:
   `listAccounts`, `getAccount`, `listAudit`, `listRoles`,
   `listBlockedEmailDomains` and `verify`, and the stream
   `internal.ops.subscribeState`, which sends the overview and the
-  subscribers as a JSON text frame every two seconds.
+  subscribers as a JSON text frame every two seconds. The console reads
+  the stream with the operator's session for its live view, and carries
+  each new rendering to the browser over its own WebSocket; the browser
+  never reaches the listener.
 - **Actions.** `internal.ops.disconnectSubscriber`, `revokeSessions`,
   `grantRole`, `revokeRole`, `blockEmailDomain`, `unblockEmailDomain`,
   `emitSync`, `purgeExpired` and `checkpoint`.
@@ -2124,6 +2127,12 @@ As of unit 9:
   credential (`admin` or `oauth`), the OAuth client, the reason, and
   `console` as sidecar. A refused action is an entry with the name of
   the refusal as outcome.
+- **The console's pages.** Rendered on the server with Topcoat. Their
+  content security policy is `default-src 'none'` with scripts, styles,
+  images and fonts from the console only, and `'unsafe-eval'` for
+  scripts: Topcoat's browser runtime compiles the expressions of a page,
+  translated to JavaScript by the server, with `Function`. No inline
+  script is allowed, and no request goes to another origin.
 - **Blocked email domains.** `createAccount` refuses an address whose
   domain, or a domain above it, is on the list.
 - **Not built:** upstream health, job state beyond the counts of the
