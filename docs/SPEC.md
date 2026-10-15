@@ -1218,6 +1218,12 @@ The Candidate serves §11.1 to §11.4 with the differences below. The
 - **Pages.** Every page is one HTML document that works without scripts.
   A form carries a token that the server computes from the device cookie
   and the request, and the server checks `Origin` and `Sec-Fetch-Site`. A
+  page loads only as a browser loads a page, as at the Reference: the
+  authorization page needs `Sec-Fetch-Site` of `same-origin`, `same-site`,
+  `cross-site` or `none`, and it and the account pages need
+  `Sec-Fetch-Mode: navigate`, `Sec-Fetch-Dest: document`, and the server's
+  own `Origin` when one is sent. A missing header fails as a wrong one
+  does, with 400 and the Reference's message on the error page. A
   sign-in that the device does not remember travels as a signed proof in
   the consent form; the proof names the account, the device and the
   request and ends after 15 minutes.

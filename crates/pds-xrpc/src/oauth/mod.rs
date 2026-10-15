@@ -385,6 +385,53 @@ fn method_not_allowed() -> Response {
     .into_response()
 }
 
+/// The values of `Sec-Fetch-Site` that the authorization page takes. The
+/// Reference names them in this order, and its message lists them so.
+const AUTHORIZE_SITES: [&str; 4] = ["same-origin", "same-site", "cross-site", "none"];
+
+/// Checks that a page is loaded as a browser loads a page: by navigation,
+/// into a document, from its own origin when the browser names one
+/// (SPEC §11.5). The Reference checks the same headers in the same order,
+/// and a missing header fails as a wrong one does. `sites` is the values
+/// of `Sec-Fetch-Site` the page takes; `None` leaves the header unchecked.
+/// `Err` is the Reference's message.
+fn navigation(headers: &HeaderMap, issuer: &str, sites: Option<&[&str]>) -> Result<(), String> {
+    let expect = |name: &str, allowed: &[&str]| {
+        let mut values = headers.get_all(name).iter();
+        let value = values.next();
+        if values.next().is_some() {
+            return Err(format!("Invalid {name} header"));
+        }
+        match value.map(|value| value.to_str().unwrap_or_default()) {
+            Some(value) if allowed.contains(&value) => Ok(()),
+            Some(value) => Err(format!(
+                "Forbidden {name} header \"{value}\" (expected {})",
+                allowed.join(",")
+            )),
+            None => Err(format!("Missing {name} header")),
+        }
+    };
+    if let Some(sites) = sites {
+        expect("sec-fetch-site", sites)?;
+    }
+    expect("sec-fetch-mode", &["navigate"])?;
+    expect("sec-fetch-dest", &["document"])?;
+    match headers.get(header::ORIGIN) {
+        Some(origin) if origin.as_bytes() != issuer.as_bytes() => Err(format!(
+            "Invalid origin {}",
+            origin.to_str().unwrap_or_default()
+        )),
+        _ => Ok(()),
+    }
+}
+
+/// A page of the authorization server, after the checks of [`navigation`].
+fn page_load(headers: &HeaderMap, issuer: &str, sites: Option<&[&str]>) -> Option<Response> {
+    navigation(headers, issuer, sites)
+        .err()
+        .map(|message| authorize::error_page(StatusCode::BAD_REQUEST, &[], &message))
+}
+
 /// Serves a route of the authorization server. `None` means the path is
 /// not one.
 pub async fn serve(
@@ -434,10 +481,20 @@ pub async fn serve(
         "/.well-known/oauth-authorization-server" if reads => metadata::authorization_server(state),
         "/.well-known/oauth-protected-resource" if reads => metadata::protected_resource(state),
         "/oauth/jwks" if reads => metadata::jwks(),
-        "/oauth/authorize" if reads => authorize::page(state, query, headers, peer).await,
-        "/account" if reads => account::page(state, path, query, headers, peer).await,
-        _ if reads && path.starts_with("/account/") && path.ends_with("/manage") => {
-            account::page(state, path, query, headers, peer).await
+        "/oauth/authorize" if reads => {
+            match page_load(headers, &issuer(state), Some(&AUTHORIZE_SITES)) {
+                Some(refused) => refused,
+                None => authorize::page(state, query, headers, peer).await,
+            }
+        }
+        _ if reads
+            && (path == "/account"
+                || (path.starts_with("/account/") && path.ends_with("/manage"))) =>
+        {
+            match page_load(headers, &issuer(state), None) {
+                Some(refused) => refused,
+                None => account::page(state, path, query, headers, peer).await,
+            }
         }
         _ if method != Method::POST => method_not_allowed(),
         "/oauth/par" => {

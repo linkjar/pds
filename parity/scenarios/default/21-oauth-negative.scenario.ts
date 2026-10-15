@@ -89,6 +89,21 @@ scenario('21-oauth-negative', { timeoutMs: 300_000 }, async (s) => {
   s.note('authorize without a pushed request', { status: direct.status, location: direct.headers.get('location')?.replace(/state=[^&]+/, 'state=…') ?? null })
   assert.notEqual(direct.status, 200)
 
+  // A page loads only by navigation (SPEC 11.5). fetch() sends
+  // `Sec-Fetch-Mode: cors` itself, which is what a script would send. Each
+  // server words the reason in its own page; the note keeps the reason.
+  const reason = (text: string) => text.match(/(Missing|Forbidden|Invalid) sec-fetch-[a-z]+ header/)?.[0] ?? null
+  for (const [step, path, headers] of [
+    ['authorization page loaded by a script', '/oauth/authorize', {}],
+    ['authorization page loaded by a script that names its site', '/oauth/authorize', { 'sec-fetch-site': 'cross-site' }],
+    ['account page loaded by a script', '/account', {}],
+  ] as const) {
+    // The pages are the authorization server's: an entryway's, in that topology.
+    const page = await s.http(step, { path, headers, host: accountHost() })
+    s.note(step, { status: page.status, reason: reason(page.text) })
+    assert.equal(page.status, 400, step)
+  }
+
   // The pushed-request lifetime, the other half: after five minutes the request is dead. The harness ages the row.
   const requestId = pushed.result.json.request_uri.split(':').at(-1)
   const rows = await s.target.sqlite('account', "select (julianday(expiresAt) - julianday('now')) * 1440 as minutes from authorization_request where id = ?", [requestId])
