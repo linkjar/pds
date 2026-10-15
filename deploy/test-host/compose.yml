@@ -1,0 +1,44 @@
+# A test host for LinkJar PDS: the server behind Caddy, which obtains a
+# certificate for the server's name and for each hosted handle on demand.
+# The runbook is docs/runbooks/test-host.md. It is not the production
+# deployment, which linkjar/infra owns.
+name: linkjar-pds-test
+services:
+  pds:
+    # By digest, from the summary of the "Server images" workflow on main.
+    image: ${PDS_IMAGE:?Set PDS_IMAGE in .env to ghcr.io/linkjar/pds-server@sha256:...}
+    restart: unless-stopped
+    environment:
+      PDS_HOSTNAME: ${PDS_HOSTNAME:?Set PDS_HOSTNAME in .env}
+    env_file:
+      # Raw, so that a secret may hold a dollar sign.
+      - path: ./pds.env
+        format: raw
+    volumes:
+      # Owned by uid 1000, the server's user in the image.
+      - ${PDS_DATA_PATH:-./data}:/app/data
+    expose:
+      - "3000"
+    # The server finishes its writes and closes the firehose on SIGTERM.
+    stop_grace_period: 60s
+
+  caddy:
+    image: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+    restart: unless-stopped
+    depends_on:
+      pds:
+        condition: service_healthy
+    environment:
+      PDS_HOSTNAME: ${PDS_HOSTNAME}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  caddy-data:
+  caddy-config:

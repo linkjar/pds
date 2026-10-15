@@ -10,6 +10,7 @@
 //   pnpm parity restore [--keep] [--perf]
 //   pnpm parity writes [--keep] [--update] [--only=<stage>] [--perf]
 //   pnpm parity perf report <target>
+//   pnpm parity smoke <url> [--write] [--keep-account] [--handle-domain <d>] [--email <e>] [--ca <pem>] [--connect-to <host:port>]
 
 import { spawnSync } from 'node:child_process'
 import { PROFILES, isProfile } from './stack/env.ts'
@@ -17,6 +18,7 @@ import type { Profile } from './stack/env.ts'
 import { compare } from './compare.ts'
 import { perfReport } from './perf-report.ts'
 import { restore } from './restore.ts'
+import { smoke } from './smoke.ts'
 import { writes } from './writes.ts'
 import { runScenarios } from './run.ts'
 import { down, logs, up } from './stack/compose.ts'
@@ -135,10 +137,26 @@ async function main(): Promise<void> {
     const only = args.find((arg) => arg.startsWith('--only='))?.slice('--only='.length)
     process.exit(await writes({ keep: args.includes('--keep'), update: args.includes('--update'), only, perf: args.includes('--perf') }))
   }
+  if (group === 'smoke') {
+    if (!command || !/^https?:\/\//.test(command)) fail('Usage: pnpm parity smoke <url> [--write] [--keep-account] [--handle-domain <domain>] [--email <address>] [--ca <pem>] [--connect-to <host:port>]')
+    process.exit(
+      await smoke({
+        url: command,
+        write: rest.includes('--write'),
+        keepAccount: rest.includes('--keep-account'),
+        // From the environment, so that the password is in no shell history.
+        adminPassword: process.env.PDS_ADMIN_PASSWORD || undefined,
+        handleDomain: flag(rest, 'handle-domain'),
+        email: flag(rest, 'email'),
+        caFile: flag(rest, 'ca'),
+        connectTo: flag(rest, 'connect-to'),
+      }),
+    )
+  }
   if (group === 'compare') {
     process.exit(compare(target(command), target(rest[0]), { update: rest.includes('--update') }))
   }
-  fail('Usage: pnpm parity <images verify|images build-stock|images build-candidate|stack up|stack down|stack logs|run|restore|writes|compare|perf report> ...')
+  fail('Usage: pnpm parity <images verify|images build-stock|images build-candidate|stack up|stack down|stack logs|run|restore|writes|compare|perf report|smoke> ...')
 }
 
 await main()

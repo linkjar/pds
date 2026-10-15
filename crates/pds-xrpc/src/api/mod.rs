@@ -358,7 +358,7 @@ pub async fn entry(State(state): State<AppState>, request: axum::extract::Reques
     let uri = parts.uri.clone();
     let path = uri.path();
     let reads = method == Method::GET || method == Method::HEAD;
-    if let Some(response) = root::plain(&state, &method, path, &parts.headers).await {
+    if let Some(response) = root::plain(&state, &method, path, uri.query(), &parts.headers).await {
         return response;
     }
     let peer = parts

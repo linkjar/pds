@@ -1,6 +1,6 @@
 flowchart LR
   subgraph proc [linkjar-pds process, tokio]
-    pub[public listener<br/>PDS_PORT<br/>/xrpc, /oauth, /account, /.well-known]
+    pub[public listener<br/>PDS_PORT<br/>/xrpc, /oauth, /account, /.well-known, /tls-check]
     met[metrics listener<br/>PDS_METRICS_ADDRESS]
     ops[ops listener<br/>PDS_OPS_ADDRESS<br/>internal.* and live WebSocket]
     subgraph bg [supervised background tasks]
@@ -15,7 +15,7 @@ flowchart LR
     prov[(providers: clock, random, StorageIo)]
     pool[(blocking pool: SQLite)]
   end
-  proxy([reverse proxy]) --> pub
+  proxy([reverse proxy<br/>asks /tls-check before a certificate]) --> pub
   console[[console]] --> ops & met
   bg --- prov
   pub --- pool

@@ -6,10 +6,13 @@ It is compatible with the reference server that production runs today
 account behaviour as extension points instead of source patches. The
 normative definition is [SPEC.md](SPEC.md).
 
-**Where it stands on 2026-10-14.** Every unit of the plan has code on `main`.
-Production still runs the reference server. The next step is the cutover,
-and the steps before it are the owner's: they need staging, production and
-`linkjar/infra` (see [Owner's steps](#owners-steps)).
+**Where it stands on 2026-10-15.** Every unit of the plan has code on `main`,
+and the Candidate is ready to test by hand: the
+[test-host runbook](runbooks/test-host.md) puts the published image on a
+host with a name of its own, and `pnpm parity smoke <url>` checks a running
+server from outside. Production still runs the reference server. The next
+step is the cutover, and the steps before it are the owner's: they need
+staging, production and `linkjar/infra` (see [Owner's steps](#owners-steps)).
 
 ## Why
 
@@ -87,6 +90,11 @@ full list of what each unit left out.
   ([record](research/2026-10-13-migration-and-telemetry.md)).
   - [x] Migration in, metrics, the runbook, and the server and sidecar
     images published from `main`.
+  - [x] A test host for hand tests: a compose file with Caddy and
+    on-demand certificates (`GET /tls-check`), its
+    [runbook](runbooks/test-host.md), and a smoke test of a running
+    server. The smoke test passes against the published image and the
+    Reference in the Harness's stacks.
   - [ ] The performance targets of SPEC §16 measured on production
     hardware (owner's step).
   - [ ] The restore drill, the cutover and the 48-hour watch (owner's
@@ -130,6 +138,9 @@ Actions on systems that are the owner's. The order follows the
 - [ ] Restore production to staging and run `linkjar-pds verify` on the
   copy, with the blob store of the copy. Resolve every finding.
 - [ ] Run the Harness against the staging copy with the `linkjar` profile.
+- [ ] Start a Candidate on a test host
+  ([test-host runbook](runbooks/test-host.md)) and run
+  `pnpm parity smoke <url> --write` against it.
 - [ ] Point the `linkjar.io` browser gate and kit self-test at a Candidate.
 - [ ] Record the Bluesky app signing in through a Candidate and posting.
 - [ ] Measure the SPEC §16 targets on production hardware.
