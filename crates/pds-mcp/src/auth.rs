@@ -12,7 +12,7 @@ use axum::extract::State;
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use pds_sidecar::client::{hash, random_text};
-use pds_sidecar::http::{cookie, field, form, json_response, param, redirect, same_origin};
+use pds_sidecar::request::{cookie, field, param, same_origin};
 use serde_json::{Value, json};
 use subtle::ConstantTimeEq as _;
 use url::Url;
@@ -20,7 +20,7 @@ use url::Url;
 use crate::clients;
 use crate::config::PDS_CALLBACK_PATH;
 use crate::store::{ACCESS_LIFE, DEFAULT_SCOPE, McpClient, Request, pds_scope};
-use crate::{Mcp, escape};
+use crate::{Mcp, escape, form, json_response, redirect};
 
 /// The cookie that ties an authorization to the browser that started it.
 const COOKIE: &str = "mcp_flow";
@@ -385,7 +385,7 @@ pub async fn pds_callback(
 
 /// `POST /authorize/decision`: the answer of the person.
 pub async fn decision(State(mcp): State<Mcp>, headers: HeaderMap, body: Body) -> Response {
-    let fields = form(body, BODY_LIMIT).await.unwrap_or_default();
+    let fields = form(body, BODY_LIMIT).await;
     let id = field(&fields, "request");
     let refuse = || {
         problem(
@@ -436,7 +436,7 @@ fn issued(tokens: &crate::store::Issued) -> Response {
 
 /// `POST /token`: a code or a refresh token for new tokens.
 pub async fn token(State(mcp): State<Mcp>, body: Body) -> Response {
-    let fields = form(body, BODY_LIMIT).await.unwrap_or_default();
+    let fields = form(body, BODY_LIMIT).await;
     let get = |name: &str| field(&fields, name);
     let grant =
         |description: &str| oauth_error(StatusCode::BAD_REQUEST, "invalid_grant", description);
@@ -473,7 +473,7 @@ pub async fn token(State(mcp): State<Mcp>, body: Body) -> Response {
 
 /// `POST /revoke` (RFC 7009): ends the session of a token on both sides.
 pub async fn revoke(State(mcp): State<Mcp>, body: Body) -> Response {
-    let fields = form(body, BODY_LIMIT).await.unwrap_or_default();
+    let fields = form(body, BODY_LIMIT).await;
     if let Some(session) = mcp.store().end(field(&fields, "token")) {
         mcp.pds().revoke(&session.pds).await;
     }

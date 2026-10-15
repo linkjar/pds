@@ -65,7 +65,7 @@ manifest today. A dashed arrow is planned: the arrows from
 `pds-storage` to `pds-types` and from `pds-blob` to `pds-storage`. `pds-sim` depends on the binary's
 library, for `verify`. `pds-sidecar` holds what the two sidecars share, so that
 `pds-oauth` stays free of the HTTP client: the OAuth client of the PDS with DPoP,
-the helpers of their pages and the checks on their configuration. It also holds
+what their pages read from a request and the checks on their configuration. It also holds
 the logging setup and the stop signal of a process, which the binary takes from
 it. Source:
 [`03-crates.mmd`](diagrams/03-crates.mmd).

@@ -343,7 +343,12 @@ async fn link(
                 || "This sign-in method belongs to another account.".to_owned(),
                 |handle| format!("This sign-in method belongs to the account {handle}."),
             );
-            Ok(error_page(StatusCode::CONFLICT, &device.cookies, &message))
+            Ok(error_page(
+                state,
+                StatusCode::CONFLICT,
+                &device.cookies,
+                &message,
+            ))
         }
     }
 }
@@ -751,7 +756,7 @@ pub async fn serve(
     };
     let mut response = outcome.unwrap_or_else(|cause| {
         tracing::info!(provider = provider.id, cause, "External sign-in failed");
-        error_page(StatusCode::BAD_REQUEST, &[], FAILED)
+        error_page(state, StatusCode::BAD_REQUEST, &[], FAILED)
     });
     let headers = response.headers_mut();
     headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));

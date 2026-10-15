@@ -268,6 +268,8 @@ pub struct Config {
     pub privacy_policy_url: Option<String>,
     /// `PDS_TERMS_OF_SERVICE_URL`.
     pub terms_of_service_url: Option<String>,
+    /// `PDS_SUPPORT_URL`.
+    pub support_url: Option<String>,
     /// `PDS_CONTACT_EMAIL_ADDRESS`.
     pub contact_email: Option<String>,
     /// The database and actor store locations.
@@ -999,6 +1001,7 @@ impl Config {
                 .unwrap_or(5 * 1024 * 1024),
             privacy_policy_url: env.text("PDS_PRIVACY_POLICY_URL"),
             terms_of_service_url: env.text("PDS_TERMS_OF_SERVICE_URL"),
+            support_url: env.text("PDS_SUPPORT_URL"),
             contact_email: env.text("PDS_CONTACT_EMAIL_ADDRESS"),
             blob_s3: env.blob_s3()?,
             blob_dir: env.text("PDS_BLOBSTORE_DISK_LOCATION").map(PathBuf::from),

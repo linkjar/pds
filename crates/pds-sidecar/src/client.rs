@@ -164,8 +164,18 @@ impl DpopClient {
             .clone()
     }
 
-    /// Keeps the nonce of an answer. `true` when it is a new one.
-    fn keep_nonce(&self, headers: &HeaderMap) -> bool {
+    /// The DPoP proof of a request to `route` of the PDS with the last
+    /// nonce the PDS gave. `route` has no query. A request that `send`
+    /// cannot make, such as the handshake of a WebSocket, takes its proof
+    /// here and gives the answer to [`Self::keep_nonce`].
+    pub fn proof(&self, key: &Keypair, method: &str, route: &str, token: Option<&str>) -> String {
+        let htu = format!("{}{route}", self.peer.issuer);
+        proof(key, method, &htu, self.nonce().as_deref(), token)
+    }
+
+    /// Keeps the nonce of an answer. `true` when it is a new one, which
+    /// a 400 or a 401 asks the request to go once more with.
+    pub fn keep_nonce(&self, headers: &HeaderMap) -> bool {
         let Some(given) = headers.get("dpop-nonce").and_then(|v| v.to_str().ok()) else {
             return false;
         };
@@ -190,10 +200,9 @@ impl DpopClient {
         shape: impl Fn(reqwest::RequestBuilder) -> reqwest::RequestBuilder,
     ) -> Result<(u16, Value), ClientError> {
         let route = path.split('?').next().unwrap_or(path);
-        let htu = format!("{}{route}", self.peer.issuer);
         let mut again = true;
         loop {
-            let proof = proof(key, method.as_str(), &htu, self.nonce().as_deref(), token);
+            let proof = self.proof(key, method.as_str(), route, token);
             let mut request = self
                 .http
                 .request(method.clone(), format!("{base}{path}"))

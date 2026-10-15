@@ -13,12 +13,11 @@ use axum::extract::State;
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use pds_sidecar::client::ClientError;
-use pds_sidecar::http::json_response;
 use serde_json::{Map, Value, json};
 
-use crate::Mcp;
 use crate::pds::Xrpc;
 use crate::store::{Session, is_nsid};
+use crate::{Mcp, json_response};
 
 /// The revisions of the protocol the server speaks, the newest first.
 const VERSIONS: &[&str] = &["2025-11-25", "2025-06-18", "2025-03-26"];

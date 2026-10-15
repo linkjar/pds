@@ -27,6 +27,8 @@ pub struct Session {
     pub key: Keypair,
     /// The account.
     pub did: String,
+    /// The handle of the account, when the console could read it.
+    pub handle: Option<String>,
     /// `operator` or `moderator`.
     pub role: String,
     /// The token of the forms.
@@ -99,11 +101,18 @@ impl Sessions {
     }
 
     /// Starts a session.
-    pub fn start(&self, key: Keypair, tokens: Tokens, role: String) -> Arc<Session> {
+    pub fn start(
+        &self,
+        key: Keypair,
+        tokens: Tokens,
+        role: String,
+        handle: Option<String>,
+    ) -> Arc<Session> {
         let session = Arc::new(Session {
             id: random_text::<32>(),
             key,
             did: tokens.did.clone(),
+            handle,
             role,
             csrf: random_text::<32>(),
             tokens: Mutex::new(tokens),
@@ -165,8 +174,9 @@ mod tests {
     #[test]
     fn a_session_is_found_until_it_ends_and_the_oldest_makes_room() {
         let sessions = Sessions::default();
-        let first = sessions.start(new_key(), tokens(), "moderator".to_owned());
+        let first = sessions.start(new_key(), tokens(), "moderator".to_owned(), None);
         assert!(!first.is_operator());
+        assert!(first.handle.is_none());
         assert_eq!(sessions.get(&first.id).unwrap().did, "did:plc:a");
         first.set_tokens(Tokens {
             access: "next".to_owned(),
@@ -174,10 +184,16 @@ mod tests {
         });
         assert_eq!(first.tokens().access, "next");
         for _ in 0..MOST {
-            sessions.start(new_key(), tokens(), "operator".to_owned());
+            sessions.start(new_key(), tokens(), "operator".to_owned(), None);
         }
         assert!(sessions.get(&first.id).is_none());
-        let last = sessions.start(new_key(), tokens(), "operator".to_owned());
+        let last = sessions.start(
+            new_key(),
+            tokens(),
+            "operator".to_owned(),
+            Some("op.test".to_owned()),
+        );
+        assert_eq!(last.handle.as_deref(), Some("op.test"));
         assert!(sessions.end(&last.id).is_some());
         assert!(sessions.get(&last.id).is_none());
     }

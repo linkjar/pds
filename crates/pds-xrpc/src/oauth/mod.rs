@@ -375,6 +375,22 @@ pub fn with_nonce(state: &AppState, mut response: Response) -> Response {
     response
 }
 
+/// A file of the pages, with a year of cache.
+fn asset(content_type: &'static str, bytes: &'static [u8]) -> Response {
+    let mut response = (StatusCode::OK, bytes).into_response();
+    let headers = response.headers_mut();
+    headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(content_type));
+    headers.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("public, max-age=31536000, immutable"),
+    );
+    headers.insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
+    response
+}
+
 fn method_not_allowed() -> Response {
     OAuthError {
         status: StatusCode::METHOD_NOT_ALLOWED,
@@ -425,10 +441,15 @@ fn navigation(headers: &HeaderMap, issuer: &str, sites: Option<&[&str]>) -> Resu
 }
 
 /// A page of the authorization server, after the checks of [`navigation`].
-fn page_load(headers: &HeaderMap, issuer: &str, sites: Option<&[&str]>) -> Option<Response> {
+fn page_load(
+    state: &AppState,
+    headers: &HeaderMap,
+    issuer: &str,
+    sites: Option<&[&str]>,
+) -> Option<Response> {
     navigation(headers, issuer, sites)
         .err()
-        .map(|message| authorize::error_page(StatusCode::BAD_REQUEST, &[], &message))
+        .map(|message| authorize::error_page(state, StatusCode::BAD_REQUEST, &[], &message))
 }
 
 /// Serves a route of the authorization server. `None` means the path is
@@ -443,6 +464,16 @@ pub async fn serve(
     body: &mut Option<Body>,
 ) -> Option<Response> {
     let reads = method == Method::GET || method == Method::HEAD;
+    // The typeface and the marks of the pages (SPEC §11.4). Each keeps
+    // its name for good, so a browser may keep it for a year.
+    if let Some(name) = path.strip_prefix("/oauth/assets/") {
+        let (content_type, bytes) = pds_oauth::theme::asset(name)?;
+        return Some(if reads {
+            asset(content_type, bytes)
+        } else {
+            method_not_allowed()
+        });
+    }
     let known = matches!(
         path,
         "/.well-known/oauth-authorization-server"
@@ -481,7 +512,7 @@ pub async fn serve(
         "/.well-known/oauth-protected-resource" if reads => metadata::protected_resource(state),
         "/oauth/jwks" if reads => metadata::jwks(),
         "/oauth/authorize" if reads => {
-            match page_load(headers, &issuer(state), Some(&AUTHORIZE_SITES)) {
+            match page_load(state, headers, &issuer(state), Some(&AUTHORIZE_SITES)) {
                 Some(refused) => refused,
                 None => authorize::page(state, query, headers, peer).await,
             }
@@ -490,7 +521,7 @@ pub async fn serve(
             && (path == "/account"
                 || (path.starts_with("/account/") && path.ends_with("/manage"))) =>
         {
-            match page_load(headers, &issuer(state), None) {
+            match page_load(state, headers, &issuer(state), None) {
                 Some(refused) => refused,
                 None => account::page(state, path, query, headers, peer).await,
             }
