@@ -85,6 +85,10 @@ http-body = "1"
 http-body-util = "0.1"
 tokio-tungstenite = { version = "0.29", default-features = false, features = ["connect"] }
 anyhow = "1"
+# The console (crates/pds-console): server-rendered pages, the browser runtime
+# and the Tailwind build. The crate names the features it needs.
+topcoat = { version = "0.10", default-features = false }
+topcoat-asset = { version = "0.10", default-features = false }
 heck = "0.5"
 proptest = "1"
 

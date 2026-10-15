@@ -19,8 +19,16 @@ path = "src/main.rs"
 [dependencies]
 pds-identity.workspace = true
 pds-oauth.workspace = true
-axum.workspace = true
+# The pages, the router, the browser runtime for the live view, the asset
+# bundle (the stylesheet and the runtime script) and the HTTP server. The
+# typeface and the mark come from pds-oauth, which the pages of the PDS
+# share.
+topcoat = { workspace = true, features = ["router", "view", "runtime", "asset", "serve", "tailwind"] }
+# The bundler: a development build or a test bundles its own assets.
+topcoat-asset = { workspace = true, features = ["bundler"] }
 tokio.workspace = true
+tokio-tungstenite.workspace = true
+futures-util.workspace = true
 reqwest.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
@@ -31,6 +39,17 @@ sha2.workspace = true
 subtle.workspace = true
 rand.workspace = true
 url.workspace = true
+chrono.workspace = true
+
+[dev-dependencies]
+# The tests stand in for the PDS with a router of their own, with the
+# stream as a WebSocket route.
+topcoat = { workspace = true, features = ["websocket"] }
+futures-util = { workspace = true, features = ["sink"] }
+
+[build-dependencies]
+# build.rs runs the standalone Tailwind CLI over src/theme.css.
+topcoat = { workspace = true, features = ["tailwind"] }
 
 [lints]
 workspace = true

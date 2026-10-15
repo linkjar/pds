@@ -96,23 +96,40 @@ this PDS. If LinkJar later runs a labeling service, the console links to it.
 ### 1.6 State after unit 9
 
 Built, as the crate `pds-console` and the binary `linkjar-pds-console`
-(image: `Dockerfile.console`):
+(image: `Dockerfile.console`). Since 2026-10-16 the pages are rendered
+with [Topcoat](https://github.com/tokio-rs/topcoat) 0.10 and have the look
+of LinkJar, on the design tokens, the typeface and the mark the pages of
+the PDS use (`pds_oauth::theme`); the research record of that date has
+the details:
 
 - **Sign-in.** The console is a loopback OAuth client of the PDS. The
   operator signs in on the pages of the PDS; the console keeps the session
   and its DPoP key in memory, and a restart signs every operator out. An
   account without a role gets no session.
-- **Pages.** The overview with live numbers and the diagram of the
-  firehose subscribers; the accounts and the card of one account with its
-  sessions; the audit log; the blocked email domains; the roles.
+- **Pages.** The overview with the numbers of the server, the diagram of
+  the firehose subscribers and the housekeeping; the accounts with a
+  search; the card of one account with its sessions and actions; the
+  audit log; the blocked email domains; the roles. A sidebar names the
+  server and the operator.
+- **Live view.** The overview opens the stream
+  `internal.ops.subscribeState` of the ops listener with the operator's
+  session, and Topcoat sends each new rendering of the numbers over the
+  browser's WebSocket to the console. The browser never reaches the
+  listener, and the page is not reloaded.
 - **Actions.** Take an account down and lift the takedown, end the
   sessions of an account, send `#sync`, disconnect a subscriber, block
   and unblock an email domain, sign a checkpoint, remove expired sessions.
-  Each form has a field for the reason. A takedown needs the DID typed
-  again.
+  Each action opens a dialog with a field for the reason. A takedown needs
+  the DID typed again.
 - **Rules.** The console holds no database connection, no signing key and
-  no secret of the PDS. Every page has a content security policy without
-  inline script, and every form has the token of its session.
+  no secret of the PDS. Every form has the token of its session, and the
+  console checks the origin of a form. Every page has a content security
+  policy without inline script: `default-src 'none'`, scripts and styles
+  from the console only, and the browser's WebSocket to the console. The
+  policy allows `'unsafe-eval'` for scripts: Topcoat's browser runtime
+  compiles the expressions of a page, which the server translated to
+  JavaScript, with `Function`. No other script runs, and no inline script
+  is allowed.
 
 Configuration: `CONSOLE_PUBLIC_URL` (a loopback address such as
 `http://127.0.0.1:2585`), `CONSOLE_PDS_PUBLIC_URL`,
@@ -133,8 +150,10 @@ Not built:
    scheduled deletion, invite codes, rate multipliers, blocked IP ranges,
    and the cleanup triggers. The ops listener serves the admin methods
    for the first five; the console has no form for them.
-5. The live views use a request every two seconds, not a WebSocket. The
-   ops listener has the stream.
+5. Account search by handle or DID reads the listing of the ops listener,
+   which has no search; a search by email address goes to
+   `com.atproto.admin.searchAccounts`, which this server does not serve
+   yet.
 
 ## 2. The MCP server
 

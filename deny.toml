@@ -40,6 +40,13 @@ allow = [
 crate = "webpki-root-certs"
 allow = ["CDLA-Permissive-2.0"]
 
+# The same list, as ureq's rustls verifier uses it. ureq is the HTTP client
+# of Topcoat's build step (the Tailwind download, pinned by hash) and of
+# its asset bundler; the console serves nothing with it.
+[[licenses.exceptions]]
+crate = "webpki-roots"
+allow = ["CDLA-Permissive-2.0"]
+
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"

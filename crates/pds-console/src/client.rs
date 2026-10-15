@@ -10,9 +10,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use pds_identity::{Algorithm, Keypair};
-use reqwest::header::HeaderMap;
+use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use tokio::net::TcpStream;
+use tokio_tungstenite::{
+    MaybeTlsStream, WebSocketStream,
+    tungstenite::{Error as WsError, client::IntoClientRequest as _},
+};
 
 use crate::config::{Config, SCOPE};
 
@@ -345,6 +350,53 @@ impl Client {
         let _ = self
             .endpoint(key, "/oauth/revoke", &[("token", token)])
             .await;
+    }
+
+    /// Opens a stream of the ops listener with the session of an operator:
+    /// a WebSocket whose handshake carries the token and its proof. When
+    /// the PDS answers with a nonce the console did not have, the handshake
+    /// goes once more with it.
+    pub async fn stream(
+        &self,
+        key: &Keypair,
+        token: &str,
+        path: &str,
+    ) -> Result<WebSocketStream<MaybeTlsStream<TcpStream>>, ClientError> {
+        let htu = format!("{}{path}", self.config.pds_public_url);
+        let address = format!("{}{path}", self.config.ops_url.replacen("http", "ws", 1));
+        let mut again = true;
+        loop {
+            let proof = proof(key, "GET", &htu, self.nonce().as_deref(), Some(token));
+            let mut request = address
+                .as_str()
+                .into_client_request()
+                .map_err(|error| ClientError::Transport(error.to_string()))?;
+            let headers = request.headers_mut();
+            let value = |text: String| {
+                HeaderValue::from_str(&text)
+                    .map_err(|error| ClientError::Transport(error.to_string()))
+            };
+            headers.insert("authorization", value(format!("DPoP {token}"))?);
+            headers.insert("dpop", value(proof)?);
+            match tokio_tungstenite::connect_async(request).await {
+                Ok((stream, _)) => return Ok(stream),
+                Err(WsError::Http(response)) => {
+                    let status = response.status().as_u16();
+                    let fresh = self.keep_nonce(response.headers());
+                    if again && fresh && matches!(status, 400 | 401) {
+                        again = false;
+                        continue;
+                    }
+                    let body = response
+                        .body()
+                        .as_deref()
+                        .and_then(|bytes| serde_json::from_slice(bytes).ok())
+                        .unwrap_or(Value::Null);
+                    return Err(Self::refused(status, &body));
+                }
+                Err(error) => return Err(ClientError::Transport(error.to_string())),
+            }
+        }
     }
 
     /// Calls the ops listener with the session of an operator.

@@ -1256,7 +1256,14 @@ async fn an_operator_signs_in_to_the_console_and_acts_through_it() {
     .unwrap();
     assert_eq!(config.client_id(), console_id);
     let console = pds_console::Console::new(config).unwrap();
-    tokio::spawn(async move { axum::serve(listener, pds_console::router(console)).await });
+    tokio::spawn(async move {
+        pds_console::serve(
+            listener,
+            pds_console::router(console),
+            std::future::pending(),
+        )
+        .await
+    });
     let mut browser = Browser {
         origin: console_origin.clone(),
         http: reqwest::Client::builder()
@@ -1272,7 +1279,7 @@ async fn an_operator_signs_in_to_the_console_and_acts_through_it() {
         (page.status, page.header("location")),
         (303, Some("/sign-in"))
     );
-    assert_eq!(browser.get("/live.json").await.status, 401);
+    assert_eq!(browser.get("/health").await.text, "ok");
     let page = browser.get("/sign-in").await;
     assert!(page.text.contains(r#"href="/login""#));
     assert!(
@@ -1305,19 +1312,78 @@ async fn an_operator_signs_in_to_the_console_and_acts_through_it() {
     assert!(signed.header("set-cookie").unwrap().contains("HttpOnly"));
     let home = browser.get("/").await;
     assert_eq!(home.status, 200, "{}", home.text);
+    // The sidebar names the operator; the tiles hold the numbers of the
+    // server; the live region asks the browser to connect for the stream.
     assert!(
+        home.text.contains(&format!("<small>{ALICE}</small>")),
+        "{}",
         home.text
-            .contains(&format!("<code>{ALICE}</code> · operator"))
     );
+    assert!(home.text.contains(r#"data-tone="accent">operator</span>"#));
     assert!(
-        home.text.contains(r#"data-live="accounts">3<"#),
+        home.text.contains(
+            r#"<span data-slot="tile-label">Accounts</span><strong data-slot="tile-value">3"#
+        ),
         "{}",
         home.text
     );
     assert!(home.text.contains("No subscriber is connected."));
-    let live = browser.get("/live.json").await;
-    assert_eq!(live.json()["overview"]["accounts"], 3, "{}", live.text);
+    assert!(home.text.contains("::topcoat::connect"), "{}", home.text);
+    assert!(
+        home.text.contains("'unsafe-eval'")
+            || home
+                .header("content-security-policy")
+                .unwrap()
+                .contains("'unsafe-eval'")
+    );
     let csrf = home.field("csrf").unwrap();
+
+    // The live view: the browser's runtime socket to the console carries
+    // the snapshot of the page, then a swap with the numbers of the stream
+    // of the ops listener, which the console reads with the session.
+    {
+        use futures_util::{SinkExt as _, StreamExt as _};
+        use tokio_tungstenite::tungstenite::{Message, client::IntoClientRequest as _};
+        let mut request = format!("{}/", console_origin.replacen("http", "ws", 1))
+            .into_client_request()
+            .unwrap();
+        let headers = request.headers_mut();
+        headers.insert("sec-websocket-protocol", "topcoat-runtime".parse().unwrap());
+        headers.insert("cookie", browser.cookie.clone().unwrap().parse().unwrap());
+        let (mut socket, _) = tokio_tungstenite::connect_async(request).await.unwrap();
+        let run = json!({ "run": 1, "method": "GET", "path": "/", "headers": {}, "body": "" });
+        socket
+            .send(Message::Text(run.to_string().into()))
+            .await
+            .unwrap();
+        let mut seen = Vec::new();
+        let read = async {
+            while let Some(Ok(Message::Text(text))) = socket.next().await {
+                let envelope: Value = serde_json::from_str(&text).unwrap();
+                let frame = envelope["frame"].clone();
+                assert_ne!(frame["t"], "error", "{text}");
+                let streaming = frame["t"] == "swap"
+                    && frame["html"]
+                        .as_str()
+                        .is_some_and(|html| html.contains(r#"data-state="streaming""#));
+                seen.push(frame);
+                if streaming {
+                    break;
+                }
+            }
+        };
+        tokio::time::timeout(std::time::Duration::from_secs(15), read)
+            .await
+            .expect("a swap of the live view");
+        assert_eq!(seen[0]["t"], "snapshot", "{seen:?}");
+        let last = seen.last().unwrap()["html"].as_str().unwrap();
+        assert!(
+            last.contains(
+                r#"<span data-slot="tile-label">Accounts</span><strong data-slot="tile-value">3"#
+            ),
+            "{last}"
+        );
+    }
 
     // The pages.
     let list = browser.get("/accounts").await;
@@ -1326,6 +1392,22 @@ async fn an_operator_signs_in_to_the_console_and_acts_through_it() {
             .contains(&format!("/accounts/{}", common::DANA.replace(':', "%3A")))
     );
     let dana = format!("/accounts/{}", common::DANA.replace(':', "%3A"));
+    // A search by handle finds the account in the listing.
+    let found = browser.get("/accounts?q=DANA").await;
+    assert_eq!(found.status, 200, "{}", found.text);
+    assert!(found.text.contains(&dana), "{}", found.text);
+    assert!(
+        !found
+            .text
+            .contains(&format!("/accounts/{}", ALICE.replace(':', "%3A")))
+    );
+    assert!(
+        browser
+            .get("/accounts?q=nobody")
+            .await
+            .text
+            .contains("No account matches.")
+    );
     let card = browser.get(&dana).await;
     assert_eq!(card.status, 200, "{}", card.text);
     assert!(card.text.contains(r#"value="takedown""#));
