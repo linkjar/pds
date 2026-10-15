@@ -6,7 +6,6 @@ use axum::body::Body;
 use axum::http::{HeaderMap, Method, StatusCode};
 use axum::response::{IntoResponse as _, Response};
 use chrono::Datelike as _;
-use pds_storage::ActorDb;
 use serde_json::{Value, json};
 
 use super::{Query, proxy};
@@ -113,7 +112,7 @@ pub async fn get_preferences(state: &AppState, query: &Query<'_>) -> Result<Resp
         .date_naive();
     let preferences = state
         .blocking(move |state| {
-            let stored = ActorDb::open(&state.layout().actor_db(&did))?.preferences()?;
+            let stored = state.reads().store(&did)?.preferences()?;
             let mut out: Vec<Value> = stored
                 .iter()
                 .filter(|(_, name, _)| in_namespace(name))

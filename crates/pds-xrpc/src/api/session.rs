@@ -93,7 +93,7 @@ fn login(
 ) -> Result<(Account, Option<AppPassword>), XrpcError> {
     let refused = || unauthorized("AuthenticationRequired", "Invalid identifier or password");
     let identifier = identifier.to_lowercase();
-    let accounts = state.layout().accounts()?;
+    let accounts = state.reads().accounts()?;
     let account = if identifier.contains('@') {
         accounts.account(&identifier, true, Availability::ANY)?
     } else if Format::AtIdentifier.check(&identifier).is_ok() {
@@ -399,7 +399,7 @@ pub async fn list_app_passwords(
 ) -> Result<Response, XrpcError> {
     let did = session(state, headers, None)?;
     let listed = state
-        .blocking(move |state| Ok(state.layout().accounts()?.list_app_passwords(&did)?))
+        .blocking(move |state| Ok(state.reads().accounts()?.list_app_passwords(&did)?))
         .await?;
     let passwords: Vec<Value> = listed
         .into_iter()

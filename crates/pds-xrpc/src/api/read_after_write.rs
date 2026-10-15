@@ -12,7 +12,7 @@ use std::pin::Pin;
 
 use axum::http::{HeaderValue, StatusCode};
 use axum::response::Response;
-use pds_storage::{ActorDb, Availability, RecordRow};
+use pds_storage::{Availability, RecordRow};
 use serde_json::{Map, Value, json};
 
 use super::proxy;
@@ -135,7 +135,7 @@ fn update_profile(state: &AppState, view: &mut Value, record: &Value, did: &str,
 }
 
 fn load(state: &AppState, did: &str, rev: &str) -> Result<Local, XrpcError> {
-    let store = ActorDb::open(&state.layout().actor_db(did))?;
+    let store = state.reads().store(did)?;
     let rows = store.records_since_rev(rev)?;
     let mut local = Local {
         count: rows.len(),
@@ -175,7 +175,7 @@ fn load(state: &AppState, did: &str, rev: &str) -> Result<Local, XrpcError> {
             local.posts.push(described);
         }
     }
-    let actor = state.layout().accounts()?.actor(did, Availability::ANY)?;
+    let actor = state.reads().accounts()?.actor(did, Availability::ANY)?;
     if let Some(actor) = actor {
         let mut author = json!({
             "did": did,
