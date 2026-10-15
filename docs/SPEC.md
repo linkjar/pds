@@ -1024,8 +1024,8 @@ Per-actor secp256k1 signing keys in the `key` file; reserved keys via
   with `PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX`, the actor store with
   an empty signed repository, the account rows with the first session, and
   the four events of §10.4. Without that variable the server creates no
-  account. Not built yet: an account that brings its DID, which needs
-  service auth; the Reference's list of disposable email domains and its
+  account. An account that brings its DID, with a service token of that
+  DID, is built as of unit 8. Not built: the Reference's list of disposable email domains and its
   slur check on handles; and the tombstone of a DID whose account rows
   could not be written. The email address is checked for the common shape
   of an address and not with `@hapi/address`.

@@ -10,11 +10,13 @@ instead of source patches. Dual-licensed MIT or Apache-2.0.
 > audit log; the operations console and the MCP server; Postgres; and the
 > entryway. The [parity harness](parity/README.md) passes its default
 > scenarios against the server alone, on Postgres, and behind an entryway.
-> The server is ready to test by hand on a host of its own
-> ([test-host runbook](docs/runbooks/test-host.md)).
-> The reference image under [`legacy/`](legacy/README.md) remains the
-> deployed server until the cutover. The steps before the cutover are the
-> owner's; the plan lists them with checkboxes.
+> Since 2026-10-15 the server runs `pds.linkjar.social`, the invite-only
+> pilot, on the data directory the reference image wrote
+> ([record](docs/research/2026-10-15-pilot-cutover.md)). The reference image
+> under [`legacy/`](legacy/README.md) is the rollback until the 48-hour
+> watch ends. The [test-host runbook](docs/runbooks/test-host.md) puts the
+> server on a host of its own. The steps left are the owner's; the plan
+> lists them with checkboxes.
 
 ## Start here
 
