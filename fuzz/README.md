@@ -15,6 +15,7 @@ each for ten minutes and keeps the corpus between nights.
 | `identity_key` | A `did:key`, a Multikey, a DID, a signature | A `did:key` that parses has one spelling. |
 | `lexicon_record` | A record as JSON | Checked against the data model rules and the interop lexicon catalog. |
 | `xrpc_request` | A query string, a `listRepos` cursor, an `Authorization` header | A refused query is 400 with the method's prefix. A cursor that parses gives a time and a DID that is not empty. |
+| `xrpc_body` | The JSON body of a write procedure and the record in it | The body checks, the record validation and the wording of each refusal hold for any input. |
 
 `repo_car` and `repo_node` start from the CAR files in
 `crates/pds-repo/tests/fixtures`, which hold real repositories and the

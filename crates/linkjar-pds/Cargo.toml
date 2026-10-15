@@ -44,7 +44,6 @@ pds-console.workspace = true
 pds-mcp.workspace = true
 tokio-tungstenite.workspace = true
 futures-util = { workspace = true, features = ["sink"] }
-pds-sequencer.workspace = true
 rusqlite.workspace = true
 hmac.workspace = true
 base64.workspace = true

@@ -1453,7 +1453,10 @@ gives the evidence.
 (§21.3), `version`, and
 `health`, which asks the server on the same host for its health route and
 exits 0 when it answers 200. `health` is the container health check: the
-image holds no other program to make the request with.
+image holds no other program to make the request with. `audit seal` writes
+the first entry of the audit log (§20). `migrate` and `repair` are specified
+and not built: the server repairs at start (§7.4), and `docs/plan.md` lists
+both under "Not built".
 
 ### 14.3 Health and shutdown
 

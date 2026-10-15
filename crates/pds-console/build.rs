@@ -4,8 +4,8 @@
 //!
 //! The release of the CLI is pinned, and so is the hash of its binary for
 //! each platform the console is built on, the way the workflows pin
-//! actions by commit. `TAILWIND_CLI` names a local executable instead (the
-//! devenv shell, or a build without network).
+//! actions by commit. `TAILWIND_CLI` names a local executable instead, for a
+//! build without network.
 
 // A build script speaks to Cargo on standard output.
 #![allow(clippy::print_stdout)]

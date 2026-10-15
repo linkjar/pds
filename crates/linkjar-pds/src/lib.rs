@@ -1,6 +1,6 @@
-//! The parts of the LinkJar PDS binary: configuration, the `serve` command
-//! and the `verify` command (`docs/SPEC.md` §14). The command line is in
-//! `main.rs`.
+//! The parts of the LinkJar PDS binary: configuration, and the `serve`,
+//! `verify` and `reconcile` commands (`docs/SPEC.md` §14). The command line
+//! is in `main.rs`.
 
 pub mod config;
 pub mod reconcile;

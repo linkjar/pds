@@ -1,4 +1,6 @@
-//! The seed runner: `pds-sim [--seeds N] [--from S] [--steps N] [--accounts N]`.
+//! The seed runner: `pds-sim [--seeds N] [--from S] [--steps N] [--accounts N]
+//! [--faults N] [--power-loss N] [--trace]`, and `pds-sim --network` for the
+//! runs on a simulated network.
 //!
 //! It runs the plans of seeds `S` to `S + N - 1`, prints one line for each
 //! and a summary, and exits 1 when a seed fails. A failing seed is the

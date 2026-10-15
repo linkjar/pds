@@ -1,7 +1,7 @@
 //! The linkjar profile: LinkJar account behaviour as native extension implementations.
 //!
-//! Specified in `docs/SPEC.md` §13. Built so far: the hosted handle policy
-//! of patch 093.
+//! Specified in `docs/SPEC.md` §13: the hosted handle policy, the reserved
+//! names, the three sign-in providers and the handle-host redirect.
 
 pub mod handle;
 pub mod providers;

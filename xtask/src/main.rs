@@ -1,5 +1,7 @@
-//! Repository tasks. `cargo xtask codegen` generates `crates/pds-types/src/generated/mod.rs`
-//! from `lexicons/`; `--check` fails when the checked-in output is stale.
+//! Repository tasks. `cargo xtask codegen` generates
+//! `crates/pds-types/src/generated/mod.rs` and
+//! `crates/pds-lexicon/src/bundled.rs` from `lexicons/`; `--check` fails
+//! when the checked-in output is stale.
 
 #![allow(
     clippy::print_stderr,

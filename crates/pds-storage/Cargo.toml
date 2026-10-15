@@ -1,6 +1,6 @@
 [package]
 name = "pds-storage"
-description = "Storage seams and their SQLite implementations over the reference schema"
+description = "Storage over the Reference's data directory: SQLite in the Reference's schema, Postgres for the shared databases, and the copy between them"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

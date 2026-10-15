@@ -1,6 +1,6 @@
 [package]
 name = "pds-repo"
-description = "Repository engine: MST, commits, signing, CAR and diffs"
+description = "Repository engine: MST, commits signed by the caller, CAR and diffs"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

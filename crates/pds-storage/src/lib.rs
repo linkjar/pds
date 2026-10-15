@@ -5,8 +5,9 @@
 //! `did_cache.sqlite` and one `store.sqlite` per actor. Every call is
 //! synchronous; the server runs them on its blocking pool (§3.2).
 //!
-//! Unit 3 reads. The write half of each seam arrives with the write path
-//! (`docs/plan.md`, unit 4).
+//! Each seam has a read side and a write side; the write side of an actor
+//! store is `ActorTxn`. The shared databases can live on Postgres instead
+//! of SQLite (`sql`, `pg`, `migrate`).
 //!
 //! A read changes no row, but it can write files. The Reference's databases
 //! are in WAL journal mode (§8.3), and a read connection to such a database

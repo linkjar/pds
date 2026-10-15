@@ -36,7 +36,8 @@
 //!   one repository are not interleaved here; the repository lock is.
 //! - **Two operations on one key in one batch**, which the Reference
 //!   reports with the record that was there before the batch.
-//! - Accounts, imports, OAuth and mail, which other units bring.
+//! - Accounts, imports, OAuth and mail: the simulation exercises the write
+//!   path and the firehose, and the parity harness covers those.
 
 pub mod model;
 pub mod net;

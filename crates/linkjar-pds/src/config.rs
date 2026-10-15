@@ -1,9 +1,9 @@
 //! Configuration from the environment (`docs/SPEC.md` §14.1, Appendix C).
 //!
-//! As of unit 3 this module reads the variables the read-only server uses, with the
-//! Reference's defaults. An invalid value stops the start. The other
-//! variables of Appendix C are accepted and not yet read; each arrives with
-//! the unit that uses it. A variable that Appendix C refuses stops the start.
+//! This module reads the variables of Appendix C with the Reference's
+//! defaults. An invalid value stops the start. Some variables of Appendix C
+//! are accepted and not read, because the feature behind them is not
+//! built. A variable that Appendix C refuses stops the start.
 //! A `PDS_*` variable that Appendix C does not name is kept in
 //! [`Config::unknown_variables`], and the commands warn about it.
 
@@ -245,7 +245,7 @@ pub enum ProfileName {
     Linkjar,
 }
 
-/// The settings of the read-only server.
+/// The settings of the server.
 #[derive(Clone)]
 pub struct Config {
     /// `PDS_HOSTNAME`, default `localhost`.

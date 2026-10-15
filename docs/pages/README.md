@@ -19,12 +19,6 @@ rules, and the typeface and the marks, which the server serves under
 | Account page | ![](account-home-phone.jpg) | ![](account-home-desktop.jpg) |
 | Sign-up under the `stock` profile, invite required | ![](stock-sign-up-phone.jpg) | |
 
-Before, the pages had a generic style:
-
-| Sign-up | Account page |
-|---|---|
-| ![](before-sign-up-phone.jpg) | ![](before-account-home-phone.jpg) |
-
 The page functions are pure. To look at them again, write each one's
 output to a file from a test and open the files next to a copy of
 `crates/pds-oauth/assets/` under `oauth/assets/`.

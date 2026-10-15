@@ -1,11 +1,13 @@
-//! Lexicon document model, loader, record validation and permission-set
-//! resolution (`docs/SPEC.md` §2.1, §5.5, §6.3).
+//! Lexicon document model, loader and record validation
+//! (`docs/SPEC.md` §2.1, §5.5, §6.3).
 //!
-//! Unit 0 ships the model ([`model`]) and the corpus loader ([`Corpus`]) with
-//! reference resolution. Unit 2 adds [`validate`]: record validation against
-//! a lexicon, record-key types and the data-model rules. The three
-//! validation modes of SPEC §6.3 belong to the write path, and
-//! permission-set resolution follows in a later unit.
+//! [`model`] is the schema as data, and [`Corpus`] loads a set of documents
+//! with reference resolution. [`validate`] checks a record against its
+//! lexicon, a record key against its type, and a value against the
+//! data-model rules; [`wording`] holds the Reference's messages for the
+//! errors. The three validation modes of SPEC §6.3 belong to the write
+//! path. Permission sets are modelled and not resolved (`docs/plan.md`,
+//! "Not built").
 
 pub mod bundled;
 pub mod model;

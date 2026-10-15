@@ -2,9 +2,9 @@
 //!
 //! [`pds_types::Handle`] checks the syntax. This module holds what a PDS
 //! adds: which top-level domains it refuses, and how the two verification
-//! answers are read. The DNS and HTTPS requests themselves belong to the
-//! resolver of a later unit; the parsing of what they return is here so
-//! that it can be tested and fuzzed without a network.
+//! answers are read. The DNS and HTTPS requests themselves are the server's
+//! (`pds-xrpc`); the parsing of what they return is here so that it can
+//! be tested and fuzzed without a network.
 
 use pds_types::{Did, Handle};
 

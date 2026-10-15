@@ -1,8 +1,8 @@
 //! The LinkJar PDS binary (`docs/SPEC.md` §14.2).
 //!
 //! It has `serve`, `verify`, `export-car`, the `audit` commands of §20,
-//! `check-config`, `health` and `version`. The other commands of §14.2
-//! arrive with their units (`docs/plan.md`).
+//! `migrate-storage`, `reconcile`, `check-config`, `health` and `version`.
+//! `README.md` describes each.
 
 use std::io::Write;
 use std::process::ExitCode;
