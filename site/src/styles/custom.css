@@ -1,0 +1,74 @@
+/* LinkJar PDS: warm neutrals and an amber accent. The variables are
+   Starlight's; dark values sit on :root and light ones under
+   [data-theme='light'], as the theme editor writes them. */
+
+:root {
+	--sl-font: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+	--sl-font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+	--sl-content-width: 48rem;
+
+	--sl-color-accent-low: hsl(36, 70%, 15%);
+	--sl-color-accent: hsl(36, 88%, 50%);
+	--sl-color-accent-high: hsl(38, 90%, 84%);
+
+	--sl-color-white: hsl(30, 20%, 98%);
+	--sl-color-gray-1: hsl(30, 14%, 90%);
+	--sl-color-gray-2: hsl(30, 9%, 74%);
+	--sl-color-gray-3: hsl(30, 6%, 52%);
+	--sl-color-gray-4: hsl(30, 7%, 32%);
+	--sl-color-gray-5: hsl(30, 8%, 21%);
+	--sl-color-gray-6: hsl(30, 9%, 14%);
+	--sl-color-black: hsl(30, 10%, 9%);
+}
+
+:root[data-theme='light'] {
+	--sl-color-accent-low: hsl(38, 95%, 91%);
+	--sl-color-accent: hsl(33, 95%, 34%);
+	--sl-color-accent-high: hsl(32, 85%, 17%);
+
+	--sl-color-white: hsl(30, 10%, 9%);
+	--sl-color-gray-1: hsl(30, 9%, 14%);
+	--sl-color-gray-2: hsl(30, 8%, 21%);
+	--sl-color-gray-3: hsl(30, 7%, 36%);
+	--sl-color-gray-4: hsl(30, 6%, 56%);
+	--sl-color-gray-5: hsl(30, 9%, 78%);
+	--sl-color-gray-6: hsl(30, 14%, 91%);
+	--sl-color-gray-7: hsl(30, 20%, 96%);
+	--sl-color-black: hsl(30, 25%, 99%);
+}
+
+/* Headings a touch tighter than Starlight's default. */
+.sl-markdown-content :is(h1, h2, h3) {
+	letter-spacing: -0.015em;
+}
+
+/* Code in prose, slightly smaller than the text around it. */
+.sl-markdown-content code:not(:where(.expressive-code *)) {
+	font-size: 0.875em;
+}
+
+/* Tables: keep the first column from wrapping on variable names. */
+.sl-markdown-content table td:first-child code {
+	white-space: nowrap;
+}
+
+/* Diagrams from docs/architecture: one variant per theme. The theme-scoped
+   utility classes are Starlight's; these rules restate them with enough
+   specificity to win over the img rule below. */
+:root[data-theme='light'] .diagram .light\:sl-hidden,
+:root[data-theme='dark'] .diagram .dark\:sl-hidden {
+	display: none;
+}
+.diagram {
+	margin: 1.5rem 0;
+}
+.diagram img {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+.diagram figcaption {
+	margin-top: 0.5rem;
+	font-size: var(--sl-text-sm);
+	color: var(--sl-color-gray-3);
+}

@@ -1,0 +1,53 @@
+name: Site
+
+# The self-hosting guide in site/, built with Astro Starlight. A pull
+# request builds it and publishes nothing. A push to main publishes it to
+# GitHub Pages, which the repository settings must point at "GitHub
+# Actions", with the custom domain of site/astro.config.mjs.
+# Actions are pinned by commit SHA; the comment names the release.
+
+on:
+  pull_request:
+    paths: ['site/**', 'docs/architecture/svg/**', '.github/workflows/site.yml']
+  push:
+    branches: [main]
+    paths: ['site/**', 'docs/architecture/svg/**', '.github/workflows/site.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The "last updated" dates come from the git history.
+          fetch-depth: 0
+      - uses: withastro/action@3eafd002e65cc31b4f0eae0bb05450d521562247 # v6.1.3
+        with:
+          path: ./site
+          node-version: 24
+
+  deploy:
+    name: Publish
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

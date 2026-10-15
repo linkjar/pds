@@ -14,7 +14,7 @@ It is not the production deployment, which `linkjar/infra` owns, and it
 does not touch production data. To check a copy of production data, follow
 §1 of the [cutover runbook](cutover.md) instead.
 
-The files are in [`deploy/test-host/`](../../deploy/test-host/): a compose
+The files are in [`deploy/compose/`](../../deploy/compose/): a compose
 file with the server and Caddy, a Caddyfile, and two example environment
 files.
 
@@ -37,7 +37,7 @@ not a test host: pick a name that no production record points at.
 1. Copy the directory to the host.
 
    ```bash
-   scp -r deploy/test-host operator@test-host:linkjar-pds-test
+   scp -r deploy/compose operator@test-host:linkjar-pds-test
    ```
 
 2. Fill in `.env` from `example.env`. Take the image digest from the

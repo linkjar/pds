@@ -1,34 +1,12 @@
 # LinkJar PDS
 
 An AT Protocol Personal Data Server in Rust, compatible with the reference
-implementation, with LinkJar's account behaviour as native extension points
-instead of source patches. Dual-licensed MIT or Apache-2.0.
+implementation. One binary, one data directory, the reference server's
+layout and settings. Dual-licensed MIT or Apache-2.0.
 
-> **Status, 2026-10-15.** Every unit of the [plan](docs/plan.md) has code
-> on `main`: reads, writes and the firehose on a data directory that the
-> reference server started; accounts, OAuth and the `linkjar` profile; the
-> audit log; the operations console and the MCP server; Postgres; and the
-> entryway. The [parity harness](parity/README.md) passes its default
-> scenarios against the server alone, on Postgres, and behind an entryway.
-> Since 2026-10-15 the server runs `pds.linkjar.social`, the invite-only
-> pilot, on the data directory the reference image wrote
-> ([record](docs/research/2026-10-15-pilot-cutover.md)). The reference image
-> under [`legacy/`](legacy/README.md) is the rollback until the 48-hour
-> watch ends. The [test-host runbook](docs/runbooks/test-host.md) puts the
-> server on a host of its own. The steps left are the owner's; the plan
-> lists them with checkboxes.
-
-## Start here
-
-| Read | For |
-|---|---|
-| [docs/README.md](docs/README.md) | The documentation map |
-| [docs/architecture/README.md](docs/architecture/README.md) | One diagram per part of the system, rendered with beautiful-mermaid, kept current with the code |
-| [docs/SPEC.md](docs/SPEC.md) | The normative specification (RFC 2119) |
-| [docs/plan.md](docs/plan.md) | Status of each unit, the owner's steps, what is not built, decisions |
-| [docs/sidecars.md](docs/sidecars.md) | The operations console and the MCP server |
-| [docs/research/](docs/research/) | What other systems do, and the gap report against atproto.com |
-| [.agent_sources/README.md](.agent_sources/README.md) | Checkouts of the pinned upstream sources for reading: `scripts/vendor-agent-sources.sh` |
+**Host your own:** [pds.linkjar.io](https://pds.linkjar.io) is the guide,
+from the DNS records to the audit log. Its source is [`site/`](site/) and
+the deployment it describes is [`deploy/compose/`](deploy/compose/).
 
 ## What it is
 
@@ -66,22 +44,43 @@ extension traits: the `stock` profile reproduces the reference server, the
 receipt, sign-in methods and mail. Everything else, from the repository
 engine to the firehose, is shared.
 
+Since 2026-10-15 the server runs `pds.linkjar.social`, LinkJar's
+invite-only pilot, on the data directory the reference image wrote.
+[docs/plan.md](docs/plan.md) tracks each unit of the work, the owner's
+steps and what is not built.
+
+## Documentation
+
+| Read | For |
+|---|---|
+| [pds.linkjar.io](https://pds.linkjar.io) | Hosting the server: requirements, install, configuration, operation, scaling |
+| [docs/README.md](docs/README.md) | The map of the engineering documentation |
+| [docs/SPEC.md](docs/SPEC.md) | The normative specification (RFC 2119) |
+| [docs/architecture/README.md](docs/architecture/README.md) | One diagram per part of the system, kept current with the code |
+| [docs/plan.md](docs/plan.md) | Status of each unit, the owner's steps, what is not built, decisions |
+| [docs/sidecars.md](docs/sidecars.md) | The operations console and the MCP server |
+| [docs/runbooks/](docs/README.md#runbooks) | Cutover, entryway, Postgres, and a test host |
+| [docs/research/](docs/research/) | What other systems do, and the record of each unit |
+
 ## Repository layout
 
 | Path | Contents |
 |---|---|
 | `crates/` | The workspace crates, one per subsystem ([architecture](docs/architecture/README.md#crates)) |
-| `crates/linkjar-pds/` | The binary: `serve`, `verify`, `export-car`, `check-config`, `health`, `version` |
+| `crates/linkjar-pds/` | The binary: `serve`, `verify`, `export-car`, `audit`, `migrate-storage`, `reconcile`, `check-config`, `health`, `version` |
 | `crates/pds-sim/` | The simulation: `pds-sim --seeds N` runs seeded plans against the server in process |
-| `Dockerfile` | The server's image |
-| `deploy/test-host/` | A compose file for a test host: the server behind Caddy ([runbook](docs/runbooks/test-host.md)) |
+| `Dockerfile`, `Dockerfile.console`, `Dockerfile.mcp` | The images of the server and its two sidecars |
+| `deploy/compose/` | The Compose deployment of one host: the server behind Caddy |
+| `site/` | The self-hosting guide, [pds.linkjar.io](https://pds.linkjar.io) |
 | `xtask/` | Repository tasks: `cargo xtask codegen` generates API types from the lexicons |
 | `lexicons/` | Vendored upstream lexicons at the pin, LinkJar lexicons, project lexicons ([notice](lexicons/NOTICE.md)) |
 | `interop/` | CC0 interop test vectors from upstream ([notice](interop/README.md)) |
 | `fuzz/` | cargo-fuzz targets for every parser of untrusted bytes |
 | `parity/` | The parity harness: the compose stack, scenarios and oracles that hold a target to the reference image ([README](parity/README.md)) |
-| `docs/` | Specification, plan, architecture, research ([map](docs/README.md)) |
-| `legacy/` | The reference-image build with its patches, tests, recovery tooling and staging files; frozen except security fixes ([legacy README](legacy/README.md)) |
+| `bench/` | The repository engine beside `rsky-repo` on the same vectors and workload ([README](bench/README.md)) |
+| `docs/` | Specification, plan, architecture, runbooks, research ([map](docs/README.md)) |
+| `legacy/` | The reference-image build that ran until 2026-10-15, the rollback until the watch ends; frozen except security fixes ([README](legacy/README.md)) |
+| `.agent_sources/` | Checkouts of the pinned upstream sources for reading: `scripts/vendor-agent-sources.sh` |
 | `upstream.json` | The reference pin shared by the legacy build and the vendored lexicons |
 
 ## Build and check
@@ -101,7 +100,7 @@ devenv shell -- pds:check        # the Rust gates of CI
 devenv shell -- pds:hooks        # the rustfmt and clippy hooks, by hand
 ```
 
-Run the server on a copy of a reference data directory, and check the copy:
+Run the server on a copy of a data directory, and check the copy:
 
 ```sh
 export PDS_HOSTNAME=pds.example.com PDS_DATA_DIRECTORY=/path/to/copy \
@@ -111,17 +110,16 @@ cargo run -p linkjar-pds -- verify   # reads only; exit 1 on a difference
 cargo run -p linkjar-pds -- serve    # port 2583
 ```
 
-For blobs in an S3-compatible store, set the reference server's
-`PDS_BLOBSTORE_S3_*` variables in place of `PDS_BLOBSTORE_DISK_LOCATION`
-(SPEC Appendix C). `verify` then lists the bucket and changes nothing in it;
-`serve` writes to it, so point it at a copy of the bucket.
-
-The variables are the reference server's (SPEC Appendix C). `serve` writes
-to the copy: records, blobs, events, sessions and new accounts, the DID
-cache, and its own file `ops.sqlite`. It creates an account only with
+The variables are the reference server's; the guide's
+[environment page](https://pds.linkjar.io/configure/environment/) and SPEC
+Appendix C list them. `serve` writes to the copy: records, blobs, events,
+sessions and new accounts, the DID cache, and its own files `audit.sqlite`
+and `ops.sqlite`. It creates an account only with
 `PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX` set, and then it writes to the
 PLC directory that `PDS_DID_PLC_URL` names: point that at a directory of
-your own when you try it.
+your own when you try it. For blobs in an S3-compatible store, set the
+`PDS_BLOBSTORE_S3_*` variables in place of `PDS_BLOBSTORE_DISK_LOCATION`;
+`verify` then lists the bucket and changes nothing in it.
 
 `devenv shell` installs no git hook. Linked worktrees share one `.git/hooks`,
 so an installed hook would run for every worktree with the configuration of
@@ -137,6 +135,13 @@ pnpm parity compare reference repeat
 pnpm parity images build-candidate
 pnpm parity restore              # the Rust server on the reference's data
 pnpm parity writes               # writes and the firehose on both servers
+pnpm parity smoke https://pds.example.com   # a server that runs elsewhere
+```
+
+The guide builds on its own ([site/README.md](site/README.md)):
+
+```sh
+cd site && pnpm install && pnpm dev
 ```
 
 ## Measurements
@@ -172,4 +177,4 @@ Work happens in bounded units that each end in a merge with their gate green
 ([docs/plan.md](docs/plan.md#units)). The specification is the
 source of truth; a change in behaviour starts with a change there. Every
 architecture diagram in `docs/architecture/` is updated in the same change as
-the code it describes.
+the code it describes, and so is the page of the guide that describes it.

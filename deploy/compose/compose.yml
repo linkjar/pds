@@ -1,8 +1,9 @@
-# A test host for LinkJar PDS: the server behind Caddy, which obtains a
+# LinkJar PDS on one host: the server behind Caddy, which obtains a
 # certificate for the server's name and for each hosted handle on demand.
-# The runbook is docs/runbooks/test-host.md. It is not the production
-# deployment, which linkjar/infra owns.
-name: linkjar-pds-test
+# The guide is pds.linkjar.io (site/); docs/runbooks/test-host.md uses the
+# same files for a test host. LinkJar's own hosts are deployed from
+# linkjar/infra.
+name: linkjar-pds
 services:
   pds:
     # By digest, from the summary of the "Server images" workflow on main.
