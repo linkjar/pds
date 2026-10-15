@@ -30,6 +30,7 @@ pds-oauth = { path = "crates/pds-oauth" }
 pds-audit = { path = "crates/pds-audit" }
 pds-ext = { path = "crates/pds-ext" }
 pds-ext-linkjar = { path = "crates/pds-ext-linkjar" }
+pds-sidecar = { path = "crates/pds-sidecar" }
 pds-console = { path = "crates/pds-console" }
 pds-mcp = { path = "crates/pds-mcp" }
 

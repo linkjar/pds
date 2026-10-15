@@ -19,17 +19,14 @@ path = "src/main.rs"
 [dependencies]
 pds-identity.workspace = true
 pds-oauth.workspace = true
+pds-sidecar.workspace = true
 axum.workspace = true
 tokio.workspace = true
 reqwest.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
-tracing-subscriber.workspace = true
-base64.workspace = true
-sha2.workspace = true
 subtle.workspace = true
-rand.workspace = true
 url.workspace = true
 data-encoding.workspace = true
 

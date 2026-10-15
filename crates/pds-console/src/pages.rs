@@ -508,10 +508,10 @@ pub fn roles(session: &Session, list: &Value) -> String {
 
 #[cfg(test)]
 mod tests {
+    use pds_sidecar::client::{Tokens, new_key};
     use serde_json::json;
 
     use super::*;
-    use crate::client::{Tokens, new_key};
     use crate::session::Sessions;
 
     fn session(role: &str) -> std::sync::Arc<Session> {

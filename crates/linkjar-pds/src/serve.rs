@@ -546,7 +546,13 @@ pub async fn serve(config: &Config) -> Result<(), ServeError> {
     let listener = bind(config.port)?;
     let address = listener.local_addr()?;
     tracing::info!(%address, did = %config.service_did, "serving");
-    let served = serve_until(listener, state.clone(), shutdown(), SHUTDOWN_LIMIT).await;
+    let served = serve_until(
+        listener,
+        state.clone(),
+        pds_sidecar::process::shutdown(),
+        SHUTDOWN_LIMIT,
+    )
+    .await;
     // The entries since the last checkpoint are signed before the process
     // ends.
     pds_xrpc::audit::checkpoint(&state).await;
@@ -609,26 +615,4 @@ pub async fn serve_until(
     }
     tracing::info!("stopped");
     Ok(())
-}
-
-/// Resolves on `SIGTERM` or an interrupt (SPEC §14.3).
-async fn shutdown() {
-    let interrupt = async {
-        let _ = tokio::signal::ctrl_c().await;
-    };
-    #[cfg(unix)]
-    let terminate = async {
-        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-            Ok(mut signal) => {
-                signal.recv().await;
-            }
-            Err(_) => std::future::pending::<()>().await,
-        }
-    };
-    #[cfg(not(unix))]
-    let terminate = std::future::pending::<()>();
-    tokio::select! {
-        () = interrupt => {}
-        () = terminate => {}
-    }
 }

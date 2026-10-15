@@ -19,10 +19,12 @@ use axum::extract::{Path, State};
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
+use pds_sidecar::client::{ClientError, random_text};
+use pds_sidecar::http::{cookie, field, form, json_response, param, redirect, same_origin};
 use serde_json::{Value, json};
 use subtle::ConstantTimeEq as _;
 
-use crate::client::{Call, Client, ClientError, random_text};
+use crate::client::{Call, Client};
 use crate::config::{CALLBACK_PATH, Config};
 use crate::session::{Session, Sessions};
 
@@ -133,35 +135,9 @@ fn html(status: StatusCode, page: String) -> Response {
         .into_response()
 }
 
-fn redirect(to: &str) -> Response {
-    let location = HeaderValue::from_str(to).unwrap_or_else(|_| HeaderValue::from_static("/"));
-    (
-        StatusCode::SEE_OTHER,
-        [
-            (header::LOCATION, location),
-            (header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
-        ],
-    )
-        .into_response()
-}
-
 /// The session of the request's cookie.
 fn session_of(console: &Console, headers: &HeaderMap) -> Option<Arc<Session>> {
-    headers
-        .get_all(header::COOKIE)
-        .iter()
-        .filter_map(|value| value.to_str().ok())
-        .flat_map(|value| value.split(';'))
-        .filter_map(|pair| pair.trim().split_once('='))
-        .find(|(name, _)| *name == COOKIE)
-        .and_then(|(_, id)| console.inner.sessions.get(id))
-}
-
-/// A parameter of the query.
-fn param(query: Option<&str>, name: &str) -> Option<String> {
-    url::form_urlencoded::parse(query.unwrap_or_default().as_bytes())
-        .find(|(key, value)| key == name && !value.is_empty())
-        .map(|(_, value)| value.into_owned())
+    cookie(headers, COOKIE).and_then(|id| console.inner.sessions.get(&id))
 }
 
 /// The page of a failed call: 403 when the PDS refuses the operator, 502
@@ -230,14 +206,7 @@ async fn live(State(console): State<Console>, headers: HeaderMap) -> Response {
         return StatusCode::BAD_GATEWAY.into_response();
     };
     let body = json!({ "overview": state, "subscribers": listed["subscribers"] });
-    (
-        [
-            (header::CONTENT_TYPE, "application/json"),
-            (header::CACHE_CONTROL, "no-store"),
-        ],
-        body.to_string(),
-    )
-        .into_response()
+    json_response(StatusCode::OK, &body)
 }
 
 async fn accounts(
@@ -324,32 +293,11 @@ async fn roles(State(console): State<Console>, headers: HeaderMap) -> Response {
     }
 }
 
-/// The fields of a form.
-async fn form(body: Body) -> Option<Vec<(String, String)>> {
-    let bytes = axum::body::to_bytes(body, FORM_LIMIT).await.ok()?;
-    Some(
-        url::form_urlencoded::parse(&bytes)
-            .map(|(key, value)| (key.into_owned(), value.trim().to_owned()))
-            .collect(),
-    )
-}
-
-fn field<'a>(fields: &'a [(String, String)], name: &str) -> &'a str {
-    fields
-        .iter()
-        .find(|(key, _)| key == name)
-        .map_or("", |(_, value)| value.as_str())
-}
-
 /// Whether a form comes from a page of this console: the token of the
 /// session, and the origin of the request when the browser names it.
 fn form_is_ours(console: &Console, session: &Session, headers: &HeaderMap, csrf: &str) -> bool {
     let token_ok: bool = csrf.as_bytes().ct_eq(session.csrf.as_bytes()).into();
-    let origin_ok = headers
-        .get(header::ORIGIN)
-        .and_then(|value| value.to_str().ok())
-        .is_none_or(|origin| origin == console.config().public_url);
-    token_ok && origin_ok
+    token_ok && same_origin(headers, &console.config().public_url)
 }
 
 /// What an action of a form is on the ops listener: the method, its body,
@@ -414,7 +362,7 @@ async fn act(State(console): State<Console>, headers: HeaderMap, body: Body) -> 
             pages::failure(Some(&session), message),
         )
     };
-    let Some(fields) = form(body).await else {
+    let Some(fields) = form(body, FORM_LIMIT).await else {
         return bad("The form is too large.");
     };
     if !form_is_ours(&console, &session, &headers, field(&fields, "csrf")) {
@@ -513,7 +461,7 @@ async fn callback(State(console): State<Console>, request: axum::extract::Reques
 /// Ends the session at the console and at the PDS.
 async fn sign_out(State(console): State<Console>, headers: HeaderMap, body: Body) -> Response {
     let session = signed_in!(console, headers);
-    let fields = form(body).await.unwrap_or_default();
+    let fields = form(body, FORM_LIMIT).await.unwrap_or_default();
     if !form_is_ours(&console, &session, &headers, field(&fields, "csrf")) {
         return html(
             StatusCode::FORBIDDEN,

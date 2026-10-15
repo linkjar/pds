@@ -18,9 +18,10 @@ use std::sync::Arc;
 use axum::http::{Method, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
+use pds_sidecar::client::ClientError;
 
 use crate::config::{CLIENT_METADATA_PATH, Config, MCP_PATH, PDS_CALLBACK_PATH};
-use crate::pds::{Pds, PdsError};
+use crate::pds::Pds;
 use crate::store::Store;
 
 pub use pds_oauth::pages::escape;
@@ -40,11 +41,11 @@ struct Inner {
 
 impl Mcp {
     /// A server for the configuration.
-    pub fn new(config: Config) -> Result<Self, PdsError> {
+    pub fn new(config: Config) -> Result<Self, ClientError> {
         let http = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .build()
-            .map_err(|error| PdsError::Transport(error.to_string()))?;
+            .map_err(|error| ClientError::Transport(error.to_string()))?;
         Ok(Self {
             inner: Arc::new(Inner {
                 pds: Pds::new(config)?,

@@ -11,13 +11,14 @@ use axum::body::Body;
 use axum::extract::State;
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
+use pds_sidecar::client::{hash, random_text};
+use pds_sidecar::http::{cookie, field, form, json_response, param, redirect, same_origin};
 use serde_json::{Value, json};
 use subtle::ConstantTimeEq as _;
 use url::Url;
 
 use crate::clients;
 use crate::config::PDS_CALLBACK_PATH;
-use crate::pds::{hash, random_text};
 use crate::store::{ACCESS_LIFE, DEFAULT_SCOPE, McpClient, Request, pds_scope};
 use crate::{Mcp, escape};
 
@@ -26,19 +27,6 @@ const COOKIE: &str = "mcp_flow";
 
 /// The largest body of a form or of a registration.
 const BODY_LIMIT: usize = 64 * 1024;
-
-fn json_response(status: StatusCode, body: &Value) -> Response {
-    (
-        status,
-        [
-            (header::CONTENT_TYPE, "application/json"),
-            (header::CACHE_CONTROL, "no-store"),
-            (header::ACCESS_CONTROL_ALLOW_ORIGIN, "*"),
-        ],
-        body.to_string(),
-    )
-        .into_response()
-}
 
 /// An error of the token endpoint (RFC 6749 §5.2).
 fn oauth_error(status: StatusCode, error: &str, description: &str) -> Response {
@@ -85,18 +73,6 @@ fn problem(status: StatusCode, message: &str) -> Response {
     )
 }
 
-fn redirect(to: &str) -> Response {
-    let location = HeaderValue::from_str(to).unwrap_or_else(|_| HeaderValue::from_static("/"));
-    (
-        StatusCode::SEE_OTHER,
-        [
-            (header::LOCATION, location),
-            (header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
-        ],
-    )
-        .into_response()
-}
-
 /// The redirect to an AI client with the answer of an authorization.
 fn answer(mcp: &Mcp, redirect_uri: &str, state: Option<&str>, pairs: &[(&str, &str)]) -> Response {
     let Ok(mut url) = Url::parse(redirect_uri) else {
@@ -113,26 +89,9 @@ fn answer(mcp: &Mcp, redirect_uri: &str, state: Option<&str>, pairs: &[(&str, &s
     redirect(url.as_str())
 }
 
-fn param(query: Option<&str>, name: &str) -> Option<String> {
-    url::form_urlencoded::parse(query.unwrap_or_default().as_bytes())
-        .find(|(key, value)| key == name && !value.is_empty())
-        .map(|(_, value)| value.into_owned())
-}
-
-fn cookie(headers: &HeaderMap) -> Option<String> {
-    headers
-        .get_all(header::COOKIE)
-        .iter()
-        .filter_map(|value| value.to_str().ok())
-        .flat_map(|value| value.split(';'))
-        .filter_map(|pair| pair.trim().split_once('='))
-        .find(|(name, _)| *name == COOKIE)
-        .map(|(_, value)| value.to_owned())
-}
-
 /// Whether the browser of the request is the one that started `request`.
 fn same_browser(headers: &HeaderMap, request: &Request) -> bool {
-    cookie(headers).is_some_and(|value| {
+    cookie(headers, COOKIE).is_some_and(|value| {
         hash(&value)
             .as_bytes()
             .ct_eq(request.browser.as_bytes())
@@ -177,9 +136,16 @@ pub async fn authorization_server(State(mcp): State<Mcp>) -> Response {
     )
 }
 
-/// The metadata of this server as a client of the PDS.
+/// The metadata of this server as a client of the PDS. The route is
+/// outside the CORS layer of the API, so the answer carries the header
+/// itself, as the other OAuth documents do.
 pub async fn client_metadata(State(mcp): State<Mcp>) -> Response {
-    json_response(StatusCode::OK, &mcp.config().client_metadata())
+    let mut response = json_response(StatusCode::OK, &mcp.config().client_metadata());
+    response.headers_mut().insert(
+        header::ACCESS_CONTROL_ALLOW_ORIGIN,
+        HeaderValue::from_static("*"),
+    );
+    response
 }
 
 /// `POST /register` (RFC 7591): a public client with its redirect URIs.
@@ -417,25 +383,9 @@ pub async fn pds_callback(
     }
 }
 
-async fn form(body: Body) -> Vec<(String, String)> {
-    let Ok(bytes) = axum::body::to_bytes(body, BODY_LIMIT).await else {
-        return Vec::new();
-    };
-    url::form_urlencoded::parse(&bytes)
-        .map(|(key, value)| (key.into_owned(), value.into_owned()))
-        .collect()
-}
-
-fn field<'a>(fields: &'a [(String, String)], name: &str) -> &'a str {
-    fields
-        .iter()
-        .find(|(key, _)| key == name)
-        .map_or("", |(_, value)| value.as_str())
-}
-
 /// `POST /authorize/decision`: the answer of the person.
 pub async fn decision(State(mcp): State<Mcp>, headers: HeaderMap, body: Body) -> Response {
-    let fields = form(body).await;
+    let fields = form(body, BODY_LIMIT).await.unwrap_or_default();
     let id = field(&fields, "request");
     let refuse = || {
         problem(
@@ -453,10 +403,7 @@ pub async fn decision(State(mcp): State<Mcp>, headers: HeaderMap, body: Body) ->
         .as_bytes()
         .ct_eq(opened.csrf.as_bytes())
         .into();
-    let origin_ok = headers
-        .get(header::ORIGIN)
-        .and_then(|value| value.to_str().ok())
-        .is_none_or(|origin| origin == mcp.config().public_url);
+    let origin_ok = same_origin(&headers, &mcp.config().public_url);
     if !csrf_ok || !origin_ok || !same_browser(&headers, &opened) {
         mcp.store().put_back(id, opened);
         return refuse();
@@ -489,7 +436,7 @@ fn issued(tokens: &crate::store::Issued) -> Response {
 
 /// `POST /token`: a code or a refresh token for new tokens.
 pub async fn token(State(mcp): State<Mcp>, body: Body) -> Response {
-    let fields = form(body).await;
+    let fields = form(body, BODY_LIMIT).await.unwrap_or_default();
     let get = |name: &str| field(&fields, name);
     let grant =
         |description: &str| oauth_error(StatusCode::BAD_REQUEST, "invalid_grant", description);
@@ -526,7 +473,7 @@ pub async fn token(State(mcp): State<Mcp>, body: Body) -> Response {
 
 /// `POST /revoke` (RFC 7009): ends the session of a token on both sides.
 pub async fn revoke(State(mcp): State<Mcp>, body: Body) -> Response {
-    let fields = form(body).await;
+    let fields = form(body, BODY_LIMIT).await.unwrap_or_default();
     if let Some(session) = mcp.store().end(field(&fields, "token")) {
         mcp.pds().revoke(&session.pds).await;
     }
