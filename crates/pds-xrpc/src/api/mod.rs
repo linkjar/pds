@@ -29,8 +29,15 @@ use pds_storage::{Actor, Availability};
 use crate::auth::{Credentials, optional_credentials};
 use crate::error::XrpcError;
 use crate::params::{Format, Params, Spec};
-use crate::state::AppState;
+use crate::state::{AppState, WriteState};
 use axum::body::Body;
+
+/// The write path, or the internal error of a read-only server.
+pub(crate) fn writes(state: &AppState) -> Result<&WriteState, XrpcError> {
+    state
+        .writes()
+        .ok_or_else(|| XrpcError::internal("the server is read-only"))
+}
 
 /// One query as a handler sees it.
 #[derive(Debug)]

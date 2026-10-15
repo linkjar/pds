@@ -15,6 +15,7 @@ use serde_json::{Map, Value, json};
 
 use super::Query;
 use super::admin::require_admin;
+use super::writes;
 use crate::auth::{self, session};
 use crate::body;
 use crate::error::{XrpcError, json_response};
@@ -22,12 +23,6 @@ use crate::params::Format;
 use crate::state::{AppState, WriteState};
 
 const DEFAULT_JSON_LIMIT: usize = 100 * 1024;
-
-fn writes(state: &AppState) -> Result<&WriteState, XrpcError> {
-    state
-        .writes()
-        .ok_or_else(|| XrpcError::internal("the server is read-only"))
-}
 
 /// A code as the methods answer it.
 pub(crate) fn view(code: &InviteCode) -> Value {

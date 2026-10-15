@@ -208,13 +208,28 @@ impl DidDocument {
 
     /// Parses a document and checks that it is about `did`.
     pub fn from_json_for(bytes: &[u8], max_len: usize, did: &Did) -> Result<Self, DidDocError> {
-        let doc = Self::from_json(bytes, max_len)?;
-        if &doc.id == did {
-            Ok(doc)
+        Self::from_json(bytes, max_len)?.about(did)
+    }
+
+    /// Reads a document that is parsed JSON already, as [`Self::from_json`]
+    /// reads bytes.
+    pub fn from_value(value: &Value) -> Result<Self, DidDocError> {
+        Self::deserialize(value).map_err(|e| DidDocError::Parse(e.to_string()))
+    }
+
+    /// Reads a parsed document and checks that it is about `did`.
+    pub fn from_value_for(value: &Value, did: &Did) -> Result<Self, DidDocError> {
+        Self::from_value(value)?.about(did)
+    }
+
+    /// This document, when it is about `did`.
+    fn about(self, did: &Did) -> Result<Self, DidDocError> {
+        if &self.id == did {
+            Ok(self)
         } else {
             Err(DidDocError::WrongSubject {
                 expected: did.to_string(),
-                found: doc.id.to_string(),
+                found: self.id.to_string(),
             })
         }
     }

@@ -15,6 +15,7 @@ use base64::engine::general_purpose::STANDARD_NO_PAD;
 use pds_storage::{Account, AppPassword, Availability};
 use serde_json::{Map, Value};
 
+use super::writes;
 use crate::auth::{
     self, SCOPE_ACCESS, SCOPE_APP_PASS, SCOPE_APP_PASS_PRIVILEGED, SCOPE_TAKENDOWN, session,
 };
@@ -39,12 +40,6 @@ fn unauthorized(error: &str, message: &str) -> XrpcError {
         error: error.to_owned(),
         message: message.to_owned(),
     }
-}
-
-fn writes(state: &AppState) -> Result<&WriteState, XrpcError> {
-    state
-        .writes()
-        .ok_or_else(|| XrpcError::internal("the server is read-only"))
 }
 
 /// The id of a new refresh token: 32 random bytes in base64.
@@ -195,12 +190,20 @@ pub async fn create_session(
     let id = token_id(writes);
     let access = auth::mint_access(config, did, scope, now_s);
     let (refresh, expires_s) = auth::mint_refresh(config, did, &id, now_s);
-    // A session of an account that is taken down cannot be refreshed.
+    // A session of an account that is taken down cannot be refreshed. The
+    // row goes in on the blocking pool, as every other write does.
     if !taken_down {
         let expires_at = pds_sequencer::iso_millis(expires_s * 1000);
-        let name = app_password.as_ref().map(|app| app.name.as_str());
-        writes
-            .with_accounts(|accounts| accounts.store_refresh_token(&id, did, &expires_at, name))?;
+        let name = app_password.as_ref().map(|app| app.name.clone());
+        let did = did.to_owned();
+        state
+            .blocking(move |state| {
+                super::writes(state)?.with_accounts(|accounts| {
+                    accounts.store_refresh_token(&id, &did, &expires_at, name.as_deref())
+                })?;
+                Ok(())
+            })
+            .await?;
     }
     let mut out = tokens(access, refresh);
     describe(&mut out, &account);

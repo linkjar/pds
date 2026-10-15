@@ -226,6 +226,8 @@ fn verify(
     else {
         return Err(unverified());
     };
+    // What was signed: the token up to its second dot.
+    let signed = &token[..head.len() + 1 + body.len()];
     let json = |part: &str| -> Option<serde_json::Value> {
         serde_json::from_slice(&URL_SAFE_NO_PAD.decode(part).ok()?).ok()
     };
@@ -242,7 +244,7 @@ fn verify(
         // and the entryway answers (SPEC §21.3).
         if alg == Some("HS256") && !config.jwt_secret.is_empty() {
             let own = Hmac::<Sha256>::new_from_slice(&config.jwt_secret).is_ok_and(|mut mac| {
-                mac.update(format!("{head}.{body}").as_bytes());
+                mac.update(signed.as_bytes());
                 mac.verify_slice(&signature).is_ok()
             });
             // The entryway itself takes such a refresh token, so that a
@@ -258,7 +260,7 @@ fn verify(
             }
             entryway
                 .key
-                .verify_any_s(format!("{head}.{body}").as_bytes(), &signature)
+                .verify_any_s(signed.as_bytes(), &signature)
                 .map_err(|_| unverified())?;
         }
     } else {
@@ -267,9 +269,7 @@ fn verify(
         }
         let mut mac =
             Hmac::<Sha256>::new_from_slice(&config.jwt_secret).map_err(|_| unverified())?;
-        mac.update(head.as_bytes());
-        mac.update(b".");
-        mac.update(body.as_bytes());
+        mac.update(signed.as_bytes());
         mac.verify_slice(&signature).map_err(|_| unverified())?;
     }
 
