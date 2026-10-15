@@ -6,10 +6,14 @@ It is compatible with the reference server that production ran until
 account behaviour as extension points instead of source patches. The
 normative definition is [SPEC.md](SPEC.md).
 
-**Where it stands on 2026-10-15.** Every unit of the plan has code on `main`,
+**Where it stands on 2026-10-16.** Every unit of the plan has code on `main`,
 and the Candidate serves `pds.linkjar.social`: it replaced the reference
 image on the invite-only pilot host on 2026-10-15, on the host's own data
-directory ([record](research/2026-10-15-pilot-cutover.md)). The 48-hour
+directory ([record](research/2026-10-15-pilot-cutover.md)). Since then the
+pages wear the LinkJar journey, the operations console is rebuilt on
+Topcoat, the self-hosting guide is published at
+[pds.linkjar.io](https://pds.linkjar.io), and the reference-image build has
+left the repository. The 48-hour
 watch, the restore drill, the measurements on this hardware and the hand
 tests in the Bluesky app and `linkjar.io` are open; they are the owner's
 (see [Owner's steps](#owners-steps)). The
@@ -188,6 +192,8 @@ Operations
 - [ ] Export over OTLP, and metrics of the commit path, the sequencer and
   the subscribers.
 - [ ] A Nix package.
+- [ ] The `migrate` command of §18.3 and the `repair <did>` ladder of §19.5;
+  the server repairs at start (§7.4).
 - [ ] The audit checkpoint key in a KMS or an HSM, and a witness that
   compares checkpoints over time.
 - [ ] The console's telemetry pane, a console under a host name, and forms
@@ -254,6 +260,8 @@ ones still open.
   server.
 - [Architecture](architecture/README.md): the crates and how a request moves
   through them.
+- [The crates](crates.md): the map of the workspace, with the layers, the
+  dependencies and what each binary needs.
 
 ## Ground rules
 

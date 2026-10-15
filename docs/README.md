@@ -10,6 +10,10 @@ source in [`../site/`](../site/README.md).
 
 - [SPEC.md](SPEC.md): the LinkJar PDS specification. Compatibility baseline, protocol surface, storage, identity, accounts, OAuth, extension points, the LinkJar profile, operations, security, performance, parity, cutover, simulation, audit log, topologies, sidecars.
 
+## Crates
+
+- [crates.md](crates.md): the map of the workspace crates: the layers, the dependencies, where the seams are joined, and what each binary and each build needs. Each crate's `README.md` under [`../crates/`](../crates/) says what it does, what it needs and how it is tested.
+
 ## Plan and decisions
 
 - [plan.md](plan.md): why the project exists, the units with a checkbox for each part of their gates, the owner's steps, what is not built, and the decisions by date.
@@ -25,6 +29,7 @@ source in [`../site/`](../site/README.md).
 ## Architecture
 
 - [architecture/README.md](architecture/README.md): one diagram per part of the system (context, crates, request paths, repository engine, firehose, storage, OAuth flows, extension model, simulation, audit, topologies, sidecars, cutover), Mermaid sources rendered with beautiful-mermaid in light and dark variants. Updated in the same change as the code.
+- [pages/README.md](pages/README.md): the pages the server renders, in the LinkJar journey, with screenshots at phone and desktop widths.
 
 ## Parity harness
 
