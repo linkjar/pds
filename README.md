@@ -55,6 +55,7 @@ steps and what is not built.
 |---|---|
 | [pds.linkjar.io](https://pds.linkjar.io) | Hosting the server: requirements, install, configuration, operation, scaling |
 | [docs/README.md](docs/README.md) | The map of the engineering documentation |
+| [docs/crates.md](docs/crates.md) | The crates: what each does, needs and depends on |
 | [docs/SPEC.md](docs/SPEC.md) | The normative specification (RFC 2119) |
 | [docs/architecture/README.md](docs/architecture/README.md) | One diagram per part of the system, kept current with the code |
 | [docs/plan.md](docs/plan.md) | Status of each unit, the owner's steps, what is not built, decisions |
@@ -66,7 +67,7 @@ steps and what is not built.
 
 | Path | Contents |
 |---|---|
-| `crates/` | The workspace crates, one per subsystem ([architecture](docs/architecture/README.md#crates)) |
+| `crates/` | The workspace crates, one per subsystem, each with a README ([map](docs/crates.md)) |
 | `crates/linkjar-pds/` | The binary: `serve`, `verify`, `export-car`, `audit`, `migrate-storage`, `reconcile`, `check-config`, `health`, `version` |
 | `crates/pds-sim/` | The simulation: `pds-sim --seeds N` runs seeded plans against the server in process |
 | `Dockerfile`, `Dockerfile.console`, `Dockerfile.mcp` | The images of the server and its two sidecars |
@@ -80,6 +81,7 @@ steps and what is not built.
 | `bench/` | The repository engine beside `rsky-repo` on the same vectors and workload ([README](bench/README.md)) |
 | `docs/` | Specification, plan, architecture, runbooks, research ([map](docs/README.md)) |
 | `.agent_sources/` | Checkouts of the pinned upstream sources for reading: `scripts/vendor-agent-sources.sh` |
+| `scripts/` | `vendor-agent-sources.sh` fetches the upstream checkouts; `check-upstream.py` reports upstream releases newer than the pin |
 | `upstream.json` | The reference pin: the upstream tag, commit and official distribution digest that the lexicons, the mail templates and the parity harness read |
 
 ## Build and check

@@ -68,7 +68,8 @@ library, for `verify`. `pds-sidecar` holds what the two sidecars share, so that
 what their pages read from a request and the checks on their configuration. It also holds
 the logging setup and the stop signal of a process, which the binary takes from
 it. Source:
-[`03-crates.mmd`](diagrams/03-crates.mmd).
+[`03-crates.mmd`](diagrams/03-crates.mmd). The written map, with what each
+crate needs, is [crates.md](../crates.md).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="svg/03-crates.dark.svg">
