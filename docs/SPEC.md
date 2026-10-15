@@ -249,10 +249,9 @@ are provisional.
 | `pds-storage` | The domain-level storage seams of §8.4 (`ActorStore`, `AccountStore`, `SequencerStore`, `BlobStore`, `DidCache`, `AuditStore`), the SQLite implementations over the Reference schema, migrations, the actor LRU, the notes of commits in flight (`ops.sqlite`, §7.4), the fail points and the `StorageIo` seam of §19. |
 | `pds-blob` | Blob stores: disk and S3-compatible; upload staging, hashing, quarantine; the rules of §6.4. |
 | `pds-identity` | Keys and signatures on both curves, `did:key`, the DID-document contract of §9; DID resolution with cache, PLC client, handle resolution and verification, signing-key custody. |
-| `pds-xrpc` | axum routing, XRPC request parsing, error mapping, rate limiting, proxying, read-after-write, CORS; the write path from a request to a stored and sequenced commit (§6.3), and the repair of §7.4. |
+| `pds-xrpc` | axum routing, XRPC request parsing, error mapping, rate limiting, proxying, read-after-write, CORS; the write path from a request to a stored and sequenced commit (§6.3), and the repair of §7.4; the account methods: lifecycle, sessions, app passwords, email tokens, invites, admin, mail, embedded or as an entryway (§21.3). |
 | `pds-sequencer` | The event log, firehose subscriptions, backfill, crawler notification, the lifecycle event sequences of §10.4. |
-| `pds-account` | Account lifecycle, sessions, app passwords, email tokens, invites, admin, mail. Designed to run embedded or as an entryway (§21.3). |
-| `pds-oauth` | The authorization server and the resource-server verifier: metadata, PAR, authorize, token, DPoP, client metadata, device sessions, server-rendered UI, account pages. Same two-mode design as `pds-account`. |
+| `pds-oauth` | The authorization server and the resource-server verifier: metadata, PAR, authorize, token, DPoP, client metadata, device sessions, server-rendered UI, account pages. The same two modes as the account methods (§21.3). |
 | `pds-audit` | The audit log of §20: entries, hash chain, checkpoints, proofs, the checkpoint record publisher, and the standalone verifier binary. |
 | `pds-ext` | The extension traits of §12 and the `stock` implementations. |
 | `pds-ext-linkjar` | The `linkjar` profile (§13). Compiled in behind the Cargo feature `linkjar`. |
@@ -2000,8 +1999,8 @@ As of unit 11:
 
 ### 21.3 Entryway and member hosts
 
-The recommended way to scale (decision of 2026-10-08). The `pds-account` and
-`pds-oauth` crates run in one of two modes selected at startup:
+The recommended way to scale (decision of 2026-10-08). The account methods
+of `pds-xrpc` and `pds-oauth` run in one of two modes selected at startup:
 
 - **Embedded**: inside `linkjar-pds` on a single node, as in §21.1.
 - **Entryway**: as a standalone service that owns email, passwords, app

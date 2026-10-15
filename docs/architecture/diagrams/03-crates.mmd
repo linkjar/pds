@@ -6,7 +6,6 @@ flowchart BT
   blob[pds-blob]
   identity[pds-identity<br/>DID, handle, PLC, keys]
   sequencer[pds-sequencer<br/>event log, firehose]
-  account[pds-account<br/>accounts, sessions, mail]
   oauth[pds-oauth<br/>authorization server, pages]
   audit[pds-audit<br/>chain, checkpoints, verifier]
   xrpc[pds-xrpc<br/>routing, limits, proxy]
@@ -25,12 +24,10 @@ flowchart BT
   blob -.-> storage
   identity --> types
   sequencer --> types & repo & storage
-  account -.-> storage & identity & ext & audit
   oauth --> identity
-  oauth -.-> account & lexicon & ext
+  oauth -.-> lexicon & ext
   audit --> types
   xrpc --> types & repo & storage & identity & blob & lexicon & sequencer & oauth & ext & audit
-  xrpc -.-> account
   ext -.-> types & storage
   linkjar --> ext & identity & types
   sim --> bin & xrpc & storage & sequencer & repo & identity & blob

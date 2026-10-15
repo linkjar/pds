@@ -1457,10 +1457,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pds-account"
-version = "0.0.1"
-
-[[package]]
 name = "pds-audit"
 version = "0.0.1"
 dependencies = [
