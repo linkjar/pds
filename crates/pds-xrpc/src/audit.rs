@@ -206,7 +206,7 @@ impl AuditLog {
             .iter()
             .rev()
             .filter_map(|(seq, bytes)| {
-                let entry = pds_audit::Entry::from_bytes(bytes).ok()?;
+                let entry = Entry::from_bytes(bytes).ok()?;
                 let what = entry.what;
                 Some(json!({
                     "seq": seq,

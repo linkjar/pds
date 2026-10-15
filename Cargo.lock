@@ -1680,7 +1680,6 @@ dependencies = [
  "chrono",
  "cid",
  "data-encoding",
- "ipld-core",
  "proptest",
  "rand 0.9.5",
  "regex",
@@ -1717,11 +1716,9 @@ dependencies = [
  "rand 0.9.5",
  "reqwest",
  "scrypt",
- "serde",
  "serde_json",
  "sha2",
  "subtle",
- "thiserror",
  "tokio",
  "tokio-tungstenite",
  "tracing",
@@ -3243,7 +3240,6 @@ dependencies = [
  "anyhow",
  "heck",
  "pds-lexicon",
- "serde_json",
 ]
 
 [[package]]

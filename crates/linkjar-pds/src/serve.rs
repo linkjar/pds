@@ -300,7 +300,7 @@ pub fn lock_data_directory(config: &Config) -> Result<std::fs::File, ServeError>
 /// Starts the private metrics listener (SPEC §14.4): `GET /metrics` in the
 /// Prometheus text format. It is a listener of its own, so that the
 /// public port never serves it.
-async fn serve_metrics(address: std::net::SocketAddr, state: AppState) -> Result<(), ServeError> {
+async fn serve_metrics(address: SocketAddr, state: AppState) -> Result<(), ServeError> {
     let listener = TcpListener::bind(address).await?;
     tracing::info!(address = %listener.local_addr()?, "serving metrics");
     let app = axum::Router::new().route(
@@ -350,7 +350,7 @@ pub fn ops_router(state: AppState, config: &Config) -> axum::Router {
 
 /// Starts the private ops listener.
 async fn serve_ops(
-    address: std::net::SocketAddr,
+    address: SocketAddr,
     state: AppState,
     config: &Config,
 ) -> Result<(), ServeError> {
@@ -588,7 +588,7 @@ pub async fn serve_until(
     let told = Arc::clone(&stopping);
     let server = axum::serve(
         listener,
-        pds_xrpc::router(state).into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        pds_xrpc::router(state).into_make_service_with_connect_info::<SocketAddr>(),
     )
     .with_graceful_shutdown(async move {
         stop.await;

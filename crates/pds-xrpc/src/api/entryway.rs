@@ -176,8 +176,8 @@ pub async fn ask_member(
     state: &AppState,
     host: &crate::state::MemberHost,
     nsid: &str,
-    input: &serde_json::Value,
-) -> Result<serde_json::Value, XrpcError> {
+    input: &Value,
+) -> Result<Value, XrpcError> {
     let url = format!("{}/xrpc/{nsid}", host.internal_url);
     let request = state.http().post(url).header(FROM_ENTRYWAY, "1");
     ask(request, state, &host.admin_password, input, "member host").await
@@ -189,8 +189,8 @@ pub async fn ask_entryway(
     state: &AppState,
     entryway: &Entryway,
     nsid: &str,
-    input: &serde_json::Value,
-) -> Result<serde_json::Value, XrpcError> {
+    input: &Value,
+) -> Result<Value, XrpcError> {
     let password = entryway
         .admin_token
         .as_deref()
@@ -204,9 +204,9 @@ async fn ask(
     request: reqwest::RequestBuilder,
     state: &AppState,
     password: &str,
-    input: &serde_json::Value,
+    input: &Value,
     who: &str,
-) -> Result<serde_json::Value, XrpcError> {
+) -> Result<Value, XrpcError> {
     let answer = request
         .basic_auth("admin", Some(password))
         .header(header::CONTENT_TYPE, "application/json")
@@ -220,11 +220,11 @@ async fn ask(
         .bytes()
         .await
         .map_err(|_| unavailable(&format!("the {who} did not finish its answer")))?;
-    let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or_default();
+    let body: Value = serde_json::from_slice(&bytes).unwrap_or_default();
     if (200..300).contains(&status) {
         return Ok(body);
     }
-    let text = |key: &str| body.get(key).and_then(serde_json::Value::as_str);
+    let text = |key: &str| body.get(key).and_then(Value::as_str);
     // What the host refuses for the caller's input is the caller's error.
     Err(XrpcError {
         status: if status < 500 {

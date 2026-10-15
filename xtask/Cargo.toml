@@ -11,7 +11,6 @@ publish = false
 pds-lexicon.workspace = true
 anyhow.workspace = true
 heck.workspace = true
-serde_json.workspace = true
 
 [lints]
 workspace = true
