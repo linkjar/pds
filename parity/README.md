@@ -239,6 +239,14 @@ that SPEC §4.2, §4.3, §4.4 and §6.4 name are compared.
 Scenarios run one file at a time, in name order, so that both targets see the
 same sequence of writes.
 
+A scenario has a deadline, 120 s unless its options say otherwise. One that
+has not finished by then fails, with its transcript marked so, and its
+cleanups run as on any failure: each within 30 s, after which the next one
+runs and the stall is logged. `browser.close()` kills a Chromium that has not
+gone within 15 s. The runner starts node with `--test-force-exit`, so a file
+whose test has ended exits even when a wedged call keeps the event loop
+alive, and the run goes on to the next scenario ([`src/lib/bound.ts`](src/lib/bound.ts)).
+
 ### Oracles
 
 - **The response comparison.** `pnpm parity compare <left> <right>` compares

@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs'
 import { AtpAgent } from '@atproto/api'
 import { Agent, buildConnector, fetch as undiciFetch } from 'undici'
 import WebSocket from 'ws'
+import { bound } from './bound.ts'
 import { bootPds, execPds, readState, restartPds, sqlite } from '../stack/compose.ts'
 import type { Database, StackState } from '../stack/compose.ts'
 import { HOSTS, accountHost, isTargetName } from '../stack/targets.ts'
@@ -133,7 +134,12 @@ export class Target {
     return execPds(this.name, command)
   }
 
+  /** Closes the connections to the stack. A request the server never answers does not hold them: after 5 s they are destroyed. */
   async close(): Promise<void> {
-    await this.dispatcher.close()
+    try {
+      await bound(this.dispatcher.close(), 5_000, 'closing the connections to the stack')
+    } catch {
+      await this.dispatcher.destroy()
+    }
   }
 }

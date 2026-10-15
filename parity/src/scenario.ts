@@ -9,6 +9,8 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
+import { bound, eventually, runCleanups } from './lib/bound.ts'
+import type { Cleanup } from './lib/bound.ts'
 import { Fixtures } from './lib/fixtures.ts'
 import { Normaliser } from './lib/normalise.ts'
 import { poolEnabled, takeFromPool } from './lib/pool.ts'
@@ -34,6 +36,11 @@ const COMPARED_HEADERS = [
   'x-content-type-options',
   'location',
 ]
+
+/** A scenario's deadline, unless its options say otherwise. */
+export const SCENARIO_TIMEOUT_MS = 120_000
+/** How long one cleanup may take before the scenario moves on to the next (lib/bound.ts). */
+export const CLEANUP_TIMEOUT_MS = 30_000
 
 export type Account = {
   name: string
@@ -87,7 +94,7 @@ export class Scenario {
   readonly fixtures: Fixtures
   /** The client address the PDS sees for this scenario. */
   readonly ip: string
-  private readonly cleanups: (() => void | Promise<void>)[] = []
+  private readonly cleanups: Cleanup[] = []
 
   constructor(name: string, target: Target) {
     this.name = name
@@ -107,12 +114,14 @@ export class Scenario {
     return `${name}-${this.tag}@example.com`
   }
 
-  onCleanup(fn: () => void | Promise<void>): void {
-    this.cleanups.push(fn)
+  /** Registers a cleanup, run after the scenario, the last registered first. `what` names it in the log when it fails or stalls. */
+  onCleanup(fn: () => void | Promise<void>, what = `cleanup #${this.cleanups.length + 1}`): void {
+    this.cleanups.push({ what, run: fn })
   }
 
-  async cleanup(): Promise<void> {
-    for (const fn of this.cleanups.reverse()) await fn()
+  /** Runs the cleanups. One that stalls past CLEANUP_TIMEOUT_MS, or throws, is logged and the next one still runs. */
+  cleanup(): Promise<void> {
+    return runCleanups(this.cleanups, CLEANUP_TIMEOUT_MS, (line) => console.error(`${this.name}: ${line}`))
   }
 
   /** Records an observation that is not an HTTP exchange. */
@@ -235,15 +244,9 @@ export class Scenario {
     return { ...account, did: result.json.did, accessJwt: result.json.accessJwt, refreshJwt: result.json.refreshJwt }
   }
 
-  /** Waits until `probe` returns a value, polling quietly. */
-  async eventually<T>(what: string, probe: () => Promise<T | undefined | false>, timeoutMs = 15_000): Promise<T> {
-    const deadline = Date.now() + timeoutMs
-    for (;;) {
-      const value = await probe()
-      if (value) return value
-      if (Date.now() > deadline) throw new Error(`Timed out waiting for ${what}`)
-      await new Promise((resolve) => setTimeout(resolve, 150))
-    }
+  /** Waits until `probe` returns a value, polling quietly. The deadline holds when a probe does not return. */
+  eventually<T>(what: string, probe: () => Promise<T | undefined | false>, timeoutMs = 15_000): Promise<T> {
+    return eventually(what, probe, timeoutMs)
   }
 }
 
@@ -263,9 +266,19 @@ export type ScenarioOptions = {
   timeoutMs?: number
 }
 
-/** Declares a scenario. One call per file; the file name is the scenario name. */
+/**
+ * Declares a scenario. One call per file; the file name is the scenario name.
+ *
+ * The scenario races its own deadline, so that one that wedges still writes
+ * its transcript as failed and runs its cleanups, each within a bound. The
+ * node:test timeout behind it is the backstop, two cleanup bounds later. The
+ * runner starts node with --test-force-exit (run.ts): once the test has
+ * ended, the file's process exits even when a wedged call or a browser that
+ * is still up keeps the event loop alive.
+ */
 export function scenario(name: string, options: ScenarioOptions, run: (s: Scenario) => Promise<void>): void {
-  test(name, { timeout: options.timeoutMs ?? 120_000 }, async (t) => {
+  const timeoutMs = options.timeoutMs ?? SCENARIO_TIMEOUT_MS
+  test(name, { timeout: timeoutMs + 2 * CLEANUP_TIMEOUT_MS }, async (t) => {
     const target = Target.fromEnv()
     const s = new Scenario(name, target)
     // A restore run records the same scenarios twice on one stack, once for each server.
@@ -284,7 +297,7 @@ export function scenario(name: string, options: ScenarioOptions, run: (s: Scenar
       return
     }
     try {
-      await run(s)
+      await bound(run(s), timeoutMs, `scenario ${name}`)
       write('passed')
     } catch (error) {
       write(`failed: ${error instanceof Error ? error.message : String(error)}`)

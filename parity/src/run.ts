@@ -60,7 +60,12 @@ export async function runFiles(target: TargetName, files: string[], env: Record<
   await fixtures.start()
   // One file at a time, in name order, so that both targets see the same
   // sequence of writes and the firehose scenarios see a quiet server.
-  const child = spawn(process.execPath, ['--test', '--test-concurrency=1', '--test-reporter=spec', ...files], {
+  // --test-force-exit: a file whose test has ended (passed, failed, or
+  // timed out) exits even when a wedged call, or a browser that is still
+  // up, keeps the event loop alive. Without it the run of 2026-10-15 sat
+  // on one scenario for an hour, the parent waiting for a child that had
+  // reported its timeout and could not exit.
+  const child = spawn(process.execPath, ['--test', '--test-concurrency=1', '--test-reporter=spec', '--test-force-exit', ...files], {
     cwd: PARITY_DIR,
     env: { ...process.env, ...env, PARITY_TARGET: target },
     stdio: 'inherit',
