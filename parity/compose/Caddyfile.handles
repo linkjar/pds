@@ -1,4 +1,8 @@
-# Import inside the #90 TLS site covering pds.linkjar.social, *.linkjar.social.
+# The production edge's snippet for the handle hosts of the linkjar profile
+# (docs/SPEC.md section 13.2), kept verbatim from the legacy build's staging
+# files when that build was removed on 2026-10-15. The parity stack imports
+# it (Caddyfile), so every target runs behind the production edge.
+# Import inside the TLS site covering pds.linkjar.social, *.linkjar.social.
 # Keep explicit service DNS/site definitions separate. Upstream is private HTTP.
 # Example site body: import linkjar_handle_hosts
 (linkjar_handle_hosts) {

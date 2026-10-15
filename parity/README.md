@@ -32,12 +32,8 @@ pnpm parity run reference --profile captcha
 pnpm parity run repeat                  # a second boot of the same image
 pnpm parity compare reference repeat    # must show no difference
 
-pnpm parity images build-stock          # PATCH_PROFILE=none build of ../legacy
-pnpm parity run stock
-pnpm parity compare reference stock     # must show exactly the recorded differences
-
 pnpm parity run official                # the upstream distribution, by digest
-pnpm parity compare stock official      # must show no difference
+pnpm parity compare reference official  # must show exactly the recorded differences
 ```
 
 ```sh
@@ -92,7 +88,7 @@ The default profile passes 22 of 22 with either.
 
 | Part | Where | What it does |
 |---|---|---|
-| Targets | [`src/stack/targets.ts`](src/stack/targets.ts), [`images.json`](images.json) | A target is an image. `reference` is `ghcr.io/linkjar/pds` by digest, `stock` the `PATCH_PROFILE=none` build, `official` the upstream distribution by digest, `repeat` a second boot of `reference`, `candidate` the image in `PARITY_CANDIDATE_IMAGE`, by default `linkjar-pds:candidate`. |
+| Targets | [`src/stack/targets.ts`](src/stack/targets.ts), [`images.json`](images.json) | A target is an image. `reference` is `ghcr.io/linkjar/pds` by digest, `official` the upstream distribution by digest, `repeat` a second boot of `reference`, `candidate` the image in `PARITY_CANDIDATE_IMAGE`, by default `linkjar-pds:candidate`. |
 | Stack | [`compose/compose.yml`](compose/compose.yml), [`src/stack/`](src/stack/) | One compose project per target: the PDS, a PLC directory with its Postgres, a Sync 1.1 relay in strict mode, a mail catcher, an S3-compatible store and a Caddy edge. |
 | Fixtures | [`src/fixtures/`](src/fixtures/) | The outside world, served from the harness process: the AppView and report service the PDS forwards to, OAuth client metadata, a custom-domain handle, and stand-ins for Apple, Google, GitHub and hCaptcha. |
 | Scenarios | [`scenarios/<profile>/`](scenarios/), [`src/scenario.ts`](src/scenario.ts) | One `node:test` test per file. Assertions state what the SPEC requires. Every exchange and observation goes into a transcript. |
@@ -103,7 +99,7 @@ The default profile passes 22 of 22 with either.
 
 Every target runs under the production hostnames, `pds.linkjar.social` with
 `.linkjar.social` handles, behind a TLS edge that uses the production Caddy
-snippet [`legacy/staging/Caddyfile.handles`](../legacy/staging/Caddyfile.handles).
+snippet [`compose/Caddyfile.handles`](compose/Caddyfile.handles).
 The base environment is the production configuration with the outside
 services replaced by the stack's own. Because each target has its own stack,
 two targets differ in the PDS image and in nothing else, and transcripts need
@@ -342,12 +338,13 @@ one host, not a benchmark and not a run against the targets of SPEC §16.2.
 
 ## The port of `legacy/tests`
 
-The legacy suites import the server's compiled modules inside the container.
-Each assertion that HTTP can observe is now a scenario against a running
-server. The legacy suites stay in place and keep guarding the rest until the
-`linkjar` extension crate has its own tests (unit 6).
+The legacy build's suites imported the server's compiled modules inside the
+container. Each assertion that HTTP can observe became a scenario against a
+running server. The suites went with the legacy build on 2026-10-15; the
+third column lists what no test has guarded since, and a test in
+`pds-ext-linkjar` is the place for each.
 
-| Legacy suite | Scenario | Not observable over HTTP, still guarded by the legacy suite |
+| Legacy suite | Scenario | Not observable over HTTP, unguarded since the suites went |
 |---|---|---|
 | `handles.mjs` | `default/30-linkjar-external` (derivation, collision suffix), `default/31-linkjar-handles` (reservations, the hosted rename, handle hosts) | The explicit-slur filter on derived handles; the bound of 32 allocation attempts; the 30-day boundary and the same-target retry after an ambiguous PLC write; two renames racing; removal of the policy row on deletion. |
 | `handle-proxy-backend.mjs`, `handle-proxy-probes.mjs` | `default/31-linkjar-handles`, through the stack's edge with the production snippet | The mail-event route of the recovery service, which the stack does not run. |

@@ -1,6 +1,6 @@
 # TLS edge of one parity stack. It plays the part that Caddy plays on the
 # production host: it terminates TLS for the PDS and its handle hosts with the
-# production snippet (legacy/staging/Caddyfile.handles), and forwards the
+# production snippet (Caddyfile.handles, beside this file), and forwards the
 # client address in X-Forwarded-For.
 {
 	admin off

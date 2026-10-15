@@ -79,9 +79,8 @@ steps and what is not built.
 | `parity/` | The parity harness: the compose stack, scenarios and oracles that hold a target to the reference image ([README](parity/README.md)) |
 | `bench/` | The repository engine beside `rsky-repo` on the same vectors and workload ([README](bench/README.md)) |
 | `docs/` | Specification, plan, architecture, runbooks, research ([map](docs/README.md)) |
-| `legacy/` | The reference-image build that ran until 2026-10-15, the rollback until the watch ends; frozen except security fixes ([README](legacy/README.md)) |
 | `.agent_sources/` | Checkouts of the pinned upstream sources for reading: `scripts/vendor-agent-sources.sh` |
-| `upstream.json` | The reference pin shared by the legacy build and the vendored lexicons |
+| `upstream.json` | The reference pin: the upstream tag, commit and official distribution digest that the lexicons, the mail templates and the parity harness read |
 
 ## Build and check
 

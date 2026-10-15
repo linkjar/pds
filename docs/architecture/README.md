@@ -272,8 +272,8 @@ open until the first Candidate-only migration. Source:
 
 How the repository is organised and what the gates run. The parity gate
 runs the scenarios of [`parity/`](../../parity/README.md) on the published
-reference image, a second boot of it, the stock build and the upstream
-distribution, then the three comparisons, and the restore run on the
+reference image, a second boot of it and the upstream distribution, then
+the two comparisons, and the restore run on the
 Candidate image that `./Dockerfile` builds. A tool in `parity/` writes
 fixtures with `@atproto/repo` at the pin, which the tests of `pds-repo`
 replay. [`bench/`](../../bench/README.md) runs `pds-repo` beside `rsky-repo`

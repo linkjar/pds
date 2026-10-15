@@ -10,7 +10,7 @@ import { createServer } from 'node:http'
 import type { IncomingMessage, Server, ServerResponse } from 'node:http'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { HOSTS, REPO_DIR } from '../stack/targets.ts'
+import { HOSTS, PARITY_DIR } from '../stack/targets.ts'
 import { IdentityProviders } from './identity-providers.ts'
 
 export type RecordedRequest = {
@@ -26,7 +26,7 @@ export type RecordedRequest = {
 export type Document = { host: string; path: string; status?: number; contentType?: string; body: string; headers?: Record<string, string> }
 export type CannedXrpc = { host: string; nsid: string; status?: number; body?: unknown; headers?: Record<string, string> }
 
-const LOGO = readFileSync(join(REPO_DIR, 'legacy/tests/fixtures/linkjar-128.png'))
+const LOGO = readFileSync(join(PARITY_DIR, 'src/fixtures/linkjar-128.png'))
 
 /** DID documents of the two services the PDS forwards to. */
 function didDocument(host: string): unknown {

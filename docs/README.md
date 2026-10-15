@@ -30,7 +30,7 @@ source in [`../site/`](../site/README.md).
 
 - [../parity/README.md](../parity/README.md): how the harness is built and run, the oracles, the restore run and the writes run of the Candidate, the contract its page driver relies on, and the port of the legacy suites.
 - [../parity/verify-at-pin.md](../parity/verify-at-pin.md): the twelve "verify at pin" answers with source and scenario, the rate-limiter table, and what the scenarios corrected in the specification.
-- [../parity/differences/README.md](../parity/differences/README.md): how the stock build and the production build differ, by patch, and how the Reference and the Candidate differ, by deliberate difference.
+- [../parity/differences/README.md](../parity/differences/README.md): how the Reference and the upstream distribution differ, by patch, and how the Reference and the Candidate differ, by deliberate difference.
 - [../parity/results/perf-writes.md](../parity/results/perf-writes.md): the single-write, batch-write and export scenarios on the Reference and on the Candidate.
 - [../parity/results/perf-reference.md](../parity/results/perf-reference.md): the Reference's baseline for the performance scenarios.
 
@@ -60,16 +60,14 @@ source in [`../site/`](../site/README.md).
 
 - [../.agent_sources/README.md](../.agent_sources/README.md): local checkouts of the Reference, the interop tests, the relay, the PLC directory and `rsky`, each at the commit this repository pins. `scripts/vendor-agent-sources.sh` fetches them; git ignores them.
 
-## Legacy
+## History
 
-The reference-image build that ran in production until 2026-10-15, and is
-the rollback image until the 48-hour watch ends, lives under
-[`../legacy/`](../legacy/README.md). Its documentation is in
-[legacy/](legacy/): the patch documents the `linkjar` profile reproduces
-([handle policy](legacy/handle-policy.md), [external providers](legacy/external-providers.md),
-[signup receipt](legacy/signup-receipt.md), [provider policy](legacy/provider-policy.md),
-[sign-in methods](legacy/signin-methods.md), [mail templates](legacy/mail-templates.md)),
-the [signup journey](legacy/signup-journey.md), the
-[shared-node fix](legacy/mst-shared-node.md) that the legacy build carries as
-its ninth patch, the [runbooks](legacy/runbooks/pds.md),
-the [upstream proposal](legacy/upstream-proposal.md) and the vendored upstream licences.
+The reference-image build that ran in production until 2026-10-15, with its
+patches, tests, recovery tooling and staging files, and its documents under
+`docs/legacy/`, left the repository on 2026-10-15 after the cutover; the
+history before that date has them. The published image stays the Reference
+of the Harness ([parity/images.json](../parity/images.json)) and the rollback
+image on the host until the watch ends. The `linkjar` profile reproduces the
+patches (SPEC §13), and the [unit record](research/2026-10-13-linkjar-profile.md)
+is the evidence. The licences of the vendored upstream material are in
+[licenses/](licenses/).

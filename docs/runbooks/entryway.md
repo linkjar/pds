@@ -75,7 +75,7 @@ who use the apps before the day.
    - Keep `PDS_JWT_SECRET`: the member host answers `ExpiredToken` to a
      token from before, and the client then refreshes.
 5. Send `/.well-known/atproto-did` of the handle hosts to the entryway.
-   In `legacy/staging/Caddyfile.handles` this is the `@did` route.
+   In the production snippet, `parity/compose/Caddyfile.handles`, this is the `@did` route.
 6. Start the entryway, then the member host.
 
 ## 4. Check

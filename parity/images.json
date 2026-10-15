@@ -5,15 +5,6 @@
     "digest": "sha256:78c56cd9e8b13d53cd03bd715352fe84e8deeca0595163dca2d6f1d1b215a801",
     "revision": "0c34a1bb1b22ff6e19a552032aa41024ba9a83a8"
   },
-  "stock": {
-    "tag": "linkjar-pds:unpatched",
-    "build": {
-      "context": "legacy",
-      "args": {
-        "PATCH_PROFILE": "none"
-      }
-    }
-  },
   "relay": {
     "image": "ghcr.io/bluesky-social/indigo",
     "tag": "relay-5568a3799fb62b3ac92a417a03ce8f9ab8c89395",

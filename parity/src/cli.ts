@@ -22,7 +22,7 @@ import { smoke } from './smoke.ts'
 import { writes } from './writes.ts'
 import { runScenarios } from './run.ts'
 import { down, logs, up } from './stack/compose.ts'
-import { CANDIDATE_TAG, REPO_DIR, TARGET_NAMES, images, isTargetName, targetSpec, upstream } from './stack/targets.ts'
+import { CANDIDATE_TAG, REPO_DIR, TARGET_NAMES, images, isTargetName, upstream } from './stack/targets.ts'
 import type { TargetName } from './stack/targets.ts'
 
 function fail(message: string): never {
@@ -81,13 +81,6 @@ function verifyImages(): void {
   }
   console.log(`reference  ${ref}\n           tag ${images.reference.tag}, patch pin ${images.reference.revision.slice(0, 7)}`)
   console.log(`official   ${upstream.officialImage}`)
-  console.log(`stock      ${targetSpec('stock').image} (PATCH_PROFILE=none build of legacy/)`)
-}
-
-function buildStock(): void {
-  const args = ['build', '--build-arg', 'PATCH_PROFILE=none', '-t', images.stock.tag, `${REPO_DIR}/${images.stock.build.context}`]
-  const run = spawnSync('docker', args, { stdio: 'inherit' })
-  process.exit(run.status ?? 1)
 }
 
 /** Builds the Candidate image from the repository's Dockerfile. */
@@ -99,7 +92,6 @@ function buildCandidate(): void {
 async function main(): Promise<void> {
   const [group, command, ...rest] = process.argv.slice(2)
   if (group === 'images' && command === 'verify') return verifyImages()
-  if (group === 'images' && command === 'build-stock') return buildStock()
   if (group === 'stack' && command === 'up') {
     const name = target(rest[0])
     const state = await up(name, profile(rest), { fresh: !rest.includes('--keep') })
@@ -158,7 +150,7 @@ async function main(): Promise<void> {
   if (group === 'compare') {
     process.exit(compare(target(command), target(rest[0]), { update: rest.includes('--update') }))
   }
-  fail('Usage: pnpm parity <images verify|images build-stock|images build-candidate|stack up|stack down|stack logs|run|restore|writes|compare|perf report|smoke> ...')
+  fail('Usage: pnpm parity <images verify|images build-candidate|stack up|stack down|stack logs|run|restore|writes|compare|perf report|smoke> ...')
 }
 
 await main()

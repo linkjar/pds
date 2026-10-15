@@ -3,11 +3,12 @@
 - `com/atproto/**` and `app/bsky/**` are copied verbatim from
   `bluesky-social/atproto` at commit `7ca16cc6989f8247637615aca17c5abb911b8fb1`
   (`@atproto/pds@0.5.34`), the reference pin in `../upstream.json`. Upstream
-  licenses them under MIT or Apache-2.0; see `../docs/legacy/upstream-LICENSE.txt`.
+  licenses them under MIT or Apache-2.0; see `../docs/licenses/upstream-LICENSE.txt`.
   Do not edit them. An upstream bump replaces the directories and regenerates
   `crates/pds-types/src/generated`.
-- `io/linkjar/account/**` are the LinkJar lexicons from
-  `../legacy/patches/099b-signup-receipt.patch` at the patch pin.
+- `io/linkjar/account/**` are the LinkJar lexicons from patch
+  `099b-signup-receipt` of the legacy build at the patch pin. The build left
+  the repository on 2026-10-15; this copy is the record.
 - `io/linkjar/pds/**` are project lexicons defined by this repository under the
   NSID authority `io.linkjar.pds.*`.
 
