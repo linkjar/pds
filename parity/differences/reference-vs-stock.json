@@ -313,6 +313,27 @@
     "right": "upgrade-insecure-requests; connect-src 'self'; default-src 'none'; frame-ancestors 'none'; img-src data: https:; script-src 'sha256-nU2qyhQsC0ZvwICISFDQq6GUygBYnQma8osKDU63zu8=' 'self'; style-src 'self' 'sha256-8XX/IAj7CIlu+V+O5msSv/OYehj6XJvZtPIGvgLFAs8='"
   },
   {
+    "scenario": "default/21-oauth-negative",
+    "step": "authorization page loaded by a script",
+    "path": "headers.content-security-policy",
+    "left": "upgrade-insecure-requests; connect-src 'self'; default-src 'none'; font-src 'self'; frame-ancestors 'none'; img-src data: https:; script-src 'sha256-0ikpyqCGQohuU0f/ZcbAxe1sSKOzB3bc3/i9awbIArg=' 'self'; style-src 'self' 'sha256-8XX/IAj7CIlu+V+O5msSv/OYehj6XJvZtPIGvgLFAs8='",
+    "right": "upgrade-insecure-requests; connect-src 'self'; default-src 'none'; frame-ancestors 'none'; img-src data: https:; script-src 'sha256-nU2qyhQsC0ZvwICISFDQq6GUygBYnQma8osKDU63zu8=' 'self'; style-src 'self' 'sha256-8XX/IAj7CIlu+V+O5msSv/OYehj6XJvZtPIGvgLFAs8='"
+  },
+  {
+    "scenario": "default/21-oauth-negative",
+    "step": "authorization page loaded by a script that names its site",
+    "path": "headers.content-security-policy",
+    "left": "upgrade-insecure-requests; connect-src 'self'; default-src 'none'; font-src 'self'; frame-ancestors 'none'; img-src data: https:; script-src 'sha256-IuJjvSUjEOXodIivLznaGvQwW2JR0whYrYkEVhPTy5s=' 'self'; style-src 'self' 'sha256-8XX/IAj7CIlu+V+O5msSv/OYehj6XJvZtPIGvgLFAs8='",
+    "right": "upgrade-insecure-requests; connect-src 'self'; default-src 'none'; frame-ancestors 'none'; img-src data: https:; script-src 'sha256-HzKftuPg+Sg5M2h1P9bRmNV26bup3Y/op/ahxjYJ6u0=' 'self'; style-src 'self' 'sha256-8XX/IAj7CIlu+V+O5msSv/OYehj6XJvZtPIGvgLFAs8='"
+  },
+  {
+    "scenario": "default/21-oauth-negative",
+    "step": "account page loaded by a script",
+    "path": "headers.content-security-policy",
+    "left": "upgrade-insecure-requests; connect-src 'self'; default-src 'none'; font-src 'self'; frame-ancestors 'none'; img-src data: https:; script-src 'sha256-IuJjvSUjEOXodIivLznaGvQwW2JR0whYrYkEVhPTy5s=' 'self'; style-src 'self' 'sha256-8XX/IAj7CIlu+V+O5msSv/OYehj6XJvZtPIGvgLFAs8='",
+    "right": "upgrade-insecure-requests; connect-src 'self'; default-src 'none'; frame-ancestors 'none'; img-src data: https:; script-src 'sha256-HzKftuPg+Sg5M2h1P9bRmNV26bup3Y/op/ahxjYJ6u0=' 'self'; style-src 'self' 'sha256-8XX/IAj7CIlu+V+O5msSv/OYehj6XJvZtPIGvgLFAs8='"
+  },
+  {
     "scenario": "default/30-linkjar-external",
     "step": "(scenario)",
     "path": "outcome",
