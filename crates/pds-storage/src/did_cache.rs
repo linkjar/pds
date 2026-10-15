@@ -3,7 +3,6 @@
 use std::path::Path;
 
 use crate::sql::{Connection, OptionalExtension, named_params};
-use rusqlite::OpenFlags;
 
 use crate::error::StorageError;
 
@@ -32,10 +31,9 @@ impl DidCacheDb {
     /// Opens the cache the Reference created. It is not created here: the
     /// schema comes from the `migrate` command.
     pub fn open(path: &Path) -> Result<Self, StorageError> {
-        let flags = OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX;
-        let conn = crate::io::open(path, flags)?;
-        conn.busy_timeout(std::time::Duration::from_secs(5))?;
-        Ok(Self { conn: conn.into() })
+        Ok(Self {
+            conn: crate::layout::open_read_write(path)?.into(),
+        })
     }
 
     /// The cached document of a DID.

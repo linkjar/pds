@@ -172,42 +172,27 @@ impl DataLayout {
 
     /// A read connection to the accounts.
     pub fn accounts(&self) -> Result<AccountDb, StorageError> {
-        match &self.shared {
-            Some(tier) => Ok(AccountDb::over(tier.pool(SharedDb::Account).connect()?)),
-            None => AccountDb::open(&self.account_db),
-        }
+        Ok(AccountDb::over(self.connect(SharedDb::Account, false)?))
     }
 
     /// A connection that reads and writes the accounts.
     pub fn accounts_writable(&self) -> Result<AccountDb, StorageError> {
-        match &self.shared {
-            Some(tier) => Ok(AccountDb::over(tier.pool(SharedDb::Account).connect()?)),
-            None => AccountDb::open_writable(&self.account_db),
-        }
+        Ok(AccountDb::over(self.connect(SharedDb::Account, true)?))
     }
 
     /// A read connection to the event log.
     pub fn sequencer(&self) -> Result<SequencerDb, StorageError> {
-        match &self.shared {
-            Some(tier) => Ok(SequencerDb::over(tier.pool(SharedDb::Sequencer).connect()?)),
-            None => SequencerDb::open(&self.sequencer_db),
-        }
+        Ok(SequencerDb::over(self.connect(SharedDb::Sequencer, false)?))
     }
 
     /// A connection that reads and writes the event log.
     pub fn sequencer_writable(&self) -> Result<SequencerDb, StorageError> {
-        match &self.shared {
-            Some(tier) => Ok(SequencerDb::over(tier.pool(SharedDb::Sequencer).connect()?)),
-            None => SequencerDb::open_writable(&self.sequencer_db),
-        }
+        Ok(SequencerDb::over(self.connect(SharedDb::Sequencer, true)?))
     }
 
     /// A connection to the cache of DID documents.
     pub fn did_cache(&self) -> Result<DidCacheDb, StorageError> {
-        match &self.shared {
-            Some(tier) => Ok(DidCacheDb::over(tier.pool(SharedDb::DidCache).connect()?)),
-            None => DidCacheDb::open(&self.did_cache_db),
-        }
+        Ok(DidCacheDb::over(self.connect(SharedDb::DidCache, true)?))
     }
 
     /// A connection to the audit log. The log is created when it is not
@@ -333,10 +318,10 @@ impl DataLayout {
 /// The `immutable` URI parameter would avoid the files, but SQLite then
 /// ignores a `-wal` file, and a copy of a live database can carry one.
 pub(crate) fn open_read_only(path: &Path) -> Result<Connection, StorageError> {
-    let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
-    let conn = crate::io::open(path, flags)?;
-    conn.busy_timeout(std::time::Duration::from_secs(5))?;
-    Ok(conn)
+    opened(
+        path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
 }
 
 /// Opens a database that exists for reading and writing.
@@ -345,9 +330,21 @@ pub(crate) fn open_read_only(path: &Path) -> Result<Connection, StorageError> {
 /// keeps: `synchronous` stays at SQLite's default, so a commit is synced
 /// (SPEC §8.3). It handles a busy database itself; here SQLite waits.
 pub(crate) fn open_read_write(path: &Path) -> Result<Connection, StorageError> {
-    let flags = OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+    opened(
+        path,
+        OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+}
+
+/// How many compiled statements a connection keeps. rusqlite keeps
+/// sixteen by default, fewer than the account database runs, so the hot
+/// statements of a kept connection were compiled again and again.
+const STATEMENT_CACHE: usize = 128;
+
+fn opened(path: &Path, flags: OpenFlags) -> Result<Connection, StorageError> {
     let conn = crate::io::open(path, flags)?;
     conn.busy_timeout(std::time::Duration::from_secs(5))?;
+    conn.set_prepared_statement_cache_capacity(STATEMENT_CACHE);
     Ok(conn)
 }
 

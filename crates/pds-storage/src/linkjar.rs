@@ -255,15 +255,6 @@ impl AccountDb {
             .optional()?)
     }
 
-    /// Gives a new account its handle policy row.
-    pub fn register_handle_policy(&self, did: &str, created_at: &str) -> Result<(), StorageError> {
-        self.conn.execute(
-            r#"insert into "linkjar_handle_policy" ("did", "createdAt", "renameHandle") values (?1, ?2, null)"#,
-            params![did, created_at],
-        )?;
-        Ok(())
-    }
-
     /// Records the target of the account's one hosted rename. `false`
     /// means another request recorded a target first.
     pub fn claim_handle_rename(&self, did: &str, handle: &str) -> Result<bool, StorageError> {
