@@ -1002,17 +1002,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ipld-core"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "090f624976d72f0b0bb71b86d58dc16c15e069193067cb3a3a09d655246cbbda"
-dependencies = [
- "cid",
- "serde",
- "serde_bytes",
-]
-
-[[package]]
 name = "ipnet"
 version = "2.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1436,7 +1425,6 @@ dependencies = [
  "chrono",
  "cid",
  "data-encoding",
- "ipld-core",
  "rand 0.9.5",
  "regex",
  "serde",
@@ -1471,11 +1459,9 @@ dependencies = [
  "rand 0.9.5",
  "reqwest",
  "scrypt",
- "serde",
  "serde_json",
  "sha2",
  "subtle",
- "thiserror",
  "tokio",
  "tokio-tungstenite",
  "tracing",

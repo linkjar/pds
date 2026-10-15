@@ -31,7 +31,6 @@ pds-oauth = { path = "crates/pds-oauth" }
 pds-audit = { path = "crates/pds-audit" }
 pds-ext = { path = "crates/pds-ext" }
 pds-ext-linkjar = { path = "crates/pds-ext-linkjar" }
-pds-sim = { path = "crates/pds-sim" }
 pds-console = { path = "crates/pds-console" }
 pds-mcp = { path = "crates/pds-mcp" }
 
@@ -39,7 +38,6 @@ pds-mcp = { path = "crates/pds-mcp" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 serde_ipld_dagcbor = "0.7"
-ipld-core = { version = "0.4", features = ["serde"] }
 cid = { version = "0.11", features = ["serde", "std"] }
 sha2 = "0.11"
 k256 = { version = "0.14", default-features = false, features = ["ecdsa", "alloc"] }

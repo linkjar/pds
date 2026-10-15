@@ -211,7 +211,7 @@ async fn start(
         entryway: None,
         member_host: None,
         audit_repo: None,
-        profile: std::sync::Arc::new(pds_xrpc::ext::Stock),
+        profile: Arc::new(pds_xrpc::ext::Stock),
         appview_cdn_url_pattern: None,
     };
     let crawlers = Crawlers::new("pds.test".to_owned(), Vec::new(), http.clone());

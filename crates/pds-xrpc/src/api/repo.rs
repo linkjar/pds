@@ -105,7 +105,7 @@ async fn forward_to_appview(state: &AppState, query: &Query<'_>) -> Result<Respo
     // Express names the charset of a textual type that came without one.
     let content_type = response
         .headers()
-        .get(reqwest::header::CONTENT_TYPE)
+        .get(header::CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
         .and_then(|value| HeaderValue::from_str(&crate::error::express_content_type(value)).ok());
     let bytes = response.bytes().await.map_err(upstream_failure)?;
