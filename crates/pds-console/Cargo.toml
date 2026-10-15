@@ -19,6 +19,7 @@ path = "src/main.rs"
 [dependencies]
 pds-identity.workspace = true
 pds-oauth.workspace = true
+pds-sidecar.workspace = true
 # The pages, the router, the browser runtime for the live view, the asset
 # bundle (the stylesheet and the runtime script) and the HTTP server. The
 # typeface and the mark come from pds-oauth, which the pages of the PDS
@@ -33,11 +34,7 @@ reqwest.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
-tracing-subscriber.workspace = true
-base64.workspace = true
-sha2.workspace = true
 subtle.workspace = true
-rand.workspace = true
 url.workspace = true
 chrono.workspace = true
 

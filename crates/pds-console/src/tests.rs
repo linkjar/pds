@@ -13,6 +13,7 @@ use std::{
 };
 
 use futures_util::{SinkExt as _, StreamExt as _};
+use pds_sidecar::client::{Tokens, new_key};
 use serde_json::{Value, json};
 use tokio_tungstenite::tungstenite::{Message, client::IntoClientRequest as _};
 use topcoat::{
@@ -29,12 +30,7 @@ use topcoat::{
     },
 };
 
-use crate::{
-    Console,
-    client::{Tokens, new_key},
-    config::Config,
-    session::Session,
-};
+use crate::{Console, config::Config, session::Session};
 
 /// A user agent that tries to run a script and to leave an attribute, and
 /// a host name that tries to leave its attribute.

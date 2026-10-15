@@ -7,34 +7,7 @@
 use std::{path::PathBuf, process::ExitCode};
 
 use pds_console::config::Config;
-
-fn init_logging() {
-    let filter = tracing_subscriber::EnvFilter::try_from_env("LOG_LEVEL")
-        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
-    let _ = tracing_subscriber::fmt()
-        .json()
-        .with_env_filter(filter)
-        .try_init();
-}
-
-/// Resolves at SIGINT or SIGTERM.
-async fn stop() {
-    let interrupt = async {
-        let _ = tokio::signal::ctrl_c().await;
-    };
-    let terminate = async {
-        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-            Ok(mut signal) => {
-                signal.recv().await;
-            }
-            Err(_) => std::future::pending().await,
-        }
-    };
-    tokio::select! {
-        () = interrupt => {}
-        () = terminate => {}
-    }
-}
+use pds_sidecar::process::{init_logging, shutdown};
 
 /// Writes the asset bundle of this executable.
 fn bundle(dir: Option<PathBuf>) -> Result<(), String> {
@@ -63,7 +36,7 @@ async fn run() -> Result<(), String> {
         .await
         .map_err(|error| format!("cannot listen on {address}: {error}"))?;
     tracing::info!(%address, "serving the console");
-    pds_console::serve(listener, pds_console::router(console), stop())
+    pds_console::serve(listener, pds_console::router(console), shutdown())
         .await
         .map_err(|error| error.to_string())
 }

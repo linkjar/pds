@@ -5,7 +5,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
-use crate::pds::{PdsPending, PdsSession, hash, random_text};
+use pds_sidecar::client::{Pending, hash, random_text};
+
+use crate::pds::PdsSession;
 
 /// How long an access token is good: one hour.
 pub const ACCESS_LIFE: Duration = Duration::from_hours(1);
@@ -83,7 +85,7 @@ pub struct Request {
     /// The token of the consent form.
     pub csrf: String,
     /// The authorization at the PDS, until the browser is back.
-    pub pending: Option<PdsPending>,
+    pub pending: Option<Pending>,
     /// The session at the PDS, from then until the person decides.
     pub pds: Option<PdsSession>,
     started: Instant,

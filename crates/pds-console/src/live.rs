@@ -8,11 +8,12 @@
 use std::sync::Arc;
 
 use futures_util::StreamExt as _;
+use pds_sidecar::client::ClientError;
 use serde_json::Value;
 use tokio::sync::watch;
 use tokio_tungstenite::tungstenite::Message;
 
-use crate::{Console, client::Call, client::ClientError, session::Session};
+use crate::{Console, client::Call, session::Session};
 
 /// The path of the stream on the ops listener.
 pub const STREAM_PATH: &str = "/xrpc/internal.ops.subscribeState";

@@ -6,8 +6,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use pds_identity::Keypair;
-
-use crate::client::{Pending, Tokens, random_text};
+use pds_sidecar::client::{Pending, Tokens, random_text};
 
 /// How long an operator stays signed in: 12 hours.
 pub const SESSION_LIFE: Duration = Duration::from_hours(12);
@@ -147,8 +146,9 @@ impl Sessions {
 
 #[cfg(test)]
 mod tests {
+    use pds_sidecar::client::new_key;
+
     use super::*;
-    use crate::client::new_key;
 
     fn tokens() -> Tokens {
         Tokens {

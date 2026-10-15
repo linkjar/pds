@@ -15,12 +15,15 @@ pub mod store;
 
 use std::sync::Arc;
 
-use axum::http::{Method, StatusCode, header};
+use axum::body::Body;
+use axum::http::{HeaderValue, Method, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
+use pds_sidecar::client::ClientError;
+use serde_json::Value;
 
 use crate::config::{CLIENT_METADATA_PATH, Config, MCP_PATH, PDS_CALLBACK_PATH};
-use crate::pds::{Pds, PdsError};
+use crate::pds::Pds;
 use crate::store::Store;
 
 pub use pds_oauth::pages::escape;
@@ -40,11 +43,11 @@ struct Inner {
 
 impl Mcp {
     /// A server for the configuration.
-    pub fn new(config: Config) -> Result<Self, PdsError> {
+    pub fn new(config: Config) -> Result<Self, ClientError> {
         let http = reqwest::Client::builder()
             .redirect(reqwest::redirect::Policy::none())
             .build()
-            .map_err(|error| PdsError::Transport(error.to_string()))?;
+            .map_err(|error| ClientError::Transport(error.to_string()))?;
         Ok(Self {
             inner: Arc::new(Inner {
                 pds: Pds::new(config)?,
@@ -72,6 +75,42 @@ impl Mcp {
     /// The HTTP client for the metadata documents of AI clients.
     pub fn http(&self) -> &reqwest::Client {
         &self.inner.http
+    }
+}
+
+/// A JSON answer that no cache keeps.
+fn json_response(status: StatusCode, body: &Value) -> Response {
+    (
+        status,
+        [
+            (header::CONTENT_TYPE, "application/json"),
+            (header::CACHE_CONTROL, "no-store"),
+        ],
+        body.to_string(),
+    )
+        .into_response()
+}
+
+/// A 303 to `to` that no cache keeps. An address that is not a header
+/// value sends the browser to `/`.
+fn redirect(to: &str) -> Response {
+    let location = HeaderValue::from_str(to).unwrap_or_else(|_| HeaderValue::from_static("/"));
+    (
+        StatusCode::SEE_OTHER,
+        [
+            (header::LOCATION, location),
+            (header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
+        ],
+    )
+        .into_response()
+}
+
+/// The fields of a form of at most `limit` bytes. A larger body gives no
+/// fields.
+async fn form(body: Body, limit: usize) -> Vec<(String, String)> {
+    match axum::body::to_bytes(body, limit).await {
+        Ok(bytes) => pds_sidecar::request::fields(&bytes),
+        Err(_) => Vec::new(),
     }
 }
 

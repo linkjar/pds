@@ -51,22 +51,11 @@ pub struct Config {
 
 /// An `http` or `https` origin without a path, a query or a fragment.
 fn origin(name: &'static str, value: &str) -> Result<String, ConfigError> {
-    let invalid = |reason| ConfigError::Invalid {
+    pds_sidecar::config::origin(value).map_err(|reason| ConfigError::Invalid {
         name,
         value: value.to_owned(),
         reason,
-    };
-    let url = Url::parse(value).map_err(|_| invalid("expected a URL"))?;
-    if !matches!(url.scheme(), "http" | "https") {
-        return Err(invalid("expected http or https"));
-    }
-    if url.path() != "/" || url.query().is_some() || url.fragment().is_some() {
-        return Err(invalid("expected an origin without a path"));
-    }
-    if !url.username().is_empty() || url.password().is_some() {
-        return Err(invalid("expected an origin without credentials"));
-    }
-    Ok(value.trim_end_matches('/').to_owned())
+    })
 }
 
 impl Config {

@@ -21,6 +21,8 @@ pub mod ui;
 
 use std::{future::Future, sync::Arc};
 
+use pds_sidecar::client::{ClientError, random_text};
+use pds_sidecar::request::{cookie, field, fields, same_origin};
 use serde_json::{Value, json};
 use subtle::ConstantTimeEq as _;
 use tokio::net::TcpStream;
@@ -43,7 +45,7 @@ use topcoat::{
 
 use crate::{
     assets::AssetsError,
-    client::{Call, Client, ClientError, random_text},
+    client::{Call, Client},
     config::Config,
     live::Feed,
     pages::Listing,
@@ -255,15 +257,7 @@ fn console(cx: &Cx) -> &Console {
 
 /// The session of the request's cookie.
 fn session_of(cx: &Cx) -> Option<Arc<Session>> {
-    let console = console(cx);
-    headers(cx)
-        .get_all(header::COOKIE)
-        .iter()
-        .filter_map(|value| value.to_str().ok())
-        .flat_map(|value| value.split(';'))
-        .filter_map(|pair| pair.trim().split_once('='))
-        .find(|(name, _)| *name == COOKIE)
-        .and_then(|(_, id)| console.inner.sessions.get(id))
+    cookie(headers(cx), COOKIE).and_then(|id| console(cx).inner.sessions.get(&id))
 }
 
 /// The session of the request, or the way to the sign-in page.
@@ -273,9 +267,7 @@ fn signed_in(cx: &Cx) -> Result<Arc<Session>> {
 
 /// A parameter of the query.
 fn param(cx: &Cx, name: &str) -> Option<String> {
-    url::form_urlencoded::parse(uri(cx).query().unwrap_or_default().as_bytes())
-        .find(|(key, value)| key == name && !value.is_empty())
-        .map(|(_, value)| value.into_owned())
+    pds_sidecar::request::param(uri(cx).query(), name)
 }
 
 /// The status of a failed call: 403 when the PDS refuses the operator,
@@ -559,29 +551,11 @@ mod shared {
     }
 }
 
-/// The fields of a form.
-fn fields_of(body: &[u8]) -> Vec<(String, String)> {
-    url::form_urlencoded::parse(body)
-        .map(|(key, value)| (key.into_owned(), value.trim().to_owned()))
-        .collect()
-}
-
-fn field<'a>(fields: &'a [(String, String)], name: &str) -> &'a str {
-    fields
-        .iter()
-        .find(|(key, _)| key == name)
-        .map_or("", |(_, value)| value.as_str())
-}
-
 /// Whether a form comes from a page of this console: the token of the
 /// session, and the origin of the request when the browser names it.
 fn form_is_ours(cx: &Cx, session: &Session, csrf: &str) -> bool {
     let token_ok: bool = csrf.as_bytes().ct_eq(session.csrf.as_bytes()).into();
-    let origin_ok = headers(cx)
-        .get(header::ORIGIN)
-        .and_then(|value| value.to_str().ok())
-        .is_none_or(|origin| origin == console(cx).config().public_url);
-    token_ok && origin_ok
+    token_ok && same_origin(headers(cx), &console(cx).config().public_url)
 }
 
 /// What an action of a form is on the ops listener: the method, its body,
@@ -651,7 +625,7 @@ async fn refused(cx: &Cx, who: Option<Who>, status: StatusCode, message: &str) -
 async fn act(cx: &Cx, body: Bytes) -> Result<Response> {
     let session = signed_in(cx)?;
     let who = Who::of(&session);
-    let fields = fields_of(&body);
+    let fields = fields(&body);
     if !form_is_ours(cx, &session, field(&fields, "csrf")) {
         return refused(
             cx,
@@ -783,7 +757,7 @@ async fn callback(cx: &Cx) -> Result<Response> {
 #[route(POST "/sign-out")]
 async fn sign_out(cx: &Cx, body: Bytes) -> Result<Response> {
     let session = signed_in(cx)?;
-    let fields = fields_of(&body);
+    let fields = fields(&body);
     if !form_is_ours(cx, &session, field(&fields, "csrf")) {
         return refused(
             cx,

@@ -1477,6 +1477,7 @@ dependencies = [
  "pds-mcp",
  "pds-repo",
  "pds-sequencer",
+ "pds-sidecar",
  "pds-storage",
  "pds-types",
  "pds-xrpc",
@@ -1489,7 +1490,6 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "tracing",
- "tracing-subscriber",
  "url",
 ]
 
@@ -1732,15 +1732,13 @@ dependencies = [
 name = "pds-console"
 version = "0.0.1"
 dependencies = [
- "base64 0.22.1",
  "chrono",
  "futures-util",
  "pds-identity",
  "pds-oauth",
- "rand 0.9.5",
+ "pds-sidecar",
  "reqwest",
  "serde_json",
- "sha2 0.11.0",
  "subtle",
  "thiserror",
  "tokio",
@@ -1748,7 +1746,6 @@ dependencies = [
  "topcoat",
  "topcoat-asset",
  "tracing",
- "tracing-subscriber",
  "url",
 ]
 
@@ -1809,19 +1806,16 @@ name = "pds-mcp"
 version = "0.0.1"
 dependencies = [
  "axum",
- "base64 0.22.1",
  "data-encoding",
  "pds-identity",
  "pds-oauth",
- "rand 0.9.5",
+ "pds-sidecar",
  "reqwest",
  "serde_json",
- "sha2 0.11.0",
  "subtle",
  "thiserror",
  "tokio",
  "tracing",
- "tracing-subscriber",
  "url",
 ]
 
@@ -1865,6 +1859,24 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "pds-sidecar"
+version = "0.0.1"
+dependencies = [
+ "base64 0.22.1",
+ "http",
+ "pds-identity",
+ "pds-oauth",
+ "rand 0.9.5",
+ "reqwest",
+ "serde_json",
+ "sha2 0.11.0",
+ "thiserror",
+ "tokio",
+ "tracing-subscriber",
+ "url",
 ]
 
 [[package]]
