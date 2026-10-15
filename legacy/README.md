@@ -224,5 +224,7 @@ not the deployment procedure for that host.
 this patched reference build with a Rust server whose account behaviour is
 native extension points. [Its specification](../docs/SPEC.md) defines
 compatibility with the pinned reference, the extension model, the parity
-harness and the in-place cutover. The reference image stays the deployed
-server until that cutover unit runs.
+harness and the in-place cutover. The Rust server replaced this image on
+the pilot host on 2026-10-15
+([record](../docs/research/2026-10-15-pilot-cutover.md)); this image stays
+buildable as the rollback until the owner retires it.

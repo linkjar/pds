@@ -25,6 +25,10 @@ directory. Production is touched only at cutover.
 
    `verify` must print no difference and exit 0. It writes nothing. A
    finding is a fact about production data: resolve it before the day.
+
+   Check that `PDS_BSKY_APP_VIEW_URL` and `PDS_BSKY_APP_VIEW_DID` are set.
+   Without an AppView the server has no handler for `getPreferences`, as
+   the Reference, and the Bluesky app cannot load its settings.
 3. **Run the Harness against the copy** with the `linkjar` profile
    ([parity/README.md](../../parity/README.md)).
 4. **Create the checkpoint key.** 32 random bytes as 64 hexadecimal
@@ -48,6 +52,21 @@ directory. Production is touched only at cutover.
    the "Server images" workflow lists the digest in its summary. Deploy
    `ghcr.io/linkjar/pds-server@sha256:…`, never a tag. The sidecars are
    `ghcr.io/linkjar/pds-console` and `ghcr.io/linkjar/pds-mcp`.
+
+   A host without a login to `ghcr.io` takes the image by copy. Pull the
+   host's architecture on a workstation, then load it on the host.
+
+   ```bash
+   docker pull --platform linux/arm64 ghcr.io/linkjar/pds-server@sha256:…
+   ```
+
+   ```bash
+   docker save --platform linux/arm64 ghcr.io/linkjar/pds-server@sha256:… | ssh operator@host sudo docker load
+   ```
+
+   `docker load` prints the image ID. With the containerd image store it
+   is the digest of the architecture's manifest in the published index.
+   Pin that ID, so that the host never pulls.
 9. **Update `linkjar/infra`:** the service definition for the new image,
    the alert rules for the metrics below, and the recovery runbook. The
    recovery service must also copy `audit.sqlite` and `ops.sqlite`, the
@@ -96,9 +115,30 @@ directory. Production is touched only at cutover.
 
    The relay's connection to `subscribeRepos` must resume at its last
    cursor. Look for it in the relay's own status.
-7. Smoke test: sign in from the web app, from iOS and from the extension;
-   write a record; see it on the firehose; request a password reset mail
-   for a test account and receive it.
+
+   ```bash
+   curl -s "https://bsky.network/xrpc/com.atproto.sync.getHostStatus?hostname=pds.linkjar.social"
+   ```
+
+   Check that a handle host answers with its DID.
+
+   ```bash
+   curl -s https://<handle>.linkjar.social/.well-known/atproto-did
+   ```
+7. Smoke test. From a workstation with the Harness, sign in to a test
+   account; the `linkjar` profile takes no sign-up by `createAccount`. The
+   test writes a post with an image and an app password, and removes both.
+
+   ```bash
+   read -s PDS_SMOKE_PASSWORD && export PDS_SMOKE_PASSWORD
+   ```
+
+   ```bash
+   pnpm parity smoke https://pds.linkjar.social --account <test handle>
+   ```
+
+   Then sign in from the web app, from iOS and from the extension; request
+   a password reset mail for a test account and receive it.
 
 ## 3. The watch
 

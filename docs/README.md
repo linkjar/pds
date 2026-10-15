@@ -8,7 +8,7 @@
 
 ## Plan and decisions
 
-- [plan.md](plan.md): why the project exists, the thirteen units with a checkbox for each part of their gates, the owner's steps before the cutover, what is not built, and the decisions by date.
+- [plan.md](plan.md): why the project exists, the units with a checkbox for each part of their gates, the owner's steps, what is not built, and the decisions by date.
 - [sidecars.md](sidecars.md): the operations console and the MCP server, their contracts with the PDS, and what they may not hold.
 
 ## Runbooks
@@ -50,6 +50,7 @@
 - [research/2026-10-13-mcp-server.md](research/2026-10-13-mcp-server.md): unit 10. The MCP server for AI clients.
 - [research/2026-10-13-postgres.md](research/2026-10-13-postgres.md): unit 11. The shared tier on Postgres, and `migrate-storage`.
 - [research/2026-10-14-entryway.md](research/2026-10-14-entryway.md): unit 12. A member host and an entryway with one member host.
+- [research/2026-10-15-pilot-cutover.md](research/2026-10-15-pilot-cutover.md): unit 8, the cutover. The Candidate replaces the reference image on the invite-only pilot host, what the switch found, how to roll back, and what is open.
 
 ## Upstream sources
 
@@ -57,7 +58,8 @@
 
 ## Legacy
 
-The reference-image build that runs in production today lives under
+The reference-image build that ran in production until 2026-10-15, and is
+the rollback image until the 48-hour watch ends, lives under
 [`../legacy/`](../legacy/README.md). Its documentation is in
 [legacy/](legacy/): the patch documents the `linkjar` profile reproduces
 ([handle policy](legacy/handle-policy.md), [external providers](legacy/external-providers.md),

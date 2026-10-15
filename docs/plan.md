@@ -1,18 +1,20 @@
 # LinkJar PDS: plan
 
 LinkJar PDS is a Rust implementation of the AT Protocol personal data server.
-It is compatible with the reference server that production runs today
-(`@atproto/pds@0.5.34` with LinkJar's patches), and it expresses LinkJar's
+It is compatible with the reference server that production ran until
+2026-10-15 (`@atproto/pds@0.5.34` with LinkJar's patches), and it expresses LinkJar's
 account behaviour as extension points instead of source patches. The
 normative definition is [SPEC.md](SPEC.md).
 
 **Where it stands on 2026-10-15.** Every unit of the plan has code on `main`,
-and the Candidate is ready to test by hand: the
-[test-host runbook](runbooks/test-host.md) puts the published image on a
-host with a name of its own, and `pnpm parity smoke <url>` checks a running
-server from outside. Production still runs the reference server. The next
-step is the cutover, and the steps before it are the owner's: they need
-staging, production and `linkjar/infra` (see [Owner's steps](#owners-steps)).
+and the Candidate serves `pds.linkjar.social`: it replaced the reference
+image on the invite-only pilot host on 2026-10-15, on the host's own data
+directory ([record](research/2026-10-15-pilot-cutover.md)). The 48-hour
+watch, the restore drill, the measurements on this hardware and the hand
+tests in the Bluesky app and `linkjar.io` are open; they are the owner's
+(see [Owner's steps](#owners-steps)). The
+[test-host runbook](runbooks/test-host.md) puts the server on a host of its
+own, and `pnpm parity smoke <url>` checks a running server from outside.
 
 ## Why
 
@@ -58,8 +60,9 @@ full list of what each unit left out.
   reference wrote; `verify` checks a data directory
   ([record](research/2026-10-13-read-only-server.md)).
   - [x] Response comparison and repository CIDs on the read scenarios.
-  - [ ] `verify` with no difference on a staging restore of production data
-    (owner's step).
+  - [x] `verify` with no difference on production data: on the pilot
+    host's own data directory before the switch, 2026-10-15, in place of a
+    staging restore ([record](research/2026-10-15-pilot-cutover.md)).
 - [x] **4. Writes and firehose.** Writes, the event log, the firehose, blob
   stores on disk and S3, crawler notices, and the simulation: a file system
   that loses power below SQLite, and a simulated network
@@ -97,8 +100,9 @@ full list of what each unit left out.
     Reference in the Harness's stacks.
   - [ ] The performance targets of SPEC §16 measured on production
     hardware (owner's step).
-  - [ ] The restore drill, the cutover and the 48-hour watch (owner's
-    steps).
+  - [x] The cutover, on the pilot host on 2026-10-15
+    ([record](research/2026-10-15-pilot-cutover.md)).
+  - [ ] The restore drill and the 48-hour watch (owner's steps).
 
 ### After the cutover
 
@@ -125,29 +129,33 @@ full list of what each unit left out.
 Actions on systems that are the owner's. The order follows the
 [cutover runbook](runbooks/cutover.md).
 
-- [ ] Set `PDS_ACCEPTING_REPO_IMPORTS=false` on the production host until
-  revision 12 of the reference image runs there, unless move-in is offered.
-  The unpatched build replaces a repository with an imported tree that
-  shares nodes.
+- [x] `PDS_ACCEPTING_REPO_IMPORTS=false` on the production host until
+  revision 12 of the reference image runs there: no longer needed, as the
+  Candidate serves the host since 2026-10-15. It applies again only
+  after a rollback to an image before revision 12, whose unpatched build
+  replaces a repository with an imported tree that shares nodes.
 - [ ] Send the `importRepo` report upstream. The draft is in
   [the S3 store record](research/2026-10-13-s3-blob-store.md#7-draft-of-the-report-upstream).
 - [ ] Measure the reference's S3 client on staging: does the count of open
   connections to R2 grow under repeated `getBlob`? The answer decides
   whether upstream's fix (#5575) becomes a tenth patch
   ([upstream note](research/2026-10-10-upstream-0.5.35-to-0.5.37.md) §4).
-- [ ] Restore production to staging and run `linkjar-pds verify` on the
-  copy, with the blob store of the copy. Resolve every finding.
+- [x] Run `linkjar-pds verify` on production data. Done on the pilot
+  host's own data before the switch: no difference.
 - [ ] Run the Harness against the staging copy with the `linkjar` profile.
-- [ ] Start a Candidate on a test host
-  ([test-host runbook](runbooks/test-host.md)) and run
-  `pnpm parity smoke <url> --write` against it.
+- [x] Run the smoke test against a running Candidate. On the pilot host,
+  `pnpm parity smoke https://pds.linkjar.social --account <handle>` passed
+  20 of 20.
 - [ ] Point the `linkjar.io` browser gate and kit self-test at a Candidate.
 - [ ] Record the Bluesky app signing in through a Candidate and posting.
 - [ ] Measure the SPEC §16 targets on production hardware.
-- [ ] Update `linkjar/infra`: the service definition, the alert rules and
-  the recovery runbook.
+- [ ] Update `linkjar/infra`: the service definition and the recovery
+  tools are in the draft [linkjar/infra#8](https://github.com/linkjar/infra/pull/8);
+  the alert rules for the Candidate's metrics and the recovery runbook are
+  open.
 - [ ] Create the audit checkpoint key and name the operator's repository.
-- [ ] Run the cutover and the 48-hour watch.
+- [x] Run the cutover: 2026-10-15, on the pilot host.
+- [ ] Watch for 48 hours, then retire the reference image or roll back.
 
 Two rules follow the reference server and stay as built unless the owner
 says otherwise:
@@ -225,6 +233,8 @@ ones still open.
 | 2026-10-13 | `importRepo` verifies the commit signature; `#sync` follows an import into an active account. |
 | 2026-10-13 | `aws-lc-rs` is the TLS provider of outbound requests; RustCrypto stays for the protocol's own cryptography. |
 | 2026-10-13 | Upstream's S3 client fix (#5575) stays out until staging shows the connection growth. |
+| 2026-10-15 | The Candidate replaces the reference image on the invite-only pilot host, on its own data directory, ahead of a staging restore. |
+| 2026-10-15 | Every handle under `linkjar.social` resolves through a wildcard DNS record and tunnel rule; sign-up stays invite-only. |
 
 ## Research
 
@@ -244,6 +254,7 @@ ones still open.
 
 - One unit at a time, each merged to `main` with its gate green.
 - The reference image build in `legacy/` stays buildable for security fixes
-  until the cutover.
+  while it is the rollback image: until the owner retires it after the
+  48-hour watch.
 - `linkjar.io` gets only a pointer and a PDS URL setting for its browser
   gate; `linkjar/infra` changes at the cutover.

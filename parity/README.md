@@ -6,10 +6,12 @@ The harness holds a PDS to the behaviour of the reference image. It drives a
 target with the official atproto SDK at the pin and a headless browser,
 records what the target answered, and compares two targets on the record.
 
-The Candidate reads but does not write yet. It is held by the
-[restore run](#the-restore-run): the Reference writes a data directory, and
-both servers answer the same read scenarios on it. When the Candidate writes
-(unit 4), the other scenarios run against it as one more target.
+The Candidate runs every scenario as one more target, alone, on Postgres
+and behind an entryway. The [restore run](#the-restore-run) also holds it
+to the Reference on one data directory: the Reference writes it, and both
+servers answer the same read scenarios on it. The
+[writes run](#the-writes-run) does the same for writes and
+the firehose. `pnpm parity smoke` checks a server that runs elsewhere.
 
 ## Run it
 
@@ -371,7 +373,8 @@ and are not part of this port.
   Candidate's data directory.
 - **Commit CIDs** are not compared across targets yet (see the repository
   CID check).
-- **The migration check, the stock-equivalence run as a gate and the
-  official-app acceptance** belong to later units.
+- **The migration check and the official-app acceptance** have no
+  scenario: a migration between two servers needs two stacks, and the
+  Bluesky app is tested by hand (plan, owner's steps).
 - **One address family for the relay.** The relay sees the PDS over IPv6
   only. Everything else in the stack is IPv4.
