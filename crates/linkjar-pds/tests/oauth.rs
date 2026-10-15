@@ -16,6 +16,12 @@ use sha2::{Digest, Sha256};
 const REDIRECT: &str = "http://127.0.0.1/callback";
 const SCOPE: &str = "atproto transition:generic";
 const VERIFIER: &str = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+/// The fetch metadata a browser sends when it follows a link to a page.
+const NAVIGATION: [(&str, &str); 3] = [
+    ("sec-fetch-site", "cross-site"),
+    ("sec-fetch-mode", "navigate"),
+    ("sec-fetch-dest", "document"),
+];
 
 /// The DPoP key of the client.
 fn client_key() -> Keypair {
@@ -169,7 +175,20 @@ impl Server {
         form: Option<&[(&str, &str)]>,
         headers: &[(&str, String)],
     ) -> Answer {
+        let navigates = method == reqwest::Method::GET;
         let mut request = self.http.request(method, format!("{}{path}", self.origin));
+        if navigates {
+            // What a browser sends when it loads a page (SPEC §11.5). A test
+            // that sends other values names them in `headers`.
+            for (name, value) in NAVIGATION {
+                if !headers
+                    .iter()
+                    .any(|(given, _)| given.eq_ignore_ascii_case(name))
+                {
+                    request = request.header(name, value);
+                }
+            }
+        }
         if !self.cookies.is_empty() {
             request = request.header("cookie", &self.cookies);
         }
@@ -792,6 +811,80 @@ async fn a_device_remembers_an_account_and_a_token_is_revoked() {
         .endpoint("/oauth/revoke", &[("token", &unknown)])
         .await;
     assert_eq!(nobody.status, 200);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_page_loads_only_by_navigation_as_at_the_reference() {
+    let mut server = Server::start().await;
+    let bare = |path: &str| {
+        let request = server.http.get(format!("{}{path}", server.origin));
+        async move {
+            let response = request.send().await.unwrap();
+            (response.status().as_u16(), response.text().await.unwrap())
+        }
+    };
+    // Without any fetch metadata: the first header the Reference checks.
+    let (status, text) = bare("/oauth/authorize").await;
+    assert_eq!(status, 400);
+    assert!(text.contains("Missing sec-fetch-site header"), "{text}");
+    let (status, text) = bare("/account").await;
+    assert_eq!(status, 400);
+    assert!(text.contains("Missing sec-fetch-mode header"), "{text}");
+
+    // What fetch() sends from a script.
+    let script = [
+        ("sec-fetch-mode", "cors".to_owned()),
+        ("sec-fetch-dest", "empty".to_owned()),
+    ];
+    for path in [
+        "/oauth/authorize",
+        "/account",
+        &format!("/account/{ALICE}/manage"),
+    ] {
+        let page = server.send(reqwest::Method::GET, path, None, &script).await;
+        assert_eq!(page.status, 400, "{path}");
+        assert!(
+            page.text.contains("Forbidden sec-fetch-mode header"),
+            "{path}: {}",
+            page.text
+        );
+    }
+    let frame = [("sec-fetch-dest", "iframe".to_owned())];
+    let page = server
+        .send(reqwest::Method::GET, "/account", None, &frame)
+        .await;
+    assert!(
+        page.text.contains("Forbidden sec-fetch-dest header"),
+        "{}",
+        page.text
+    );
+    let other = [("origin", "https://elsewhere.example".to_owned())];
+    let page = server
+        .send(reqwest::Method::GET, "/account", None, &other)
+        .await;
+    assert_eq!(page.status, 400);
+    assert!(
+        page.text
+            .contains("Invalid origin https://elsewhere.example"),
+        "{}",
+        page.text
+    );
+
+    // A navigation passes the checks and reaches the page itself, which
+    // wants a client.
+    let page = server
+        .send(reqwest::Method::GET, "/oauth/authorize", None, &[])
+        .await;
+    assert_eq!(page.status, 400);
+    assert!(
+        page.text.contains("The request names no client"),
+        "{}",
+        page.text
+    );
+    let page = server
+        .send(reqwest::Method::GET, "/account", None, &[])
+        .await;
+    assert_eq!(page.status, 200, "{}", page.text);
 }
 
 #[tokio::test(flavor = "multi_thread")]
