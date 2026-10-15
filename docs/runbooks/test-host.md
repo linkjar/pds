@@ -115,6 +115,22 @@ pnpm parity smoke https://pds.example.com --write
 `--keep-account` keeps the account and prints its handle and password, to
 sign in to it from an app.
 
+With `PDS_PROFILE=linkjar` the server takes new accounts through the
+sign-up page only, so `--write` fails at `createAccount`. Sign in to an
+account that exists instead; the post and the app password it creates are
+removed at the end.
+
+```bash
+read -s PDS_SMOKE_PASSWORD && export PDS_SMOKE_PASSWORD
+```
+
+```bash
+pnpm parity smoke https://pds.example.com --account tester.pds.example.com
+```
+
+`getPreferences` needs `PDS_BSKY_APP_VIEW_URL` and `PDS_BSKY_APP_VIEW_DID`:
+without an AppView the server has no handler for it, as the Reference.
+
 ## 4. Use it from an app
 
 1. Create an invite code. The answer holds the code.

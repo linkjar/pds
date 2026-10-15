@@ -10,7 +10,7 @@
 //   pnpm parity restore [--keep] [--perf]
 //   pnpm parity writes [--keep] [--update] [--only=<stage>] [--perf]
 //   pnpm parity perf report <target>
-//   pnpm parity smoke <url> [--write] [--keep-account] [--handle-domain <d>] [--email <e>] [--ca <pem>] [--connect-to <host:port>]
+//   pnpm parity smoke <url> [--write] [--keep-account] [--account <handle>] [--handle-domain <d>] [--email <e>] [--ca <pem>] [--connect-to <host:port>]
 
 import { spawnSync } from 'node:child_process'
 import { PROFILES, isProfile } from './stack/env.ts'
@@ -138,12 +138,14 @@ async function main(): Promise<void> {
     process.exit(await writes({ keep: args.includes('--keep'), update: args.includes('--update'), only, perf: args.includes('--perf') }))
   }
   if (group === 'smoke') {
-    if (!command || !/^https?:\/\//.test(command)) fail('Usage: pnpm parity smoke <url> [--write] [--keep-account] [--handle-domain <domain>] [--email <address>] [--ca <pem>] [--connect-to <host:port>]')
+    if (!command || !/^https?:\/\//.test(command)) fail('Usage: pnpm parity smoke <url> [--write] [--keep-account] [--account <handle>] [--handle-domain <domain>] [--email <address>] [--ca <pem>] [--connect-to <host:port>]')
     process.exit(
       await smoke({
         url: command,
         write: rest.includes('--write'),
         keepAccount: rest.includes('--keep-account'),
+        account: flag(rest, 'account'),
+        accountPassword: process.env.PDS_SMOKE_PASSWORD || undefined,
         // From the environment, so that the password is in no shell history.
         adminPassword: process.env.PDS_ADMIN_PASSWORD || undefined,
         handleDomain: flag(rest, 'handle-domain'),

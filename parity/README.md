@@ -59,8 +59,11 @@ discovery, the OAuth metadata, a pushed authorization request of a loopback
 client and its sign-in page, and the firehose. It needs no stack. With
 `--write` it also creates an account, uses it as the Bluesky app does, and
 deletes it with the admin password from `PDS_ADMIN_PASSWORD`; the DID stays
-in the PLC directory. `--ca <pem>` and `--connect-to <host:port>` point it
-at a stack of the harness:
+in the PLC directory. A server with the `linkjar` profile takes no sign-up
+by `createAccount`; there `--account <handle>` signs in to an account that
+exists, with the password from `PDS_SMOKE_PASSWORD`, writes a post with an
+image and an app password, and removes both again. `--ca <pem>` and
+`--connect-to <host:port>` point it at a stack of the harness:
 
 ```sh
 pnpm parity smoke https://pds.example.com
