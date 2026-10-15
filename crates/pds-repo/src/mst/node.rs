@@ -8,7 +8,6 @@
 
 use cid::Cid;
 use pds_types::cbor::{CborError, Limits, Reader, Writer};
-use sha2::{Digest, Sha256};
 
 use crate::error::NodeError;
 
@@ -22,7 +21,7 @@ pub const MAX_LAYER: u32 = 128;
 /// The layer of a key: the number of leading zero bit pairs in its SHA-256
 /// digest. Each layer keeps a quarter of the keys of the layer below.
 pub fn layer_of(key: &[u8]) -> u32 {
-    let digest = Sha256::digest(key);
+    let digest = pds_types::content::sha256(key);
     let mut layer = 0;
     for byte in digest {
         if byte == 0 {

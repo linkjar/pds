@@ -46,8 +46,8 @@ macro_rules! string_newtype {
                 Ok(Self(s.to_owned()))
             }
 
-            /// Wraps an already validated string. Only for generated code and
-            /// trusted internal sources; the input is not checked.
+            /// Wraps an already validated string. Only for trusted internal
+            /// sources; the input is not checked.
             #[doc(hidden)]
             pub fn new_unchecked(s: String) -> Self {
                 Self(s)

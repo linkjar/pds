@@ -159,11 +159,6 @@ impl MemoryBlockStore {
     pub fn is_empty(&self) -> bool {
         self.blocks.is_empty()
     }
-
-    /// The sum of the block lengths.
-    pub fn byte_len(&self) -> usize {
-        self.blocks.values().map(Vec::len).sum()
-    }
 }
 
 impl BlockStore for MemoryBlockStore {
