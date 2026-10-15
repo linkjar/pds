@@ -1,6 +1,6 @@
 //! The event log and its subscriptions (`docs/SPEC.md` §7).
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
@@ -95,8 +95,34 @@ pub struct Sequencer {
 /// reads them (SPEC §7.5).
 #[derive(Default)]
 struct FrameCache {
+    /// The frames in the order they came, for eviction.
     frames: VecDeque<(i64, Frame)>,
+    /// The same frames by sequence number.
+    by_seq: HashMap<i64, Frame>,
     bytes: usize,
+}
+
+impl FrameCache {
+    /// Keeps `frame` for `seq` and returns the frame every subscriber
+    /// shares: the one another subscriber kept meanwhile, or this one.
+    fn keep(&mut self, seq: i64, frame: Frame) -> Frame {
+        if let Some(shared) = self.by_seq.get(&seq) {
+            return Arc::clone(shared);
+        }
+        self.bytes += frame.len();
+        self.frames.push_back((seq, Arc::clone(&frame)));
+        self.by_seq.insert(seq, Arc::clone(&frame));
+        while self.bytes > FRAME_CACHE_BYTES {
+            match self.frames.pop_front() {
+                Some((old_seq, old)) => {
+                    self.bytes -= old.len();
+                    self.by_seq.remove(&old_seq);
+                }
+                None => break,
+            }
+        }
+        frame
+    }
 }
 
 impl std::fmt::Debug for Sequencer {
@@ -187,12 +213,7 @@ impl Sequencer {
 
     fn cached(&self, seq: i64) -> Option<Frame> {
         let cache = self.frames.lock().unwrap_or_else(PoisonError::into_inner);
-        cache
-            .frames
-            .iter()
-            .rev()
-            .find(|(cached, _)| *cached == seq)
-            .map(|(_, frame)| Arc::clone(frame))
+        cache.by_seq.get(&seq).map(Arc::clone)
     }
 
     /// The frame of a stored event. It is encoded once and shared
@@ -203,18 +224,14 @@ impl Sequencer {
         }
         let encoded: Frame = frame(row)?.into();
         // A frame that would fill the cache by itself is not kept.
-        if encoded.len() <= FRAME_CACHE_BYTES / 4 {
-            let mut cache = self.frames.lock().unwrap_or_else(PoisonError::into_inner);
-            cache.bytes += encoded.len();
-            cache.frames.push_back((row.seq, Arc::clone(&encoded)));
-            while cache.bytes > FRAME_CACHE_BYTES {
-                match cache.frames.pop_front() {
-                    Some((_, old)) => cache.bytes -= old.len(),
-                    None => break,
-                }
-            }
+        if encoded.len() > FRAME_CACHE_BYTES / 4 {
+            return Ok(encoded);
         }
-        Ok(encoded)
+        Ok(self
+            .frames
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .keep(row.seq, encoded))
     }
 }
 
@@ -243,6 +260,8 @@ pub struct Subscription {
     /// that waited is idle, not slow.
     waited: bool,
     info: Option<Frame>,
+    /// The connection of the last read, kept for the next.
+    reader: Option<SequencerDb>,
 }
 
 async fn blocking<T, F>(call: F) -> Result<T, SequencerError>
@@ -253,6 +272,21 @@ where
     tokio::task::spawn_blocking(call)
         .await
         .map_err(|e| SequencerError::Task(e.to_string()))?
+}
+
+/// One page after `cursor`, or `None` for a subscriber that is too slow:
+/// `buffer` is the most events it may be behind.
+fn read_page(
+    log: &SequencerDb,
+    cursor: i64,
+    buffer: Option<u32>,
+) -> Result<Option<(Vec<SeqRow>, bool)>, StorageError> {
+    if let Some(buffer) = buffer
+        && log.pending(cursor, buffer.saturating_add(1))? > buffer
+    {
+        return Ok(None);
+    }
+    Ok(Some(log.page(cursor, PAGE, PAGE_BYTES)?))
 }
 
 impl Subscription {
@@ -315,6 +349,7 @@ impl Subscription {
                 )
                 .into()
             }),
+            reader: None,
         }))
     }
 
@@ -341,16 +376,19 @@ impl Subscription {
             // A subscriber that was at the head and took its last frames
             // without a wait is checked against the buffer.
             let buffer = (self.live && !self.waited).then_some(self.max_buffer);
-            let page = blocking(move || {
-                let log = sequencer.reader()?;
-                if let Some(buffer) = buffer
-                    && log.pending(cursor, buffer.saturating_add(1))? > buffer
-                {
-                    return Ok(None);
-                }
-                Ok(Some(log.page(cursor, PAGE, PAGE_BYTES)?))
+            // The connection of the last read serves this one. A read that
+            // failed drops it, and the next read opens another.
+            let kept = self.reader.take();
+            let (log, page) = blocking(move || {
+                let log = match kept {
+                    Some(log) => log,
+                    None => sequencer.reader()?,
+                };
+                let page = read_page(&log, cursor, buffer)?;
+                Ok((log, page))
             })
             .await?;
+            self.reader = Some(log);
             let Some((rows, at_head)) = page else {
                 return Ok(Err(Refusal::ConsumerTooSlow));
             };

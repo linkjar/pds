@@ -129,11 +129,8 @@ impl ActorDb {
     pub fn root(&self) -> Result<Option<RepoRoot>, StorageError> {
         let row: Option<(String, String)> = self
             .conn
-            .query_row(
-                r#"select "cid", "rev" from "repo_root" limit 1"#,
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
+            .prepare_cached(r#"select "cid", "rev" from "repo_root" limit 1"#)?
+            .query_row([], |row| Ok((row.get(0)?, row.get(1)?)))
             .optional()?;
         row.map(|(cid, rev)| {
             Ok(RepoRoot {
@@ -148,11 +145,8 @@ impl ActorDb {
     pub fn block(&self, cid: &Cid) -> Result<Option<Vec<u8>>, StorageError> {
         Ok(self
             .conn
-            .query_row(
-                r#"select "content" from "repo_block" where "cid" = :cid"#,
-                named_params! { ":cid": cid.to_string() },
-                |row| row.get(0),
-            )
+            .prepare_cached(r#"select "content" from "repo_block" where "cid" = :cid"#)?
+            .query_row(named_params! { ":cid": cid.to_string() }, |row| row.get(0))
             .optional()?)
     }
 
@@ -259,7 +253,7 @@ impl ActorDb {
         if cid.is_some() {
             sql.push_str(r#" and record."cid" = :cid"#);
         }
-        let mut statement = self.conn.prepare(&sql)?;
+        let mut statement = self.conn.prepare_cached(&sql)?;
         let row = match cid {
             Some(cid) => {
                 statement.query_row(named_params! { ":uri": uri, ":cid": cid }, record_from_row)
@@ -274,7 +268,7 @@ impl ActorDb {
     /// store has no record at or before `rev`: a revision from before the
     /// account came here says nothing of what this store wrote since.
     pub fn records_since_rev(&self, rev: &str) -> Result<Vec<RecentRecord>, StorageError> {
-        let mut statement = self.conn.prepare(
+        let mut statement = self.conn.prepare_cached(
             r#"select record."uri", record."cid", record."indexedAt", repo_block."content" from "record" inner join "repo_block" on repo_block."cid" = record."cid" where record."repoRev" > ?1 order by record."repoRev" asc limit 10"#,
         )?;
         let rows: Vec<_> = statement
@@ -290,11 +284,12 @@ impl ActorDb {
         if rows.is_empty() {
             return Ok(rows);
         }
-        let known: bool = self.conn.query_row(
-            r#"select count(*) > 0 from (select 1 from "record" where "repoRev" <= ?1 limit 1)"#,
-            [rev],
-            |row| row.get(0),
-        )?;
+        let known: bool = self
+            .conn
+            .prepare_cached(
+                r#"select count(*) > 0 from (select 1 from "record" where "repoRev" <= ?1 limit 1)"#,
+            )?
+            .query_row([rev], |row| row.get(0))?;
         Ok(if known { rows } else { Vec::new() })
     }
 
@@ -332,7 +327,7 @@ impl ActorDb {
         let sql = format!(
             r#"{RECORD_SELECT} where record."uri" > :low and record."uri" < :high and +record."collection" = :collection and record."takedownRef" is null order by record."uri" {order} limit :limit"#
         );
-        let mut statement = self.conn.prepare(&sql)?;
+        let mut statement = self.conn.prepare_cached(&sql)?;
         let rows = statement.query_map(
             named_params! { ":low": low, ":high": high, ":collection": collection, ":limit": limit },
             record_from_row,
@@ -347,7 +342,7 @@ impl ActorDb {
     /// for each record: 0.03 ms at 100,000 records, against 6.6 ms for a
     /// `group by`.
     pub fn list_collections(&self) -> Result<Vec<String>, StorageError> {
-        let mut statement = self.conn.prepare(
+        let mut statement = self.conn.prepare_cached(
             r#"with recursive "next"("name") as (select min("collection") from "record" union all select (select min("collection") from "record" where "collection" > "next"."name") from "next" where "next"."name" is not null) select "name" from "next" where "name" is not null"#,
         )?;
         let rows = statement.query_map([], |row| row.get(0))?;
@@ -358,7 +353,7 @@ impl ActorDb {
     pub fn all_records(&self) -> Result<Vec<(String, String)>, StorageError> {
         let mut statement = self
             .conn
-            .prepare(r#"select "uri", "cid" from "record" order by "uri" asc"#)?;
+            .prepare_cached(r#"select "uri", "cid" from "record" order by "uri" asc"#)?;
         let rows = statement.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
@@ -372,11 +367,12 @@ impl ActorDb {
     pub fn blob(&self, cid: &str) -> Result<Option<BlobMeta>, StorageError> {
         let row: Option<(i64, String)> = self
             .conn
-            .query_row(
+            .prepare_cached(
                 r#"select "size", "mimeType" from "blob" where "cid" = :cid and "takedownRef" is null and "tempKey" is null"#,
-                named_params! { ":cid": cid },
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
+            )?
+            .query_row(named_params! { ":cid": cid }, |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
             .optional()?;
         row.map(|(size, mime_type)| {
             let size = u64::try_from(size)
@@ -391,11 +387,8 @@ impl ActorDb {
     pub fn blob_takedown(&self, cid: &str) -> Result<Option<bool>, StorageError> {
         Ok(self
             .conn
-            .query_row(
-                r#"select "takedownRef" is not null from "blob" where "cid" = :cid"#,
-                named_params! { ":cid": cid },
-                |row| row.get(0),
-            )
+            .prepare_cached(r#"select "takedownRef" is not null from "blob" where "cid" = :cid"#)?
+            .query_row(named_params! { ":cid": cid }, |row| row.get(0))
             .optional()?)
     }
 
