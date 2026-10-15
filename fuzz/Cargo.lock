@@ -1383,6 +1383,7 @@ dependencies = [
 name = "pds-repo"
 version = "0.0.1"
 dependencies = [
+ "bytes",
  "cid",
  "pds-types",
  "thiserror",

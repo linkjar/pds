@@ -187,15 +187,7 @@ async fn assert_valid_did(state: &AppState, did: &str) -> Result<(), XrpcError> 
             "DID document atproto_pds service endpoint does not match PDS public url",
         ));
     }
-    let key = {
-        let did = did.to_owned();
-        state
-            .blocking(move |state| Ok(state.layout().read_actor_key(&did)?))
-            .await?
-    };
-    let expected = Keypair::from_secret_bytes(Algorithm::Secp256k1, &key)
-        .map_err(XrpcError::internal)?
-        .did_key();
+    let expected = state.actor_key_async(did).await?.did_key();
     if published.signing_key.as_deref() != Some(expected.as_str()) {
         return Err(XrpcError::invalid_request(
             "DID document verification method does not match expected signing key",
@@ -592,6 +584,7 @@ pub(crate) fn delete_account_now(state: &AppState, did: &str) -> Result<(), Xrpc
     }
     writes.forget_store(did);
     state.reads().forget_store(did);
+    state.forget_actor_key(did);
     match std::fs::remove_dir_all(layout.actor_store_dir(did)) {
         Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
             tracing::error!(%did, %error, "the actor store of a deleted account was not removed");

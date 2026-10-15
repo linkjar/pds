@@ -10,7 +10,7 @@ use axum::response::Response;
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use data_encoding::HEXLOWER;
-use pds_identity::{Algorithm, DidDocument, Keypair};
+use pds_identity::{DidDocument, Keypair};
 use pds_types::Did;
 use serde_json::{Value, json};
 
@@ -157,14 +157,7 @@ pub(crate) async fn account_jwt_with(
     exp: Option<i64>,
     extra: &[(&str, &str)],
 ) -> Result<String, XrpcError> {
-    let key = {
-        let did = did.to_owned();
-        state
-            .blocking(move |state| Ok(state.layout().read_actor_key(&did)?))
-            .await?
-    };
-    let keypair =
-        Keypair::from_secret_bytes(Algorithm::Secp256k1, &key).map_err(XrpcError::internal)?;
+    let keypair = state.actor_key_async(did).await?;
     let mut jti = [0_u8; 16];
     if let Some(writes) = state.writes() {
         for chunk in jti.chunks_mut(8) {
@@ -521,6 +514,8 @@ pub async fn get_service_auth(state: &AppState, query: &Query<'_>) -> Result<Res
 
 #[cfg(test)]
 mod tests {
+    use pds_identity::Algorithm;
+
     use super::*;
 
     #[test]

@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use pds_blob::BlobStore;
-use pds_identity::DidResolver;
+use pds_identity::{Algorithm, DidResolver, Keypair};
 use pds_sequencer::Sequencer;
 use pds_storage::{AccountDb, ActorDb, DataLayout, OpsDb, ReadPool, StorageError};
 use pds_types::TidGenerator;
@@ -355,6 +355,51 @@ impl WriteState {
     }
 }
 
+/// How many signing keys stay in memory.
+const KEY_CACHE_SIZE: usize = 1024;
+
+/// The signing keys of the accounts that were used, by DID. The key file
+/// is read and the public key derived once per account, not on every
+/// proxied request and every commit.
+///
+/// The server owns the key files: the paths that write or remove one
+/// call [`KeyCache::forget`]. A key file replaced by hand is read at the
+/// next start.
+#[derive(Default)]
+struct KeyCache {
+    keys: Mutex<HashMap<String, Arc<Keypair>>>,
+}
+
+impl KeyCache {
+    fn get(&self, did: &str) -> Option<Arc<Keypair>> {
+        self.keys
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(did)
+            .cloned()
+    }
+
+    /// Keeps `key` for `did`. When the cache is full an entry goes, so
+    /// that the memory stays bounded whatever the number of accounts.
+    fn insert(&self, did: &str, key: Arc<Keypair>) {
+        let mut keys = self.keys.lock().unwrap_or_else(PoisonError::into_inner);
+        if keys.len() >= KEY_CACHE_SIZE
+            && !keys.contains_key(did)
+            && let Some(evicted) = keys.keys().next().cloned()
+        {
+            keys.remove(&evicted);
+        }
+        keys.insert(did.to_owned(), key);
+    }
+
+    fn forget(&self, did: &str) {
+        self.keys
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(did);
+    }
+}
+
 /// The shared state of the server.
 #[derive(Clone)]
 pub struct AppState {
@@ -364,6 +409,7 @@ pub struct AppState {
 struct Inner {
     config: ServerConfig,
     reads: Arc<ReadPool>,
+    keys: KeyCache,
     blobs: Option<BlobStore>,
     resolver: DidResolver,
     http: reqwest::Client,
@@ -408,6 +454,7 @@ impl AppState {
                 subscribers: crate::subscribers::Subscribers::default(),
                 config,
                 reads,
+                keys: KeyCache::default(),
                 blobs,
                 resolver,
                 http,
@@ -502,5 +549,64 @@ impl AppState {
     {
         let state = self.clone();
         tokio::task::spawn_blocking(move || call(&state)).await?
+    }
+
+    /// The signing key of the account `did`: the one in memory, or the
+    /// one its key file holds, which is then kept. A miss reads a file;
+    /// a handler on the runtime calls [`AppState::actor_key_async`].
+    pub fn actor_key(&self, did: &str) -> Result<Arc<Keypair>, XrpcError> {
+        if let Some(key) = self.inner.keys.get(did) {
+            return Ok(key);
+        }
+        let bytes = self.layout().read_actor_key(did)?;
+        let key = Keypair::from_secret_bytes(Algorithm::Secp256k1, &bytes)
+            .map_err(XrpcError::internal)?;
+        let key = Arc::new(key);
+        self.inner.keys.insert(did, Arc::clone(&key));
+        Ok(key)
+    }
+
+    /// [`AppState::actor_key`] from the runtime: a miss reads the key
+    /// file on the blocking pool.
+    pub async fn actor_key_async(&self, did: &str) -> Result<Arc<Keypair>, XrpcError> {
+        if let Some(key) = self.inner.keys.get(did) {
+            return Ok(key);
+        }
+        let did = did.to_owned();
+        self.blocking(move |state| state.actor_key(&did)).await
+    }
+
+    /// Forgets the signing key of `did`: its key file is about to be
+    /// written or removed.
+    pub fn forget_actor_key(&self, did: &str) {
+        self.inner.keys.forget(did);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_key_cache_is_bounded_and_forgets() {
+        let cache = KeyCache::default();
+        let key = || {
+            Arc::new(Keypair::generate(Algorithm::Secp256k1, |bytes| {
+                bytes.fill(7);
+            }))
+        };
+        let len = || cache.keys.lock().unwrap().len();
+        for n in 0..=KEY_CACHE_SIZE {
+            cache.insert(&format!("did:plc:{n}"), key());
+        }
+        assert_eq!(len(), KEY_CACHE_SIZE);
+        let last = format!("did:plc:{KEY_CACHE_SIZE}");
+        assert!(cache.get(&last).is_some());
+        // A key that is present is replaced, and nothing else goes.
+        cache.insert(&last, key());
+        assert_eq!(len(), KEY_CACHE_SIZE);
+        cache.forget(&last);
+        assert!(cache.get(&last).is_none());
+        assert_eq!(len(), KEY_CACHE_SIZE - 1);
     }
 }

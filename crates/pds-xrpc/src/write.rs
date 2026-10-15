@@ -10,7 +10,6 @@
 //! `#sync` (§7.4).
 
 use cid::Cid;
-use pds_identity::{Algorithm, Keypair};
 use pds_lexicon::{Corpus, validate_data_model, validate_record_key};
 use pds_repo::{Repo, RepoError, Write};
 use pds_sequencer::{CommitOp, commit_event, sync_event};
@@ -218,11 +217,10 @@ pub fn prepare_record(
     did: &str,
     collection: &str,
     rkey: Option<&str>,
-    record: &Map<String, Value>,
+    mut record: Map<String, Value>,
     validate: Option<bool>,
     at: &str,
 ) -> Result<RecordWrite, XrpcError> {
-    let mut record = record.clone();
     match record.get("$type") {
         None => {
             record.insert("$type".to_owned(), Value::String(collection.to_owned()));
@@ -247,8 +245,13 @@ pub fn prepare_record(
     let drawn = state.tids().next();
     let rkey = rkey.map_or_else(|| drawn.as_str().to_owned(), str::to_owned);
 
-    let json = serde_json::to_vec(&Value::Object(record)).map_err(XrpcError::internal)?;
-    let data = Data::from_json_slice(&json, Limits::JSON_RECORD)
+    // The value moves into the data model without a JSON round trip. The
+    // body came in under the method's limit, which is below the size limit
+    // of a JSON record; the other limits are checked on the value, as
+    // `Data::from_json_slice` checks them.
+    let data: Data = serde_json::from_value(Value::Object(record))
+        .map_err(|e| XrpcError::invalid_request(e.to_string()))?;
+    data.check_limits(Limits::JSON_RECORD)
         .map_err(|e| XrpcError::invalid_request(e.to_string()))?;
 
     let corpus = Corpus::bundled();
@@ -471,13 +474,7 @@ impl Session<'_> {
         let repo = Repo::load(actor, root.cid).map_err(XrpcError::internal)?;
         let current_rev = Tid::parse(&root.rev).map_err(XrpcError::internal)?;
         let rev = self.writes.tids().next_after(&current_rev);
-        let key = self
-            .state
-            .layout()
-            .read_actor_key(self.did)
-            .map_err(XrpcError::internal)?;
-        let key =
-            Keypair::from_secret_bytes(Algorithm::Secp256k1, &key).map_err(XrpcError::internal)?;
+        let key = self.state.actor_key(self.did)?;
         let paths: Vec<String> = writes.iter().map(Prepared::path).collect();
         let repo_writes: Vec<Write<'_>> = writes
             .iter()
