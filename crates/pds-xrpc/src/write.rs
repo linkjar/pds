@@ -218,11 +218,10 @@ pub fn prepare_record(
     did: &str,
     collection: &str,
     rkey: Option<&str>,
-    record: &Map<String, Value>,
+    mut record: Map<String, Value>,
     validate: Option<bool>,
     at: &str,
 ) -> Result<RecordWrite, XrpcError> {
-    let mut record = record.clone();
     match record.get("$type") {
         None => {
             record.insert("$type".to_owned(), Value::String(collection.to_owned()));
@@ -247,8 +246,13 @@ pub fn prepare_record(
     let drawn = state.tids().next();
     let rkey = rkey.map_or_else(|| drawn.as_str().to_owned(), str::to_owned);
 
-    let json = serde_json::to_vec(&Value::Object(record)).map_err(XrpcError::internal)?;
-    let data = Data::from_json_slice(&json, Limits::JSON_RECORD)
+    // The value moves into the data model without a JSON round trip. The
+    // body came in under the method's limit, which is below the size limit
+    // of a JSON record; the other limits are checked on the value, as
+    // `Data::from_json_slice` checks them.
+    let data: Data = serde_json::from_value(Value::Object(record))
+        .map_err(|e| XrpcError::invalid_request(e.to_string()))?;
+    data.check_limits(Limits::JSON_RECORD)
         .map_err(|e| XrpcError::invalid_request(e.to_string()))?;
 
     let corpus = Corpus::bundled();

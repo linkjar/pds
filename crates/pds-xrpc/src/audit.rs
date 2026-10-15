@@ -497,7 +497,7 @@ fn publish(state: &AppState, did: &str, record: &Value) -> Result<(), XrpcError>
         did,
         CHECKPOINT_COLLECTION,
         None,
-        &fields,
+        fields,
         Some(false),
         "$.record",
     )?;
