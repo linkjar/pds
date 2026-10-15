@@ -26,7 +26,6 @@ pds-blob = { path = "crates/pds-blob" }
 pds-identity = { path = "crates/pds-identity" }
 pds-xrpc = { path = "crates/pds-xrpc" }
 pds-sequencer = { path = "crates/pds-sequencer" }
-pds-account = { path = "crates/pds-account" }
 pds-oauth = { path = "crates/pds-oauth" }
 pds-audit = { path = "crates/pds-audit" }
 pds-ext = { path = "crates/pds-ext" }

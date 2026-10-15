@@ -2,7 +2,7 @@ sequenceDiagram
   participant App as Client app
   participant AS as pds-oauth
   participant UI as server-rendered pages
-  participant Acc as pds-account
+  participant Acc as pds-xrpc accounts
   participant RS as resource server
   App->>AS: GET /.well-known/oauth-authorization-server
   App->>AS: POST /oauth/par (client metadata URL, PKCE, DPoP)
