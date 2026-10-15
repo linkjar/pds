@@ -18,6 +18,7 @@
 
 use std::collections::HashSet;
 
+use bytes::Bytes;
 use cid::Cid;
 use pds_types::Limits;
 use pds_types::content::cid_for_cbor;
@@ -31,7 +32,7 @@ use crate::error::{RepoError, TreeDefect};
 #[derive(Debug, Clone)]
 struct Sealed {
     cid: Cid,
-    bytes: Vec<u8>,
+    bytes: Bytes,
 }
 
 #[derive(Debug)]
@@ -74,7 +75,10 @@ impl Node {
                     right: e.tree.map(Child::Stored),
                 })
                 .collect(),
-            sealed: Some(Sealed { cid, bytes }),
+            sealed: Some(Sealed {
+                cid,
+                bytes: bytes.into(),
+            }),
             stored: true,
         }
     }
@@ -359,7 +363,10 @@ fn seal(node: &mut Node) -> Result<Cid, RepoError> {
         return Err(RepoError::NodeTooLarge);
     }
     let cid = cid_for_cbor(&bytes);
-    node.sealed = Some(Sealed { cid, bytes });
+    node.sealed = Some(Sealed {
+        cid,
+        bytes: bytes.into(),
+    });
     node.stored = false;
     Ok(cid)
 }
@@ -408,7 +415,7 @@ fn path_to_key<S: BlockStore>(
     node: &mut Node,
     layer: u32,
     key: &str,
-    out: &mut Vec<(Cid, Vec<u8>)>,
+    out: &mut Vec<(Cid, Bytes)>,
 ) -> Result<Option<Cid>, RepoError> {
     seal(node)?;
     if let Some(sealed) = &node.sealed {
@@ -491,7 +498,7 @@ fn proof_for_right_sibling<S: BlockStore>(
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KeyPath {
     /// The nodes from the root down, each with its block.
-    pub nodes: Vec<(Cid, Vec<u8>)>,
+    pub nodes: Vec<(Cid, Bytes)>,
     /// The value at the key, when the key is present.
     pub value: Option<Cid>,
 }

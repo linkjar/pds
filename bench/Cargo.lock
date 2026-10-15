@@ -1883,6 +1883,7 @@ dependencies = [
 name = "pds-identity"
 version = "0.0.1"
 dependencies = [
+ "data-encoding",
  "k256",
  "multibase",
  "p256 0.14.0",
@@ -1890,6 +1891,7 @@ dependencies = [
  "reqwest 0.13.5",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "thiserror 2.0.21",
  "tokio",
  "tracing",
@@ -1900,9 +1902,9 @@ dependencies = [
 name = "pds-repo"
 version = "0.0.1"
 dependencies = [
+ "bytes",
  "cid",
  "pds-types",
- "sha2 0.11.0",
  "thiserror 2.0.21",
 ]
 
@@ -1913,7 +1915,6 @@ dependencies = [
  "chrono",
  "cid",
  "data-encoding",
- "ipld-core",
  "rand 0.9.5",
  "regex",
  "serde",

@@ -115,8 +115,8 @@ impl Session<'_> {
                 .chain(repo.records.iter().map(|(_, cid)| cid))
                 .chain(std::iter::once(&repo.cid));
             for cid in reached {
-                if let Some(bytes) = repo.blocks.get(cid) {
-                    blocks.insert(*cid, bytes.to_vec());
+                if let Some(bytes) = repo.blocks.get_shared(cid) {
+                    blocks.insert(*cid, bytes);
                 }
             }
             let changes = repo

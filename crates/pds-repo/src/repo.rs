@@ -9,6 +9,7 @@
 use std::collections::{BTreeMap, HashSet};
 use std::io;
 
+use bytes::Bytes;
 use cid::Cid;
 use pds_types::content::cid_for_cbor;
 use pds_types::{Did, Tid};
@@ -160,7 +161,7 @@ fn apply_writes<S: BlockStore>(
                 if record.len() > MAX_RECORD_BLOCK_LEN {
                     return Err(RepoError::TooLarge("a record block over 1,000,000 bytes"));
                 }
-                let cid = records.insert_cbor(record.to_vec());
+                let cid = records.insert_cbor(Bytes::copy_from_slice(record));
                 tree.add(key, cid)?;
                 note(key, None, Some(cid));
             }
@@ -168,7 +169,7 @@ fn apply_writes<S: BlockStore>(
                 if record.len() > MAX_RECORD_BLOCK_LEN {
                     return Err(RepoError::TooLarge("a record block over 1,000,000 bytes"));
                 }
-                let cid = records.insert_cbor(record.to_vec());
+                let cid = records.insert_cbor(Bytes::copy_from_slice(record));
                 let prev = tree.update(key, cid)?;
                 note(key, Some(prev), Some(cid));
             }
@@ -216,14 +217,16 @@ fn build_commit<S: BlockStore>(
         tree.covering_proof(write.key(), &mut relevant_blocks)?;
     }
     for cid in &leaves.new {
-        let bytes = records.get(cid).ok_or_else(|| RepoError::missing(*cid))?;
-        new_blocks.insert(*cid, bytes.to_vec());
-        relevant_blocks.insert(*cid, bytes.to_vec());
+        let bytes = records
+            .get_shared(cid)
+            .ok_or_else(|| RepoError::missing(*cid))?;
+        new_blocks.insert(*cid, bytes.clone());
+        relevant_blocks.insert(*cid, bytes);
     }
 
     let unsigned = UnsignedCommit::new(did.clone(), rev.clone(), tree_changes.root);
     let commit = unsigned.sign(sign)?;
-    let commit_bytes = commit.to_bytes();
+    let commit_bytes = Bytes::from(commit.to_bytes());
     let cid = cid_for_cbor(&commit_bytes);
     if previous.is_none_or(|p| p.cid != cid) {
         new_blocks.insert(cid, commit_bytes.clone());
@@ -237,9 +240,9 @@ fn build_commit<S: BlockStore>(
         // Reference lists the records first, then the tree, then the
         // commit, and sends the same blocks on the firehose.
         let mut all = BlockMap::new();
-        for (record, bytes) in records.iter() {
-            if new_blocks.contains(record) {
-                all.insert(*record, bytes.to_vec());
+        for record in records.cids() {
+            if let Some(bytes) = new_blocks.get_shared(record) {
+                all.insert(*record, bytes);
             }
         }
         all.extend(&new_blocks);
@@ -270,7 +273,7 @@ pub struct Repo<S> {
     cid: Cid,
     commit: Commit,
     /// The commit block, as stored.
-    bytes: Vec<u8>,
+    bytes: Bytes,
 }
 
 impl<S: BlockStore> Repo<S> {
@@ -283,7 +286,7 @@ impl<S: BlockStore> Repo<S> {
             store,
             cid,
             commit,
-            bytes,
+            bytes: bytes.into(),
         })
     }
 
@@ -603,9 +606,9 @@ pub fn verify_diff_car<S: BlockStore>(
     for record in &leaves.new {
         let block = car
             .blocks
-            .get(record)
+            .get_shared(record)
             .ok_or_else(|| RepoError::missing(*record))?;
-        new_blocks.insert(*record, block.to_vec());
+        new_blocks.insert(*record, block);
     }
     let mut removed_cids: HashSet<Cid> = before
         .nodes

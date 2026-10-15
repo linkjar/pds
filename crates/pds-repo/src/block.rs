@@ -4,9 +4,14 @@
 //! side that the tree and the exporter need; the SQLite `repo_block` table
 //! implements it in `pds-storage`. The trait is synchronous: SQLite runs on
 //! a blocking pool and each actor has one writer (SPEC §3.2).
+//!
+//! A [`BlockMap`] holds its blocks as [`Bytes`]: the maps of one commit
+//! share their blocks, and a clone of a map or of a block is a reference
+//! count, not a copy.
 
 use std::collections::HashMap;
 
+use bytes::Bytes;
 use cid::Cid;
 use pds_types::content::cid_for_cbor;
 
@@ -42,7 +47,7 @@ impl<T: BlockStore + ?Sized> BlockStore for &T {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct BlockMap {
     order: Vec<Cid>,
-    blocks: HashMap<Cid, Vec<u8>>,
+    blocks: HashMap<Cid, Bytes>,
 }
 
 impl BlockMap {
@@ -52,31 +57,40 @@ impl BlockMap {
     }
 
     /// Adds a block. A CID that is present keeps its place.
-    pub fn insert(&mut self, cid: Cid, bytes: Vec<u8>) {
-        if self.blocks.insert(cid, bytes).is_none() {
+    pub fn insert(&mut self, cid: Cid, bytes: impl Into<Bytes>) {
+        if self.blocks.insert(cid, bytes.into()).is_none() {
             self.order.push(cid);
         }
     }
 
     /// Adds a DAG-CBOR block and returns its CID.
-    pub fn insert_cbor(&mut self, bytes: Vec<u8>) -> Cid {
+    pub fn insert_cbor(&mut self, bytes: impl Into<Bytes>) -> Cid {
+        let bytes = bytes.into();
         let cid = cid_for_cbor(&bytes);
         self.insert(cid, bytes);
         cid
     }
 
-    /// Adds every block of `other` that is not present, in its order.
+    /// Adds every block of `other` that is not present, in its order. The
+    /// blocks are shared, not copied.
     pub fn extend(&mut self, other: &Self) {
-        for (cid, bytes) in other.iter() {
-            if !self.blocks.contains_key(cid) {
-                self.insert(*cid, bytes.to_vec());
+        for cid in &other.order {
+            if !self.blocks.contains_key(cid)
+                && let Some(bytes) = other.blocks.get(cid)
+            {
+                self.insert(*cid, bytes.clone());
             }
         }
     }
 
     /// The bytes of a block.
     pub fn get(&self, cid: &Cid) -> Option<&[u8]> {
-        self.blocks.get(cid).map(Vec::as_slice)
+        self.blocks.get(cid).map(|bytes| &bytes[..])
+    }
+
+    /// A block as shared bytes: the clone counts a reference.
+    pub fn get_shared(&self, cid: &Cid) -> Option<Bytes> {
+        self.blocks.get(cid).cloned()
     }
 
     /// Whether a block is present.
@@ -96,14 +110,14 @@ impl BlockMap {
 
     /// The sum of the block lengths, without CIDs.
     pub fn byte_len(&self) -> usize {
-        self.blocks.values().map(Vec::len).sum()
+        self.blocks.values().map(Bytes::len).sum()
     }
 
     /// The blocks in insertion order.
     pub fn iter(&self) -> impl Iterator<Item = (&Cid, &[u8])> {
         self.order
             .iter()
-            .filter_map(|cid| self.blocks.get(cid).map(|b| (cid, b.as_slice())))
+            .filter_map(|cid| self.blocks.get(cid).map(|b| (cid, &b[..])))
     }
 
     /// The CIDs in insertion order.
@@ -114,7 +128,7 @@ impl BlockMap {
 
 impl BlockStore for BlockMap {
     fn get(&self, cid: &Cid) -> Result<Option<Vec<u8>>, StoreError> {
-        Ok(self.blocks.get(cid).cloned())
+        Ok(self.blocks.get(cid).map(|bytes| bytes.to_vec()))
     }
     fn has(&self, cid: &Cid) -> Result<bool, StoreError> {
         Ok(self.blocks.contains_key(cid))
@@ -124,7 +138,7 @@ impl BlockStore for BlockMap {
 /// A block store in memory, for tests, benchmarks and staging.
 #[derive(Debug, Clone, Default)]
 pub struct MemoryBlockStore {
-    blocks: HashMap<Cid, Vec<u8>>,
+    blocks: HashMap<Cid, Bytes>,
 }
 
 impl MemoryBlockStore {
@@ -134,14 +148,16 @@ impl MemoryBlockStore {
     }
 
     /// Adds a block.
-    pub fn put(&mut self, cid: Cid, bytes: Vec<u8>) {
-        self.blocks.insert(cid, bytes);
+    pub fn put(&mut self, cid: Cid, bytes: impl Into<Bytes>) {
+        self.blocks.insert(cid, bytes.into());
     }
 
-    /// Adds every block of a map.
+    /// Adds every block of a map. The blocks are shared, not copied.
     pub fn put_all(&mut self, blocks: &BlockMap) {
-        for (cid, bytes) in blocks.iter() {
-            self.blocks.insert(*cid, bytes.to_vec());
+        for cid in blocks.cids() {
+            if let Some(bytes) = blocks.get_shared(cid) {
+                self.blocks.insert(*cid, bytes);
+            }
         }
     }
 
@@ -163,7 +179,7 @@ impl MemoryBlockStore {
 
 impl BlockStore for MemoryBlockStore {
     fn get(&self, cid: &Cid) -> Result<Option<Vec<u8>>, StoreError> {
-        Ok(self.blocks.get(cid).cloned())
+        Ok(self.blocks.get(cid).map(|bytes| bytes.to_vec()))
     }
     fn has(&self, cid: &Cid) -> Result<bool, StoreError> {
         Ok(self.blocks.contains_key(cid))

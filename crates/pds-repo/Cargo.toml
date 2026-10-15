@@ -10,6 +10,7 @@ publish.workspace = true
 
 [dependencies]
 pds-types.workspace = true
+bytes.workspace = true
 cid.workspace = true
 thiserror.workspace = true
 
