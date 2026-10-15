@@ -3,7 +3,7 @@
 The server renders its own sign-in, sign-up, consent, account and error
 pages (`crates/pds-oauth/src/pages.rs`). Since 2026-10-15 they wear the
 LinkJar journey: the look of the app's onboarding, as the patched Reference
-build had it ([`docs/legacy/signup-journey.md`](../legacy/signup-journey.md))
+build had it (patch 102, the sign-up journey, whose document left with the legacy tree on 2026-10-15)
 and as the app repository's prototype draws it
 (`apps/web/src/styles/prototype/social.css` and
 `apps/web/src/pages/prototype/account.astro` in `linkjar.io`).

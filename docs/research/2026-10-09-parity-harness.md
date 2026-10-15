@@ -122,18 +122,18 @@ publishes one fixed document.
 route test for that value. A stack that wants to exercise the patch has to
 run as `pds.linkjar.social`. The harness does, for every target, inside a
 network that cannot reach the internet.
-Source: [`legacy/patches/093-handle-policy.patch`](../../legacy/patches/093-handle-policy.patch) lines 224, 367 and 449.
+Source: `legacy/patches/093-handle-policy.patch` lines 224, 367 and 449.
 
 **Patch 099 fixes the provider endpoints.** The authorization, token and key
 URLs of Apple, Google and GitHub are constants. The stack resolves those
 names to its edge and trusts the stack's CA through `NODE_EXTRA_CA_CERTS`,
 so the unmodified image talks to stand-ins.
-Source: [`legacy/patches/099-external-providers.patch`](../../legacy/patches/099-external-providers.patch) lines 1417 to 1438.
+Source: `legacy/patches/099-external-providers.patch` lines 1417 to 1438.
 
 **The notice outbox is drained once a minute.** The dispatcher of patch 100
 runs on `setInterval(tick, 60_000)`. A scenario that reads a sign-in notice
 waits up to two and a half minutes for it.
-Source: [`legacy/patches/100-signin-methods.patch`](../../legacy/patches/100-signin-methods.patch) line 1751.
+Source: `legacy/patches/100-signin-methods.patch` line 1751.
 
 **The Reference feeds live firehose subscribers from a poll.** `pollDb`
 backs off exponentially "with a max of a second wait" when it finds nothing.
