@@ -10,8 +10,7 @@ recorded difference that no longer appears.
 | Pair | File | Differences |
 |---|---|---|
 | `reference` against `repeat` (two boots of the reference image) | none | None is allowed. This is the check on the normaliser. |
-| `reference` against `stock` (the production build against the `PATCH_PROFILE=none` build) | [reference-vs-stock.json](reference-vs-stock.json) | 47, in the five groups below. |
-| `stock` against `official` (the `PATCH_PROFILE=none` build against the upstream distribution `ghcr.io/bluesky-social/pds`) | none | None is allowed: the two are different packagings of the same package version. |
+| `reference` against `official` (the Reference against the upstream distribution `ghcr.io/bluesky-social/pds`, the same package without the patches) | [reference-vs-official.json](reference-vs-official.json) | 47, in the five groups below. |
 | The Reference against the Candidate on one data directory (`pnpm parity restore`) | none | None is allowed: both servers read the same bytes, and bodies are also compared by hash. |
 | The Reference against the Candidate, each on a data directory the Reference started (`pnpm parity writes`) | [reference-vs-candidate.json](reference-vs-candidate.json) | 40, in the nine groups [below](#the-reference-against-the-candidate). |
 | The same, with blobs in the S3-compatible store (`pnpm parity writes --only=s3`) | [reference-s3-vs-candidate-s3.json](reference-s3-vs-candidate-s3.json) | 6, one answer in two scenarios: `getBlob` of an upload that no record references. The Reference answers 500 on this store and the Candidate 400 `InvalidRequest`, "Blob not found", as both do on the disk store. This is a deliberate difference (SPEC §2.3). |
@@ -19,11 +18,13 @@ recorded difference that no longer appears.
 Regenerate a file with `--update` after a change that is meant to move it,
 and review the result like code.
 
-## The production build against the stock build
+## The Reference against the official distribution
 
 Both targets run the same configuration: the production hostnames, the same
-environment, the same fixtures. They differ in the nine patches of
-[`legacy/patches/`](../../legacy/patches/README.md). Sixteen of the
+environment, the same fixtures. They differ in the nine patches of the
+legacy build, whose rules are the table of SPEC §13 (the build itself was
+removed on 2026-10-15), and in packaging, which does not show over HTTP.
+Sixteen of the
 twenty-six scenarios show no difference at all, and in three more the only
 difference is the text of a mail or one page header. The patches do not
 change the repository, the firehose, proxying, rate limits, legacy sessions,
@@ -48,10 +49,10 @@ steps the page driver took.
   `007d` to the account database (SPEC §8.2). The harness compares
   behaviour over HTTP and does not diff schemas.
 - **Packaging.** The official distribution runs its server as root and lays
-  the package out differently. Neither shows over HTTP: the `official`
-  target compares equal to `stock` on every scenario. The image workflow's
-  smoke test ([`legacy/scripts/smoke.py`](../../legacy/scripts/smoke.py))
-  makes the same comparison on six requests.
+  the package out differently. Neither shows over HTTP: while the legacy
+  build existed, its `PATCH_PROFILE=none` build compared equal to `official`
+  on every scenario, which is why the recorded differences are the patches
+  alone.
 
 ## The Reference against the Candidate
 

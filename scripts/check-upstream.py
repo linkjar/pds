@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Update the release pin from annotated or lightweight stable PDS tags."""
+"""Report the stable PDS releases newer than the pin in upstream.json.
+
+The pin is the compatibility baseline of the server (docs/SPEC.md section
+2.1). A newer upstream release changes nothing here by itself; the weekly
+report keeps the owner aware of what upstream shipped after the pin.
+"""
 import argparse
-import importlib.util
 import json
 import pathlib
 import re
 import subprocess
-import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 REPO = 'https://github.com/bluesky-social/atproto.git'
@@ -32,11 +35,10 @@ def report(pin, tags):
     return '\n'.join(lines) + '\n'
 
 def main():
-    args = argparse.ArgumentParser()
-    args.add_argument('--write', action='store_true')
+    args = argparse.ArgumentParser(description=__doc__)
     args.add_argument('--report', type=pathlib.Path, help='write the newer releases to this file as Markdown')
     options = args.parse_args()
-    pin = json.loads((ROOT.parent / 'upstream.json').read_text())
+    pin = json.loads((ROOT / 'upstream.json').read_text())
     refs = subprocess.check_output(['git', 'ls-remote', '--tags', REPO, '@atproto/pds@*'], text=True)
     tags = releases(refs)
     latest = max(tags, key=lambda tag: tags[tag][0])
@@ -48,20 +50,6 @@ def main():
     print(pin['tag'], '->', latest, tags[latest][1])
     if options.report:
         options.report.write_text(report(pin, tags))
-    if options.write:
-        pin.update(tag=latest, commit=tags[latest][1], revision=1)
-        # Keep the official comparator digest fixed. If that release is not yet
-        # distributed officially, parity CI intentionally blocks this update.
-        url = f"https://raw.githubusercontent.com/bluesky-social/atproto/{pin['commit']}/services/pds/Dockerfile"
-        with urllib.request.urlopen(url, timeout=30) as response:
-            dockerfile = response.read().decode()
-        spec = importlib.util.spec_from_file_location('generate', ROOT / 'scripts/generate-dockerfile.py')
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        generated = module.generate(pin, dockerfile)
-        (ROOT.parent / 'upstream.json').write_text(json.dumps(pin, indent=2) + '\n')
-        (ROOT.parent / 'docs/legacy/upstream.Dockerfile').write_text(dockerfile)
-        (ROOT / 'Dockerfile').write_text(generated)
 
 if __name__ == '__main__':
     main()

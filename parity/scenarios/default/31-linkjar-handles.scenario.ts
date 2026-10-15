@@ -2,7 +2,7 @@
 // reservations, the single hosted rename of a freshly signed-up account, and
 // what a handle hostname serves. Port of legacy/tests/handles.mjs and of the
 // Caddy integration in handle-proxy-probes.mjs: the edge of the stack runs
-// the production snippet, legacy/staging/Caddyfile.handles.
+// the production snippet, compose/Caddyfile.handles.
 
 import assert from 'node:assert/strict'
 import { launchBrowser, newDevice } from '../../src/lib/browser.ts'

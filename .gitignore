@@ -13,8 +13,6 @@ __pycache__/
 /fuzz/corpus
 /target
 node_modules/
-legacy/staging/*.env
-!legacy/staging/example.env
 # Source mirrors for reading; see .agent_sources/README.md.
 .agent_sources/github.com/
 # The secrets and data of a host deployed from deploy/compose (pds.linkjar.io).

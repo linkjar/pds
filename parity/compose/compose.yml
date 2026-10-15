@@ -27,7 +27,7 @@ services:
       - 127.0.0.1:${EDGE_PORT:?}:443
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ../../legacy/staging/Caddyfile.handles:/etc/caddy/handles:ro
+      - ./Caddyfile.handles:/etc/caddy/handles:ro
       - ${RUN_DIR:?}/tls:/tls:ro
     networks:
       outer: {}

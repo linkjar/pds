@@ -1,6 +1,6 @@
 // The PDS environment of a stack. The base is the production configuration
-// (legacy/staging/provider.env.example and handles.env.example) with the
-// outside services replaced by the stack's own. A profile changes a few
+// of the linkjar profile with the outside services replaced by the stack's
+// own. A profile changes a few
 // variables for the scenarios that need them.
 
 import { createECDH, createHash, randomBytes } from 'node:crypto'
@@ -152,7 +152,7 @@ export function pdsEnv(spec: TargetSpec, profile: Profile, secrets: Secrets): Re
   }
   if (profile === 'writes-s3') {
     // Blobs go to the stack's S3-compatible store, configured as the
-    // production host configures R2 (legacy/scripts/provision-wizard.sh):
+    // production host configures R2:
     // an endpoint, path style and static credentials.
     delete env.PDS_BLOBSTORE_DISK_LOCATION
     env.PDS_BLOBSTORE_S3_BUCKET = 'blobs'

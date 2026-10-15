@@ -1,32 +1,28 @@
 name: Check upstream PDS releases
+
+# A weekly report of the stable upstream releases newer than the pin in
+# upstream.json, kept in one issue. The pin is the compatibility baseline of
+# the server (docs/SPEC.md section 2.1); nothing here changes it.
 on:
   schedule:
     - cron: '23 8 * * 1'
   workflow_dispatch:
 permissions:
   contents: read
-defaults:
-  run:
-    working-directory: legacy
 jobs:
-  update:
+  report:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
-      contents: write
-      pull-requests: write
-      actions: write
+      contents: read
       issues: write
     steps:
-      # The checkout keeps its credentials: create-pull-request pushes the
-      # bump branch from it. Whether that step works without them is not
-      # verified.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: python3 scripts/check-upstream.py --write --report "$RUNNER_TEMP/upstream.md"
-      # The report comes before the pull request, which the organization's
-      # policy can refuse. One issue is kept current, not one opened per run.
-      # check-upstream.py writes no report when the pin is current, and the
-      # step then closes the issue.
+        with:
+          persist-credentials: false
+      - run: python3 scripts/check-upstream.py --report "$RUNNER_TEMP/upstream.md"
+      # One issue is kept current, not one opened per run. The script writes
+      # no report when the pin is current, and the step then closes the issue.
       - name: Report releases newer than the pin
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -47,37 +43,3 @@ jobs:
           else
             gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body-file "$report"
           fi
-      - uses: peter-evans/create-pull-request@c9f8b51aaac1dfba340a97878061732b0e738ec1
-        id: bump
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: codex/upstream-pds
-          title: Update pinned upstream PDS release
-          commit-message: Update pinned upstream PDS release
-          body: |
-            Update the stable PDS source tag and peeled commit, and regenerate its build instructions.
-
-            Review upstream release notes, rebased patches and both architecture builds. Update the official comparator digest to the matching release if parity CI reports a version mismatch. Do not merge until image parity and rendered branding tests pass. Staging deployment and account migration remain separately gated.
-          add-paths: |
-            upstream.json
-            legacy/Dockerfile
-            docs/legacy/upstream.Dockerfile
-      - name: Explain failed PR creation
-        if: failure() && steps.bump.outcome == 'failure'
-        run: |
-          echo '::error::Upstream PR creation failed; see the GitHub API error above. Actions must be allowed to create pull requests by both organization and repository policy. LinkJar currently blocks this at organization level; an organization owner must explicitly authorize the supported setting. Do not bypass it with a personal token.'
-      - name: Verify the changed bump branch without a personal token
-        if: steps.bump.outputs.pull-request-operation == 'created' || steps.bump.outputs.pull-request-operation == 'updated'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # Explicit dispatch runs with GITHUB_TOKEN. This fixed non-main ref can
-        # run verify, but the build workflow's main-only publish guard rejects it.
-        # A pull request that GITHUB_TOKEN opened starts no workflow, so each
-        # one is dispatched to put its checks on the bump commit. The parity
-        # harness and the restore run read upstream.json; the Rust gates do
-        # not, and their dispatch also runs the advisories job.
-        run: |
-          set -euo pipefail
-          for workflow in build.yml parity.yml restore.yml rust.yml; do
-            gh workflow run "$workflow" --ref codex/upstream-pds --repo "$GITHUB_REPOSITORY"
-          done

@@ -8,7 +8,6 @@ name: Server images
 # `pds-console`, and moves the `main` tag. The run's summary names each
 # digest; a deployment pins the digest, never a tag.
 #
-# The reference image of `legacy/` is built by build.yml and is unchanged.
 # Actions are pinned by commit SHA; the comment names the release.
 
 on:

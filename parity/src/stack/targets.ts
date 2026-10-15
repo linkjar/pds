@@ -12,7 +12,6 @@ export const COMPOSE_FILE = join(PARITY_DIR, 'compose/compose.yml')
 type PinnedImage = { image: string; tag: string; digest: string }
 type Images = {
   reference: PinnedImage & { revision: string }
-  stock: { tag: string; build: { context: string; args: Record<string, string> } }
   relay: PinnedImage
   plc: { repository: string; commit: string }
   mail: PinnedImage
@@ -29,7 +28,7 @@ const byDigest = (pin: PinnedImage) => `${pin.image}@${pin.digest}`
 
 // `repeat` is a second boot of the Reference image. Comparing it with
 // `reference` must show no difference, which is the check on the normaliser.
-export const TARGET_NAMES = ['reference', 'stock', 'official', 'candidate', 'repeat'] as const
+export const TARGET_NAMES = ['reference', 'official', 'candidate', 'repeat'] as const
 export type TargetName = (typeof TARGET_NAMES)[number]
 
 export type TargetSpec = {
@@ -61,7 +60,6 @@ export function targetSpec(name: TargetName): TargetSpec {
     // exists for one case only: checking an upstream bump before it is
     // published, where the next image is compared with the current one.
     reference: process.env.PARITY_REFERENCE_IMAGE ?? byDigest(images.reference),
-    stock: process.env.PARITY_STOCK_IMAGE ?? images.stock.tag,
     official: upstream.officialImage,
     // An empty variable counts as unset.
     candidate: process.env.PARITY_CANDIDATE_IMAGE || CANDIDATE_TAG,

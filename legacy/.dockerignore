@@ -1,8 +1,0 @@
-*
-!patches
-!patches/**
-!examples
-!examples/branding-smoke
-!examples/branding-smoke/**
-!scripts
-!scripts/apply-patches.sh

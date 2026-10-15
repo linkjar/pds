@@ -207,6 +207,10 @@ Harness
 
 - [ ] A scenario for a migration between two servers, and one for the ops
   listener.
+- [ ] The checks of the legacy build's suites that HTTP cannot observe
+  ([parity/README.md](../parity/README.md#the-port-of-legacytests)); the
+  suites left with the build on 2026-10-15, and tests in `pds-ext-linkjar`
+  are the place for them.
 
 ## Decisions
 
@@ -235,6 +239,7 @@ ones still open.
 | 2026-10-13 | Upstream's S3 client fix (#5575) stays out until staging shows the connection growth. |
 | 2026-10-15 | The Candidate replaces the reference image on the invite-only pilot host, on its own data directory, ahead of a staging restore. |
 | 2026-10-15 | Every handle under `linkjar.social` resolves through a wildcard DNS record and tunnel rule; sign-up stays invite-only. |
+| 2026-10-15 | The legacy build and its documents leave the repository while the watch runs; the published image `ghcr.io/linkjar/pds` stays the Reference of the Harness and the rollback image on the host. |
 
 ## Research
 
@@ -253,8 +258,8 @@ ones still open.
 ## Ground rules
 
 - One unit at a time, each merged to `main` with its gate green.
-- The reference image build in `legacy/` stays buildable for security fixes
-  while it is the rollback image: until the owner retires it after the
-  48-hour watch.
+- The reference image build left the repository on 2026-10-15 (decision
+  below). The published image stays the Reference of the Harness and the
+  rollback image on the host until the owner retires it after the watch.
 - `linkjar.io` gets only a pointer and a PDS URL setting for its browser
   gate; `linkjar/infra` changes at the cutover.

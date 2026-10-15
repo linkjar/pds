@@ -47,10 +47,12 @@ The history of this document is in the git log.
 
 - **Reference**: the pinned upstream PDS, `@atproto/pds@0.5.34` at commit
   `7ca16cc6989f8247637615aca17c5abb911b8fb1` ([upstream.json](../upstream.json)),
-  built by [`legacy/Dockerfile`](../legacy/Dockerfile) with the `production`
-  patch profile
-  at the patch revision named in §13 (the **patch pin**).
-- **Stock Reference**: the same build with `PATCH_PROFILE=none`.
+  with the `production` patch profile at the patch revision named in §13
+  (the **patch pin**): the published image `ghcr.io/linkjar/pds` at the
+  digest in [`parity/images.json`](../parity/images.json). The build that
+  made it left the repository on 2026-10-15 (Appendix D).
+- **Stock Reference**: the same package without the patches, the upstream
+  distribution `ghcr.io/bluesky-social/pds` at the digest in `upstream.json`.
 - **Candidate**: a build of LinkJar PDS under test.
 - **Profile**: the set of extension implementations a Candidate runs with.
   Two profiles are defined: `stock` (§12) and `linkjar` (§13).
@@ -232,7 +234,7 @@ which it first does in unit 5.
 the Stock Reference only
 ([`default/15-import`](../parity/scenarios/default/15-import.scenario.ts)).
 The production Reference carries upstream's fix as its ninth patch (§13)
-and agrees with the Candidate; the stock build applies no patch.
+and agrees with the Candidate; the Stock Reference applies no patch.
 
 ## 3. Architecture
 
@@ -1359,25 +1361,27 @@ documented invariants at the **patch pin**: the patch stack of this
 repository at the commit recorded in `plan.md`. The patch stack is frozen
 except for security fixes while the Candidate is built (decision of
 2026-10-08); a security fix updates the pin and adds the mirrored behaviour
-here.
+here. The patch documents left the repository with the legacy build on
+2026-10-15 (Appendix D); this table and the
+[unit record](research/2026-10-13-linkjar-profile.md) are their record.
 
 On 2026-10-12 the owner decided to keep the upstream pin at 0.5.34 and to
 carry upstream's shared-node fix
 ([#5584](https://github.com/bluesky-social/atproto/pull/5584)) as a ninth
-patch, [`104-mst-shared-node`](legacy/mst-shared-node.md). It is engine behaviour for every profile, so
+patch, `104-mst-shared-node`. It is engine behaviour for every profile, so
 its rule is in §6.1 and not in the table below. The patch pin moved with
 it: the stack has nine patches, and the reference image is revision 12.
 
 | Patch | Extension point | Invariants the Candidate MUST keep |
 |---|---|---|
-| [`093-handle-policy`](legacy/handle-policy.md) | §12.4 | Suggested handles from display name, email local part, then `reader`; NFKD, ASCII, 3 to 18 characters, six-hex suffix on collision, at most 32 attempts; the extra infra, brand, numbered and lookalike reservations; one hosted rename within 30 days, same-target retry after an ambiguous PLC write; handle hosts serve only `/.well-known/atproto-did`, 404 for other well-known and XRPC paths, 302 to `https://linkjar.io/jar/<did>` for other GET and HEAD, no cookies, strict CSP, `nosniff`. |
-| [`099-external-providers`](legacy/external-providers.md) | §12.3 | Apple (`form_post`, nonce, confidential secret), Google and GitHub (PKCE S256); fixed issuer and JWKS endpoints; GitHub needs a primary verified email; bounded flow store (1,000 flows, three per device, ten minutes); 20 starts and 10 completions per IP per minute; `external_identity` keyed by provider and subject; email collisions refused, never linked; passwordless accounts carry the `!external-identity` sentinel; fresh-signup preauthorization only for explicitly trusted clients. |
-| [`099b-signup-receipt`](legacy/signup-receipt.md) | §12.8 | `io.linkjar.account.getSignupReceipt` and `acknowledgeSignupReceipt` over the session's DPoP transport; receipt bound to request, client, device and the created DID; survives rotation, cleared by acknowledgment, removed by revocation; fails closed. |
-| [`099c-signup-policy`](legacy/provider-policy.md) | §12.2 | All three hCaptcha variables or startup failure; fresh legacy `createAccount` refused when hCaptcha is configured, with migrations via service auth still allowed. |
-| [`100-signin-methods`](legacy/signin-methods.md) | §12.5, §12.6 | Device-bound linking from the account page; idempotent self-link; a foreign identity is refused with only that account's handle; last-method protection in the transaction; notices enqueued in the same transaction, 100 per minute, retry from one minute to one hour, stable `Message-ID`. |
-| [`101-mail-templates`](legacy/mail-templates.md) | §12.7 | Six templates in LinkJar's email style with a text alternative and no tracking. |
-| [`102-signup-journey`](legacy/signup-journey.md) | §11.4, §12.7 | The sign-up page opens on the email form (email and password, then the username) with the providers under it; the sign-in form sits behind "Or use email" under the providers; the page CSP allows the bundled font. An earlier draft of this document omitted this patch. |
-| [`103-invite-handoff`](legacy/signup-journey.md#invitation-hand-off) | §12.2 | A code in the URL fragment `#invite=<code>` is submitted in place of the invite field; a refused code brings the field back with the server's error; the provider start request carries the code, so an invited person can sign up with a provider while invites are required. An earlier draft of this document omitted this patch. |
+| `093-handle-policy` | §12.4 | Suggested handles from display name, email local part, then `reader`; NFKD, ASCII, 3 to 18 characters, six-hex suffix on collision, at most 32 attempts; the extra infra, brand, numbered and lookalike reservations; one hosted rename within 30 days, same-target retry after an ambiguous PLC write; handle hosts serve only `/.well-known/atproto-did`, 404 for other well-known and XRPC paths, 302 to `https://linkjar.io/jar/<did>` for other GET and HEAD, no cookies, strict CSP, `nosniff`. |
+| `099-external-providers` | §12.3 | Apple (`form_post`, nonce, confidential secret), Google and GitHub (PKCE S256); fixed issuer and JWKS endpoints; GitHub needs a primary verified email; bounded flow store (1,000 flows, three per device, ten minutes); 20 starts and 10 completions per IP per minute; `external_identity` keyed by provider and subject; email collisions refused, never linked; passwordless accounts carry the `!external-identity` sentinel; fresh-signup preauthorization only for explicitly trusted clients. |
+| `099b-signup-receipt` | §12.8 | `io.linkjar.account.getSignupReceipt` and `acknowledgeSignupReceipt` over the session's DPoP transport; receipt bound to request, client, device and the created DID; survives rotation, cleared by acknowledgment, removed by revocation; fails closed. |
+| `099c-signup-policy` | §12.2 | All three hCaptcha variables or startup failure; fresh legacy `createAccount` refused when hCaptcha is configured, with migrations via service auth still allowed. |
+| `100-signin-methods` | §12.5, §12.6 | Device-bound linking from the account page; idempotent self-link; a foreign identity is refused with only that account's handle; last-method protection in the transaction; notices enqueued in the same transaction, 100 per minute, retry from one minute to one hour, stable `Message-ID`. |
+| `101-mail-templates` | §12.7 | Six templates in LinkJar's email style with a text alternative and no tracking. |
+| `102-signup-journey` | §11.4, §12.7 | The sign-up page opens on the email form (email and password, then the username) with the providers under it; the sign-in form sits behind "Or use email" under the providers; the page CSP allows the bundled font. An earlier draft of this document omitted this patch. |
+| `103-invite-handoff` | §12.2 | A code in the URL fragment `#invite=<code>` is submitted in place of the invite field; a refused code brings the field back with the server's error; the provider start request carries the code, so an invited person can sign up with a provider while invites are required. An earlier draft of this document omitted this patch. |
 
 Each row has Harness scenarios against the running server
 ([parity/README.md](../parity/README.md#the-port-of-legacytests)).
@@ -1391,7 +1395,8 @@ not change at cutover.
 ### 13.2 Handle hosts
 
 The server itself answers handle hostnames according to §12.4, keyed by the
-`Host` header. The Caddy snippet in `legacy/staging/Caddyfile.handles` remains valid
+`Host` header. The Caddy snippet of the production edge, kept as
+[`parity/compose/Caddyfile.handles`](../parity/compose/Caddyfile.handles), remains valid
 and MAY stay in front of it. The snippet forwards two requests of a handle
 host, the DID and the profile redirect (`/.well-known/linkjar-profile`),
 and sets the CSP, `nosniff` and referrer headers on them. The server sets
@@ -1676,8 +1681,9 @@ compared byte for byte, and the shared-node trees of upstream's
 - **Stock equivalence.** The whole suite with `PDS_PROFILE=stock` against
   Stock Reference (§2.2).
 - **LinkJar journeys.** The browser gate and the kit self-test from
-  `linkjar.io` pointed at the Candidate, and this repository's
-  `legacy/tests/*.mjs` suites ported to run against an HTTP endpoint.
+  `linkjar.io` pointed at the Candidate, and the suites of the legacy build
+  ported to run against an HTTP endpoint
+  ([parity/README.md](../parity/README.md#the-port-of-legacytests)).
 - **Official app.** A recorded manual acceptance: the Bluesky app signs in
   through the Candidate and posts.
 - **Verify at pin.** Every item that an earlier draft of this document
@@ -2335,7 +2341,7 @@ New in the Candidate:
 | SQLite driver | `rusqlite` with bundled SQLite on a blocking pool, opened through `StorageIo`. | Decided in unit 0 |
 | Repository engine | The repository engine is written in this repository, in `pds-repo`. `rsky-repo` was run on the same vectors and workload as published (0.0.6) and from its main branch (0.1.4); the [decision record](research/2026-10-12-repository-crate.md) has the evidence. | Decided 2026-10-12, unit 2 |
 | HTML templating | No templating crate. The pages of §11.4 are written by the server's own code, and the mail templates of the Reference (`*.hbs`) are filled by a small function in `pds-xrpc`. | Decided in unit 5 |
-| Location of the Cargo workspace | The Cargo workspace is at the repository root. The reference image build is under `legacy/`; it stays buildable for security fixes until cutover and is removed afterwards. | Decided 2026-10-08, unit 0 |
+| Location of the Cargo workspace | The Cargo workspace is at the repository root. The reference image build is under `legacy/`; it stays buildable for security fixes until cutover and is removed afterwards. Removed on 2026-10-15, with its documents; the published image stays the Reference (§0). | Decided 2026-10-08, unit 0; done 2026-10-15 |
 | Licence | Dual MIT and Apache-2.0. | Decided 2026-10-08, unit 0 |
 | OAuth key set | The Reference's OAuth key set is one HS256 key from `PDS_JWT_SECRET`. Moving to an asymmetric key set with `jwks` publication is a post-cutover change. | Decided 2026-10-08, unit 5 |
 | Where handle-host serving runs | The server answers handle hosts itself (§13.2). The Caddy snippet of production may stay in front of it: the two answers it forwards carry each header once. | Decided in unit 6 |

@@ -5,13 +5,11 @@ flowchart LR
   src --> fuzz[fuzz.yml nightly: parsers]
   src --> bench[bench/: pds-repo beside rsky-repo, S1 to S3]
   src --> sim[nightly seeds: pds-sim]
-  legacy([legacy/, reference image build]) --> build[build.yml, paths legacy/**]
-  build -- publishes by digest --> image[(ghcr.io/linkjar/pds)]
-  parity[parity/, scenarios and oracles] --> gate[parity.yml: scenarios on four targets, three comparisons<br/>restore.yml: the restore run of the Candidate]
+  image[(ghcr.io/linkjar/pds<br/>the published Reference, by digest)]
+  parity[parity/, scenarios and oracles] --> gate[parity.yml: scenarios on three targets, two comparisons<br/>restore.yml: the restore run of the Candidate]
   image --> gate
   src -- Dockerfile --> candidate[(Candidate image)]
   candidate --> gate
-  legacy --> gate
   parity -- repo-fixtures.ts, @atproto/repo at the pin --> fixtures[(crates/pds-repo/tests/fixtures)]
   fixtures --> tests
   devenv[(devenv.nix: toolchain, tools, hooks)] --- src
