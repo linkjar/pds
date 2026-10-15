@@ -7,7 +7,7 @@ use std::time::Duration;
 use pds_blob::BlobStore;
 use pds_identity::DidResolver;
 use pds_sequencer::Sequencer;
-use pds_storage::{AccountDb, ActorDb, DataLayout, OpsDb, StorageError};
+use pds_storage::{AccountDb, ActorDb, DataLayout, OpsDb, ReadPool, StorageError};
 use pds_types::TidGenerator;
 
 use crate::auth::AuthConfig;
@@ -328,7 +328,7 @@ pub struct AppState {
 
 struct Inner {
     config: ServerConfig,
-    layout: DataLayout,
+    reads: Arc<ReadPool>,
     blobs: Option<BlobStore>,
     resolver: DidResolver,
     http: reqwest::Client,
@@ -345,18 +345,19 @@ impl std::fmt::Debug for AppState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AppState")
             .field("config", &self.inner.config)
-            .field("layout", &self.inner.layout)
+            .field("layout", self.inner.reads.layout())
             .finish_non_exhaustive()
     }
 }
 
 impl AppState {
-    /// Builds the state. `now_ms` is the clock (SPEC §3.2). Without
+    /// Builds the state. `reads` is the pool of read connections over the
+    /// data directory, and `now_ms` is the clock (SPEC §3.2). Without
     /// `writes` the server is read-only: it serves the reads of the data
     /// directory and has no handler for a write.
     pub fn new(
         config: ServerConfig,
-        layout: DataLayout,
+        reads: Arc<ReadPool>,
         blobs: Option<BlobStore>,
         resolver: DidResolver,
         http: reqwest::Client,
@@ -371,7 +372,7 @@ impl AppState {
                 metrics: crate::metrics::Metrics::default(),
                 subscribers: crate::subscribers::Subscribers::default(),
                 config,
-                layout,
+                reads,
                 blobs,
                 resolver,
                 http,
@@ -419,7 +420,13 @@ impl AppState {
 
     /// The data directory.
     pub fn layout(&self) -> &DataLayout {
-        &self.inner.layout
+        self.inner.reads.layout()
+    }
+
+    /// The read connections kept between requests. A read of the data
+    /// directory that serves a request takes its connection here.
+    pub fn reads(&self) -> &Arc<ReadPool> {
+        &self.inner.reads
     }
 
     /// The disk blob store, when one is configured.

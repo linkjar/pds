@@ -904,8 +904,13 @@ databases, so that §8.2 holds.
   checkpointing to the backup owner (Litestream), as documented in the
   hosting study.
 - Actor databases are opened on demand and kept in an LRU of
-  `PDS_ACTOR_STORE_CACHE_SIZE` entries (default 100). One writer per actor is
-  serialised in-process; readers use separate connections.
+  `PDS_ACTOR_STORE_CACHE_SIZE` entries (default 100): one LRU of write
+  connections and one of read connections. One writer per actor is
+  serialised in-process; readers use separate connections. A kept read
+  connection holds no transaction between requests, so it pins no WAL
+  snapshot; the read transaction of a repository export is opened on a
+  connection of its own that is not kept. A few read connections to the
+  account database are kept the same way.
 - Busy timeouts and `synchronous` level match the Reference. Every file that
   is created or renamed is followed by a directory sync.
 - The process takes an exclusive lock file in the data directory at startup

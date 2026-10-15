@@ -86,6 +86,8 @@ CREATE TABLE "did_doc" ("did" varchar primary key, "doc" text not null, "updated
 "#;
 
 const TIME: &str = "2026-01-01T00:00:00.000Z";
+/// The alphabet of a TID, in its order.
+const TID_ALPHABET: &[u8] = b"234567abcdefghijklmnopqrstuvwxyz";
 
 fn post(text: &str) -> Vec<u8> {
     let mut fields = BTreeMap::new();
@@ -212,6 +214,9 @@ impl DataDir {
         let keypair = key(n);
         std::fs::write(layout.actor_key(did), keypair.secret_bytes().as_slice()).unwrap();
         let store = connection(&layout.actor_db(did), ACTOR_SCHEMA);
+        // One transaction: a large repository is thousands of rows, and a
+        // commit for each would sync the file as many times.
+        store.execute_batch("begin").unwrap();
 
         // A commit takes at most 200 writes, so a large repository is
         // written in several revisions.
@@ -226,7 +231,13 @@ impl DataDir {
                 .iter()
                 .map(|(key, record)| Write::Create { key, record })
                 .collect();
-            let rev: Tid = format!("3aaaaaaaaaaa{}", n + 2).parse().unwrap();
+            // Revisions that rise with `n` in the TID alphabet, which
+            // sorts as it reads; the first is `3aaaaaaaaaaa2`.
+            let (high, low) = (
+                char::from(TID_ALPHABET[6 + n / 32]),
+                char::from(TID_ALPHABET[n % 32]),
+            );
+            let rev: Tid = format!("3aaaaaaaaaa{high}{low}").parse().unwrap();
             let sign = |bytes: &[u8]| Ok(keypair.sign(bytes).to_vec());
             let commit = match &head {
                 None => {
@@ -302,6 +313,7 @@ impl DataDir {
             std::fs::create_dir_all(&blobs).unwrap();
             std::fs::write(blobs.join(BLOB_CID), BLOB_BYTES).unwrap();
         }
+        store.execute_batch("commit").unwrap();
         (commit.cid.to_string(), rev.to_string())
     }
 

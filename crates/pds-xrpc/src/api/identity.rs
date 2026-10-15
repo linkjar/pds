@@ -21,7 +21,7 @@ pub async fn resolve_handle(state: &AppState, query: &Query<'_>) -> Result<Respo
         .blocking({
             let name = name.clone();
             move |state| {
-                let accounts = state.layout().accounts()?;
+                let accounts = state.reads().accounts()?;
                 Ok(accounts.actor(&name, Availability::ACTIVE)?)
             }
         })

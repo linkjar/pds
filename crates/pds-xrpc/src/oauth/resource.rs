@@ -100,9 +100,51 @@ pub fn scope_missing(scope: &str) -> XrpcError {
 /// What the server holds for the `jti` of a token.
 enum Found {
     Missing,
-    Expired,
+    /// The row is bound to another key. It goes, and the token is invalid.
+    OtherKey(String),
+    /// The row ended. It goes, and the token is expired.
+    Expired(String),
     TakenDown,
     Row(Box<pds_storage::oauth::TokenRow>),
+}
+
+/// Deletes the row of a token that is refused.
+async fn forget_token(state: &AppState, token_id: String) -> Result<(), Box<Response>> {
+    accounts(state, move |db| db.delete_token(&token_id))
+        .await
+        .map_err(|_| Box::new(XrpcError::internal("the token store failed").into_response()))
+}
+
+/// What the server holds for the token `jti`, whose proof is bound to the
+/// key `jkt`, at `now_ms`. The row is read on a kept read connection; a
+/// row that is refused is deleted on the write connection after.
+async fn find_token(
+    state: &AppState,
+    jti: String,
+    jkt: String,
+    now_ms: i64,
+) -> Result<Found, Box<Response>> {
+    state
+        .blocking(move |state| {
+            let db = state.reads().accounts()?;
+            let Some(row) = db.token(&jti)? else {
+                return Ok(Found::Missing);
+            };
+            let parameters: Value = serde_json::from_str(&row.parameters).unwrap_or(Value::Null);
+            if parameters.get("dpop_jkt").and_then(Value::as_str) != Some(jkt.as_str()) {
+                return Ok(Found::OtherKey(row.token_id));
+            }
+            if millis(&row.expires_at) < now_ms {
+                return Ok(Found::Expired(row.token_id));
+            }
+            Ok(match db.actor(&row.did, Availability::ANY)? {
+                None => Found::Missing,
+                Some(actor) if actor.takedown_ref.is_some() => Found::TakenDown,
+                Some(_) => Found::Row(Box::new(row)),
+            })
+        })
+        .await
+        .map_err(|_| Box::new(XrpcError::internal("the token store failed").into_response()))
 }
 
 /// The grant of a token on a member host (SPEC §21.3). The host has no
@@ -115,7 +157,8 @@ async fn member_grant(
     scope: Option<String>,
 ) -> Result<Grant, Box<Response>> {
     let did = claims.sub.clone();
-    let actor = accounts(state, move |db| db.actor(&did, Availability::ANY))
+    let actor = state
+        .blocking(move |state| Ok(state.reads().accounts()?.actor(&did, Availability::ANY)?))
         .await
         .map_err(|_| Box::new(XrpcError::internal("the account store failed").into_response()))?;
     match actor {
@@ -181,32 +224,17 @@ pub async fn authenticate(
         return member_grant(state, claims, carried).await;
     }
 
-    let jti = claims.jti.clone();
-    let jkt = proof.jkt.clone();
-    let found = accounts(state, move |db| {
-        let Some(row) = db.token(&jti)? else {
-            return Ok(Found::Missing);
-        };
-        let parameters: Value = serde_json::from_str(&row.parameters).unwrap_or(Value::Null);
-        if parameters.get("dpop_jkt").and_then(Value::as_str) != Some(jkt.as_str()) {
-            db.delete_token(&row.token_id)?;
-            return Ok(Found::Missing);
-        }
-        if millis(&row.expires_at) < now_ms {
-            db.delete_token(&row.token_id)?;
-            return Ok(Found::Expired);
-        }
-        match db.actor(&row.did, Availability::ANY)? {
-            None => Ok(Found::Missing),
-            Some(actor) if actor.takedown_ref.is_some() => Ok(Found::TakenDown),
-            Some(_) => Ok(Found::Row(Box::new(row))),
-        }
-    })
-    .await
-    .map_err(|_| Box::new(XrpcError::internal("the token store failed").into_response()))?;
+    let found = find_token(state, claims.jti.clone(), proof.jkt.clone(), now_ms).await?;
     let row = match found {
         Found::Missing => return Err(invalid("Invalid token")),
-        Found::Expired => return Err(invalid("Token expired")),
+        Found::OtherKey(token_id) => {
+            forget_token(state, token_id).await?;
+            return Err(invalid("Invalid token"));
+        }
+        Found::Expired(token_id) => {
+            forget_token(state, token_id).await?;
+            return Err(invalid("Token expired"));
+        }
         Found::TakenDown => {
             return Err(Box::new(
                 XrpcError {

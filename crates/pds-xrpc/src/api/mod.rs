@@ -866,7 +866,7 @@ pub fn repo_availability(
     handle_or_did: &str,
     admin_or_self: bool,
 ) -> Result<Actor, XrpcError> {
-    let accounts = state.layout().accounts()?;
+    let accounts = state.reads().accounts()?;
     let actor = accounts
         .actor(handle_or_did, Availability::ANY)?
         .ok_or_else(|| {

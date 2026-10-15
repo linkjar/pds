@@ -6,7 +6,7 @@ use axum::body::Body;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 use pds_sequencer::account_event;
-use pds_storage::{AccountDb, ActorDb, Availability, Invites};
+use pds_storage::{AccountDb, Availability, Invites};
 use serde_json::{Map, Value, json};
 
 use super::Query;
@@ -76,7 +76,7 @@ pub async fn get_account_info(state: &AppState, query: &Query<'_>) -> Result<Res
     crate::audit::set_subject(&did);
     let info = state
         .blocking(move |state| {
-            let accounts = state.layout().accounts()?;
+            let accounts = state.reads().accounts()?;
             account_view(&accounts, &did)?.ok_or_else(|| not_found("Account"))
         })
         .await?;
@@ -95,7 +95,7 @@ pub async fn get_account_infos(state: &AppState, query: &Query<'_>) -> Result<Re
         .collect();
     let infos = state
         .blocking(move |state| {
-            let accounts = state.layout().accounts()?;
+            let accounts = state.reads().accounts()?;
             let mut infos = Vec::new();
             for did in &dids {
                 if let Some(info) = account_view(&accounts, did)? {
@@ -126,12 +126,11 @@ pub async fn get_subject_status(
     let blob = query.params.get("blob").map(str::to_owned);
     let found = state
         .blocking(move |state| {
-            let layout = state.layout();
             if let Some(blob) = blob {
                 let did = did.ok_or_else(|| {
                     XrpcError::invalid_request("Must provide a did to request blob state")
                 })?;
-                let takedown = ActorDb::open(&layout.actor_db(&did))?.blob_takedown_ref(&blob)?;
+                let takedown = state.reads().store(&did)?.blob_takedown_ref(&blob)?;
                 return Ok(takedown.map(|takedown| {
                     json!({
                         "subject": {"$type": "com.atproto.admin.defs#repoBlobRef", "did": did, "cid": blob},
@@ -143,7 +142,9 @@ pub async fn get_subject_status(
                 let parsed: pds_types::AtUri = uri
                     .parse()
                     .map_err(|_| XrpcError::invalid_request("Invalid at uri"))?;
-                let record = ActorDb::open(&layout.actor_db(&parsed.authority().to_string()))?
+                let record = state
+                    .reads()
+                    .store(&parsed.authority().to_string())?
                     .record_takedown_ref(&uri)?;
                 return Ok(record.map(|(cid, takedown)| {
                     json!({
@@ -155,7 +156,7 @@ pub async fn get_subject_status(
             let Some(did) = did else {
                 return Err(XrpcError::invalid_request("No provided subject"));
             };
-            let actor = layout.accounts()?.actor(&did, Availability::ANY)?;
+            let actor = state.reads().accounts()?.actor(&did, Availability::ANY)?;
             Ok(actor.map(|actor| {
                 json!({
                     "subject": {"$type": "com.atproto.admin.defs#repoRef", "did": did},
@@ -172,7 +173,7 @@ pub async fn get_subject_status(
 /// States the status of an account in the log.
 fn sequence_status(state: &AppState, did: &str) -> Result<(), XrpcError> {
     let now = pds_sequencer::iso_millis(state.now_ms());
-    let actor = state.layout().accounts()?.actor(did, Availability::ANY)?;
+    let actor = state.reads().accounts()?.actor(did, Availability::ANY)?;
     let status = match &actor {
         None => Some("deleted"),
         Some(actor) => actor.status(),

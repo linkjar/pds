@@ -6,7 +6,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use pds_identity::{DidCache, DidResolver, ResolverConfig};
 use pds_sequencer::{Crawlers, Sequencer};
-use pds_storage::DidCacheDb;
+use pds_storage::{DidCacheDb, ReadPool};
 use pds_types::TidGenerator;
 use pds_xrpc::auth::AuthConfig;
 use pds_xrpc::{AppState, ServerConfig, WriteSettings, WriteState};
@@ -261,7 +261,7 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
         .map_err(|error| ServeError::Storage(format!("blob store: {error}")))?;
     let state = AppState::new(
         server,
-        config.layout.clone(),
+        ReadPool::new(config.layout.clone(), config.actor_store_cache_size),
         blobs,
         resolver,
         http,
