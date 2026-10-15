@@ -7,6 +7,11 @@
 // firehose upgrade. With --write it also creates one account, uses it the
 // way the Bluesky app does, and deletes it. The account's DID stays in the
 // PLC directory the server names, which is why --write is never the default.
+//
+// With --account it signs in to an account that exists, for a server that
+// takes no sign-up by createAccount, such as one with the `linkjar` profile.
+// It writes a post with an image, an app password and the preferences the
+// account already has, and removes the post and the app password again.
 
 import assert from 'node:assert/strict'
 import { createHash, randomBytes, webcrypto } from 'node:crypto'
@@ -29,6 +34,9 @@ export type SmokeOptions = {
   email?: string
   /** Keep the account at the end, to sign in to it from an app. */
   keepAccount: boolean
+  /** Sign in to this account instead of creating one. The password is read from PDS_SMOKE_PASSWORD. */
+  account?: string
+  accountPassword?: string
   /** A CA in PEM to trust in place of the system's, such as the CA of a parity stack. */
   caFile?: string
   /** `host:port` to connect to in place of the address of the URL's name, like curl's --connect-to. */
@@ -290,7 +298,8 @@ export async function smoke(opts: SmokeOptions): Promise<number> {
     }
   })
 
-  if (opts.write && server) await writeJourney(client, opts, server, check)
+  if (opts.account) await accountJourney(client, opts.account, opts.accountPassword ?? '', check)
+  else if (opts.write && server) await writeJourney(client, opts, server, check)
 
   await client.close()
   const failed = checks.filter((c) => !c.ok)
@@ -464,4 +473,105 @@ async function writeJourney(
     })
     assert.equal(r.status, 200, `status ${r.status}: ${JSON.stringify(r.body)}`)
   })
+}
+
+/** The writes of an app on an account that exists, undone at the end. */
+async function accountJourney(client: Client, identifier: string, password: string, check: CheckFn): Promise<void> {
+  const tag = randomBytes(3).toString('hex')
+  const agent = client.agent()
+  const did = await check(
+    'sign in',
+    async () => {
+      if (!password) throw new Error('set PDS_SMOKE_PASSWORD')
+      await agent.login({ identifier, password })
+      return agent.session!.did
+    },
+    (value) => `${identifier} is ${value}`,
+  )
+  if (!did) return
+  await check('getSession', async () => {
+    const r = await agent.com.atproto.server.getSession()
+    assert.equal(r.data.did, did)
+  })
+
+  const stream = firehose(client)
+  await stream.opened.catch(() => undefined)
+  const isPost = (action: string) => (op: { action?: string; path?: string }) => op.action === action && (op.path?.startsWith('app.bsky.feed.post/') ?? false)
+  const commit = (action: string) => (f: Frame) =>
+    f.kind === 'event' && f.type === '#commit' && f.body.repo === did && ((f.body.ops ?? []) as { action?: string; path?: string }[]).some(isPost(action))
+
+  let post: { uri: string; cid: string } | undefined
+  try {
+    const blob = await check('uploadBlob', async () => (await agent.com.atproto.repo.uploadBlob(PNG_1X1, { encoding: 'image/png' })).data.blob)
+    post = await check(
+      'createRecord post with the image',
+      async () => {
+        const record: Record<string, unknown> = { $type: 'app.bsky.feed.post', text: `Smoke test ${tag}`, createdAt: new Date().toISOString() }
+        if (blob) record.embed = { $type: 'app.bsky.embed.images', images: [{ image: blob, alt: 'Smoke test' }] }
+        return (await agent.com.atproto.repo.createRecord({ repo: did, collection: 'app.bsky.feed.post', record })).data
+      },
+      (value) => value.uri,
+    )
+    if (post) {
+      const { uri, cid } = post
+      await check('getRecord', async () => {
+        const r = await agent.com.atproto.repo.getRecord({ repo: did, collection: 'app.bsky.feed.post', rkey: uri.split('/').at(-1)! })
+        assert.equal(r.data.cid, cid)
+      })
+      await check('listRecords', async () => {
+        const r = await agent.com.atproto.repo.listRecords({ repo: did, collection: 'app.bsky.feed.post', limit: 100 })
+        assert.ok(r.data.records.some((record) => record.uri === uri), 'the post is not listed')
+      })
+      await check('firehose commit', async () => {
+        await stream.waitFor(commit('create'))
+      })
+    }
+    if (blob) {
+      await check('getBlob', async () => {
+        const response = await client.fetch(client.href(`/xrpc/com.atproto.sync.getBlob?did=${did}&cid=${blob.ref.toString()}`))
+        assert.equal(response.status, 200, `status ${response.status}`)
+        assert.deepEqual(Buffer.from(await response.arrayBuffer()), PNG_1X1)
+      })
+    }
+    await check('getPreferences and putPreferences unchanged', async () => {
+      const before = (await agent.app.bsky.actor.getPreferences()).data.preferences
+      await agent.app.bsky.actor.putPreferences({ preferences: before })
+      const after = (await agent.app.bsky.actor.getPreferences()).data.preferences
+      assert.deepEqual(after, before)
+      return before.length
+    }, (count) => `${count} preferences`)
+    await check('app password', async () => {
+      const name = `smoke-${tag}`
+      const created = await agent.com.atproto.server.createAppPassword({ name })
+      try {
+        const other = client.agent()
+        await other.login({ identifier, password: created.data.password })
+        assert.equal(other.session?.did, did)
+      } finally {
+        await agent.com.atproto.server.revokeAppPassword({ name })
+      }
+      const listed = await agent.com.atproto.server.listAppPasswords()
+      assert.ok(!listed.data.passwords.some((p) => p.name === name), 'the app password is still listed')
+      await assert.rejects(client.agent().login({ identifier, password: created.data.password }), 'a revoked app password signed in')
+    })
+    await check('refreshSession', async () => {
+      const r = await client.json('/xrpc/com.atproto.server.refreshSession', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${agent.session!.refreshJwt}` },
+      })
+      assert.equal(r.status, 200, `status ${r.status}: ${JSON.stringify(r.body)}`)
+      assert.equal(r.body.did, did)
+    })
+  } finally {
+    if (post) {
+      const { uri } = post
+      await check('deleteRecord post', async () => {
+        await agent.com.atproto.repo.deleteRecord({ repo: did, collection: 'app.bsky.feed.post', rkey: uri.split('/').at(-1)! })
+        await stream.waitFor(commit('delete'))
+        const gone = await client.json(`/xrpc/com.atproto.repo.getRecord?repo=${did}&collection=app.bsky.feed.post&rkey=${uri.split('/').at(-1)}`)
+        assert.equal(gone.status, 400, `status ${gone.status}`)
+      })
+    }
+    stream.close()
+  }
 }
