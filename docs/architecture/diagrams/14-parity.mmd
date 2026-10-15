@@ -12,6 +12,8 @@ flowchart LR
   compare{compare two targets<br/>responses, repository CIDs, firehose<br/>OAuth flows, verify at pin}
   restore{restore run<br/>Reference, then Candidate, on one data volume<br/>bodies by hash, verify}
   later{later units<br/>migration, stock equivalence<br/>LinkJar journeys, Bluesky app}
+  smoke([smoke test<br/>any PDS by its URL, no stack])
+  host[PDS on a test host]
   runner --> edge
   edge --> pds
   edge --> fixtures
@@ -27,3 +29,5 @@ flowchart LR
   transcripts --> restore
   data --> restore
   compare --> later
+  runner --> smoke
+  smoke --> host

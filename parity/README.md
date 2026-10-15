@@ -53,6 +53,23 @@ fails, the logs of the PDS, relay, PLC directory and edge are saved under
 Other commands: `pnpm typecheck`, `pnpm test` (unit tests of the normaliser),
 `pnpm parity stack up|down|logs <target>`.
 
+`pnpm parity smoke <url>` checks a PDS that runs somewhere else, such as a
+[test host](../docs/runbooks/test-host.md), the way a client does: health,
+discovery, the OAuth metadata, a pushed authorization request of a loopback
+client and its sign-in page, and the firehose. It needs no stack. With
+`--write` it also creates an account, uses it as the Bluesky app does, and
+deletes it with the admin password from `PDS_ADMIN_PASSWORD`; the DID stays
+in the PLC directory. `--ca <pem>` and `--connect-to <host:port>` point it
+at a stack of the harness:
+
+```sh
+pnpm parity smoke https://pds.example.com
+pnpm parity stack up candidate
+PDS_ADMIN_PASSWORD=$(jq -r .adminPassword .run/candidate/secrets.json) \
+  pnpm parity smoke https://pds.linkjar.social --write \
+  --ca .run/candidate/ca/ca.crt --connect-to 127.0.0.1:18430
+```
+
 Two variables change how the Candidate runs, for `run candidate`:
 
 - `PARITY_CANDIDATE_POSTGRES=1`: the shared tier is in the Postgres of

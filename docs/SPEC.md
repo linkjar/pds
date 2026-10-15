@@ -306,6 +306,7 @@ be reachable from the public hostname.
 | `GET /xrpc/_health` | `{"version": "<PDS_VERSION>"}`; 503 with `{"version", "error"}` when the account database is unavailable. |
 | `GET /.well-known/atproto-did` | Resolves the `Host` header to a hosted actor and returns its DID as `text/plain`; 404 otherwise. |
 | `GET /.well-known/oauth-authorization-server`, `GET /.well-known/oauth-protected-resource` | §11.1. |
+| `GET /tls-check?domain=<name>` | Not in the Reference's package; its official distribution serves it, for the `ask` of Caddy's on-demand TLS. `{"success": true}` for `PDS_HOSTNAME`; `{"did", "handle"}` for the handle of an active hosted account; 404 `NotFound` for another name under a handle domain; 400 `InvalidRequest` for any other name, for a missing `domain`, and on a member host (§21.3). |
 | `/oauth/*`, `/account/*` | §11. |
 
 The PDS MUST be served on its own registrable domain, not on a subdomain

@@ -249,6 +249,62 @@ pub async fn handle_host(
     Some(response)
 }
 
+/// `GET /tls-check?domain=<name>`: whether a proxy in front of the server
+/// may obtain a certificate for the name (SPEC §4.1).
+///
+/// The official distribution of the Reference serves it for the `ask` of
+/// Caddy's on-demand TLS; the package itself does not.
+///
+/// The server's own name passes, and so does the handle of an active
+/// account that the server hosts. Any other name fails, so that a stranger
+/// who points a name at the server cannot make the proxy ask for a
+/// certificate.
+pub async fn tls_check(state: &AppState, query: Option<&str>) -> Response {
+    let domain = url::form_urlencoded::parse(query.unwrap_or_default().as_bytes())
+        .find(|(name, _)| name == "domain")
+        .map(|(_, value)| value.to_ascii_lowercase());
+    let invalid = |message: &str| {
+        json_response(
+            StatusCode::BAD_REQUEST,
+            &serde_json::json!({"error": "InvalidRequest", "message": message}),
+        )
+    };
+    let Some(domain) = domain.filter(|domain| !domain.is_empty()) else {
+        return invalid("bad or missing domain query param");
+    };
+    let config = state.config();
+    if domain == config.hostname {
+        return json_response(StatusCode::OK, &serde_json::json!({"success": true}));
+    }
+    // A member host keeps no handles; its entryway does (SPEC §21.3).
+    if config.entryway.is_some() || !config.is_hosted_handle(&domain) {
+        return invalid("handles are not provided on this domain");
+    }
+    let found = {
+        let domain = domain.clone();
+        state
+            .blocking(move |state| {
+                let accounts = state.layout().accounts()?;
+                Ok(accounts.actor(&domain, Availability::ACTIVE)?)
+            })
+            .await
+    };
+    match found {
+        Ok(Some(actor)) => json_response(
+            StatusCode::OK,
+            &serde_json::json!({"did": actor.did, "handle": domain}),
+        ),
+        Ok(None) => json_response(
+            StatusCode::NOT_FOUND,
+            &serde_json::json!({"error": "NotFound", "message": "handle not found for this domain"}),
+        ),
+        Err(_) => json_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            &serde_json::json!({"error": "InternalServerError", "message": "Internal Server Error"}),
+        ),
+    }
+}
+
 /// The routes outside `/xrpc/` that need no body: the handle hosts of the
 /// profile, then the plain routes of the server (SPEC §4.1). `None` means
 /// the path is not one of them.
@@ -256,6 +312,7 @@ pub async fn plain(
     state: &AppState,
     method: &Method,
     path: &str,
+    query: Option<&str>,
     headers: &HeaderMap,
 ) -> Option<Response> {
     if let Some(response) = handle_host(state, method, path, headers).await {
@@ -268,6 +325,7 @@ pub async fn plain(
         "/" => Some(banner()),
         "/robots.txt" => Some(robots()),
         "/xrpc/_health" => Some(health(state).await),
+        "/tls-check" => Some(tls_check(state, query).await),
         pds_identity::handle::WELL_KNOWN_PATH => Some(atproto_did(state, headers).await),
         _ => None,
     }

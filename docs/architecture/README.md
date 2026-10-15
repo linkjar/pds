@@ -224,7 +224,8 @@ target, and the comparison checks two targets against a recorded difference
 list. The restore run puts the Reference and then the Candidate on one data
 volume and compares their answers to the read scenarios, body bytes
 included; the Candidate's `verify` checks the volume. Fault scenarios run
-against the Candidate alone. Source:
+against the Candidate alone. The smoke test needs no stack: it checks a
+PDS on a test host by its URL. Source:
 [`14-parity.mmd`](diagrams/14-parity.mmd).
 
 <picture>

@@ -33,9 +33,10 @@ pub struct Metrics {
 }
 
 /// The paths outside `/xrpc/` that have a label of their own.
-const PATHS: [&str; 13] = [
+const PATHS: [&str; 14] = [
     "/",
     "/robots.txt",
+    "/tls-check",
     "/account",
     "/oauth/authorize",
     "/oauth/par",

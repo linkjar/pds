@@ -4,12 +4,14 @@ An AT Protocol Personal Data Server in Rust, compatible with the reference
 implementation, with LinkJar's account behaviour as native extension points
 instead of source patches. Dual-licensed MIT or Apache-2.0.
 
-> **Status, 2026-10-14.** Every unit of the [plan](docs/plan.md) has code
+> **Status, 2026-10-15.** Every unit of the [plan](docs/plan.md) has code
 > on `main`: reads, writes and the firehose on a data directory that the
 > reference server started; accounts, OAuth and the `linkjar` profile; the
 > audit log; the operations console and the MCP server; Postgres; and the
 > entryway. The [parity harness](parity/README.md) passes its default
 > scenarios against the server alone, on Postgres, and behind an entryway.
+> The server is ready to test by hand on a host of its own
+> ([test-host runbook](docs/runbooks/test-host.md)).
 > The reference image under [`legacy/`](legacy/README.md) remains the
 > deployed server until the cutover. The steps before the cutover are the
 > owner's; the plan lists them with checkboxes.
@@ -70,6 +72,7 @@ engine to the firehose, is shared.
 | `crates/linkjar-pds/` | The binary: `serve`, `verify`, `export-car`, `check-config`, `health`, `version` |
 | `crates/pds-sim/` | The simulation: `pds-sim --seeds N` runs seeded plans against the server in process |
 | `Dockerfile` | The server's image |
+| `deploy/test-host/` | A compose file for a test host: the server behind Caddy ([runbook](docs/runbooks/test-host.md)) |
 | `xtask/` | Repository tasks: `cargo xtask codegen` generates API types from the lexicons |
 | `lexicons/` | Vendored upstream lexicons at the pin, LinkJar lexicons, project lexicons ([notice](lexicons/NOTICE.md)) |
 | `interop/` | CC0 interop test vectors from upstream ([notice](interop/README.md)) |

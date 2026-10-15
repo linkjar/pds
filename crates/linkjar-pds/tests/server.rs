@@ -80,6 +80,10 @@ impl Server {
             .await
     }
 
+    async fn get_owned(&self, path: String) -> Answer {
+        self.get(&path).await
+    }
+
     async fn get_as(&self, path: &str, authorization: &str) -> Answer {
         self.send(
             self.http
@@ -108,6 +112,34 @@ fn access_token(did: &str, scope: &str) -> String {
         "Bearer {head}.{body}.{}",
         URL_SAFE_NO_PAD.encode(mac.finalize().into_bytes())
     )
+}
+
+#[tokio::test]
+async fn the_tls_check_names_the_server_and_its_active_handles_only() {
+    let server = Server::start(1).await;
+    let check = |domain: &str| server.get_owned(format!("/tls-check?domain={domain}"));
+    assert_eq!(check("pds.test").await.json(), json!({"success": true}));
+    assert_eq!(
+        check("alice.pds.test").await.json(),
+        json!({"did": ALICE, "handle": "alice.pds.test"})
+    );
+    // A deactivated account, a taken-down account and a free name under the
+    // handle domain get no certificate, and neither does another domain.
+    for domain in ["dana.pds.test", "tara.pds.test", "nobody.pds.test"] {
+        assert_eq!(
+            check(domain).await.error(),
+            (404, "NotFound".to_owned()),
+            "{domain}"
+        );
+    }
+    assert_eq!(
+        check("example.com").await.error(),
+        (400, "InvalidRequest".to_owned())
+    );
+    assert_eq!(
+        server.get("/tls-check").await.error(),
+        (400, "InvalidRequest".to_owned())
+    );
 }
 
 #[tokio::test]

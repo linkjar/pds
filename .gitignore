@@ -17,3 +17,7 @@ legacy/staging/*.env
 !legacy/staging/example.env
 # Source mirrors for reading; see .agent_sources/README.md.
 .agent_sources/github.com/
+# The secrets and data of a test host (docs/runbooks/test-host.md).
+deploy/test-host/.env
+deploy/test-host/pds.env
+deploy/test-host/data/
