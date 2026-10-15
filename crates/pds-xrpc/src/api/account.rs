@@ -2,9 +2,8 @@
 //!
 //! The checks, their order and their answers are those of
 //! `createAccount.ts` at the pin for a server that is not behind an
-//! entryway. Not built yet: an account that brings its DID (migration,
-//! unit 8), the list of disposable email domains, and the tombstone of a
-//! DID whose account rows could not be written.
+//! entryway. Not built: the list of disposable email domains, and the
+//! tombstone of a DID whose account rows could not be written.
 
 use axum::body::Body;
 use axum::http::{HeaderMap, StatusCode};

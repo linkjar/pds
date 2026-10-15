@@ -37,8 +37,8 @@ pub async fn resolve_handle(state: &AppState, query: &Query<'_>) -> Result<Respo
         ));
     }
     // Without an AppView the Reference resolves the handle itself, over DNS
-    // and HTTPS. That resolver arrives with `updateHandle` (docs/plan.md,
-    // unit 5); until then such a handle does not resolve here.
+    // and HTTPS. This server does not; without an AppView such a handle
+    // does not resolve here.
     let appview = state
         .config()
         .appview_url

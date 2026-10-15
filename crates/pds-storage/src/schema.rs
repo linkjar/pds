@@ -5,10 +5,9 @@
 //! (`actor-store/db/migrations/001-init.ts`,
 //! `sequencer/db/migrations/001-init.ts` and
 //! `did-cache/db/migrations/001-init.ts`), so a database created here is one
-//! the Reference serves. The account database and the bookkeeping tables of
-//! the Reference's migrator arrive with the account lifecycle
-//! (`docs/plan.md`, unit 5); until then the server creates no database, and
-//! this module serves tests and the simulation.
+//! the Reference serves. The statements of the shared databases are in
+//! `schema_shared`. `DataLayout::create_missing` creates the files a data
+//! directory lacks; the simulation and the tests use this module directly.
 
 use std::path::Path;
 

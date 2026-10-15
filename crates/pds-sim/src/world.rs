@@ -37,7 +37,7 @@ const SERVICE_DID: &str = "did:web:pds.test";
 const EPOCH_MS: i64 = 1_767_225_600_000;
 
 /// The part of `account.sqlite` that the write path and `verify` read. The
-/// whole schema arrives with the account lifecycle (`docs/plan.md`, unit 5).
+/// simulation has no accounts beyond these rows, so it needs no more.
 const ACCOUNT_SCHEMA: &str = r#"
 create table "actor" ("did" varchar primary key, "handle" varchar, "createdAt" varchar not null, "takedownRef" varchar, "deactivatedAt" varchar, "deleteAfter" varchar);
 create table "repo_root" ("did" varchar primary key, "cid" varchar not null, "rev" varchar not null, "indexedAt" varchar not null);

@@ -1,4 +1,5 @@
-# The image build of ./Dockerfile needs the Cargo workspace and nothing else.
+# The image builds of Dockerfile, Dockerfile.console and Dockerfile.mcp need
+# the Cargo workspace and nothing else.
 *
 !Cargo.toml
 !Cargo.lock

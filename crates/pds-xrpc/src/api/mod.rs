@@ -847,10 +847,10 @@ async fn xrpc(
     }
 }
 
-/// A method with no handler. At the pin it goes to the catch-all proxy,
-/// which wants a session first (SPEC §4.2): no credential is 401, and
-/// the admin password is not a session. The proxy itself is not in this
-/// unit, so a request with a valid session is 501.
+/// A method with no handler that the proxy does not forward. At the pin it
+/// goes to the catch-all proxy, which wants a session first (SPEC §4.2):
+/// no credential is 401, and the admin password is not a session. With a
+/// valid session the answer is 501.
 fn unhandled(state: &AppState, nsid: &str, headers: &HeaderMap) -> XrpcError {
     match crate::auth::session(state, headers, None) {
         Ok(_) => XrpcError::not_implemented(nsid),

@@ -1,8 +1,8 @@
 //! Extension traits and the stock profile (`docs/SPEC.md` §12).
 //!
-//! The server core calls a [`Profile`] and holds no branch for an
-//! operator (§12.1). [`Stock`] answers as the Stock Reference behaves
-//! (§12.1). Built so far: the handle policy of §12.4.
+//! The server core calls a [`Profile`] where behaviour varies per operator
+//! (§12.1). [`Stock`] answers as the Stock Reference behaves, and every
+//! method of the trait defaults to it.
 
 use std::fmt::Debug;
 use std::future::Future;

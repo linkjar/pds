@@ -2,9 +2,8 @@
 //!
 //! The read methods take an optional credential: none, the admin password,
 //! or a legacy access token. With it an account's owner or an admin reads a
-//! repository that is deactivated or taken down. OAuth access tokens arrive
-//! with the authorization server (`docs/plan.md`, unit 5); until then a
-//! `DPoP` credential cannot be verified and is refused.
+//! repository that is deactivated or taken down. An OAuth access token with
+//! its `DPoP` proof is verified here too (§5.5).
 
 use axum::http::{HeaderMap, header};
 use base64::Engine;

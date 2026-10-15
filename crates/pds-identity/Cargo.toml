@@ -1,6 +1,6 @@
 [package]
 name = "pds-identity"
-description = "DID resolution and cache, PLC client, handle resolution, signing-key custody"
+description = "Keys and signatures, DID documents and methods, handle rules, did:plc operations, and a DID resolver over a cache the caller supplies"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

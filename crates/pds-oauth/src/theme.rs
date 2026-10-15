@@ -1,8 +1,7 @@
 //! The LinkJar journey: the look of every page the server renders.
 //!
 //! The pages take the look of LinkJar's onboarding, as the patched
-//! Reference build had it (`legacy/patches/102-signup-journey.patch`,
-//! `docs/legacy/signup-journey.md`): a dark stage with three soft colour
+//! Reference build had it (patch 102, the sign-up journey): a dark stage with three soft colour
 //! blooms, Geist, a light pill for the main action, filled fields and
 //! full-width provider rows. The values come from the app repository's
 //! prototype (`apps/web/src/styles/prototype/social.css`), which also

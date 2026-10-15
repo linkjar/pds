@@ -145,7 +145,7 @@ fn escape(text: &str) -> String {
 }
 
 /// The path that a proxy in front of the server rewrites a request on a
-/// handle host to (`legacy/staging/Caddyfile.handles`).
+/// handle host to (`parity/compose/Caddyfile.handles`).
 pub const PROFILE_HELPER: &str = "/.well-known/linkjar-profile";
 
 fn host_of(headers: &HeaderMap) -> String {

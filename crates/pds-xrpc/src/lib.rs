@@ -1,11 +1,12 @@
 //! The HTTP and XRPC surface (`docs/SPEC.md` §4).
 //!
-//! As of unit 3 the crate serves the read half: the repository and sync reads,
-//! `describeServer`, `resolveHandle` and the plain routes of §4.1. A method
-//! without a handler here answers as at the pin when the request has no
-//! session: 401 without a credential, 400 `InvalidToken` with the admin
-//! password. With a valid session it answers 501 until the proxy of §4.4
-//! arrives (`docs/plan.md`).
+//! The crate holds the dispatcher and the handlers of §4, the credentials
+//! of §5, the write path of §6.3, the proxy of §4.4, read-after-write, the
+//! HTTP side of OAuth (§11), mail, metrics, the audit-log writer (§20) and
+//! the ops listener (§22.1). The rules it applies live in the crates it
+//! depends on; `README.md` maps them. A method without a handler that the
+//! proxy does not forward answers as at the pin: 401 without a credential,
+//! 400 `InvalidToken` with the admin password, 501 with a session.
 
 pub mod api;
 pub mod audit;

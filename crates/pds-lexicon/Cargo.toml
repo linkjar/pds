@@ -1,6 +1,6 @@
 [package]
 name = "pds-lexicon"
-description = "Lexicon document model, loader, record validation and permission-set resolution"
+description = "Lexicon document model, loader, record validation and the Reference's validation wording"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

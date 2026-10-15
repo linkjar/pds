@@ -3,8 +3,8 @@
 //! `did:plc` for accounts created here, and `did:web` for accounts that
 //! migrate in. A `did:web` names a host and nothing else: no path, and a
 //! port only on `localhost` in development. Errors keep three cases apart:
-//! invalid syntax, an unsupported method, and (in the resolver, a later
-//! unit) a failed resolution.
+//! invalid syntax, an unsupported method, and (in the resolver) a failed
+//! resolution.
 
 use pds_types::{Did, SyntaxError};
 
