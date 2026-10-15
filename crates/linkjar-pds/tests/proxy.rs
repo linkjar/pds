@@ -18,6 +18,7 @@ use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use common::{ALICE, DataDir, PASSWORD};
 use linkjar_pds::serve::app_state;
+use pds_identity::Keypair;
 use serde_json::{Value, json};
 
 /// What the stand-in AppView received: method, path with query, headers.
@@ -100,7 +101,8 @@ async fn appview() -> (String, Seen) {
 struct Server {
     origin: String,
     http: reqwest::Client,
-    _dir: DataDir,
+    state: pds_xrpc::AppState,
+    dir: DataDir,
 }
 
 impl Server {
@@ -114,12 +116,14 @@ impl Server {
         );
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let origin = format!("http://{}", listener.local_addr().unwrap());
-        let router = pds_xrpc::router(app_state(&dir.config).unwrap());
+        let state = app_state(&dir.config).unwrap();
+        let router = pds_xrpc::router(state.clone());
         tokio::spawn(async move { axum::serve(listener, router).await });
         Self {
             origin,
             http: reqwest::Client::new(),
-            _dir: dir,
+            state,
+            dir,
         }
     }
 
@@ -341,6 +345,77 @@ async fn a_method_without_a_handler_goes_to_the_appview_with_a_service_token() {
             .await;
         assert_eq!((status, &body["error"]), (400, &json!(error)), "{query}");
     }
+}
+
+/// Whether `key` signed `token`.
+fn signed_by(token: &str, key: &Keypair) -> bool {
+    let (signed, signature) = token.rsplit_once('.').unwrap();
+    key.public_key()
+        .verify(
+            signed.as_bytes(),
+            &URL_SAFE_NO_PAD.decode(signature).unwrap(),
+        )
+        .is_ok()
+}
+
+#[tokio::test]
+async fn a_rotated_signing_key_signs_the_next_service_token() {
+    let (appview, seen) = appview().await;
+    let server = Server::start(&appview).await;
+    let (_, _, session) = server
+        .send(
+            server
+                .http
+                .post(format!(
+                    "{}/xrpc/com.atproto.server.createSession",
+                    server.origin
+                ))
+                .header("content-type", "application/json")
+                .body(json!({"identifier": ALICE, "password": PASSWORD}).to_string()),
+        )
+        .await;
+    let access = session["accessJwt"].as_str().unwrap().to_owned();
+    let timeline = "app.bsky.feed.getTimeline";
+    let last_token = || {
+        let seen = seen.lock().unwrap();
+        let (_, _, sent, _) = seen.last().unwrap();
+        sent.iter()
+            .find(|(key, _)| key == "authorization")
+            .and_then(|(_, value)| value.strip_prefix("Bearer "))
+            .unwrap()
+            .to_owned()
+    };
+
+    let (status, _, _) = server.send(server.get(timeline).bearer_auth(&access)).await;
+    assert_eq!(status, 200);
+    assert!(signed_by(&last_token(), &common::key(0)));
+
+    // The key file changes, as a rotation of the signing key does. The
+    // server signs with the key it read until it is told: a rotation goes
+    // through the server, which forgets the key when it writes the file.
+    let path = server.dir.config.layout.actor_key(ALICE);
+    std::fs::write(&path, common::key(9).secret_bytes().as_slice()).unwrap();
+    let (status, _, _) = server.send(server.get(timeline).bearer_auth(&access)).await;
+    assert_eq!(status, 200);
+    assert!(signed_by(&last_token(), &common::key(0)));
+
+    server.state.forget_actor_key(ALICE);
+    let (status, _, _) = server.send(server.get(timeline).bearer_auth(&access)).await;
+    assert_eq!(status, 200);
+    let rotated = last_token();
+    assert!(signed_by(&rotated, &common::key(9)));
+    assert!(!signed_by(&rotated, &common::key(0)));
+
+    // `getServiceAuth` signs with the same key.
+    let (status, _, body) = server
+        .send(
+            server
+                .get("com.atproto.server.getServiceAuth?aud=did:web:other.test&lxm=com.example.method")
+                .bearer_auth(&access),
+        )
+        .await;
+    assert_eq!(status, 200, "{body}");
+    assert!(signed_by(body["token"].as_str().unwrap(), &common::key(9)));
 }
 
 #[tokio::test]

@@ -10,7 +10,6 @@
 //! `#sync` (§7.4).
 
 use cid::Cid;
-use pds_identity::{Algorithm, Keypair};
 use pds_lexicon::{Corpus, validate_data_model, validate_record_key};
 use pds_repo::{Repo, RepoError, Write};
 use pds_sequencer::{CommitOp, commit_event, sync_event};
@@ -475,13 +474,7 @@ impl Session<'_> {
         let repo = Repo::load(actor, root.cid).map_err(XrpcError::internal)?;
         let current_rev = Tid::parse(&root.rev).map_err(XrpcError::internal)?;
         let rev = self.writes.tids().next_after(&current_rev);
-        let key = self
-            .state
-            .layout()
-            .read_actor_key(self.did)
-            .map_err(XrpcError::internal)?;
-        let key =
-            Keypair::from_secret_bytes(Algorithm::Secp256k1, &key).map_err(XrpcError::internal)?;
+        let key = self.state.actor_key(self.did)?;
         let paths: Vec<String> = writes.iter().map(Prepared::path).collect();
         let repo_writes: Vec<Write<'_>> = writes
             .iter()

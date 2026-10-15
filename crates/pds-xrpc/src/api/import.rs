@@ -15,7 +15,6 @@
 use axum::body::Body;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
-use pds_identity::{Algorithm, Keypair};
 use pds_repo::repo::{Expect, verify_diff_car, verify_repo_car};
 use pds_repo::{BlockMap, Repo, RepoError, TreeDefect};
 use pds_sequencer::sync_event;
@@ -54,14 +53,7 @@ impl Session<'_> {
     /// records that differ.
     fn import(&mut self, car: &[u8], active: bool) -> Result<(), XrpcError> {
         let did = Did::parse(self.did()).map_err(XrpcError::internal)?;
-        let key = self
-            .state()
-            .layout()
-            .read_actor_key(self.did())
-            .map_err(XrpcError::internal)?;
-        let public = Keypair::from_secret_bytes(Algorithm::Secp256k1, &key)
-            .map_err(XrpcError::internal)?
-            .public_key();
+        let public = self.state().actor_key(self.did())?.public_key();
         // The tree is checked first and the commit second, so that a tree
         // the Reference also refuses gets the Reference's answer.
         let expect = Expect {

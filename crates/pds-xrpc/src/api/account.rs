@@ -391,6 +391,7 @@ fn create_store(
         return Err(XrpcError::invalid_request("Repo already exists"));
     }
     std::fs::create_dir_all(&dir).map_err(XrpcError::internal)?;
+    state.forget_actor_key(did);
     std::fs::write(layout.actor_key(did), keypair.secret_bytes().as_slice())
         .map_err(XrpcError::internal)?;
     let rev = writes(state)?.tids().next();
@@ -408,6 +409,7 @@ fn create_store(
 }
 
 fn destroy_store(state: &AppState, did: &str) {
+    state.forget_actor_key(did);
     let dir = state.layout().actor_store_dir(did);
     if let Err(error) = std::fs::remove_dir_all(&dir) {
         tracing::error!(%did, %error, "the actor store of a failed creation was not removed");

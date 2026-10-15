@@ -39,13 +39,7 @@ pub(crate) fn rotation_did_key(state: &AppState) -> Result<String, XrpcError> {
 
 /// The `did:key` of the account's signing key.
 async fn signing_key(state: &AppState, did: &str) -> Result<String, XrpcError> {
-    let did = did.to_owned();
-    let key = state
-        .blocking(move |state| Ok(state.layout().read_actor_key(&did)?))
-        .await?;
-    Ok(Keypair::from_secret_bytes(Algorithm::Secp256k1, &key)
-        .map_err(XrpcError::internal)?
-        .did_key())
+    Ok(state.actor_key_async(did).await?.did_key())
 }
 
 /// The handle of an account that is not taken down.
