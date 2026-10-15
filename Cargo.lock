@@ -1607,7 +1607,6 @@ dependencies = [
  "pds-types",
  "proptest",
  "serde_json",
- "sha2",
  "thiserror",
 ]
 

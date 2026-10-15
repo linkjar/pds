@@ -75,7 +75,10 @@ fn check_pointer(cid: &Cid) -> Result<(), RepoError> {
     }
 }
 
-fn fetch_node<S: BlockStore>(store: &S, cid: &Cid) -> Result<(WireNode, Vec<u8>), RepoError> {
+pub(crate) fn fetch_node<S: BlockStore>(
+    store: &S,
+    cid: &Cid,
+) -> Result<(WireNode, Vec<u8>), RepoError> {
     let bytes = store.get(cid)?.ok_or_else(|| RepoError::missing(*cid))?;
     let node = WireNode::decode(&bytes).map_err(|reason| RepoError::node(*cid, reason))?;
     Ok((node, bytes))
@@ -107,15 +110,15 @@ impl<S: BlockStore> Reader<'_, S> {
         if node.left.is_none() && node.entries.is_empty() {
             return Err(RepoError::tree(*cid, TreeDefect::EmptyNode));
         }
-        self.node(cid, &node, layer)
+        self.node(cid, node, layer)
     }
 
-    fn node(&mut self, cid: &Cid, node: &WireNode, layer: u32) -> Result<(), RepoError> {
+    fn node(&mut self, cid: &Cid, node: WireNode, layer: u32) -> Result<(), RepoError> {
         self.out.nodes.push(*cid);
         if let Some(left) = &node.left {
             self.subtree(left, cid, layer)?;
         }
-        for entry in &node.entries {
+        for entry in node.entries {
             if layer_of(entry.key.as_bytes()) != layer {
                 return Err(RepoError::tree(*cid, TreeDefect::KeyLayer));
             }
@@ -130,7 +133,7 @@ impl<S: BlockStore> Reader<'_, S> {
             if repo_cid_kind(&entry.value) != Ok(CidKind::DagCbor) {
                 return Err(RepoError::tree(*cid, TreeDefect::PointerCid));
             }
-            self.out.leaves.push((entry.key.clone(), entry.value));
+            self.out.leaves.push((entry.key, entry.value));
             if let Some(tree) = &entry.tree {
                 self.subtree(tree, cid, layer)?;
             }
@@ -166,7 +169,7 @@ pub fn read_tree<S: BlockStore>(
         return Ok(reader.out);
     };
     let layer = layer_of(first.key.as_bytes());
-    reader.node(root, &node, layer)?;
+    reader.node(root, node, layer)?;
     Ok(reader.out)
 }
 

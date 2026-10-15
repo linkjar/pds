@@ -8,8 +8,6 @@ use cid::Cid;
 use cid::multihash::Multihash;
 use sha2::{Digest, Sha256};
 
-use crate::cbor::MAX_CID_LEN;
-
 /// The multicodec code of `dag-cbor`.
 pub const DAG_CBOR: u64 = 0x71;
 /// The multicodec code of `raw`.
@@ -38,9 +36,6 @@ pub enum CidError {
     /// A hash other than SHA-256 with a 32-byte digest.
     #[error("CID hash must be SHA-256")]
     Hash,
-    /// The binary form is longer than 100 bytes.
-    #[error("CID is longer than 100 bytes")]
-    TooLong,
 }
 
 /// The SHA-256 digest of `bytes`.
@@ -110,15 +105,6 @@ pub fn is_canonical_cid_bytes(cid: &Cid, bytes: &[u8]) -> bool {
     }
     let written = 128 - out.len();
     buf.get(..written) == Some(bytes)
-}
-
-/// Rejects a CID whose binary form is longer than the limit of SPEC §6.1.
-pub fn check_cid_len(cid: &Cid) -> Result<(), CidError> {
-    if cid.encoded_len() > MAX_CID_LEN {
-        Err(CidError::TooLong)
-    } else {
-        Ok(())
-    }
 }
 
 #[cfg(test)]

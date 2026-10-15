@@ -23,6 +23,7 @@ use pds_types::Limits;
 use pds_types::content::cid_for_cbor;
 
 use super::node::{MAX_LAYER, NodeWriter, WireNode, is_valid_key, layer_of};
+use super::walk::fetch_node;
 use crate::block::{BlockMap, BlockStore};
 use crate::error::{RepoError, TreeDefect};
 
@@ -109,8 +110,7 @@ impl Node {
 }
 
 fn read_node<S: BlockStore>(store: &S, cid: &Cid) -> Result<Node, RepoError> {
-    let bytes = store.get(cid)?.ok_or_else(|| RepoError::missing(*cid))?;
-    let wire = WireNode::decode(&bytes).map_err(|reason| RepoError::node(*cid, reason))?;
+    let (wire, bytes) = fetch_node(store, cid)?;
     Ok(Node::from_wire(wire, *cid, bytes))
 }
 
@@ -364,13 +364,17 @@ fn seal(node: &mut Node) -> Result<Cid, RepoError> {
     Ok(cid)
 }
 
-/// Collects the blocks of the nodes that are not in the store, parents
-/// before children.
-fn collect_new(node: &Node, out: &mut BlockMap) {
+/// Collects the CIDs of the nodes that are not in the store into `sealed`,
+/// and their blocks into `out` unless `removed` names them, parents before
+/// children.
+fn collect_new(node: &Node, removed: &HashSet<Cid>, sealed: &mut HashSet<Cid>, out: &mut BlockMap) {
     if !node.stored
-        && let Some(sealed) = &node.sealed
+        && let Some(block) = &node.sealed
     {
-        out.insert(sealed.cid, sealed.bytes.clone());
+        sealed.insert(block.cid);
+        if !removed.contains(&block.cid) {
+            out.insert(block.cid, block.bytes.clone());
+        }
     }
     let children = node
         .left
@@ -378,32 +382,37 @@ fn collect_new(node: &Node, out: &mut BlockMap) {
         .chain(node.entries.iter().filter_map(|e| e.right.as_ref()));
     for child in children {
         if let Child::Loaded(sub) = child {
-            collect_new(sub, out);
+            collect_new(sub, removed, sealed, out);
         }
     }
 }
 
+/// Adds the block of `node` to a proof. The three walks of a covering
+/// proof, and the proofs of a batch, share the upper nodes: a block that
+/// is in the proof already is not copied again.
 fn add_block(node: &Node, out: &mut BlockMap) -> Result<(), RepoError> {
     let sealed = node
         .sealed
         .as_ref()
         .ok_or(RepoError::Commit("a proof needs an encoded tree"))?;
-    out.insert(sealed.cid, sealed.bytes.clone());
+    if !out.contains(&sealed.cid) {
+        out.insert(sealed.cid, sealed.bytes.clone());
+    }
     Ok(())
 }
 
 /// Collects the CIDs of the nodes from `node` down to where `key` is or
-/// would be, and returns the value at the key.
+/// would be, with their blocks, and returns the value at the key.
 fn path_to_key<S: BlockStore>(
     store: &S,
     node: &mut Node,
     layer: u32,
     key: &str,
-    out: &mut Vec<Cid>,
+    out: &mut Vec<(Cid, Vec<u8>)>,
 ) -> Result<Option<Cid>, RepoError> {
     seal(node)?;
     if let Some(sealed) = &node.sealed {
-        out.push(sealed.cid);
+        out.push((sealed.cid, sealed.bytes.clone()));
     }
     let i = node.position(key);
     if let Some(entry) = node.entries.get(i).filter(|e| e.key == key) {
@@ -478,6 +487,15 @@ fn proof_for_right_sibling<S: BlockStore>(
     add_block(node, out)
 }
 
+/// The path to one key, as [`Tree::path_to`] reads it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KeyPath {
+    /// The nodes from the root down, each with its block.
+    pub nodes: Vec<(Cid, Vec<u8>)>,
+    /// The value at the key, when the key is present.
+    pub value: Option<Cid>,
+}
+
 /// What a set of writes did to the stored tree.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TreeChanges {
@@ -525,16 +543,6 @@ impl<S: BlockStore> Tree<S> {
             layer,
             removed: HashSet::new(),
         })
-    }
-
-    /// The block store.
-    pub const fn store(&self) -> &S {
-        &self.store
-    }
-
-    /// The layer of the root node.
-    pub const fn layer(&self) -> u32 {
-        self.layer
     }
 
     /// The record at `key`.
@@ -653,18 +661,13 @@ impl<S: BlockStore> Tree<S> {
     /// neither set.
     pub fn changes(&mut self) -> Result<TreeChanges, RepoError> {
         let root = seal(&mut self.root)?;
-        let mut encoded = BlockMap::new();
-        collect_new(&self.root, &mut encoded);
         let mut new_blocks = BlockMap::new();
-        for (cid, bytes) in encoded.iter() {
-            if !self.removed.contains(cid) {
-                new_blocks.insert(*cid, bytes.to_vec());
-            }
-        }
+        let mut sealed = HashSet::new();
+        collect_new(&self.root, &self.removed, &mut sealed, &mut new_blocks);
         let removed = self
             .removed
             .iter()
-            .filter(|cid| !encoded.contains(cid))
+            .filter(|cid| !sealed.contains(cid))
             .copied()
             .collect();
         Ok(TreeChanges {
@@ -674,18 +677,18 @@ impl<S: BlockStore> Tree<S> {
         })
     }
 
-    /// The nodes on the path to `key`, from the root down, and the value at
-    /// the key when it is present.
+    /// The nodes on the path to `key`, from the root down, each with its
+    /// block, and the value at the key when it is present.
     ///
     /// The path ends at the node that holds the key, or at the node where
     /// the search for it stops. This is the proof `sync.getRecord` serves:
     /// with these blocks a reader can check that the key has this value, or
     /// none, under the root.
-    pub fn path_to(&mut self, key: &str) -> Result<(Vec<Cid>, Option<Cid>), RepoError> {
+    pub fn path_to(&mut self, key: &str) -> Result<KeyPath, RepoError> {
         seal(&mut self.root)?;
         let mut nodes = Vec::new();
         let value = path_to_key(&self.store, &mut self.root, self.layer, key, &mut nodes)?;
-        Ok((nodes, value))
+        Ok(KeyPath { nodes, value })
     }
 
     /// Adds to `out` the node blocks that prove the value of `key`, or its

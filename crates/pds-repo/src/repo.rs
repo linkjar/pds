@@ -269,6 +269,8 @@ pub struct Repo<S> {
     store: S,
     cid: Cid,
     commit: Commit,
+    /// The commit block, as stored.
+    bytes: Vec<u8>,
 }
 
 impl<S: BlockStore> Repo<S> {
@@ -277,7 +279,12 @@ impl<S: BlockStore> Repo<S> {
     pub fn load(store: S, cid: Cid) -> Result<Self, RepoError> {
         let bytes = store.get(&cid)?.ok_or_else(|| RepoError::missing(cid))?;
         let commit = Commit::decode(&bytes)?;
-        Ok(Self { store, cid, commit })
+        Ok(Self {
+            store,
+            cid,
+            commit,
+            bytes,
+        })
     }
 
     /// The commit's CID.
@@ -288,11 +295,6 @@ impl<S: BlockStore> Repo<S> {
     /// The commit.
     pub const fn commit(&self) -> &Commit {
         &self.commit
-    }
-
-    /// The block store.
-    pub const fn store(&self) -> &S {
-        &self.store
     }
 
     /// The record at `key`: its CID and its block.
@@ -315,19 +317,18 @@ impl<S: BlockStore> Repo<S> {
     /// The order is the one the Reference writes into the CAR of
     /// `com.atproto.sync.getRecord`.
     pub fn record_proof(&self, key: &str) -> Result<BlockMap, RepoError> {
-        let mut blocks = BlockMap::new();
-        let commit = self
-            .store
-            .get(&self.cid)?
-            .ok_or_else(|| RepoError::missing(self.cid))?;
-        blocks.insert(self.cid, commit);
         let mut tree = Tree::load(&self.store, self.commit.data)?;
-        let (nodes, value) = tree.path_to(key)?;
-        for cid in value.into_iter().chain(nodes) {
+        let path = tree.path_to(key)?;
+        let mut blocks = BlockMap::new();
+        blocks.insert(self.cid, self.bytes.clone());
+        if let Some(cid) = path.value {
             let bytes = self
                 .store
                 .get(&cid)?
                 .ok_or_else(|| RepoError::missing(cid))?;
+            blocks.insert(cid, bytes);
+        }
+        for (cid, bytes) in path.nodes {
             blocks.insert(cid, bytes);
         }
         Ok(blocks)

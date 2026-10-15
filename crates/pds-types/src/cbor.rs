@@ -646,13 +646,13 @@ impl Writer {
             }
             Data::Object(o) => {
                 self.map(o.len());
-                let mut keys: Vec<&String> = o.keys().collect();
-                keys.sort_unstable_by(|a, b| (a.len(), a.as_bytes()).cmp(&(b.len(), b.as_bytes())));
-                for k in keys {
+                let mut entries: Vec<(&String, &Data)> = o.iter().collect();
+                entries.sort_unstable_by(|(a, _), (b, _)| {
+                    (a.len(), a.as_bytes()).cmp(&(b.len(), b.as_bytes()))
+                });
+                for (k, item) in entries {
                     self.text(k);
-                    if let Some(item) = o.get(k) {
-                        self.data(item);
-                    }
+                    self.data(item);
                 }
             }
         }
