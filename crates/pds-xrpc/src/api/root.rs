@@ -57,7 +57,7 @@ pub fn robots() -> Response {
 pub async fn health(state: &AppState) -> Response {
     let version = state.config().version.clone();
     let reachable = state
-        .blocking(|state| Ok(state.layout().accounts()?.ping()?))
+        .blocking(|state| Ok(state.reads().accounts()?.ping()?))
         .await;
     let mut body = serde_json::Map::new();
     if let Some(version) = version {
@@ -94,7 +94,7 @@ pub async fn atproto_did(state: &AppState, headers: &HeaderMap) -> Response {
     }
     let found = state
         .blocking(move |state| {
-            let accounts = state.layout().accounts()?;
+            let accounts = state.reads().accounts()?;
             Ok(accounts.actor(&host, Availability::ACTIVE)?)
         })
         .await;
@@ -165,7 +165,7 @@ async fn profile_redirect(state: &AppState, host: String) -> Response {
         let host = host.clone();
         state
             .blocking(move |state| {
-                let accounts = state.layout().accounts()?;
+                let accounts = state.reads().accounts()?;
                 Ok(accounts.actor(&host, Availability::ACTIVE)?)
             })
             .await
@@ -284,7 +284,7 @@ pub async fn tls_check(state: &AppState, query: Option<&str>) -> Response {
         let domain = domain.clone();
         state
             .blocking(move |state| {
-                let accounts = state.layout().accounts()?;
+                let accounts = state.reads().accounts()?;
                 Ok(accounts.actor(&domain, Availability::ACTIVE)?)
             })
             .await

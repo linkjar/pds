@@ -255,7 +255,7 @@ pub(crate) async fn activate(state: &AppState, did: String) -> Result<(), XrpcEr
                 .accounts()?
                 .actor(&did, Availability::ANY)?
                 .ok_or_else(not_found)?;
-            let store = ActorDb::open(&state.layout().actor_db(&did))?;
+            let store = state.reads().store(&did)?;
             let root = store
                 .root()?
                 .ok_or_else(|| XrpcError::internal("the store has no repository root"))?;
@@ -287,7 +287,7 @@ pub async fn check_account_status(
     let valid_did = assert_valid_did(state, &did).await.is_ok();
     let status = state
         .blocking(move |state| {
-            let store = ActorDb::open(&state.layout().actor_db(&did))?;
+            let store = state.reads().store(&did)?;
             let root = store
                 .root()?
                 .ok_or_else(|| XrpcError::internal("the store has no repository root"))?;
@@ -477,7 +477,7 @@ pub(crate) async fn change_handle(
         let did = did.clone();
         state
             .blocking(move |state| {
-                let accounts = state.layout().accounts()?;
+                let accounts = state.reads().accounts()?;
                 let availability = Availability {
                     include_taken_down: false,
                     include_deactivated: true,
@@ -583,6 +583,7 @@ pub(crate) fn delete_account_now(state: &AppState, did: &str) -> Result<(), Xrpc
         }
     }
     writes.forget_store(did);
+    state.reads().forget_store(did);
     state.forget_actor_key(did);
     match std::fs::remove_dir_all(layout.actor_store_dir(did)) {
         Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
@@ -668,7 +669,7 @@ pub async fn delete_account(
     let deleted = did.clone();
     state
         .blocking(move |state| {
-            let accounts = state.layout().accounts()?;
+            let accounts = state.reads().accounts()?;
             if accounts.actor(&did, Availability::ANY)?.is_none() {
                 return Err(XrpcError::invalid_request("account not found"));
             }

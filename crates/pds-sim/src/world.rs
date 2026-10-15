@@ -20,7 +20,7 @@ use pds_repo::{MemoryBlockStore, Repo};
 use pds_sequencer::{
     Crawlers, Sequencer, account_event, commit_event, identity_event, iso_millis, sync_event,
 };
-use pds_storage::{ActorDb, DataLayout, schema};
+use pds_storage::{ActorDb, DataLayout, ReadPool, schema};
 use pds_types::{Did, TidGenerator};
 use pds_xrpc::auth::AuthConfig;
 use pds_xrpc::{AppState, ServerConfig, WriteSettings, WriteState};
@@ -189,6 +189,7 @@ async fn start(
         blob_upload_limit: 5 * 1024 * 1024,
         privacy_policy_url: None,
         terms_of_service_url: None,
+        branding: pds_xrpc::state::Branding::default(),
         contact_email: None,
         appview_url: None,
         appview_did: None,
@@ -244,7 +245,7 @@ async fn start(
     let blobs = DiskBlobStore::new(root.join("blocks"));
     let state = AppState::new(
         config,
-        layout,
+        ReadPool::new(layout, 2),
         Some(blobs.into()),
         resolver,
         http,

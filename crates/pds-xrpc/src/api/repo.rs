@@ -3,7 +3,7 @@
 use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use pds_identity::resolver::claimed_handle;
-use pds_storage::{ActorDb, Availability, RecordRow};
+use pds_storage::{Availability, RecordRow};
 use pds_types::{Data, Did, Handle};
 use serde_json::{Map, Value, json};
 
@@ -50,12 +50,12 @@ pub async fn get_record(state: &AppState, query: &Query<'_>) -> Result<Response,
     let cid = query.params.get("cid").map(str::to_owned);
     let found = state
         .blocking(move |state| {
-            let accounts = state.layout().accounts()?;
+            let accounts = state.reads().accounts()?;
             let Some(actor) = accounts.actor(&repo, Availability::ACTIVE)? else {
                 return Ok(None);
             };
             let uri = format!("at://{}/{collection}/{rkey}", actor.did);
-            let store = ActorDb::open(&state.layout().actor_db(&actor.did))?;
+            let store = state.reads().store(&actor.did)?;
             let record = store.record(&uri, cid.as_deref())?.ok_or_else(|| {
                 XrpcError::bad_request("RecordNotFound", format!("Could not locate record: {uri}"))
             })?;
@@ -127,13 +127,13 @@ pub async fn list_records(state: &AppState, query: &Query<'_>) -> Result<Respons
     let reverse = query.params.boolean("reverse");
     let rows = state
         .blocking(move |state| {
-            let accounts = state.layout().accounts()?;
+            let accounts = state.reads().accounts()?;
             let actor = accounts
                 .actor(&repo, Availability::ACTIVE)?
                 .ok_or_else(|| {
                     XrpcError::invalid_request(format!("Could not find repo: {repo}"))
                 })?;
-            let store = ActorDb::open(&state.layout().actor_db(&actor.did))?;
+            let store = state.reads().store(&actor.did)?;
             Ok(store.list_records(&actor.did, &collection, limit, reverse, cursor.as_deref())?)
         })
         .await?;
@@ -169,7 +169,7 @@ pub async fn describe_repo(state: &AppState, query: &Query<'_>) -> Result<Respon
     let collections = state
         .blocking({
             let did = actor.did.clone();
-            move |state| Ok(ActorDb::open(&state.layout().actor_db(&did))?.list_collections()?)
+            move |state| Ok(state.reads().store(&did)?.list_collections()?)
         })
         .await?;
     let body = json!({

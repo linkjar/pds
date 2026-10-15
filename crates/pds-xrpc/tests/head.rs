@@ -14,7 +14,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use pds_identity::{DidResolver, ResolverConfig};
-use pds_storage::DataLayout;
+use pds_storage::{DataLayout, ReadPool};
 use pds_xrpc::auth::AuthConfig;
 use pds_xrpc::{AppState, ServerConfig};
 
@@ -28,6 +28,7 @@ fn state() -> AppState {
         blob_upload_limit: 1024,
         privacy_policy_url: None,
         terms_of_service_url: None,
+        branding: pds_xrpc::state::Branding::default(),
         contact_email: None,
         appview_url: None,
         appview_did: None,
@@ -67,7 +68,8 @@ fn state() -> AppState {
     );
     // No route under test opens the data directory.
     let layout = DataLayout::new(Path::new("/nonexistent/pds-xrpc-head-test"));
-    AppState::new(config, layout, None, resolver, http, None, || 0)
+    let reads = ReadPool::new(layout, 0);
+    AppState::new(config, reads, None, resolver, http, None, || 0)
 }
 
 /// One answer as it crossed the wire: the status, the header lines in lower

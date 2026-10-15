@@ -12,11 +12,12 @@ use axum::body::Body;
 use axum::extract::State;
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
+use pds_sidecar::client::ClientError;
 use serde_json::{Map, Value, json};
 
-use crate::Mcp;
-use crate::pds::{PdsError, Xrpc};
+use crate::pds::Xrpc;
 use crate::store::{Session, is_nsid};
+use crate::{Mcp, json_response};
 
 /// The revisions of the protocol the server speaks, the newest first.
 const VERSIONS: &[&str] = &["2025-11-25", "2025-06-18", "2025-03-26"];
@@ -235,7 +236,7 @@ impl Caller<'_> {
         nsid: &str,
         params: &[(&str, &str)],
         input: Option<&Value>,
-    ) -> Result<Value, PdsError> {
+    ) -> Result<Value, ClientError> {
         let call = Xrpc {
             nsid,
             params,
@@ -249,7 +250,7 @@ impl Caller<'_> {
         &self,
         name: &str,
         input: &Map<String, Value>,
-    ) -> Result<Result<Value, PdsError>, Failure> {
+    ) -> Result<Result<Value, ClientError>, Failure> {
         let did = self.session.pds.did.as_str();
         let describe = "com.atproto.repo.describeRepo";
         Ok(match name {
@@ -293,7 +294,7 @@ impl Caller<'_> {
         &self,
         name: &str,
         input: &Map<String, Value>,
-    ) -> Result<Result<Value, PdsError>, Failure> {
+    ) -> Result<Result<Value, ClientError>, Failure> {
         let did = self.session.pds.did.as_str();
         let collection = collection_of(input)?;
         if !self.session.may_write(collection) {
@@ -487,18 +488,6 @@ async fn dispatch(caller: &Caller<'_>, method: &str, params: &Value) -> Result<V
 
 fn rpc_error(id: &Value, code: i64, message: &str) -> Value {
     json!({ "jsonrpc": "2.0", "id": id, "error": { "code": code, "message": message } })
-}
-
-fn json_response(status: StatusCode, body: &Value) -> Response {
-    (
-        status,
-        [
-            (header::CONTENT_TYPE, "application/json"),
-            (header::CACHE_CONTROL, "no-store"),
-        ],
-        body.to_string(),
-    )
-        .into_response()
 }
 
 /// A 401 or a 403 with the challenge that names the metadata of the

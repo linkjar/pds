@@ -71,30 +71,20 @@ impl std::fmt::Debug for Config {
 /// An origin without a path. `https`, or `http` for a loopback address.
 fn origin(name: &'static str, value: &str) -> Result<String, ConfigError> {
     let invalid = |reason| ConfigError::Invalid { name, reason };
-    let url = Url::parse(value).map_err(|_| invalid("expected a URL"))?;
-    let loopback = matches!(url.host_str(), Some("127.0.0.1" | "[::1]" | "localhost"));
-    match url.scheme() {
-        "https" => {}
-        "http" if loopback => {}
-        _ => return Err(invalid("expected https, or http on a loopback address")),
+    let origin = pds_sidecar::config::origin(value).map_err(invalid)?;
+    let allowed = Url::parse(&origin).is_ok_and(|url| {
+        url.scheme() == "https"
+            || matches!(url.host_str(), Some("127.0.0.1" | "[::1]" | "localhost"))
+    });
+    if !allowed {
+        return Err(invalid("expected https, or http on a loopback address"));
     }
-    if url.path() != "/" || url.query().is_some() || url.fragment().is_some() {
-        return Err(invalid("expected an origin without a path"));
-    }
-    if !url.username().is_empty() || url.password().is_some() {
-        return Err(invalid("expected an origin without credentials"));
-    }
-    Ok(value.trim_end_matches('/').to_owned())
+    Ok(origin)
 }
 
 /// An origin on a private network: `http` or `https`, any host.
 fn internal(name: &'static str, value: &str) -> Result<String, ConfigError> {
-    let invalid = |reason| ConfigError::Invalid { name, reason };
-    let url = Url::parse(value).map_err(|_| invalid("expected a URL"))?;
-    if !matches!(url.scheme(), "http" | "https") || url.path() != "/" || url.query().is_some() {
-        return Err(invalid("expected an http or https origin without a path"));
-    }
-    Ok(value.trim_end_matches('/').to_owned())
+    pds_sidecar::config::origin(value).map_err(|reason| ConfigError::Invalid { name, reason })
 }
 
 impl Config {

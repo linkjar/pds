@@ -6,7 +6,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use pds_identity::{DidCache, DidResolver, ResolverConfig};
 use pds_sequencer::{Crawlers, Sequencer};
-use pds_storage::DidCacheDb;
+use pds_storage::{DidCacheDb, ReadPool};
 use pds_types::TidGenerator;
 use pds_xrpc::auth::AuthConfig;
 use pds_xrpc::{AppState, ServerConfig, WriteSettings, WriteState};
@@ -120,6 +120,12 @@ fn server_config(config: &Config, jwt_secret: &str, admin_password: &str) -> Ser
         blob_upload_limit: config.blob_upload_limit,
         privacy_policy_url: config.privacy_policy_url.clone(),
         terms_of_service_url: config.terms_of_service_url.clone(),
+        branding: pds_xrpc::state::Branding {
+            service_name: config.mail.service_name.clone(),
+            logo_url: config.mail.logo_url.clone(),
+            home_url: config.mail.home_url.clone(),
+            support_url: config.support_url.clone(),
+        },
         contact_email: config.contact_email.clone(),
         appview_url: config.appview_url.clone(),
         appview_did: config.appview_did.clone(),
@@ -261,7 +267,7 @@ pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
         .map_err(|error| ServeError::Storage(format!("blob store: {error}")))?;
     let state = AppState::new(
         server,
-        config.layout.clone(),
+        ReadPool::new(config.layout.clone(), config.actor_store_cache_size),
         blobs,
         resolver,
         http,
@@ -546,7 +552,13 @@ pub async fn serve(config: &Config) -> Result<(), ServeError> {
     let listener = bind(config.port)?;
     let address = listener.local_addr()?;
     tracing::info!(%address, did = %config.service_did, "serving");
-    let served = serve_until(listener, state.clone(), shutdown(), SHUTDOWN_LIMIT).await;
+    let served = serve_until(
+        listener,
+        state.clone(),
+        pds_sidecar::process::shutdown(),
+        SHUTDOWN_LIMIT,
+    )
+    .await;
     // The entries since the last checkpoint are signed before the process
     // ends.
     pds_xrpc::audit::checkpoint(&state).await;
@@ -609,26 +621,4 @@ pub async fn serve_until(
     }
     tracing::info!("stopped");
     Ok(())
-}
-
-/// Resolves on `SIGTERM` or an interrupt (SPEC §14.3).
-async fn shutdown() {
-    let interrupt = async {
-        let _ = tokio::signal::ctrl_c().await;
-    };
-    #[cfg(unix)]
-    let terminate = async {
-        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-            Ok(mut signal) => {
-                signal.recv().await;
-            }
-            Err(_) => std::future::pending::<()>().await,
-        }
-    };
-    #[cfg(not(unix))]
-    let terminate = std::future::pending::<()>();
-    tokio::select! {
-        () = interrupt => {}
-        () = terminate => {}
-    }
 }

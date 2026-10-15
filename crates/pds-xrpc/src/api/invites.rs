@@ -165,7 +165,7 @@ pub async fn get_account_invite_codes(
     let codes = state
         .blocking(move |state| {
             super::repo_write::find_account(state, &did, true, false)?;
-            let accounts = state.layout().accounts()?;
+            let accounts = state.reads().accounts()?;
             if accounts.actor(&did, Availability::ACTIVE)?.is_none() {
                 return Err(XrpcError::bad_request("NotFound", "Account not found"));
             }
@@ -192,7 +192,7 @@ pub async fn get_invite_codes(state: &AppState, query: &Query<'_>) -> Result<Res
     let malformed = || XrpcError::invalid_request("Malformed cursor");
     let page = state
         .blocking(move |state| {
-            let accounts = state.layout().accounts()?;
+            let accounts = state.reads().accounts()?;
             let parts = cursor
                 .as_deref()
                 .map(|cursor| cursor.split_once("::").ok_or_else(malformed))

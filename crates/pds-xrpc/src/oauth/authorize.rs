@@ -11,7 +11,7 @@ use axum::body::Body;
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use hmac::{Hmac, KeyInit, Mac};
-use pds_oauth::pages::{self, Consent, Flow};
+use pds_oauth::pages::{self, Consent, Flow, Shell};
 use pds_oauth::token::{
     AUTHENTICATION_MAX_AGE_MS, EPHEMERAL_SESSION_MAX_AGE_S, Id, PAR_EXPIRES_IN_MS,
     REQUEST_URI_PREFIX, mint_ephemeral, verify_ephemeral,
@@ -154,7 +154,7 @@ pub(super) fn html(
     let mut response = (status, body).into_response();
     let headers = response.headers_mut();
     let csp = format!(
-        "default-src 'none'; style-src 'nonce-{nonce}'; script-src 'nonce-{nonce}'; base-uri 'none'; frame-ancestors 'none'"
+        "default-src 'none'; style-src 'nonce-{nonce}'; script-src 'nonce-{nonce}'; font-src 'self'; img-src 'self' https:; base-uri 'none'; frame-ancestors 'none'"
     );
     if let Ok(csp) = HeaderValue::from_str(&csp) {
         headers.insert(header::CONTENT_SECURITY_POLICY, csp);
@@ -178,13 +178,22 @@ pub(super) fn new_nonce() -> String {
     Id::Request.format(&super::random::<16>())[4..].to_owned()
 }
 
-pub(super) fn error_page(status: StatusCode, cookies: &[HeaderValue], message: &str) -> Response {
+pub(super) fn error_page(
+    state: &AppState,
+    status: StatusCode,
+    cookies: &[HeaderValue],
+    message: &str,
+) -> Response {
     let nonce = new_nonce();
+    let shell = Shell {
+        nonce: &nonce,
+        brand: state.config().brand(),
+    };
     html(
         status,
         &nonce,
         cookies,
-        pages::error(&nonce, "Authorization failed", message),
+        pages::error(shell, "Authorization failed", message),
     )
 }
 
@@ -205,6 +214,7 @@ pub(super) fn to_client(
     fields.extend_from_slice(outcome);
     let Some(mut target) = text("redirect_uri").and_then(|uri| url::Url::parse(uri).ok()) else {
         return error_page(
+            state,
             StatusCode::BAD_REQUEST,
             cookies,
             "The request has no redirect URI",
@@ -213,7 +223,11 @@ pub(super) fn to_client(
     match text("response_mode") {
         Some("form_post") => {
             let nonce = new_nonce();
-            let page = pages::form_post(&nonce, target.as_str(), &fields);
+            let shell = Shell {
+                nonce: &nonce,
+                brand: state.config().brand(),
+            };
+            let page = pages::form_post(shell, target.as_str(), &fields);
             return html(StatusCode::OK, &nonce, cookies, page);
         }
         Some("fragment") => {
@@ -490,7 +504,7 @@ impl Page<'_> {
         let flow = Flow {
             captcha: captcha.map(|hcaptcha| hcaptcha.site_key.as_str()),
             providers: &providers,
-            service: &self.state.config().hostname,
+            brand: self.state.config().brand(),
             nonce: &nonce,
             client_id: &self.client.client.id,
             request_uri: &request_uri,
@@ -500,7 +514,7 @@ impl Page<'_> {
         // The challenge of a sign-up is hCaptcha's script and frame.
         if captcha.is_some() {
             let csp = format!(
-                "default-src 'none'; style-src 'nonce-{nonce}' https://hcaptcha.com https://*.hcaptcha.com; script-src 'nonce-{nonce}' https://hcaptcha.com https://*.hcaptcha.com; frame-src https://hcaptcha.com https://*.hcaptcha.com; connect-src https://hcaptcha.com https://*.hcaptcha.com; base-uri 'none'; frame-ancestors 'none'"
+                "default-src 'none'; style-src 'nonce-{nonce}' https://hcaptcha.com https://*.hcaptcha.com; script-src 'nonce-{nonce}' https://hcaptcha.com https://*.hcaptcha.com; frame-src https://hcaptcha.com https://*.hcaptcha.com; connect-src https://hcaptcha.com https://*.hcaptcha.com; font-src 'self'; img-src 'self' https:; base-uri 'none'; frame-ancestors 'none'"
             );
             if let Ok(csp) = HeaderValue::from_str(&csp) {
                 response
@@ -574,7 +588,7 @@ async fn page_inner(
         .filter(|(_, value)| !value.is_empty())
         .map(|(name, value)| (name.into_owned(), value.into_owned()))
         .collect();
-    let bad = |message: &str| Ok(error_page(StatusCode::BAD_REQUEST, &[], message));
+    let bad = |message: &str| Ok(error_page(state, StatusCode::BAD_REQUEST, &[], message));
     let Some(client_id) = query.get("client_id") else {
         return bad("The request names no client");
     };
@@ -602,6 +616,7 @@ async fn page_inner(
         }
         Loaded::Unknown => {
             return Ok(error_page(
+                state,
                 StatusCode::BAD_REQUEST,
                 &device.cookies,
                 "Unknown request_uri",
@@ -703,8 +718,8 @@ async fn view(
     })
 }
 
-pub(super) fn failed(error: &OAuthError) -> Response {
-    error_page(error.status, &[], &error.description)
+pub(super) fn failed(state: &AppState, error: &OAuthError) -> Response {
+    error_page(state, error.status, &[], &error.description)
 }
 
 /// `GET /oauth/authorize`.
@@ -716,7 +731,7 @@ pub async fn page(
 ) -> Response {
     page_inner(state, query, headers, peer)
         .await
-        .unwrap_or_else(|error| failed(&error))
+        .unwrap_or_else(|error| failed(state, &error))
 }
 
 /// What a form of a page carries, after the checks every form shares.
@@ -737,7 +752,7 @@ async fn posted(
     peer: Option<IpAddr>,
     body: Body,
 ) -> Result<Result<Posted, Response>, OAuthError> {
-    let stop = |status: StatusCode, message: &str| Ok(Err(error_page(status, &[], message)));
+    let stop = |status: StatusCode, message: &str| Ok(Err(error_page(state, status, &[], message)));
     // A form of these pages comes from these pages.
     let origin = headers
         .get(header::ORIGIN)
@@ -937,7 +952,7 @@ pub async fn sign_in(
 ) -> Response {
     sign_in_inner(state, headers, peer, body)
         .await
-        .unwrap_or_else(|error| failed(&error))
+        .unwrap_or_else(|error| failed(state, &error))
 }
 
 async fn accept_inner(
@@ -994,7 +1009,7 @@ pub async fn accept(
 ) -> Response {
     accept_inner(state, headers, peer, body)
         .await
-        .unwrap_or_else(|error| failed(&error))
+        .unwrap_or_else(|error| failed(state, &error))
 }
 
 async fn reject_inner(
@@ -1027,7 +1042,7 @@ pub async fn reject(
 ) -> Response {
     reject_inner(state, headers, peer, body)
         .await
-        .unwrap_or_else(|error| failed(&error))
+        .unwrap_or_else(|error| failed(state, &error))
 }
 
 /// The first step of a sign-up: the checks that need no handle.
@@ -1237,5 +1252,5 @@ pub async fn sign_up(
             None => sign_up_credentials(state, &posted).await,
         }
     };
-    outcome.await.unwrap_or_else(|error| failed(&error))
+    outcome.await.unwrap_or_else(|error| failed(state, &error))
 }

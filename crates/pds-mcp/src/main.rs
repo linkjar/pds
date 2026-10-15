@@ -3,34 +3,7 @@
 use std::process::ExitCode;
 
 use pds_mcp::config::Config;
-
-fn init_logging() {
-    let filter = tracing_subscriber::EnvFilter::try_from_env("LOG_LEVEL")
-        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
-    let _ = tracing_subscriber::fmt()
-        .json()
-        .with_env_filter(filter)
-        .try_init();
-}
-
-/// Resolves at SIGINT or SIGTERM.
-async fn stop() {
-    let interrupt = async {
-        let _ = tokio::signal::ctrl_c().await;
-    };
-    let terminate = async {
-        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-            Ok(mut signal) => {
-                signal.recv().await;
-            }
-            Err(_) => std::future::pending().await,
-        }
-    };
-    tokio::select! {
-        () = interrupt => {}
-        () = terminate => {}
-    }
-}
+use pds_sidecar::process::{init_logging, shutdown};
 
 async fn run() -> Result<(), String> {
     let vars = std::env::vars().collect();
@@ -46,7 +19,7 @@ async fn run() -> Result<(), String> {
         .map_err(|error| format!("cannot listen on {address}: {error}"))?;
     tracing::info!(%address, "serving MCP");
     axum::serve(listener, pds_mcp::router(mcp))
-        .with_graceful_shutdown(stop())
+        .with_graceful_shutdown(shutdown())
         .await
         .map_err(|error| error.to_string())
 }

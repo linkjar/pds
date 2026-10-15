@@ -1,0 +1,26 @@
+[package]
+name = "pds-sidecar"
+description = "What the sidecars of LinkJar PDS share: the OAuth client of the PDS with DPoP, the helpers of their pages, and the setup of a process"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+pds-identity.workspace = true
+pds-oauth.workspace = true
+http.workspace = true
+tokio.workspace = true
+reqwest.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing-subscriber.workspace = true
+base64.workspace = true
+sha2.workspace = true
+rand.workspace = true
+url.workspace = true
+
+[lints]
+workspace = true

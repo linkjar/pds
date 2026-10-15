@@ -6,7 +6,7 @@ use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use cid::Cid;
 use pds_repo::{CarWriter, Repo, write_car};
-use pds_storage::{ActorDb, RepoRoot};
+use pds_storage::{ActorDb, RepoRoot, StoreLoan};
 use serde_json::{Map, Value, json};
 
 use super::{Query, repo_availability};
@@ -30,15 +30,17 @@ fn io_error(error: impl std::fmt::Display) -> std::io::Error {
 }
 
 /// The store of a hosted account and its latest commit.
-fn open_with_root(state: &AppState, did: &str) -> Result<(ActorDb, RepoRoot), XrpcError> {
-    with_root(ActorDb::open(&state.layout().actor_db(did))?)
+fn open_with_root(state: &AppState, did: &str) -> Result<(StoreLoan, RepoRoot), XrpcError> {
+    let store = state.reads().store(did)?;
+    let root = root_of(&store)?;
+    Ok((store, root))
 }
 
-fn with_root(store: ActorDb) -> Result<(ActorDb, RepoRoot), XrpcError> {
-    let root = store
+/// The latest commit of a store that has one.
+fn root_of(store: &ActorDb) -> Result<RepoRoot, XrpcError> {
+    store
         .root()?
-        .ok_or_else(|| XrpcError::internal("the store has no repository root"))?;
-    Ok((store, root))
+        .ok_or_else(|| XrpcError::internal("the store has no repository root"))
 }
 
 /// `com.atproto.sync.getRepo`, and `getCheckout` when `with_since` is
@@ -75,7 +77,9 @@ pub async fn get_repo(
     let (store, root) = state
         .blocking(move |state| {
             repo_availability(state, &did, credentials.is_admin_or(&did))?;
-            let (store, root) = with_root(ActorDb::open_snapshot(&state.layout().actor_db(&did))?)?;
+            // A snapshot, which is never kept (SPEC §8.3).
+            let store = ActorDb::open_snapshot(&state.layout().actor_db(&did))?;
+            let root = root_of(&store)?;
             Ok((store, root.cid))
         })
         .await?;
@@ -117,7 +121,7 @@ pub async fn get_record(state: &AppState, query: &Query<'_>) -> Result<Response,
         .blocking(move |state| {
             repo_availability(state, &did, credentials.is_admin_or(&did))?;
             let (store, root) = open_with_root(state, &did)?;
-            let repo = Repo::load(&store, root.cid)?;
+            let repo = Repo::load(&*store, root.cid)?;
             let proof = repo.record_proof(&key)?;
             Ok(write_car(Some(&root.cid), &proof))
         })
@@ -142,7 +146,7 @@ pub async fn get_blocks(state: &AppState, query: &Query<'_>) -> Result<Response,
     let (store, cids) = state
         .blocking(move |state| {
             repo_availability(state, &did, credentials.is_admin_or(&did))?;
-            let store = ActorDb::open(&state.layout().actor_db(&did))?;
+            let store = state.reads().store(&did)?;
             let missing = store.missing_blocks(&cids)?;
             if !missing.is_empty() {
                 let list: Vec<String> = missing.iter().map(Cid::to_string).collect();
@@ -258,7 +262,7 @@ pub async fn list_repos(state: &AppState, query: &Query<'_>) -> Result<Response,
         .transpose()?;
     let rows = state
         .blocking(move |state| {
-            let accounts = state.layout().accounts()?;
+            let accounts = state.reads().accounts()?;
             let after = cursor
                 .as_ref()
                 .map(|(created, did)| (created.as_str(), did.as_str()));
@@ -304,7 +308,7 @@ pub async fn list_blobs(state: &AppState, query: &Query<'_>) -> Result<Response,
     let cids = state
         .blocking(move |state| {
             repo_availability(state, &did, credentials.is_admin_or(&did))?;
-            let store = ActorDb::open(&state.layout().actor_db(&did))?;
+            let store = state.reads().store(&did)?;
             Ok(store.list_blobs(since.as_deref(), cursor.as_deref(), limit)?)
         })
         .await?;
@@ -327,8 +331,11 @@ pub async fn get_blob(state: &AppState, query: &Query<'_>) -> Result<Response, X
     let (meta, mut file) = state
         .blocking(move |state| {
             repo_availability(state, &did, credentials.is_admin_or(&did))?;
-            let store = ActorDb::open(&state.layout().actor_db(&did))?;
-            let meta = store.blob(&cid)?.ok_or_else(not_found)?;
+            let meta = state
+                .reads()
+                .store(&did)?
+                .blob(&cid)?
+                .ok_or_else(not_found)?;
             let blobs = state
                 .blobs()
                 .ok_or_else(|| XrpcError::internal("no blob store is configured"))?;

@@ -10,7 +10,7 @@ use std::net::IpAddr;
 use axum::body::Body;
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
-use pds_oauth::pages::{self, DeviceLine, MethodLine, Methods, SessionLine};
+use pds_oauth::pages::{self, Account, DeviceLine, MethodLine, Methods, SessionLine, Shell};
 use pds_oauth::token::AUTHENTICATION_MAX_AGE_MS;
 use pds_storage::Availability;
 use subtle::ConstantTimeEq;
@@ -22,6 +22,13 @@ use crate::state::AppState;
 /// What the form token of the account pages is computed over, in the place
 /// of a request.
 const CSRF_PURPOSE: &str = "account";
+
+fn shell<'a>(state: &'a AppState, nonce: &'a str) -> Shell<'a> {
+    Shell {
+        nonce,
+        brand: state.config().brand(),
+    }
+}
 
 /// The accounts that signed in on the device recently enough to be shown.
 pub(super) async fn signed_in(
@@ -134,7 +141,17 @@ async fn home(
     let nonce = new_nonce();
     let token = csrf(state, &device.id, CSRF_PURPOSE);
     let page = pages::account_home(
-        &nonce, &token, did, handle, &methods, &sessions, &devices, error,
+        shell(state, &nonce),
+        &Account {
+            csrf: &token,
+            did,
+            handle,
+            host: &state.config().hostname,
+            methods: &methods,
+            sessions: &sessions,
+            devices: &devices,
+            error,
+        },
     );
     let status = if error.is_some() {
         StatusCode::BAD_REQUEST
@@ -160,14 +177,7 @@ fn sign_in_page(
         .iter()
         .map(|provider| (provider.id, provider.label))
         .collect();
-    let page = pages::account_sign_in(
-        &nonce,
-        &state.config().hostname,
-        &token,
-        username,
-        error,
-        &providers,
-    );
+    let page = pages::account_sign_in(shell(state, &nonce), &token, username, error, &providers);
     html(status, &nonce, &device.cookies, page)
 }
 
@@ -199,15 +209,15 @@ async fn page_inner(
     }
     let nonce = new_nonce();
     let page = if accounts.is_empty() {
-        pages::account_welcome(&nonce, &state.config().hostname)
+        pages::account_welcome(shell(state, &nonce))
     } else {
-        pages::account_list(&nonce, &accounts)
+        pages::account_list(shell(state, &nonce), &accounts)
     };
     Ok(html(StatusCode::OK, &nonce, &device.cookies, page))
 }
 
-fn failed(error: &OAuthError) -> Response {
-    error_page(error.status, &[], &error.description)
+fn failed(state: &AppState, error: &OAuthError) -> Response {
+    error_page(state, error.status, &[], &error.description)
 }
 
 /// `GET /account` and `GET /account/<did>/manage`.
@@ -220,7 +230,7 @@ pub async fn page(
 ) -> Response {
     page_inner(state, path, query, headers, peer)
         .await
-        .unwrap_or_else(|error| failed(&error))
+        .unwrap_or_else(|error| failed(state, &error))
 }
 
 pub(super) fn back(cookies: &[HeaderValue]) -> Response {
@@ -303,7 +313,7 @@ async fn post_inner(
     peer: Option<IpAddr>,
     body: Body,
 ) -> Result<Response, OAuthError> {
-    let stop = |status: StatusCode, message: &str| Ok(error_page(status, &[], message));
+    let stop = |status: StatusCode, message: &str| Ok(error_page(state, status, &[], message));
     let origin = headers
         .get(header::ORIGIN)
         .and_then(|value| value.to_str().ok());
@@ -405,5 +415,5 @@ pub async fn post(
 ) -> Response {
     post_inner(state, path, headers, peer, body)
         .await
-        .unwrap_or_else(|error| failed(&error))
+        .unwrap_or_else(|error| failed(state, &error))
 }

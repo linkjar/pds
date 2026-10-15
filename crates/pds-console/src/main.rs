@@ -1,35 +1,26 @@
 //! `linkjar-pds-console`: the operations console of LinkJar PDS.
+//!
+//! `linkjar-pds-console bundle-assets [DIR]` writes the assets of the
+//! pages next to the executable (or into `DIR`) and exits; the image does
+//! this in its build stage. Without an argument the console serves.
 
-use std::process::ExitCode;
+use std::{path::PathBuf, process::ExitCode};
 
 use pds_console::config::Config;
+use pds_sidecar::process::{init_logging, shutdown};
 
-fn init_logging() {
-    let filter = tracing_subscriber::EnvFilter::try_from_env("LOG_LEVEL")
-        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
-    let _ = tracing_subscriber::fmt()
-        .json()
-        .with_env_filter(filter)
-        .try_init();
-}
-
-/// Resolves at SIGINT or SIGTERM.
-async fn stop() {
-    let interrupt = async {
-        let _ = tokio::signal::ctrl_c().await;
+/// Writes the asset bundle of this executable.
+fn bundle(dir: Option<PathBuf>) -> Result<(), String> {
+    let dir = match dir {
+        Some(dir) => dir,
+        None => std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(|dir| dir.join("assets")))
+            .ok_or_else(|| "cannot find the directory of the executable".to_owned())?,
     };
-    let terminate = async {
-        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-            Ok(mut signal) => {
-                signal.recv().await;
-            }
-            Err(_) => std::future::pending().await,
-        }
-    };
-    tokio::select! {
-        () = interrupt => {}
-        () = terminate => {}
-    }
+    pds_console::assets::bundle(&dir).map_err(|error| error.to_string())?;
+    tracing::info!(dir = %dir.display(), "the assets are bundled");
+    Ok(())
 }
 
 async fn run() -> Result<(), String> {
@@ -45,8 +36,7 @@ async fn run() -> Result<(), String> {
         .await
         .map_err(|error| format!("cannot listen on {address}: {error}"))?;
     tracing::info!(%address, "serving the console");
-    axum::serve(listener, pds_console::router(console))
-        .with_graceful_shutdown(stop())
+    pds_console::serve(listener, pds_console::router(console), shutdown())
         .await
         .map_err(|error| error.to_string())
 }
@@ -55,7 +45,15 @@ async fn run() -> Result<(), String> {
 #[tokio::main]
 async fn main() -> ExitCode {
     init_logging();
-    match run().await {
+    let mut args = std::env::args().skip(1);
+    let outcome = match args.next().as_deref() {
+        Some("bundle-assets") => bundle(args.next().map(PathBuf::from)),
+        Some(other) => Err(format!(
+            "unknown command {other:?}; the console takes none, or bundle-assets [DIR]"
+        )),
+        None => run().await,
+    };
+    match outcome {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("linkjar-pds-console: {error}");

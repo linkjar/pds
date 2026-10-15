@@ -14,6 +14,7 @@ flowchart BT
   sim[pds-sim<br/>seeded plans, oracles]
   bin[linkjar-pds<br/>binary, CLI, ops listener]
   xtask[xtask<br/>codegen]
+  sidecar[pds-sidecar<br/>DPoP client of the PDS, page helpers, process setup]
   console[pds-console<br/>operations console sidecar]
   mcp[pds-mcp<br/>MCP server sidecar]
   lexicon --> types
@@ -31,7 +32,8 @@ flowchart BT
   ext -.-> types & storage
   linkjar --> ext & identity & types
   sim --> bin & xrpc & storage & sequencer & repo & identity & blob
-  bin --> types & xrpc & storage & identity & blob & repo & sequencer & ext & linkjar & audit
+  bin --> types & xrpc & storage & identity & blob & repo & sequencer & ext & linkjar & audit & sidecar
   xtask --> lexicon
-  console --> identity & oauth
-  mcp --> identity & oauth
+  sidecar --> identity & oauth
+  console --> identity & oauth & sidecar
+  mcp --> identity & oauth & sidecar

@@ -49,17 +49,6 @@ fn runtime() -> std::io::Result<tokio::runtime::Runtime> {
         .build()
 }
 
-fn init_logging() {
-    let filter = tracing_subscriber::EnvFilter::try_from_env("LOG_LEVEL")
-        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
-    // JSON lines on standard error; standard output belongs to the commands.
-    let _ = tracing_subscriber::fmt()
-        .json()
-        .with_env_filter(filter)
-        .with_writer(std::io::stderr)
-        .try_init();
-}
-
 /// Writes one repository as the tree-ordered CAR of `Repo::export`.
 fn export_car(config: &Config, did: &str) -> Result<(), Failure> {
     // The argument becomes a part of a path, so it is a DID first.
@@ -141,7 +130,7 @@ fn run(args: &[String]) -> Result<ExitCode, Failure> {
     // A command takes its own arguments and no others.
     match words.as_slice() {
         ["serve"] => {
-            init_logging();
+            pds_sidecar::process::init_logging();
             let runtime = runtime()?;
             let served = runtime.block_on(serve::serve(&config));
             // A read still running on the blocking pool does not hold the

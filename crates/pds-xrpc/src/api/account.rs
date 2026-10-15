@@ -231,7 +231,7 @@ pub(crate) fn validate(
     }
     identity(state)?;
     let (handle, _) = checked_handle(state, &handle, did.is_some(), false)?;
-    let accounts = state.layout().accounts()?;
+    let accounts = state.reads().accounts()?;
     if required
         && let Some(code) = &invite_code
         && !accounts.invite_available(code)?

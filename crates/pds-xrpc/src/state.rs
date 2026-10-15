@@ -7,7 +7,7 @@ use std::time::Duration;
 use pds_blob::BlobStore;
 use pds_identity::{Algorithm, DidResolver, Keypair};
 use pds_sequencer::Sequencer;
-use pds_storage::{AccountDb, ActorDb, DataLayout, OpsDb, StorageError};
+use pds_storage::{AccountDb, ActorDb, DataLayout, OpsDb, ReadPool, StorageError};
 use pds_types::TidGenerator;
 
 use crate::auth::AuthConfig;
@@ -31,6 +31,8 @@ pub struct ServerConfig {
     pub privacy_policy_url: Option<String>,
     /// `PDS_TERMS_OF_SERVICE_URL`.
     pub terms_of_service_url: Option<String>,
+    /// The brand on the pages (SPEC §11.4).
+    pub branding: Branding,
     /// `PDS_CONTACT_EMAIL_ADDRESS`.
     pub contact_email: Option<String>,
     /// `PDS_BSKY_APP_VIEW_URL`, without a trailing slash.
@@ -163,6 +165,39 @@ impl ServerConfig {
             handle.ends_with(domain.as_str()) || Some(handle) == domain.strip_prefix('.')
         })
     }
+
+    /// The brand as the pages draw it: what is unset falls back to the
+    /// host name and to the mark of the profile.
+    pub fn brand(&self) -> pds_oauth::pages::Brand<'_> {
+        let branding = &self.branding;
+        let mark = if self.profile.name() == "linkjar" {
+            pds_oauth::theme::LINKJAR_MARK_PATH
+        } else {
+            pds_oauth::theme::STOCK_MARK_PATH
+        };
+        pds_oauth::pages::Brand {
+            name: branding.service_name.as_deref().unwrap_or(&self.hostname),
+            logo: Some(branding.logo_url.as_deref().unwrap_or(mark)),
+            home: branding.home_url.as_deref(),
+            terms: self.terms_of_service_url.as_deref(),
+            privacy: self.privacy_policy_url.as_deref(),
+            support: branding.support_url.as_deref(),
+        }
+    }
+}
+
+/// The brand on the pages of the server: the name, the mark and the
+/// links (SPEC §11.4, §12.7).
+#[derive(Debug, Clone, Default)]
+pub struct Branding {
+    /// `PDS_SERVICE_NAME`.
+    pub service_name: Option<String>,
+    /// `PDS_LOGO_URL`.
+    pub logo_url: Option<String>,
+    /// `PDS_HOME_URL`.
+    pub home_url: Option<String>,
+    /// `PDS_SUPPORT_URL`.
+    pub support_url: Option<String>,
 }
 
 /// The settings of the write path and of the firehose.
@@ -373,7 +408,7 @@ pub struct AppState {
 
 struct Inner {
     config: ServerConfig,
-    layout: DataLayout,
+    reads: Arc<ReadPool>,
     keys: KeyCache,
     blobs: Option<BlobStore>,
     resolver: DidResolver,
@@ -391,18 +426,19 @@ impl std::fmt::Debug for AppState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AppState")
             .field("config", &self.inner.config)
-            .field("layout", &self.inner.layout)
+            .field("layout", self.inner.reads.layout())
             .finish_non_exhaustive()
     }
 }
 
 impl AppState {
-    /// Builds the state. `now_ms` is the clock (SPEC §3.2). Without
+    /// Builds the state. `reads` is the pool of read connections over the
+    /// data directory, and `now_ms` is the clock (SPEC §3.2). Without
     /// `writes` the server is read-only: it serves the reads of the data
     /// directory and has no handler for a write.
     pub fn new(
         config: ServerConfig,
-        layout: DataLayout,
+        reads: Arc<ReadPool>,
         blobs: Option<BlobStore>,
         resolver: DidResolver,
         http: reqwest::Client,
@@ -417,7 +453,7 @@ impl AppState {
                 metrics: crate::metrics::Metrics::default(),
                 subscribers: crate::subscribers::Subscribers::default(),
                 config,
-                layout,
+                reads,
                 keys: KeyCache::default(),
                 blobs,
                 resolver,
@@ -466,7 +502,13 @@ impl AppState {
 
     /// The data directory.
     pub fn layout(&self) -> &DataLayout {
-        &self.inner.layout
+        self.inner.reads.layout()
+    }
+
+    /// The read connections kept between requests. A read of the data
+    /// directory that serves a request takes its connection here.
+    pub fn reads(&self) -> &Arc<ReadPool> {
+        &self.inner.reads
     }
 
     /// The disk blob store, when one is configured.
