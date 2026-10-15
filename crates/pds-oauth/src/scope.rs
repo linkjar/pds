@@ -138,7 +138,9 @@ fn percent_decode(text: &str) -> Option<String> {
     String::from_utf8(out).ok()
 }
 
-fn is_nsid(text: &str) -> bool {
+/// Whether `text` has the shape of an NSID a scope names: three labels or
+/// more of letters, digits and hyphens.
+pub fn is_nsid(text: &str) -> bool {
     let labels: Vec<&str> = text.split('.').collect();
     labels.len() >= 3
         && text.len() <= 317

@@ -67,12 +67,29 @@ fn optional(value: Option<&String>) -> Data {
 impl Entry {
     /// The entry that follows `prev`.
     pub fn after(prev: Option<&Self>, time: &str, what: Draft) -> Self {
+        Self::following(
+            prev.map_or(1, |prev| prev.seq + 1),
+            prev.map_or(GENESIS, Self::hash),
+            time,
+            what,
+        )
+    }
+
+    /// The entry `seq`, after the entry whose hash is `prev`.
+    pub fn following(seq: u64, prev: [u8; 32], time: &str, what: Draft) -> Self {
         Self {
-            seq: prev.map_or(1, |prev| prev.seq + 1),
+            seq,
             time: time.to_owned(),
             what,
-            prev: prev.map_or(GENESIS, Self::hash),
+            prev,
         }
+    }
+
+    /// The bytes of the entry and their SHA-256.
+    pub fn encode(&self) -> (Vec<u8>, [u8; 32]) {
+        let bytes = self.to_bytes();
+        let hash = Sha256::digest(&bytes).into();
+        (bytes, hash)
     }
 
     /// The bytes of the entry: the DAG-CBOR array of its fields.
@@ -98,7 +115,7 @@ impl Entry {
 
     /// The SHA-256 of the bytes of the entry.
     pub fn hash(&self) -> [u8; 32] {
-        Sha256::digest(self.to_bytes()).into()
+        self.encode().1
     }
 
     /// Reads an entry from its bytes. The bytes must be the canonical

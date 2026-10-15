@@ -1070,13 +1070,7 @@ impl Config {
         handle: &tokio::runtime::Handle,
     ) -> Result<Option<pds_blob::BlobStore>, pds_blob::BlobError> {
         if let Some(s3) = &self.blob_s3 {
-            let clock: pds_blob::Clock = std::sync::Arc::new(|| {
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map_or(0, |elapsed| {
-                        i64::try_from(elapsed.as_millis()).unwrap_or(i64::MAX)
-                    })
-            });
+            let clock: pds_blob::Clock = std::sync::Arc::new(crate::serve::now_ms);
             let store = pds_blob::S3BlobStore::new(s3.clone(), handle.clone(), clock)?;
             return Ok(Some(store.into()));
         }

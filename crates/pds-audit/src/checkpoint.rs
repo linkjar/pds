@@ -4,9 +4,9 @@
 //! Merkle root of their bytes, the hash of the last entry, the time and
 //! the key, and an Ed25519 signature over all of those.
 
+use aws_lc_rs::signature::{Ed25519KeyPair, KeyPair};
 use pds_types::Data;
 use pds_types::data::Bytes;
-use ring::signature::{Ed25519KeyPair, KeyPair};
 use sha2::{Digest, Sha256};
 
 use crate::merkle;

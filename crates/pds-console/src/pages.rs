@@ -7,21 +7,7 @@ use serde_json::Value;
 
 use crate::session::Session;
 
-/// Escapes text for HTML content and for an attribute in double quotes.
-pub fn escape(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    for c in text.chars() {
-        match c {
-            '&' => out.push_str("&amp;"),
-            '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
-            '"' => out.push_str("&quot;"),
-            '\'' => out.push_str("&#39;"),
-            c => out.push(c),
-        }
-    }
-    out
-}
+pub use pds_oauth::pages::escape;
 
 /// A value of the PDS as text: a string as it is, `null` as a dash.
 fn show(value: &Value) -> String {

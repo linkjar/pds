@@ -23,21 +23,7 @@ use crate::config::{CLIENT_METADATA_PATH, Config, MCP_PATH, PDS_CALLBACK_PATH};
 use crate::pds::{Pds, PdsError};
 use crate::store::Store;
 
-/// Escapes text for HTML content and for an attribute in double quotes.
-pub fn escape(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    for c in text.chars() {
-        match c {
-            '&' => out.push_str("&amp;"),
-            '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
-            '"' => out.push_str("&quot;"),
-            '\'' => out.push_str("&#39;"),
-            c => out.push(c),
-        }
-    }
-    out
-}
+pub use pds_oauth::pages::escape;
 
 /// The server: its connection to the PDS and what it keeps.
 #[derive(Debug, Clone)]
