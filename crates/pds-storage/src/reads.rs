@@ -1,11 +1,12 @@
 //! Read connections kept between requests (`docs/SPEC.md` §8.3).
 //!
-//! A fresh connection to a store of 20,000 blocks costs about 350 µs with
-//! its first statement: the open, the schema, the compiled statement. The
-//! same statement on a kept connection costs 5 to 25 µs. The pool keeps
-//! the read connections of the last requests: a free list for
-//! `account.sqlite`, and an LRU by DID for the actor stores, as the write
-//! path keeps its write connections.
+//! A fresh connection to a store of 20,000 records costs 150 to 250 µs
+//! with its first statement: the open, the schema, the compiled statement.
+//! The same statement on a kept connection costs 2 to 5 µs
+//! (`tests/pool.rs`, the ignored measurement). A `getRecord` opened two:
+//! the accounts and the store. The pool keeps the read connections of the
+//! last requests: a free list for `account.sqlite`, and an LRU by DID for
+//! the actor stores, as the write path keeps its write connections.
 //!
 //! A connection is lent out by value, because SQLite connections are
 //! `Send` and not `Sync`, and goes back when the loan is dropped: at the
