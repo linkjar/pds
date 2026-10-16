@@ -20,7 +20,7 @@ the environment (linkjar-pds) or operator behaviour (pds-ext).
 | `auth`, `service_auth`, `password` | Credentials: legacy sessions, app passwords, OAuth access tokens with DPoP, service tokens, the admin password. |
 | `ratelimit`, `params`, `body`, `error` | The limits, query parsing, body limits, and `XrpcError` with the Reference's wording. |
 | `audit`, `ops`, `metrics` | `AuditLog`; the ops listener (`ops::serve`) that the console calls; the Prometheus metrics. |
-| `mail`, `stream`, `subscribers` | Mail over SMTP with compiled-in templates, streamed bodies, the firehose subscribers. |
+| `mail`, `stream`, `subscribers` | Mail over SMTP with the Reference's templates, or the profile's own (`Profile::mail_template`); streamed bodies; the firehose subscribers. |
 
 ## Place in the workspace
 

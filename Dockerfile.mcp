@@ -25,6 +25,8 @@ COPY --from=build /linkjar-pds-mcp /usr/local/bin/linkjar-pds-mcp
 EXPOSE 2586
 ENV MCP_ADDRESS=0.0.0.0:2586
 USER mcp
+# The same check the server image runs: the health route of this sidecar.
+HEALTHCHECK --interval=10s --timeout=5s --retries=6 CMD ["linkjar-pds-mcp", "health"]
 CMD ["linkjar-pds-mcp"]
 
 LABEL org.opencontainers.image.source=https://github.com/linkjar/pds

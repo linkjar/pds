@@ -46,12 +46,12 @@ impl Subscriber {
             "id": self.id,
             "remote": self.remote,
             "userAgent": self.user_agent,
-            "connectedAt": pds_sequencer::iso_millis(self.connected_ms),
+            "connectedAt": pds_types::iso_millis(self.connected_ms),
             "cursor": cursor,
             "lag": (head - cursor).max(0),
             "frames": self.frames.load(Ordering::Relaxed),
             "bytes": self.bytes.load(Ordering::Relaxed),
-            "lastFrameAt": (last > 0).then(|| pds_sequencer::iso_millis(last)),
+            "lastFrameAt": (last > 0).then(|| pds_types::iso_millis(last)),
         })
     }
 }

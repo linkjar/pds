@@ -1,7 +1,8 @@
 //! The linkjar profile: LinkJar account behaviour as native extension implementations.
 //!
 //! Specified in `docs/SPEC.md` §13: the hosted handle policy, the reserved
-//! names, the three sign-in providers and the handle-host redirect.
+//! names, the three sign-in providers, the handle-host redirect, and the
+//! mark and the mail templates of LinkJar (`templates/`).
 
 pub mod handle;
 pub mod providers;
@@ -10,8 +11,8 @@ pub mod reserved;
 use std::fmt::Write;
 
 use pds_ext::{
-    Boxed, Fetch, HandlePolicyRow, Profile, ProviderAnswer, ProviderInfo, Rename, Suggested,
-    VerifiedIdentity,
+    Boxed, Fetch, HandlePolicyRow, MailKind, Profile, ProviderAnswer, ProviderInfo, Rename,
+    Suggested, VerifiedIdentity,
 };
 
 /// The `linkjar` profile.
@@ -174,6 +175,23 @@ impl Profile for Linkjar {
             }
         }
         Some(format!("https://linkjar.io/jar/{encoded}"))
+    }
+
+    fn mark(&self) -> Option<&'static str> {
+        Some(pds_oauth::theme::LINKJAR_MARK_PATH)
+    }
+
+    fn mail_template(&self, kind: MailKind) -> Option<&'static str> {
+        Some(match kind {
+            MailKind::ConfirmEmail => include_str!("../templates/confirm-email.hbs"),
+            MailKind::UpdateEmail => include_str!("../templates/update-email.hbs"),
+            MailKind::ResetPassword => include_str!("../templates/reset-password.hbs"),
+            MailKind::DeleteAccount => include_str!("../templates/delete-account.hbs"),
+            MailKind::PlcOperation => include_str!("../templates/plc-operation.hbs"),
+            MailKind::SignInMethodChange => {
+                include_str!("../templates/sign-in-method-change.hbs")
+            }
+        })
     }
 }
 

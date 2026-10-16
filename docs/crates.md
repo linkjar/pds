@@ -28,10 +28,10 @@ names them.
 | pds-types, pds-ext | nothing in the workspace |
 | pds-lexicon, pds-repo, pds-identity, pds-blob, pds-audit | pds-types |
 | pds-oauth | pds-identity |
-| pds-ext-linkjar | pds-ext, pds-identity, pds-types |
+| pds-ext-linkjar | pds-ext, pds-identity, pds-types, pds-oauth |
 | pds-storage | pds-repo |
 | pds-sequencer | pds-types, pds-repo, pds-storage |
-| pds-xrpc | pds-types, pds-lexicon, pds-repo, pds-identity, pds-storage, pds-blob, pds-sequencer, pds-oauth, pds-ext, pds-audit |
+| pds-xrpc | pds-types, pds-lexicon, pds-repo, pds-identity, pds-storage, pds-blob, pds-sequencer, pds-oauth, pds-ext, pds-audit; pds-ext-linkjar for its mail tests |
 | linkjar-pds | pds-types, pds-repo, pds-storage, pds-blob, pds-identity, pds-sequencer, pds-xrpc, pds-ext, pds-ext-linkjar, pds-audit, pds-sidecar; pds-console and pds-mcp for its tests |
 | pds-sim | linkjar-pds, pds-xrpc, pds-sequencer, pds-storage, pds-blob, pds-identity, pds-repo, pds-types |
 | pds-sidecar | pds-identity, pds-oauth |
@@ -49,7 +49,12 @@ pds-identity.
   pds-storage's `DidCacheDb`.
 - pds-ext defines `Profile` and `Fetch`; pds-ext-linkjar implements
   `Profile`, pds-xrpc implements `Fetch` and calls the profile, and
-  linkjar-pds picks the profile from `PDS_PROFILE`.
+  linkjar-pds picks the profile from `PDS_PROFILE`. The brand goes the
+  same way (SPEC §12.7): the profile names the mark the pages show and
+  gives its own mail templates, which pds-ext-linkjar keeps under
+  `templates/`; pds-xrpc falls back to the Reference's.
+- Every timestamp the server writes is `pds_types::iso_millis`, the
+  canonical `Datetime` text.
 - Blob metadata (pds-storage) and blob bytes (pds-blob) meet in pds-xrpc.
 - To sign a commit, pds-xrpc reads the actor's key through pds-storage,
   builds a `Keypair` from pds-identity and hands pds-repo a closure.

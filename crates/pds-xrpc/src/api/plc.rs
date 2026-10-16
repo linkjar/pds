@@ -277,7 +277,7 @@ pub async fn submit_plc_operation(
                 let writes = state
                     .writes()
                     .ok_or_else(|| XrpcError::internal("the server is read-only"))?;
-                let now = pds_sequencer::iso_millis(state.now_ms());
+                let now = pds_types::iso_millis(state.now_ms());
                 writes
                     .sequencer()
                     .sequence(&[identity_event(&did, None, &now)])?;

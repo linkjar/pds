@@ -29,5 +29,5 @@ pub use cbor::{CborError, LimitError, Limits};
 pub use data::{BlobRef, Bytes, CidLink, Data, JsonError};
 pub use syntax::{
     AtIdentifier, AtUri, CidString, Datetime, Did, Handle, Language, Nsid, RecordKey, SyntaxError,
-    Tid, TidGenerator, Uri,
+    Tid, TidGenerator, Uri, iso_millis,
 };

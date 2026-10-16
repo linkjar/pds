@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicI64, AtomicU32, Ordering};
 use std::time::Duration;
 
 use pds_sequencer::{Crawlers, Refusal, Sequencer, Subscription, identity_event};
-use pds_storage::schema;
+use pds_storage::{schema, schema_shared};
 use pds_types::cbor::Reader;
 use pds_types::{Data, Limits};
 
@@ -37,7 +37,8 @@ impl Log {
         ));
         let _ = std::fs::remove_dir_all(&dir);
         let path = dir.join("sequencer.sqlite");
-        drop(schema::create(&path, schema::SEQUENCER).unwrap());
+        let now = "2026-01-01T00:00:00.000Z";
+        drop(schema::create_shared(&path, &schema_shared::SEQUENCER, now).unwrap());
         let clock = Arc::new(AtomicI64::new(1_767_225_600_000));
         let now = Arc::clone(&clock);
         let crawlers = Crawlers::new("pds.test".to_owned(), Vec::new(), reqwest::Client::new());

@@ -48,7 +48,7 @@ pub(crate) async fn create_token(
         .blocking(move |state| {
             let writes = writes(state)?;
             let token = new_token(writes);
-            let now = pds_sequencer::iso_millis(state.now_ms());
+            let now = pds_types::iso_millis(state.now_ms());
             writes.with_accounts(|db| db.create_email_token(&did, purpose, &token, &now))?;
             Ok(token)
         })
@@ -158,7 +158,7 @@ pub async fn confirm_email(
                 return Err(XrpcError::bad_request("InvalidEmail", "invalid email"));
             }
             valid_token(state, "confirm_email", &token, Some(&did))?;
-            let now = pds_sequencer::iso_millis(state.now_ms());
+            let now = pds_types::iso_millis(state.now_ms());
             writes(state)?.with_accounts(|db| db.confirm_email(&did, &now))?;
             Ok(())
         })

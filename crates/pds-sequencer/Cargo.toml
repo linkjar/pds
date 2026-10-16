@@ -13,7 +13,6 @@ pds-types.workspace = true
 pds-repo.workspace = true
 pds-storage.workspace = true
 cid.workspace = true
-chrono.workspace = true
 reqwest.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

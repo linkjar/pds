@@ -193,7 +193,7 @@ pub async fn create_session(
     // A session of an account that is taken down cannot be refreshed. The
     // row goes in on the blocking pool, as every other write does.
     if !taken_down {
-        let expires_at = pds_sequencer::iso_millis(expires_s * 1000);
+        let expires_at = pds_types::iso_millis(expires_s * 1000);
         let name = app_password.as_ref().map(|app| app.name.clone());
         let did = did.to_owned();
         state
@@ -248,7 +248,7 @@ pub async fn refresh_session(state: &AppState, headers: &HeaderMap) -> Result<Re
 fn rotate(state: &AppState, id: &str, now_s: i64) -> Result<Option<(String, String)>, XrpcError> {
     let writes = writes(state)?;
     let config = &state.config().auth;
-    let now = pds_sequencer::iso_millis(state.now_ms());
+    let now = pds_types::iso_millis(state.now_ms());
     // Another request can give the token a successor between the read and
     // the write; the second pass reads that successor.
     for _ in 0..3 {
@@ -257,7 +257,7 @@ fn rotate(state: &AppState, id: &str, now_s: i64) -> Result<Option<(String, Stri
         };
         writes
             .with_accounts(|accounts| accounts.delete_expired_refresh_tokens(&token.did, &now))?;
-        let grace_ends = pds_sequencer::iso_millis((now_s + REFRESH_GRACE_S) * 1000);
+        let grace_ends = pds_types::iso_millis((now_s + REFRESH_GRACE_S) * 1000);
         let expires_at = if grace_ends < token.expires_at {
             grace_ends
         } else {
@@ -270,7 +270,7 @@ fn rotate(state: &AppState, id: &str, now_s: i64) -> Result<Option<(String, Stri
         let scope = scope_of(token.app_password.as_ref(), false);
         let access = auth::mint_access(config, &token.did, scope, now_s);
         let (refresh, next_expires_s) = auth::mint_refresh(config, &token.did, &next, now_s);
-        let next_expires_at = pds_sequencer::iso_millis(next_expires_s * 1000);
+        let next_expires_at = pds_types::iso_millis(next_expires_s * 1000);
         let rotated = writes.with_accounts(|accounts| {
             accounts.rotate_refresh_token(id, &expires_at, &next, &next_expires_at)
         })?;
@@ -372,7 +372,7 @@ pub async fn create_app_password(
             let given = app_password(writes);
             let hash = password::hash_app_password(&did, &given)
                 .ok_or_else(|| XrpcError::internal("the app password could not be hashed"))?;
-            let created_at = pds_sequencer::iso_millis(state.now_ms());
+            let created_at = pds_types::iso_millis(state.now_ms());
             let stored = writes.with_accounts(|accounts| {
                 accounts.create_app_password(&did, &name, &hash, &created_at, privileged)
             })?;

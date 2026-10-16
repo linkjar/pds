@@ -13,7 +13,7 @@ name = "pds-sim"
 path = "src/main.rs"
 
 [dependencies]
-linkjar-pds = { path = "../linkjar-pds" }
+linkjar-pds.workspace = true
 pds-types.workspace = true
 pds-repo.workspace = true
 pds-storage.workspace = true

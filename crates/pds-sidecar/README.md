@@ -14,7 +14,7 @@ with axum, and each keeps the shape of its own responses.
 | `client` | `DpopClient`, `Peer`, `Pending`, `Tokens`, `ClientKey`: the pushed authorization request, the token endpoint, revocation, and every request that a proof of the session's key signs. A sidecar holds no password; the person signs in on the PDS's pages. |
 | `request` | `param`, `cookie`, `fields`, `field`, `same_origin`: the query, the cookies, the fields of a form and the origin of the browser. |
 | `config` | `origin`: the checks on a configured URL. |
-| `process` | `init_logging`, `shutdown`. |
+| `process` | `init_logging`, `shutdown`, and `health`, the check behind the `health` command of each sidecar and the `HEALTHCHECK` of its image. |
 
 ## Place in the workspace
 

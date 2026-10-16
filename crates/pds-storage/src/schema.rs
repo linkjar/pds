@@ -1,13 +1,13 @@
 //! The Reference schema of the databases this crate writes
 //! (`docs/SPEC.md` §8.2).
 //!
-//! The statements are the ones the Reference's migrations run at the pin
-//! (`actor-store/db/migrations/001-init.ts`,
-//! `sequencer/db/migrations/001-init.ts` and
-//! `did-cache/db/migrations/001-init.ts`), so a database created here is one
-//! the Reference serves. The statements of the shared databases are in
-//! `schema_shared`. `DataLayout::create_missing` creates the files a data
-//! directory lacks; the simulation and the tests use this module directly.
+//! The statements of an actor store are the ones the Reference's migration
+//! runs at the pin (`actor-store/db/migrations/001-init.ts`), so a store
+//! created here is one the Reference serves. The statements of the three
+//! shared databases are in `schema_shared`, and [`create_shared`] and
+//! [`fill_shared`] run them. `DataLayout::create_missing` creates the
+//! files a data directory lacks; the simulation and the tests use this
+//! module directly.
 
 use std::path::Path;
 
@@ -30,19 +30,6 @@ create table "record_blob" ("blobCid" varchar not null, "recordUri" varchar not 
 create table "backlink" ("uri" varchar not null, "path" varchar not null, "linkTo" varchar not null, constraint "backlinks_pkey" primary key ("uri", "path"));
 create index "backlink_link_to_idx" on "backlink" ("path", "linkTo");
 create table "account_pref" ("id" integer primary key autoincrement, "name" varchar not null, "valueJson" text not null);
-"#;
-
-/// The table and indexes of `sequencer.sqlite`.
-pub const SEQUENCER: &str = r#"
-create table "repo_seq" ("seq" integer primary key autoincrement, "did" varchar not null, "eventType" varchar not null, "event" blob not null, "invalidated" int2 default 0 not null, "sequencedAt" varchar not null);
-create index "repo_seq_did_idx" on "repo_seq" ("did");
-create index "repo_seq_event_type_idx" on "repo_seq" ("eventType");
-create index "repo_seq_sequenced_at_index" on "repo_seq" ("sequencedAt");
-"#;
-
-/// The table of `did_cache.sqlite`.
-pub const DID_CACHE: &str = r#"
-create table "did_doc" ("did" varchar primary key, "doc" text not null, "updatedAt" bigint not null);
 "#;
 
 /// Creates a database at `path` with `schema`, in WAL mode as the Reference
@@ -140,21 +127,33 @@ mod tests {
 
     #[test]
     fn each_schema_is_valid_sql_and_a_database_is_not_created_twice() {
+        use crate::schema_shared::{ACCOUNT, DID_CACHE, SEQUENCER};
+        const NOW: &str = "2026-01-01T00:00:00.000Z";
         let dir = std::env::temp_dir().join(format!("pds-schema-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
-        for (name, schema) in [
-            ("store.sqlite", ACTOR_STORE),
-            ("sequencer.sqlite", SEQUENCER),
-            ("did_cache.sqlite", DID_CACHE),
+        let store = dir.join("store.sqlite");
+        let conn = create_actor_store(&store, NOW).unwrap();
+        let mode: String = conn
+            .query_row("pragma journal_mode", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(mode, "wal");
+        drop(conn);
+        assert!(create_actor_store(&store, NOW).is_err());
+        for (name, shared) in [
+            ("account.sqlite", &ACCOUNT),
+            ("sequencer.sqlite", &SEQUENCER),
+            ("did_cache.sqlite", &DID_CACHE),
         ] {
             let path = dir.join(name);
-            let conn = create(&path, schema).unwrap();
-            let mode: String = conn
-                .query_row("pragma journal_mode", [], |row| row.get(0))
+            let conn = create_shared(&path, shared, NOW).unwrap();
+            let recorded: i64 = conn
+                .query_row(r#"select count(*) from "kysely_migration""#, [], |row| {
+                    row.get(0)
+                })
                 .unwrap();
-            assert_eq!(mode, "wal");
+            assert_eq!(usize::try_from(recorded).unwrap(), shared.migrations.len());
             drop(conn);
-            assert!(create(&path, schema).is_err());
+            assert!(create_shared(&path, shared, NOW).is_err());
         }
         std::fs::remove_dir_all(&dir).unwrap();
     }

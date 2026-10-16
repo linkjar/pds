@@ -234,7 +234,7 @@ pub fn issuer(state: &AppState) -> String {
 
 /// The time as the Reference writes it in a row.
 pub fn iso(ms: i64) -> String {
-    pds_sequencer::iso_millis(ms)
+    pds_types::iso_millis(ms)
 }
 
 /// The milliseconds of a time from a row.

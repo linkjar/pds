@@ -12,6 +12,8 @@ publish.workspace = true
 pds-ext.workspace = true
 pds-identity.workspace = true
 pds-types.workspace = true
+# For the path of the mark the pages show.
+pds-oauth.workspace = true
 icu_normalizer.workspace = true
 icu_properties.workspace = true
 aws-lc-rs.workspace = true

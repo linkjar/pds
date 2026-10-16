@@ -127,6 +127,11 @@ fn run(args: &[String]) -> Result<ExitCode, Failure> {
         return audit_verify(file);
     }
     let config = Config::from_env()?;
+    // The checkpoints of the SQLite files belong to the backup tool when
+    // the operator says so, under every command that opens them.
+    if config.disable_wal_auto_checkpoint {
+        pds_storage::io::disable_wal_auto_checkpoint();
+    }
     // A command takes its own arguments and no others.
     match words.as_slice() {
         ["serve"] => {
@@ -228,7 +233,7 @@ fn migrate_storage(config: &Config, target: &str) -> Result<(), Failure> {
         .ok_or(
             "a server holds the lease of the event log in this Postgres database; stop it first",
         )?;
-    let now = pds_sequencer::iso_millis(serve::now_ms());
+    let now = pds_types::iso_millis(serve::now_ms());
     let copied = pds_storage::migrate::copy_shared(from, to, &now)?;
     for table in &copied {
         println!("{}.{}: {} rows", table.database, table.table, table.rows);
@@ -269,7 +274,7 @@ fn audit_seal(config: &Config) -> Result<(), Failure> {
         count += 1;
     }
     let snapshot = data_encoding::HEXLOWER.encode(&digest.finalize());
-    let time = pds_sequencer::iso_millis(serve::now_ms());
+    let time = pds_types::iso_millis(serve::now_ms());
     let what = pds_audit::Draft {
         actor: "operator".to_owned(),
         action: "audit.sealed".to_owned(),
@@ -314,11 +319,15 @@ fn audit_verify(file: &str) -> Result<ExitCode, Failure> {
 }
 
 /// Warns on standard error about each `PDS_*` variable that SPEC Appendix C
-/// does not name (SPEC §14.1). `serve` writes the same warning to its log.
+/// does not name (SPEC §14.1), and about each one that this version accepts
+/// without reading. `serve` writes the same warnings to its log.
 #[allow(clippy::print_stderr)] // standard output belongs to the command's result
 fn warn_unknown(config: &Config) {
     for name in &config.unknown_variables {
         eprintln!("linkjar-pds: warning: unknown variable {name}");
+    }
+    for name in &config.unread_variables {
+        eprintln!("linkjar-pds: warning: {name} is set and this version does not read it");
     }
 }
 

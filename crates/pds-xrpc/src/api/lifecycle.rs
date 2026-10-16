@@ -70,7 +70,7 @@ pub async fn deactivate_account(
         set_member_status(state, &host, &did, true).await?;
         return state
             .blocking(move |state| {
-                let now = pds_sequencer::iso_millis(state.now_ms());
+                let now = pds_types::iso_millis(state.now_ms());
                 let updated = writes(state)?.with_accounts(|accounts| {
                     accounts.deactivate(&did, &now, delete_after.as_deref())
                 })?;
@@ -84,7 +84,7 @@ pub async fn deactivate_account(
     state
         .blocking(move |state| {
             let writes = writes(state)?;
-            let now = pds_sequencer::iso_millis(state.now_ms());
+            let now = pds_types::iso_millis(state.now_ms());
             let not_found = || XrpcError::invalid_request("Account not found");
             let updated = writes.with_accounts(|accounts| {
                 accounts.deactivate(&did, &now, delete_after.as_deref())
@@ -245,7 +245,7 @@ pub(crate) async fn activate(state: &AppState, did: String) -> Result<(), XrpcEr
     state
         .blocking(move |state| {
             let writes = writes(state)?;
-            let now = pds_sequencer::iso_millis(state.now_ms());
+            let now = pds_types::iso_millis(state.now_ms());
             let not_found = || XrpcError::bad_request("AccountNotFound", "user not found");
             if !writes.with_accounts(|accounts| accounts.activate(&did))? {
                 return Err(not_found());
@@ -534,7 +534,7 @@ pub(crate) async fn change_handle(
                     "Handle is already in use, please choose a different handle.",
                 ));
             }
-            let now = pds_sequencer::iso_millis(state.now_ms());
+            let now = pds_types::iso_millis(state.now_ms());
             if let Err(error) =
                 writes
                     .sequencer()
@@ -564,7 +564,7 @@ pub(crate) async fn tell_member_of_deletion(state: &AppState, did: &str) -> Resu
 pub(crate) fn delete_account_now(state: &AppState, did: &str) -> Result<(), XrpcError> {
     let writes = writes(state)?;
     writes.with_accounts(|accounts| accounts.delete_account(did))?;
-    let now = pds_sequencer::iso_millis(state.now_ms());
+    let now = pds_types::iso_millis(state.now_ms());
     let sequenced =
         writes
             .sequencer()

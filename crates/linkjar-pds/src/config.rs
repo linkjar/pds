@@ -3,9 +3,11 @@
 //! This module reads the variables of Appendix C with the Reference's
 //! defaults. An invalid value stops the start. Some variables of Appendix C
 //! are accepted and not read, because the feature behind them is not
-//! built. A variable that Appendix C refuses stops the start.
-//! A `PDS_*` variable that Appendix C does not name is kept in
-//! [`Config::unknown_variables`], and the commands warn about it.
+//! built: `UNREAD` names each, and a set one is kept in
+//! [`Config::unread_variables`] for a warning. A variable that Appendix C
+//! refuses stops the start. A `PDS_*` variable that Appendix C does not
+//! name is kept in [`Config::unknown_variables`], and the commands warn
+//! about it.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -43,8 +45,9 @@ pub enum ConfigError {
     },
 }
 
-/// The variables of Appendix C with a fixed name, and the four fixed names
-/// under "New in the Candidate".
+/// The variables of Appendix C with a fixed name that the server reads,
+/// and the fixed names under "New in the Candidate". The accepted and
+/// unread ones are in [`UNREAD`].
 const KNOWN: &[&str] = &[
     // Service
     "PDS_HOSTNAME",
@@ -75,23 +78,17 @@ const KNOWN: &[&str] = &[
     // Identity
     "PDS_DID_PLC_URL",
     "PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX",
-    "PDS_PLC_ROTATION_KEY_KMS_KEY_ID",
     "PDS_RECOVERY_DID_KEY",
     "PDS_DID_CACHE_STALE_TTL",
     "PDS_DID_CACHE_MAX_TTL",
     "PDS_ID_RESOLVER_TIMEOUT",
-    "PDS_HANDLE_BACKUP_NAMESERVERS",
-    "PDS_ENABLE_DID_DOC_WITH_SESSION",
     // Auth and OAuth
     "PDS_JWT_SECRET",
     "PDS_DPOP_SECRET",
     "PDS_ADMIN_PASSWORD",
     "PDS_OAUTH_TRUSTED_CLIENTS",
-    "PDS_LEXICON_AUTHORITY_DID",
     // Invites and abuse
     "PDS_INVITE_REQUIRED",
-    "PDS_INVITE_EPOCH",
-    "PDS_INVITE_INTERVAL",
     "PDS_HCAPTCHA_SITE_KEY",
     "PDS_HCAPTCHA_SECRET_KEY",
     "PDS_HCAPTCHA_TOKEN_SALT",
@@ -105,7 +102,6 @@ const KNOWN: &[&str] = &[
     "PDS_BSKY_APP_VIEW_URL",
     "PDS_BSKY_APP_VIEW_DID",
     "PDS_BSKY_APP_VIEW_CDN_URL_PATTERN",
-    "PDS_FETCH_MAX_RESPONSE_SIZE",
     "PDS_DISABLE_SSRF_PROTECTION",
     // Moderation and mail
     "PDS_MOD_SERVICE_URL",
@@ -120,12 +116,6 @@ const KNOWN: &[&str] = &[
     // Branding
     "PDS_LOGO_URL",
     "PDS_PRIMARY_COLOR",
-    "PDS_ERROR_COLOR",
-    "PDS_WARNING_COLOR",
-    "PDS_SUCCESS_COLOR",
-    "PDS_INFO_COLOR",
-    "PDS_BACKGROUND_LIGHT_URL",
-    "PDS_BACKGROUND_DARK_URL",
     // New in the Candidate
     "PDS_FAIL_POINTS",
     "PDS_PROFILE",
@@ -137,6 +127,42 @@ const KNOWN: &[&str] = &[
     "PDS_OAUTH_KNOWN_CLIENTS_FILE",
     "PDS_POSTGRES_URL",
     "PDS_POSTGRES_SCHEMA_PREFIX",
+];
+
+/// The variables of Appendix C that the server accepts and does not read,
+/// because the feature behind each is not built. A set one is kept in
+/// [`Config::unread_variables`], and the commands warn about it.
+const UNREAD: &[&str] = &[
+    // The PLC rotation key in AWS KMS: the server signs with
+    // `PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX` only.
+    "PDS_PLC_ROTATION_KEY_KMS_KEY_ID",
+    // The nameservers to ask when the system resolver cannot verify a
+    // handle (SPEC §9.3).
+    "PDS_HANDLE_BACKUP_NAMESERVERS",
+    // `didDoc` in the answers of `createSession`, `getSession` and
+    // `refreshSession`.
+    "PDS_ENABLE_DID_DOC_WITH_SESSION",
+    // Lexicon resolution, which fills the `lexicon` table of the account
+    // database.
+    "PDS_LEXICON_AUTHORITY_DID",
+    // The invite codes an account earns over time (`api/invites.rs`).
+    "PDS_INVITE_EPOCH",
+    "PDS_INVITE_INTERVAL",
+    // One cap on the answers of the outbound fetches (SPEC §15.1): each
+    // fetch has a fixed cap of its own.
+    "PDS_FETCH_MAX_RESPONSE_SIZE",
+    // The colours and the backgrounds of the pages: the pages draw the
+    // LinkJar journey (SPEC §11.4) and take the name, the mark and the
+    // links of the branding variables only. `PDS_PRIMARY_COLOR` is read,
+    // for the mails.
+    "PDS_ERROR_COLOR",
+    "PDS_WARNING_COLOR",
+    "PDS_SUCCESS_COLOR",
+    "PDS_INFO_COLOR",
+    "PDS_BACKGROUND_LIGHT_URL",
+    "PDS_BACKGROUND_DARK_URL",
+    // OTLP export (SPEC §14.4): the server has Prometheus metrics and
+    // JSON logs, and no exporter.
     "PDS_OTLP_ENDPOINT",
 ];
 
@@ -214,6 +240,7 @@ impl std::fmt::Debug for EntrywayConfig {
 /// Whether Appendix C names the variable.
 fn is_known(name: &str) -> bool {
     KNOWN.contains(&name)
+        || UNREAD.contains(&name)
         || ENTRYWAY.contains(&name)
         || KNOWN_PREFIXES
             .iter()
@@ -247,6 +274,7 @@ pub enum ProfileName {
 
 /// The settings of the server.
 #[derive(Clone)]
+#[allow(clippy::struct_excessive_bools)] // one flag for each boolean variable of Appendix C
 pub struct Config {
     /// `PDS_HOSTNAME`, default `localhost`.
     pub hostname: String,
@@ -297,6 +325,9 @@ pub struct Config {
     /// `PDS_FAIL_POINTS`: fail points to arm (SPEC §19.2). Read in dev mode
     /// only.
     pub fail_points: Option<String>,
+    /// `PDS_SQLITE_DISABLE_WAL_AUTO_CHECKPOINT`: the checkpoints of the
+    /// SQLite files belong to a backup tool (SPEC §8.3).
+    pub disable_wal_auto_checkpoint: bool,
     /// `PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX`: the key that signs the
     /// PLC operations of the accounts. Without it no account is created.
     pub plc_rotation_key: Option<Vec<u8>>,
@@ -363,6 +394,9 @@ pub struct Config {
     /// The `PDS_*` variables that are set and that Appendix C does not
     /// name, in order (SPEC §14.1).
     pub unknown_variables: Vec<String>,
+    /// The variables of Appendix C that are set and that this version
+    /// accepts without reading, in order.
+    pub unread_variables: Vec<String>,
 }
 
 impl std::fmt::Debug for Config {
@@ -523,7 +557,8 @@ impl Env<'_> {
                 .unwrap_or(false),
             moderation_smtp_url: self.text("PDS_MODERATION_EMAIL_SMTP_URL"),
             moderation_address: self.text("PDS_MODERATION_EMAIL_ADDRESS"),
-            linkjar_templates: self.profile()? == ProfileName::Linkjar,
+            // `serve` takes the templates from the profile.
+            templates: pds_xrpc::mail::Templates::default(),
         })
     }
 
@@ -881,6 +916,15 @@ impl Env<'_> {
         Ok(unknown)
     }
 
+    /// The variables of [`UNREAD`] that are set.
+    fn unread_variables(&self) -> Vec<String> {
+        UNREAD
+            .iter()
+            .filter(|name| self.text(name).is_some())
+            .map(|name| (*name).to_owned())
+            .collect()
+    }
+
     /// A list of URLs separated by commas, each without its trailing slash.
     fn urls(&self, name: &'static str) -> Result<Vec<String>, ConfigError> {
         self.text(name)
@@ -926,6 +970,7 @@ impl Config {
     pub fn from_vars(vars: &BTreeMap<String, String>) -> Result<Self, ConfigError> {
         let env = Env(vars);
         let unknown_variables = env.unknown_variables()?;
+        let unread_variables = env.unread_variables();
         let hostname = env
             .text("PDS_HOSTNAME")
             .unwrap_or_else(|| "localhost".to_owned());
@@ -995,6 +1040,9 @@ impl Config {
                 .millis("PDS_REPO_BACKFILL_LIMIT_MS", Duration::from_hours(24))?,
             // Production ignores the hook (SPEC §3.3).
             fail_points: env.text("PDS_FAIL_POINTS").filter(|_| dev_mode),
+            disable_wal_auto_checkpoint: env
+                .boolean("PDS_SQLITE_DISABLE_WAL_AUTO_CHECKPOINT")?
+                .unwrap_or(false),
             invite_required: env.boolean("PDS_INVITE_REQUIRED")?.unwrap_or(true),
             blob_upload_limit: env
                 .number("PDS_BLOB_UPLOAD_LIMIT")?
@@ -1057,6 +1105,7 @@ impl Config {
             handle_domains,
             layout,
             unknown_variables,
+            unread_variables,
         })
     }
 
@@ -1133,6 +1182,7 @@ mod tests {
         assert_eq!(config.blob_upload_limit, 5 * 1024 * 1024);
         assert_eq!(config.plc_url, "https://plc.directory");
         assert_eq!(config.layout.account_db, PathBuf::from("account.sqlite"));
+        assert!(!config.disable_wal_auto_checkpoint);
     }
 
     #[test]
@@ -1246,12 +1296,23 @@ mod tests {
             ("PDS_PROFILE", "stock"),
             ("PDS_CRAWLERS", "https://relay.test"),
             ("LOG_LEVEL", "debug"),
+            // Accepted and not read: a warning, not an unknown variable.
+            ("PDS_OTLP_ENDPOINT", "http://otel.test:4318"),
+            ("PDS_INVITE_INTERVAL", "604800000"),
+            ("PDS_ERROR_COLOR", ""),
+            // Accepted and read.
+            ("PDS_SQLITE_DISABLE_WAL_AUTO_CHECKPOINT", "true"),
         ]))
         .unwrap();
         assert_eq!(
             config.unknown_variables,
             ["PDS_EXTERNAL_APPLE_CLIENT_TOKEN", "PDS_JWT_SECERT"]
         );
+        assert_eq!(
+            config.unread_variables,
+            ["PDS_INVITE_INTERVAL", "PDS_OTLP_ENDPOINT"]
+        );
+        assert!(config.disable_wal_auto_checkpoint);
     }
 
     #[test]

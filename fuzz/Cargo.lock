@@ -1393,7 +1393,6 @@ dependencies = [
 name = "pds-sequencer"
 version = "0.0.1"
 dependencies = [
- "chrono",
  "cid",
  "pds-repo",
  "pds-storage",
