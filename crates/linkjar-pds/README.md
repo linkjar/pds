@@ -25,7 +25,7 @@ parts, so that the tests and pds-sim run the server in process.
 
 | Module | Holds |
 |---|---|
-| `config` | `Config`, read from the environment: every variable of SPEC Appendix C with the Reference's defaults. An unknown `PDS_*` name gets a warning. |
+| `config` | `Config`, read from the environment: every variable of SPEC Appendix C with the Reference's defaults. An unknown `PDS_*` name gets a warning, and so does a variable that this version accepts and does not read (`UNREAD` in `config.rs` names them and why). |
 | `serve` | The listeners, the lock on the data directory, the repair at start, the shutdown. |
 | `verify` | The directory checker. |
 | `reconcile` | The entryway and member-host comparison. |

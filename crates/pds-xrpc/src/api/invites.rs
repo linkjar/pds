@@ -84,7 +84,7 @@ async fn create(
     state
         .blocking(move |state| {
             let writes = writes(state)?;
-            let now = pds_sequencer::iso_millis(state.now_ms());
+            let now = pds_types::iso_millis(state.now_ms());
             let made: Vec<(String, Vec<String>)> = accounts
                 .into_iter()
                 .map(|account| {
@@ -203,7 +203,7 @@ pub async fn get_invite_codes(state: &AppState, query: &Query<'_>) -> Result<Res
                     let after = parts
                         .map(|(millis, code)| {
                             let millis: i64 = millis.parse().map_err(|_| malformed())?;
-                            Ok::<_, XrpcError>((pds_sequencer::iso_millis(millis), code))
+                            Ok::<_, XrpcError>((pds_types::iso_millis(millis), code))
                         })
                         .transpose()?;
                     let after = after.as_ref().map(|(at, code)| (at.as_str(), *code));

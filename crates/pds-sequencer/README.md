@@ -10,7 +10,7 @@ is pds-storage's, and the shape of a commit is pds-repo's.
 
 | Module | Holds |
 |---|---|
-| `sequencer` | `Sequencer`, the single writer of the log with a shared frame cache; `Subscription`, which pages one subscriber; `Refusal`, `SequencerError`, `Frame`; `iso_millis`, the timestamp format the server uses throughout. |
+| `sequencer` | `Sequencer`, the single writer of the log with a shared frame cache; `Subscription`, which pages one subscriber; `Refusal`, `SequencerError`, `Frame`. Timestamps are written with `pds_types::iso_millis`. |
 | `events` | `commit_event`, `sync_event`, `identity_event`, `account_event`, `CommitOp`, `event_rev`; the info and error frames; the 5 MB frame cap. |
 | `crawlers` | `Crawlers`: `requestCrawl` to the configured relays, at most once per twenty minutes. |
 

@@ -172,7 +172,7 @@ pub async fn get_subject_status(
 
 /// States the status of an account in the log.
 fn sequence_status(state: &AppState, did: &str) -> Result<(), XrpcError> {
-    let now = pds_sequencer::iso_millis(state.now_ms());
+    let now = pds_types::iso_millis(state.now_ms());
     let actor = state.reads().accounts()?.actor(did, Availability::ANY)?;
     let status = match &actor {
         None => Some("deleted"),
@@ -191,7 +191,7 @@ fn takedown_ref(state: &AppState, takedown: &Map<String, Value>) -> Option<Strin
         takedown
             .get("ref")
             .and_then(Value::as_str)
-            .map_or_else(|| pds_sequencer::iso_millis(state.now_ms()), str::to_owned)
+            .map_or_else(|| pds_types::iso_millis(state.now_ms()), str::to_owned)
     })
 }
 
@@ -313,7 +313,7 @@ pub async fn update_subject_status(
                     apply_takedown(state, &subject, takedown)?;
                 }
                 if is_account && deactivate == Some(true) {
-                    let now = pds_sequencer::iso_millis(state.now_ms());
+                    let now = pds_types::iso_millis(state.now_ms());
                     let updated = writes(state)?
                         .with_accounts(|accounts| accounts.deactivate(&did, &now, None))?;
                     if !updated {

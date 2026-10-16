@@ -14,6 +14,11 @@ keeps everything in memory.
 the OAuth endpoints `/register`, `/token`, `/revoke`, `/authorize`,
 `/authorize/decision` and `/oauth/pds-callback`; `/health` and `/mcp.css`.
 
+## Commands
+
+`linkjar-pds-mcp` serves. `health` asks the server on this host for
+`/health` and exits 0 only on 200: the health check of the image.
+
 ## Modules
 
 | Module | Holds |

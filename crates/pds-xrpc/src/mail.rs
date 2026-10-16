@@ -1,11 +1,11 @@
 //! Mail (`docs/SPEC.md` §10.3).
 //!
 //! The five token mails use the templates of the Reference
-//! (`mailer/templates/*.hbs` at the pin), filled with the branding of the
-//! server. A mail that gates a request is sent before the request is
-//! answered, and its failure is the request's failure. Without
-//! `PDS_EMAIL_SMTP_URL` nothing is sent and the request succeeds, as at the
-//! pin.
+//! (`mailer/templates/*.hbs` at the pin), or the profile's own where it
+//! has one (SPEC §12.7), filled with the branding of the server. A mail
+//! that gates a request is sent before the request is answered, and its
+//! failure is the request's failure. Without `PDS_EMAIL_SMTP_URL` nothing
+//! is sent and the request succeeds, as at the pin.
 
 use lettre::message::{Mailbox, MultiPart};
 use lettre::{AsyncSmtpTransport, AsyncTransport as _, Message, Tokio1Executor};
@@ -33,9 +33,9 @@ pub struct MailConfig {
     pub moderation_smtp_url: Option<String>,
     /// `PDS_MODERATION_EMAIL_ADDRESS`.
     pub moderation_address: Option<String>,
-    /// Whether the mails use LinkJar's templates in place of the
-    /// Reference's (SPEC §12.7). The server sets it from the profile.
-    pub linkjar_templates: bool,
+    /// The templates the mails are rendered from. The server takes them
+    /// from the profile.
+    pub templates: Templates,
 }
 
 impl std::fmt::Debug for MailConfig {
@@ -48,58 +48,71 @@ impl std::fmt::Debug for MailConfig {
     }
 }
 
-/// One of the token mails.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Template {
-    /// Confirm an email address.
-    ConfirmEmail,
-    /// Change an email address.
-    UpdateEmail,
-    /// Reset a password.
-    ResetPassword,
-    /// Delete an account.
-    DeleteAccount,
-    /// Sign a PLC operation.
-    PlcOperation,
-    /// A sign-in method of the account changed. Only the `linkjar`
-    /// profile sends it.
-    SignInMethodChange,
+/// One of the mails: the kind the profile is asked for a template of.
+pub type Template = pds_ext::MailKind;
+
+/// The subject of a mail.
+pub const fn subject(template: Template) -> &'static str {
+    match template {
+        Template::ConfirmEmail => "Email Confirmation",
+        Template::UpdateEmail => "Email Update Requested",
+        Template::ResetPassword => "Password Reset Requested",
+        Template::DeleteAccount => "Account Deletion Requested",
+        Template::PlcOperation => "PLC Update Operation Requested",
+        Template::SignInMethodChange => "sign-in method changed",
+    }
 }
 
-impl Template {
-    /// The template of the Reference, or LinkJar's (SPEC §12.7, patch 101).
-    const fn source(self, linkjar: bool) -> &'static str {
-        match (self, linkjar) {
-            (Self::ConfirmEmail, false) => include_str!("../templates/confirm-email.hbs"),
-            (Self::UpdateEmail, false) => include_str!("../templates/update-email.hbs"),
-            (Self::ResetPassword, false) => include_str!("../templates/reset-password.hbs"),
-            (Self::DeleteAccount, false) => include_str!("../templates/delete-account.hbs"),
-            (Self::PlcOperation, false) => include_str!("../templates/plc-operation.hbs"),
-            (Self::ConfirmEmail, true) => include_str!("../templates/linkjar/confirm-email.hbs"),
-            (Self::UpdateEmail, true) => include_str!("../templates/linkjar/update-email.hbs"),
-            (Self::ResetPassword, true) => {
-                include_str!("../templates/linkjar/reset-password.hbs")
-            }
-            (Self::DeleteAccount, true) => {
-                include_str!("../templates/linkjar/delete-account.hbs")
-            }
-            (Self::PlcOperation, true) => include_str!("../templates/linkjar/plc-operation.hbs"),
-            (Self::SignInMethodChange, _) => {
-                include_str!("../templates/linkjar/sign-in-method-change.hbs")
-            }
+/// The templates of the mails: the profile's own where it has one, the
+/// Reference's otherwise (SPEC §12.7).
+///
+/// The Reference has no template for the notice of a changed sign-in
+/// method, so without a profile's the notice is not sent. The default is
+/// the Reference's set.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Templates {
+    confirm_email: Option<&'static str>,
+    update_email: Option<&'static str>,
+    reset_password: Option<&'static str>,
+    delete_account: Option<&'static str>,
+    plc_operation: Option<&'static str>,
+    sign_in_method_change: Option<&'static str>,
+}
+
+impl Templates {
+    /// The templates of `profile`.
+    pub fn of(profile: &dyn pds_ext::Profile) -> Self {
+        Self {
+            confirm_email: profile.mail_template(Template::ConfirmEmail),
+            update_email: profile.mail_template(Template::UpdateEmail),
+            reset_password: profile.mail_template(Template::ResetPassword),
+            delete_account: profile.mail_template(Template::DeleteAccount),
+            plc_operation: profile.mail_template(Template::PlcOperation),
+            sign_in_method_change: profile.mail_template(Template::SignInMethodChange),
         }
     }
 
-    /// The subject of the mail.
-    pub const fn subject(self) -> &'static str {
-        match self {
-            Self::ConfirmEmail => "Email Confirmation",
-            Self::UpdateEmail => "Email Update Requested",
-            Self::ResetPassword => "Password Reset Requested",
-            Self::DeleteAccount => "Account Deletion Requested",
-            Self::PlcOperation => "PLC Update Operation Requested",
-            Self::SignInMethodChange => "sign-in method changed",
-        }
+    /// The template of `kind`. `None` is the notice without a profile's
+    /// template.
+    fn source(&self, kind: Template) -> Option<&'static str> {
+        Some(match kind {
+            Template::ConfirmEmail => self
+                .confirm_email
+                .unwrap_or(include_str!("../templates/confirm-email.hbs")),
+            Template::UpdateEmail => self
+                .update_email
+                .unwrap_or(include_str!("../templates/update-email.hbs")),
+            Template::ResetPassword => self
+                .reset_password
+                .unwrap_or(include_str!("../templates/reset-password.hbs")),
+            Template::DeleteAccount => self
+                .delete_account
+                .unwrap_or(include_str!("../templates/delete-account.hbs")),
+            Template::PlcOperation => self
+                .plc_operation
+                .unwrap_or(include_str!("../templates/plc-operation.hbs")),
+            Template::SignInMethodChange => return self.sign_in_method_change,
+        })
     }
 }
 
@@ -155,8 +168,9 @@ impl MailConfig {
     }
 
     /// The HTML of a mail: the template with its variables filled in and
-    /// escaped, and its one condition decided.
-    pub fn render(&self, template: Template, token: &str, handle: Option<&str>) -> String {
+    /// escaped, and its one condition decided. `None` is a mail without a
+    /// template: the notice, when the profile has none.
+    pub fn render(&self, template: Template, token: &str, handle: Option<&str>) -> Option<String> {
         self.render_with(template, token, handle, &[])
     }
 
@@ -168,9 +182,9 @@ impl MailConfig {
         token: &str,
         handle: Option<&str>,
         more: &[(&str, &str)],
-    ) -> String {
+    ) -> Option<String> {
         let mut out = String::new();
-        let mut rest = template.source(self.linkjar_templates);
+        let mut rest = self.templates.source(template)?;
         let mut hidden = false;
         while let Some(open) = rest.find("{{") {
             let (before, tag) = rest.split_at(open);
@@ -196,7 +210,7 @@ impl MailConfig {
         if !hidden {
             out.push_str(rest);
         }
-        out
+        Some(out)
     }
 
     /// Sends a mail of the operator to `to`, through the moderation
@@ -232,17 +246,19 @@ impl MailConfig {
     ) -> Result<(), XrpcError> {
         let Some(url) = &self.smtp_url else {
             tracing::debug!(
-                subject = template.subject(),
+                subject = subject(template),
                 "No SMTP URL has been configured"
             );
             return Ok(());
         };
-        let html = self.render(template, token, handle);
+        let html = self
+            .render(template, token, handle)
+            .ok_or_else(|| XrpcError::internal("The server has no template for the mail"))?;
         deliver(
             url,
             self.from_address.as_deref().unwrap_or_default(),
             to,
-            template.subject(),
+            subject(template),
             html,
             None,
         )
@@ -275,17 +291,19 @@ impl MailConfig {
             .and_then(|home| home.split("://").nth(1))
             .and_then(|rest| rest.split(['/', ':']).next())
             .unwrap_or("localhost");
-        let html = self.render_with(
-            Template::SignInMethodChange,
-            "",
-            None,
-            &[("change", change), ("did", did), ("time", time)],
-        );
+        let html = self
+            .render_with(
+                Template::SignInMethodChange,
+                "",
+                None,
+                &[("change", change), ("did", did), ("time", time)],
+            )
+            .ok_or_else(|| XrpcError::internal("The profile has no template for the notice"))?;
         deliver(
             url,
             self.from_address.as_deref().unwrap_or_default(),
             to,
-            &format!("{service}: {}", Template::SignInMethodChange.subject()),
+            &format!("{service}: {}", subject(Template::SignInMethodChange)),
             html,
             Some(format!("<{id}@{host}>")),
         )
@@ -403,7 +421,9 @@ mod tests {
             Template::DeleteAccount,
             Template::PlcOperation,
         ] {
-            let html = config.render(template, "ABCDE-FGHIJ", Some("alice.test"));
+            let html = config
+                .render(template, "ABCDE-FGHIJ", Some("alice.test"))
+                .unwrap();
             assert!(!html.contains("{{"), "{template:?}");
             assert!(html.contains("ABCDE-FGHIJ"), "{template:?}");
             assert!(html.contains("Link&lt;Jar&gt;"), "{template:?}");
@@ -414,44 +434,60 @@ mod tests {
                 "{template:?}"
             );
         }
-        let with = config.render(Template::ConfirmEmail, "T", None);
+        let with = config.render(Template::ConfirmEmail, "T", None).unwrap();
         let without = MailConfig {
             disable_confirmation_link: true,
             ..config
         }
-        .render(Template::ConfirmEmail, "T", None);
+        .render(Template::ConfirmEmail, "T", None)
+        .unwrap();
         assert!(with.contains("click here") && !without.contains("click here"));
         assert!(
             MailConfig::default()
                 .render(Template::ResetPassword, "T", Some("alice.test"))
+                .unwrap()
                 .contains("alice.test")
         );
     }
 
+    /// The templates come from the profile (SPEC §12.7). The Reference has
+    /// no template for the notice, so the stock profile renders none.
     #[test]
     fn the_linkjar_profile_has_its_own_templates_and_a_notice() {
         let config = MailConfig {
             service_name: Some("LinkJar".to_owned()),
             home_url: Some("https://linkjar.io".to_owned()),
-            linkjar_templates: true,
+            templates: Templates::of(&pds_ext_linkjar::Linkjar::default()),
             ..MailConfig::default()
         };
-        let confirm = config.render(Template::ConfirmEmail, "AAAAA-BBBBB", None);
+        let confirm = config
+            .render(Template::ConfirmEmail, "AAAAA-BBBBB", None)
+            .unwrap();
         assert!(confirm.contains("AAAAA-BBBBB"));
         assert!(confirm.contains("https://linkjar.io/logo/linkjar-128.png"));
-        let stock = MailConfig::default().render(Template::ConfirmEmail, "AAAAA-BBBBB", None);
-        assert!(!stock.contains("linkjar"));
-
-        let notice = config.render_with(
-            Template::SignInMethodChange,
-            "",
-            None,
-            &[
-                ("change", "Google was linked to your account."),
-                ("did", "did:plc:abc"),
-                ("time", "2026-10-13T00:00:00.000Z"),
-            ],
+        let stock = MailConfig::default();
+        assert_eq!(stock.templates, Templates::of(&pds_ext::Stock));
+        let stock_confirm = stock
+            .render(Template::ConfirmEmail, "AAAAA-BBBBB", None)
+            .unwrap();
+        assert!(!stock_confirm.contains("linkjar"));
+        assert_eq!(
+            stock.render_with(Template::SignInMethodChange, "", None, &[]),
+            None
         );
+
+        let notice = config
+            .render_with(
+                Template::SignInMethodChange,
+                "",
+                None,
+                &[
+                    ("change", "Google was linked to your account."),
+                    ("did", "did:plc:abc"),
+                    ("time", "2026-10-13T00:00:00.000Z"),
+                ],
+            )
+            .unwrap();
         for part in [
             "Your sign-in method changed",
             "Google was linked to your account.",

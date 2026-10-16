@@ -1539,7 +1539,7 @@ async fn the_linkjar_profile_reserves_names_and_allows_one_hosted_rename() {
     }
     // An account that an identity provider created has a row.
     let accounts = common::open(&server.dir.config.layout.account_db);
-    let created_at = pds_sequencer::iso_millis(
+    let created_at = pds_types::iso_millis(
         i64::try_from(
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -3095,7 +3095,7 @@ async fn an_entryway_keeps_the_accounts_of_a_member_host() {
     common::open(&entryway.dir.config.layout.account_db)
         .execute(
             r#"insert into "refresh_token" ("id", "did", "expiresAt") values ('legacy-session', ?1, ?2)"#,
-            [&did, &pds_sequencer::iso_millis(expires * 1000)],
+            [&did, &pds_types::iso_millis(expires * 1000)],
         )
         .unwrap();
     let old_access = pds_xrpc::auth::mint_access(&old, &did, "com.atproto.access", now);

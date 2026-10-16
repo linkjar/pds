@@ -2,12 +2,32 @@
 //!
 //! `linkjar-pds-console bundle-assets [DIR]` writes the assets of the
 //! pages next to the executable (or into `DIR`) and exits; the image does
-//! this in its build stage. Without an argument the console serves.
+//! this in its build stage. `linkjar-pds-console health` is the health
+//! check of the image. Without an argument the console serves.
 
 use std::{path::PathBuf, process::ExitCode};
 
 use pds_console::config::Config;
 use pds_sidecar::process::{init_logging, shutdown};
+
+/// Asks the console on this host for its health route. The exit code is a
+/// container health check's: 0 when the route answers 200, 1 for every
+/// other outcome, an invalid configuration among them.
+#[allow(clippy::print_stderr)] // the reason is for the health check's log
+async fn health() -> ExitCode {
+    let vars = std::env::vars().collect();
+    let checked = match Config::from_vars(&vars) {
+        Ok(config) => pds_sidecar::process::health(config.address).await,
+        Err(error) => Err(error.to_string()),
+    };
+    match checked {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("linkjar-pds-console: health: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
 
 /// Writes the asset bundle of this executable.
 fn bundle(dir: Option<PathBuf>) -> Result<(), String> {
@@ -48,8 +68,9 @@ async fn main() -> ExitCode {
     let mut args = std::env::args().skip(1);
     let outcome = match args.next().as_deref() {
         Some("bundle-assets") => bundle(args.next().map(PathBuf::from)),
+        Some("health") => return health().await,
         Some(other) => Err(format!(
-            "unknown command {other:?}; the console takes none, or bundle-assets [DIR]"
+            "unknown command {other:?}; the console takes none, bundle-assets [DIR] or health"
         )),
         None => run().await,
     };

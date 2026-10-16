@@ -6,6 +6,12 @@ through the PDS's own OAuth pages, with the console as a loopback client,
 and every read and every action is a call to the PDS's ops listener. It
 has no database and no secrets, and keeps its sessions in memory.
 
+## Commands
+
+`linkjar-pds-console` serves. `bundle-assets [DIR]` writes the asset
+bundle and exits. `health` asks the console on this host for `/health` and
+exits 0 only on 200: the health check of the image.
+
 ## Modules
 
 | Module | Holds |

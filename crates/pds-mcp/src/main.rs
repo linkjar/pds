@@ -1,9 +1,31 @@
 //! `linkjar-pds-mcp`: the MCP server of LinkJar PDS.
+//!
+//! `linkjar-pds-mcp health` is the health check of the image. Without an
+//! argument the server serves.
 
 use std::process::ExitCode;
 
 use pds_mcp::config::Config;
 use pds_sidecar::process::{init_logging, shutdown};
+
+/// Asks the server on this host for its health route. The exit code is a
+/// container health check's: 0 when the route answers 200, 1 for every
+/// other outcome, an invalid configuration among them.
+#[allow(clippy::print_stderr)] // the reason is for the health check's log
+async fn health() -> ExitCode {
+    let vars = std::env::vars().collect();
+    let checked = match Config::from_vars(&vars) {
+        Ok(config) => pds_sidecar::process::health(config.address).await,
+        Err(error) => Err(error.to_string()),
+    };
+    match checked {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("linkjar-pds-mcp: health: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
 
 async fn run() -> Result<(), String> {
     let vars = std::env::vars().collect();
@@ -28,7 +50,15 @@ async fn run() -> Result<(), String> {
 #[tokio::main]
 async fn main() -> ExitCode {
     init_logging();
-    match run().await {
+    let mut args = std::env::args().skip(1);
+    let outcome = match args.next().as_deref() {
+        Some("health") => return health().await,
+        Some(other) => Err(format!(
+            "unknown command {other:?}; the server takes none, or health"
+        )),
+        None => run().await,
+    };
+    match outcome {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("linkjar-pds-mcp: {error}");

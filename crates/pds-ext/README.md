@@ -11,8 +11,10 @@ It has no I/O and no operator logic.
 
 Everything is in `lib.rs`: `Profile`, `Stock`, `Fetch`, `Boxed`,
 `ProviderInfo`, `VerifiedIdentity`, `ProviderAnswer`, `Rename`,
-`Suggested`, `HandlePolicyRow`. The futures are boxed by hand, without
-`async-trait`.
+`Suggested`, `HandlePolicyRow`, `MailKind`. The futures are boxed by hand,
+without `async-trait`. The brand of §12.7 is two methods: `mark`, the
+path of the mark the pages show, and `mail_template`, the profile's own
+template for a mail where it has one.
 
 ## Place in the workspace
 

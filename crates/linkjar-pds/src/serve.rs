@@ -80,7 +80,7 @@ impl DidCache for SqliteDidCache {
 /// Reference creates them at the pin. A database that exists is left as it
 /// is.
 pub fn create_missing_databases(config: &Config) -> Result<(), ServeError> {
-    let now = pds_sequencer::iso_millis(now_ms());
+    let now = pds_types::iso_millis(now_ms());
     let layout = &config.layout;
     let created = layout
         .create_missing(&now)
@@ -100,6 +100,17 @@ pub fn create_missing_databases(config: &Config) -> Result<(), ServeError> {
     Ok(())
 }
 
+/// The profile that `PDS_PROFILE` names (SPEC §12.1).
+fn profile(config: &Config) -> Arc<dyn pds_ext::Profile> {
+    if config.profile == crate::config::ProfileName::Linkjar {
+        Arc::new(pds_ext_linkjar::Linkjar {
+            providers: config.external_providers.clone(),
+        })
+    } else {
+        Arc::new(pds_ext::Stock)
+    }
+}
+
 /// The settings of the HTTP surface, from the configuration.
 fn server_config(config: &Config, jwt_secret: &str, admin_password: &str) -> ServerConfig {
     // The key of an entryway. The configuration refused a value that is
@@ -112,6 +123,7 @@ fn server_config(config: &Config, jwt_secret: &str, admin_password: &str) -> Ser
         .ok()
         .map(Arc::new)
     });
+    let profile = profile(config);
     ServerConfig {
         hostname: config.hostname.clone(),
         version: config.version.clone(),
@@ -161,7 +173,10 @@ fn server_config(config: &Config, jwt_secret: &str, admin_password: &str) -> Ser
                     legacy_audience: Some(host.did.clone()),
                 }),
         },
-        mail: config.mail.clone(),
+        mail: pds_xrpc::mail::MailConfig {
+            templates: pds_xrpc::mail::Templates::of(profile.as_ref()),
+            ..config.mail.clone()
+        },
         rate_limits: config.rate_limits.clone(),
         oauth: config.oauth.clone(),
         ops_client_ids: config.ops_client_ids.clone(),
@@ -184,13 +199,7 @@ fn server_config(config: &Config, jwt_secret: &str, admin_password: &str) -> Ser
                 admin_token: entryway.admin_token.clone(),
             }),
         audit_repo: config.audit_repo.clone(),
-        profile: if config.profile == crate::config::ProfileName::Linkjar {
-            Arc::new(pds_ext_linkjar::Linkjar {
-                providers: config.external_providers.clone(),
-            })
-        } else {
-            Arc::new(pds_ext::Stock)
-        },
+        profile,
         appview_cdn_url_pattern: config.appview_cdn_url_pattern.clone(),
         // A member host has no rotation key: its entryway signs the PLC
         // operations. It still knows the directory and its own address.
@@ -463,9 +472,17 @@ pub async fn serve(config: &Config) -> Result<(), ServeError> {
     for name in &config.unknown_variables {
         tracing::warn!(variable = %name, "unknown variable: SPEC Appendix C does not name it");
     }
+    for name in &config.unread_variables {
+        tracing::warn!(variable = %name, "the variable is set and this version does not read it");
+    }
     if let Some(setting) = &config.fail_points {
         tracing::warn!(%setting, "fail points are armed");
         pds_storage::fail::arm_from(setting)?;
+    }
+    // The binary applied it for every command; a server run in process
+    // (the tests, the simulation) arrives here directly.
+    if config.disable_wal_auto_checkpoint {
+        pds_storage::io::disable_wal_auto_checkpoint();
     }
     // One server for a data directory (SPEC §8.3, §18.4). The lock goes
     // when the process ends, however it ends.

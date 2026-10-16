@@ -33,6 +33,7 @@ pds-ext-linkjar = { path = "crates/pds-ext-linkjar" }
 pds-sidecar = { path = "crates/pds-sidecar" }
 pds-console = { path = "crates/pds-console" }
 pds-mcp = { path = "crates/pds-mcp" }
+linkjar-pds = { path = "crates/linkjar-pds" }
 
 # serialization and data model
 serde = { version = "1", features = ["derive"] }

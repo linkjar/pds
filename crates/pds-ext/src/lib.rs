@@ -108,6 +108,23 @@ pub struct HandlePolicyRow {
     pub claimed: Option<String>,
 }
 
+/// A mail the server sends (§12.7).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MailKind {
+    /// Confirm an email address.
+    ConfirmEmail,
+    /// Change an email address.
+    UpdateEmail,
+    /// Reset a password.
+    ResetPassword,
+    /// Delete an account.
+    DeleteAccount,
+    /// Sign a PLC operation.
+    PlcOperation,
+    /// A sign-in method of the account changed: the notice of §12.6.
+    SignInMethodChange,
+}
+
 /// One operator's behaviour on top of the protocol.
 pub trait Profile: Send + Sync + Debug {
     /// `stock` or `linkjar`.
@@ -214,6 +231,20 @@ pub trait Profile: Send + Sync + Debug {
     /// that holds `handle`. `None` means the profile has no such page for
     /// the handle.
     fn profile_page(&self, _handle: &str, _did: &str) -> Option<String> {
+        None
+    }
+
+    /// The mark the pages show when `PDS_LOGO_URL` is unset (§12.7): the
+    /// path of an asset the server serves. `None` is the stock mark.
+    fn mark(&self) -> Option<&'static str> {
+        None
+    }
+
+    /// The profile's own template for a mail (§12.7): a Handlebars
+    /// document with the variables of the Reference's templates. `None`
+    /// is the Reference's template. The Reference has none for the
+    /// notice, which only a profile that produces notices (§12.6) sends.
+    fn mail_template(&self, _kind: MailKind) -> Option<&'static str> {
         None
     }
 }

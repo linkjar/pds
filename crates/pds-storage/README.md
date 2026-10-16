@@ -16,11 +16,11 @@ pds-audit's, and the meaning of an account row is pds-xrpc's.
 | `account`, `oauth`, `linkjar` | `AccountDb`: `account.sqlite`, with the OAuth tables and the tables of the `linkjar` profile. |
 | `actor`, `actor_txn` | `ActorDb` and `ActorTxn`: one `store.sqlite` per actor, the read side and the write side. `ActorDb` implements `pds_repo::BlockStore`. |
 | `sequencer`, `did_cache`, `audit`, `ops` | `SequencerDb`, `DidCacheDb`, `AuditDb`, `OpsDb`: one database each. |
-| `schema`, `schema_shared` | The Reference's DDL at the pin. |
+| `schema`, `schema_shared` | The Reference's DDL at the pin: the actor store and the functions that create a database, and the three shared databases with the migrations the Reference records for them. |
 | `sql`, `pg` | One SQL API over SQLite and Postgres, and the Postgres client: `SharedTier`, `PgTarget`. |
 | `migrate` | The copy of the shared databases between the backends, behind `linkjar-pds migrate-storage`. |
 | `fail` | The fail points: armed by `PDS_FAIL_POINTS` in dev mode, hit by the write path. |
-| `io` | The VFS seam that pds-sim's power-loss file system plugs into. |
+| `io` | The VFS seam that pds-sim's power-loss file system plugs into, and the switch that hands the WAL checkpoints to a backup tool (`PDS_SQLITE_DISABLE_WAL_AUTO_CHECKPOINT`). |
 | `error` | `StorageError`. |
 
 ## Place in the workspace

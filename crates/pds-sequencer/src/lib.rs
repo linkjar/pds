@@ -15,4 +15,4 @@ pub use events::{
     CommitOp, FrameError, MAX_FRAME_LEN, account_event, commit_event, error_frame, event_rev,
     identity_event, info_frame, sync_event,
 };
-pub use sequencer::{Frame, Refusal, Sequencer, SequencerError, Subscription, iso_millis};
+pub use sequencer::{Frame, Refusal, Sequencer, SequencerError, Subscription};

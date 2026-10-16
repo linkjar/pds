@@ -170,11 +170,10 @@ impl ServerConfig {
     /// host name and to the mark of the profile.
     pub fn brand(&self) -> pds_oauth::pages::Brand<'_> {
         let branding = &self.branding;
-        let mark = if self.profile.name() == "linkjar" {
-            pds_oauth::theme::LINKJAR_MARK_PATH
-        } else {
-            pds_oauth::theme::STOCK_MARK_PATH
-        };
+        let mark = self
+            .profile
+            .mark()
+            .unwrap_or(pds_oauth::theme::STOCK_MARK_PATH);
         pds_oauth::pages::Brand {
             name: branding.service_name.as_deref().unwrap_or(&self.hostname),
             logo: Some(branding.logo_url.as_deref().unwrap_or(mark)),

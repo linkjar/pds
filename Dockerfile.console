@@ -32,6 +32,8 @@ COPY --from=build /assets /usr/local/bin/assets
 EXPOSE 2585
 ENV CONSOLE_ADDRESS=0.0.0.0:2585
 USER console
+# The same check the server image runs: the health route of this sidecar.
+HEALTHCHECK --interval=10s --timeout=5s --retries=6 CMD ["linkjar-pds-console", "health"]
 CMD ["linkjar-pds-console"]
 
 LABEL org.opencontainers.image.source=https://github.com/linkjar/pds

@@ -247,7 +247,7 @@ pub fn parse_repo_cursor(cursor: &str) -> Result<(String, String), XrpcError> {
     let millis: i64 = digits.parse().map_err(|_| malformed())?;
     let time = chrono::DateTime::from_timestamp_millis(sign * millis).ok_or_else(malformed)?;
     Ok((
-        time.to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+        pds_types::Datetime::from_chrono(time).into_string(),
         secondary.to_owned(),
     ))
 }

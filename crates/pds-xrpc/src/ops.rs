@@ -489,7 +489,7 @@ fn grant_role(
         did,
         role: role.to_owned(),
         granted_by: who.actor.clone(),
-        granted_at: pds_sequencer::iso_millis(state.now_ms()),
+        granted_at: pds_types::iso_millis(state.now_ms()),
     };
     writes.with_ops(|ops| ops.grant_role(&row))?;
     Ok(json!({}))
@@ -515,7 +515,7 @@ fn block_domain(
         domain: domain_of(input)?,
         reason: who.reason.clone().unwrap_or_default(),
         created_by: who.actor.clone(),
-        created_at: pds_sequencer::iso_millis(state.now_ms()),
+        created_at: pds_types::iso_millis(state.now_ms()),
     };
     writes(state)?.with_ops(|ops| ops.block_email_domain(&row))?;
     Ok(json!({}))
@@ -544,7 +544,7 @@ fn emit_sync(state: &AppState, input: &Map<String, Value>) -> Result<Value, Xrpc
 }
 
 fn purge(state: &AppState) -> Result<Value, XrpcError> {
-    let now = pds_sequencer::iso_millis(state.now_ms());
+    let now = pds_types::iso_millis(state.now_ms());
     let removed = writes(state)?.with_accounts(|accounts| accounts.purge_expired(&now))?;
     Ok(json!({ "removed": removed }))
 }
@@ -553,7 +553,7 @@ fn checkpoint(state: &AppState) -> Result<Value, XrpcError> {
     let log = state
         .audit()
         .ok_or_else(|| XrpcError::internal("the server has no audit log"))?;
-    let time = pds_sequencer::iso_millis(state.now_ms());
+    let time = pds_types::iso_millis(state.now_ms());
     let made = log.checkpoint(&time)?;
     Ok(json!({ "last": made.map(|checkpoint| checkpoint.last) }))
 }
@@ -628,7 +628,7 @@ pub fn overview(state: &AppState) -> Result<Value, XrpcError> {
         "version": config.version,
         "profile": config.profile.name(),
         "hostname": config.hostname,
-        "time": pds_sequencer::iso_millis(state.now_ms()),
+        "time": pds_types::iso_millis(state.now_ms()),
         "accounts": accounts,
         "sequencer": { "head": writes.sequencer().head() },
         "subscribers": state.subscribers().len(),

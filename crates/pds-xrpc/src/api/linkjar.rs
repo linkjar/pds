@@ -26,7 +26,7 @@ async fn receipt(
     let did = session(state, headers, None)?;
     let grant = crate::oauth::resource::grant()
         .ok_or_else(|| XrpcError::bad_request("InvalidToken", "OAuth session is required"))?;
-    let now = pds_sequencer::iso_millis(state.now_ms());
+    let now = pds_types::iso_millis(state.now_ms());
     let handle = {
         let did = did.clone();
         state

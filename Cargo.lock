@@ -1766,6 +1766,7 @@ dependencies = [
  "icu_properties",
  "pds-ext",
  "pds-identity",
+ "pds-oauth",
  "pds-types",
  "serde_json",
  "url",
@@ -1850,7 +1851,6 @@ dependencies = [
 name = "pds-sequencer"
 version = "0.0.1"
 dependencies = [
- "chrono",
  "cid",
  "pds-repo",
  "pds-storage",
@@ -1959,6 +1959,7 @@ dependencies = [
  "pds-audit",
  "pds-blob",
  "pds-ext",
+ "pds-ext-linkjar",
  "pds-identity",
  "pds-lexicon",
  "pds-oauth",

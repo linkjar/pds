@@ -3,12 +3,15 @@ name: Rust
 # Gates for the LinkJar PDS workspace. See docs/SPEC.md section 14.5.
 # Actions are pinned by commit SHA; the comment names the release.
 
+# Every path but parity/, except what the gates read from it: the official
+# MCP client that the tests of linkjar-pds run, and the files that install
+# it. A change to a scenario or a transcript starts no Rust job.
 on:
   pull_request:
-    paths-ignore: ['parity/**']
+    paths: ['**', '!parity/**', 'parity/mcp/**', 'parity/package.json', 'parity/pnpm-lock.yaml', 'parity/pnpm-workspace.yaml', 'parity/.node-version', 'parity/tsconfig.json']
   push:
     branches: [main]
-    paths-ignore: ['parity/**']
+    paths: ['**', '!parity/**', 'parity/mcp/**', 'parity/package.json', 'parity/pnpm-lock.yaml', 'parity/pnpm-workspace.yaml', 'parity/.node-version', 'parity/tsconfig.json']
   schedule:
     # Mondays. The toolchain follows stable and advisories arrive without
     # a push, so a quiet week is checked here and not on the next pull

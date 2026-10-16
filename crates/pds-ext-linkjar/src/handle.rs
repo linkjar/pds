@@ -109,29 +109,6 @@ pub fn attempt_label(base: &str, attempt: usize, suffix: [u8; 3]) -> String {
     )
 }
 
-/// A handle for a new account. `is_taken` says whether a handle has an
-/// account, and `suffix` draws three random bytes. `None` after
-/// [`ATTEMPTS`] attempts.
-pub fn derive<E>(
-    display_name: Option<&str>,
-    email: Option<&str>,
-    mut is_taken: impl FnMut(&str) -> Result<bool, E>,
-    mut suffix: impl FnMut() -> [u8; 3],
-) -> Result<Option<String>, E> {
-    let base = base_label(display_name, email);
-    for attempt in 0..ATTEMPTS {
-        let label = attempt_label(&base, attempt, suffix());
-        if !allowed(&label) {
-            continue;
-        }
-        let handle = format!("{label}{DOMAIN}");
-        if !is_taken(&handle)? {
-            return Ok(Some(handle));
-        }
-    }
-    Ok(None)
-}
-
 /// The message of a refused rename.
 pub const RENAME_REFUSED: &str = "One hosted handle change is available within 30 days of signup. You can still use a domain you own.";
 
@@ -200,19 +177,24 @@ mod tests {
         assert_eq!(base_label(None, None), "reader");
     }
 
+    /// The server asks the profile for one attempt at a time
+    /// (`Profile::suggested_label`) until a handle is free.
     #[test]
     fn a_taken_name_gets_six_hexadecimal_digits() {
-        let mut taken = vec!["nova.linkjar.social".to_owned()];
-        let found = derive::<()>(
-            Some("Nova"),
-            None,
-            |handle| Ok(taken.iter().any(|own| own == handle)),
-            || [0xab, 0x01, 0xff],
+        use pds_ext::{Profile as _, Suggested};
+        let profile = crate::Linkjar::default();
+        let suggest =
+            |attempt| profile.suggested_label(Some("Nova"), None, attempt, [0xab, 1, 0xff]);
+        assert_eq!(
+            suggest(0),
+            Suggested::Handle("nova.linkjar.social".to_owned())
         );
-        assert_eq!(found, Ok(Some("nova-ab01ff.linkjar.social".to_owned())));
-        taken.push("nova-ab01ff.linkjar.social".to_owned());
-        let none = derive::<()>(Some("Nova"), None, |_| Ok(true), || [0, 0, 0]);
-        assert_eq!(none, Ok(None));
+        assert_eq!(
+            suggest(1),
+            Suggested::Handle("nova-ab01ff.linkjar.social".to_owned())
+        );
+        assert_eq!(suggest(ATTEMPTS - 1), suggest(1));
+        assert_eq!(suggest(ATTEMPTS), Suggested::End);
         assert_eq!(
             attempt_label("abcdefghij-lmnop", 1, [1, 2, 3]),
             "abcdefghij-010203"

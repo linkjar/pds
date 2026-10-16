@@ -399,7 +399,7 @@ pub async fn record(state: &AppState, what: Draft) {
     let Some(_) = state.audit() else {
         return;
     };
-    let time = pds_sequencer::iso_millis(state.now_ms());
+    let time = pds_types::iso_millis(state.now_ms());
     let state = state.clone();
     let action = what.action.clone();
     let written =
@@ -439,7 +439,7 @@ pub async fn checkpoint(state: &AppState) {
     if state.audit().is_none() {
         return;
     }
-    let time = pds_sequencer::iso_millis(state.now_ms());
+    let time = pds_types::iso_millis(state.now_ms());
     let made = {
         let state = state.clone();
         tokio::task::spawn_blocking(move || state.audit().map(|log| log.checkpoint_after(&time)))

@@ -17,11 +17,9 @@ use linkjar_pds::config::Config;
 use pds_blob::DiskBlobStore;
 use pds_identity::{Algorithm, DidResolver, Keypair, ResolverConfig};
 use pds_repo::{MemoryBlockStore, Repo};
-use pds_sequencer::{
-    Crawlers, Sequencer, account_event, commit_event, identity_event, iso_millis, sync_event,
-};
-use pds_storage::{ActorDb, DataLayout, ReadPool, schema};
-use pds_types::{Did, TidGenerator};
+use pds_sequencer::{Crawlers, Sequencer, account_event, commit_event, identity_event, sync_event};
+use pds_storage::{ActorDb, DataLayout, ReadPool, schema, schema_shared};
+use pds_types::{Did, TidGenerator, iso_millis};
 use pds_xrpc::auth::AuthConfig;
 use pds_xrpc::{AppState, ServerConfig, WriteSettings, WriteState};
 use sha2::Sha256;
@@ -345,9 +343,16 @@ impl World {
         vfs.reset();
         let layout = DataLayout::new(&root);
         let clock = Clock::new();
+        let now = iso_millis(clock.now_ms());
         let account_db = schema::create(&layout.account_db, ACCOUNT_SCHEMA).map_err(storage)?;
-        drop(schema::create(&layout.did_cache_db, schema::DID_CACHE).map_err(storage)?);
-        drop(schema::create(&layout.sequencer_db, schema::SEQUENCER).map_err(storage)?);
+        drop(
+            schema::create_shared(&layout.did_cache_db, &schema_shared::DID_CACHE, &now)
+                .map_err(storage)?,
+        );
+        drop(
+            schema::create_shared(&layout.sequencer_db, &schema_shared::SEQUENCER, &now)
+                .map_err(storage)?,
+        );
         let sequencer = Sequencer::open(
             &layout.sequencer_db,
             Crawlers::new("pds.test".to_owned(), Vec::new(), reqwest::Client::new()),

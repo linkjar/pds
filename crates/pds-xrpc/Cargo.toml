@@ -39,5 +39,9 @@ futures-util = { workspace = true, features = ["sink"] }
 http-body.workspace = true
 tokio-tungstenite.workspace = true
 
+[dev-dependencies]
+# The mail tests render the templates of the linkjar profile.
+pds-ext-linkjar.workspace = true
+
 [lints]
 workspace = true

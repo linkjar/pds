@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use pds_storage::{DataLayout, SeqInsert, SeqRow, SequencerDb, StorageError};
+use pds_types::iso_millis;
 use tokio::sync::watch;
 
 use crate::crawlers::Crawlers;
@@ -26,15 +27,6 @@ const FRAME_CACHE_BYTES: usize = 16 * 1024 * 1024;
 /// How long a live subscription waits for a wakeup before it reads the log
 /// again. A lost wakeup costs at most this (SPEC §7.4).
 const POLL: Duration = Duration::from_secs(1);
-
-/// Milliseconds since the Unix epoch as the ISO 8601 text the Reference
-/// writes: UTC with three decimals.
-pub fn iso_millis(ms: i64) -> String {
-    chrono::DateTime::from_timestamp_millis(ms)
-        .unwrap_or_default()
-        .format("%Y-%m-%dT%H:%M:%S%.3fZ")
-        .to_string()
-}
 
 /// A frame, shared by every subscriber that receives it.
 pub type Frame = Arc<[u8]>;

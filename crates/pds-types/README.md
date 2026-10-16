@@ -9,11 +9,11 @@ from the lexicons. It does no I/O and reads no configuration.
 
 | Module | Holds |
 |---|---|
-| `syntax` | `Did`, `Handle`, `Nsid`, `Tid` and `TidGenerator`, `RecordKey`, `AtUri`, `Datetime`, `Language`, `Uri`, `CidString`, `AtIdentifier`. Each type checks its syntax when parsed. |
+| `syntax` | `Did`, `Handle`, `Nsid`, `Tid` and `TidGenerator`, `RecordKey`, `AtUri`, `Datetime`, `Language`, `Uri`, `CidString`, `AtIdentifier`. Each type checks its syntax when parsed. `iso_millis` writes a time in milliseconds as the canonical `Datetime` text, the one timestamp format of the server. |
 | `data` | `Data`, `CidLink`, `Bytes` and `BlobRef`: the data model value, with `from_json_slice`, `from_dag_cbor_with` and `to_dag_cbor`. |
 | `cbor` | The strict DAG-CBOR `Reader` and `Writer`, `decode`, `encode`, `check`, and `Limits` (`RECORD`, `FRAME`). |
 | `content` | CIDv1 with SHA-256: `cid_for_cbor`, `cid_for_raw`, `repo_cid_kind`. |
-| `generated` | API types written by `cargo xtask codegen` from `lexicons/`: `app.bsky`, `com.atproto` and `io.linkjar`. |
+| `generated` | API types written by `cargo xtask codegen` from `lexicons/`: `app.bsky`, `com.atproto` and `io.linkjar`. SPEC §2.1 requires generated types. No crate reads them yet: the handlers of pds-xrpc build their JSON by hand, and `tests/generated.rs` is the only user. |
 
 Rules beyond syntax are offered as checks, such as
 `Handle::is_disallowed_tld`, and are not enforced here.

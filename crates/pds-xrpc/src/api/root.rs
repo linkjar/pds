@@ -122,7 +122,7 @@ fn html(status: StatusCode, body: String) -> Response {
 pub fn not_found(method: &Method, path: &str) -> Response {
     let body = format!(
         "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Cannot {method} {}</pre>\n</body>\n</html>\n",
-        escape(path)
+        pds_oauth::pages::escape(path)
     );
     let mut response = html(StatusCode::NOT_FOUND, body);
     let headers = response.headers_mut();
@@ -135,13 +135,6 @@ pub fn not_found(method: &Method, path: &str) -> Response {
         HeaderValue::from_static("nosniff"),
     );
     response
-}
-
-fn escape(text: &str) -> String {
-    text.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
 }
 
 /// The path that a proxy in front of the server rewrites a request on a

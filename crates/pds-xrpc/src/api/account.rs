@@ -517,7 +517,7 @@ async fn create_for_entryway(
         did: member.did.clone(),
         operation: member.operation.clone(),
     };
-    let now = pds_sequencer::iso_millis(state.now_ms());
+    let now = pds_types::iso_millis(state.now_ms());
     let commit = {
         let (did, now) = (member.did.clone(), now.clone());
         state
@@ -593,7 +593,7 @@ async fn create_at_entryway(
         "did": genesis.did, "handle": request.handle, "plcOp": genesis.operation,
     });
     super::entryway::ask_member(state, host, "com.atproto.server.createAccount", &account).await?;
-    let now = pds_sequencer::iso_millis(state.now_ms());
+    let now = pds_types::iso_millis(state.now_ms());
     let created = finish(state, &identity, &request, &genesis.did, None, None, &now).await;
     if created.is_err() {
         // The host has a repository that no account owns: it goes again.
@@ -649,7 +649,7 @@ pub(crate) async fn create(state: &AppState, request: Request) -> Result<Created
         (None, Some(did)) => did.clone(),
         (None, None) => return Err(XrpcError::internal("an account without a DID")),
     };
-    let now = pds_sequencer::iso_millis(state.now_ms());
+    let now = pds_types::iso_millis(state.now_ms());
 
     let commit = {
         let (did, now) = (did.clone(), now.clone());
@@ -773,7 +773,7 @@ async fn finish(
     let access = auth::mint_access(config, did, SCOPE_ACCESS, now_s);
     let id = data_encoding::BASE64_NOPAD.encode(&random_bytes::<32>(writes));
     let (refresh, expires_s) = auth::mint_refresh(config, did, &id, now_s);
-    let expires_at = pds_sequencer::iso_millis(expires_s * 1000);
+    let expires_at = pds_types::iso_millis(expires_s * 1000);
     let salt = HEXLOWER.encode(&random_bytes::<16>(writes));
 
     let stored = {

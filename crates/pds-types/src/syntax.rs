@@ -728,6 +728,29 @@ impl Datetime {
     }
 }
 
+/// Milliseconds since the Unix epoch as the text the Reference writes.
+///
+/// The text is the canonical form of [`Datetime`], UTC with three
+/// decimals, in every row and every answer of the server. An instant
+/// outside the range chrono represents is the epoch.
+pub fn iso_millis(ms: i64) -> String {
+    let time = chrono::DateTime::from_timestamp_millis(ms).unwrap_or_default();
+    Datetime::from_chrono(time).into_string()
+}
+
+#[cfg(test)]
+mod iso_millis_tests {
+    use super::*;
+
+    #[test]
+    fn milliseconds_become_the_canonical_text() {
+        assert_eq!(iso_millis(0), "1970-01-01T00:00:00.000Z");
+        assert_eq!(iso_millis(1_767_225_600_123), "2026-01-01T00:00:00.123Z");
+        assert_eq!(iso_millis(-1), "1969-12-31T23:59:59.999Z");
+        assert!(Datetime::parse(&iso_millis(1_767_225_600_123)).is_ok());
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Language (BCP 47)
 
