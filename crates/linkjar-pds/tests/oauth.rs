@@ -458,6 +458,32 @@ impl Server {
 
 const GET_SESSION: &str = "/xrpc/com.atproto.server.getSession";
 
+// A browser client reads the nonce only when the answer names it in
+// `Access-Control-Expose-Headers`. The rate limits run in production, and
+// their headers join the list instead of taking its place.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_browser_can_read_the_nonce_while_the_rate_limits_run() {
+    let mut server = Server::start_with(&[("PDS_RATE_LIMITS_ENABLED", "true")]).await;
+    // The first request has no nonce and is asked to use one.
+    let first = server.push(&[]).await;
+    assert_eq!(first.json()["error"], "use_dpop_nonce", "{}", first.text);
+    let pushed = server.push(&[]).await;
+    assert_eq!(pushed.status, 201, "{}", pushed.text);
+    for answer in [&first, &pushed] {
+        assert!(answer.header("dpop-nonce").is_some());
+        assert!(answer.header("ratelimit-limit").is_some());
+        let exposed: Vec<String> = answer
+            .header("access-control-expose-headers")
+            .unwrap()
+            .split(',')
+            .map(|name| name.trim().to_ascii_lowercase())
+            .collect();
+        for name in ["dpop-nonce", "www-authenticate", "ratelimit-limit"] {
+            assert!(exposed.iter().any(|own| own == name), "{name}: {exposed:?}");
+        }
+    }
+}
+
 // One flow, in the order a client goes through it.
 #[allow(clippy::too_many_lines)]
 #[tokio::test(flavor = "multi_thread")]

@@ -15,7 +15,7 @@ use std::cell::RefCell;
 use std::net::IpAddr;
 use std::sync::{Mutex, PoisonError};
 
-use axum::http::{HeaderMap, HeaderValue, StatusCode};
+use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::Response;
 
 use crate::error::XrpcError;
@@ -241,13 +241,28 @@ where
                     headers.insert("retry-after", HeaderValue::from(seconds));
                     expose.push_str(", Retry-After");
                 }
-                if let Ok(expose) = HeaderValue::from_str(&expose) {
-                    headers.insert("access-control-expose-headers", expose);
-                }
+                add_exposed(headers, &expose);
             }
             response
         })
         .await
+}
+
+/// Adds names to the headers a browser may read. An answer that already
+/// names some, such as `DPoP-Nonce` on an OAuth answer, keeps them: a
+/// browser client that cannot read the nonce cannot retry with it.
+fn add_exposed(headers: &mut HeaderMap, names: &str) {
+    let all = match headers
+        .get(header::ACCESS_CONTROL_EXPOSE_HEADERS)
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+    {
+        Some(own) if !own.is_empty() => format!("{own}, {names}"),
+        _ => names.to_owned(),
+    };
+    if let Ok(value) = HeaderValue::from_str(&all) {
+        headers.insert(header::ACCESS_CONTROL_EXPOSE_HEADERS, value);
+    }
 }
 
 /// How a limiter finds its bucket.
@@ -393,6 +408,26 @@ mod tests {
         assert_eq!(
             (next.remaining, next.resets_at_ms, next.exceeded),
             (2, 21_000, false)
+        );
+    }
+
+    #[test]
+    fn the_limiter_headers_join_the_names_an_answer_exposes() {
+        let mut headers = HeaderMap::new();
+        add_exposed(&mut headers, "RateLimit-Limit");
+        assert_eq!(
+            headers[header::ACCESS_CONTROL_EXPOSE_HEADERS],
+            "RateLimit-Limit"
+        );
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::ACCESS_CONTROL_EXPOSE_HEADERS,
+            HeaderValue::from_static("DPoP-Nonce, WWW-Authenticate"),
+        );
+        add_exposed(&mut headers, "RateLimit-Limit, Retry-After");
+        assert_eq!(
+            headers[header::ACCESS_CONTROL_EXPOSE_HEADERS],
+            "DPoP-Nonce, WWW-Authenticate, RateLimit-Limit, Retry-After"
         );
     }
 
