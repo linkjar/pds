@@ -1,5 +1,6 @@
 // Targets and where their stacks live. A target is an image plus the shared
-// configuration; nothing else may differ between two targets (SPEC 17.1).
+// configuration (SPEC 17.1). env.ts selects the development mode the
+// Candidate requires to reach the stack's private fixtures.
 
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'

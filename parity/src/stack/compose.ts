@@ -107,7 +107,7 @@ export async function up(target: TargetName, profile: Profile, opts: { fresh?: b
   mkdirSync(spec.runDir, { recursive: true })
   const secrets = ensureSecrets(spec.runDir)
   const newTls = await ensureTls(spec.runDir, EDGE_NAMES)
-  writePdsEnv(spec, pdsEnv(spec, profile, secrets))
+  writePdsEnv(spec, pdsEnv(spec, profile, secrets, image))
   // Containers read the CA and the certificate at start, so new material means new containers.
   if (opts.fresh || newTls) compose(target, ['down', '--volumes', '--remove-orphans'], { allowFailure: true, image })
   ensurePlcImage(target)
@@ -141,11 +141,10 @@ function ensurePlcImage(target: TargetName): void {
 export function swapPds(target: TargetName, image: string, profile?: Profile): StackState {
   const state = readState(target)
   compose(target, ['stop', 'pds'], { image: state.image })
-  // A profile changes the environment of the server that takes over.
-  if (profile) {
-    const spec = targetSpec(target)
-    writePdsEnv(spec, pdsEnv(spec, profile, ensureSecrets(spec.runDir)))
-  }
+  // The destination image may need a different fixture mode even when the
+  // profile stays the same (the restore run swaps without a profile).
+  const spec = targetSpec(target)
+  writePdsEnv(spec, pdsEnv(spec, profile ?? state.profile, ensureSecrets(spec.runDir), image))
   compose(target, ['up', '--detach', '--wait', '--wait-timeout', '120', '--force-recreate', '--no-deps', 'pds-init', 'pds'], { inherit: true, image })
   const next = { ...state, image, profile: profile ?? state.profile }
   writeFileSync(stateFile(target), JSON.stringify(next, null, 2) + '\n', { mode: 0o600 })

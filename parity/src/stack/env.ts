@@ -7,7 +7,7 @@ import { createECDH, createHash, randomBytes } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { base58btc } from 'multiformats/bases/base58'
-import { HOSTS, upstream } from './targets.ts'
+import { HOSTS, targetSpec, upstream } from './targets.ts'
 import type { TargetSpec } from './targets.ts'
 
 // `restore` is the production configuration again: its scenarios run against a
@@ -61,13 +61,16 @@ export const EXTERNAL_CLIENT_IDS = {
 
 export const HCAPTCHA_SITE_KEY = '10000000-ffff-ffff-ffff-000000000001'
 
-export function pdsEnv(spec: TargetSpec, profile: Profile, secrets: Secrets): Record<string, string> {
+export function pdsEnv(spec: TargetSpec, profile: Profile, secrets: Secrets, image = spec.image): Record<string, string> {
   const env: Record<string, string> = {
     // Identity: the production hostnames. Patch 093 keys on `.linkjar.social`.
     PDS_HOSTNAME: HOSTS.pds,
     PDS_PORT: '3000',
     PDS_SERVICE_HANDLE_DOMAINS: HOSTS.handleDomain,
-    PDS_DEV_MODE: 'false',
+    // The Candidate permits private fixture services only in development
+    // mode. Restore runs the Reference inside the candidate target first,
+    // so select the mode by the running image, not the target's name.
+    PDS_DEV_MODE: String(image === targetSpec('candidate').image),
     // The official distribution bakes its own release label into this
     // variable; every target states the package version instead.
     PDS_VERSION: upstream.tag.split('@').at(-1) ?? '',
