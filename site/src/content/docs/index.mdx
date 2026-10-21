@@ -1,68 +1,110 @@
 ---
-title: LinkJar PDS
-description: Host your own AT Protocol Personal Data Server. A small Rust server, compatible with the reference PDS.
-template: splash
-hero:
-  title: Host your own PDS
-  tagline: LinkJar PDS is an AT Protocol Personal Data Server written in Rust. One binary, one data directory, the same layout and settings as the reference server. Run it for yourself, your family or your community.
-  image:
-    file: ../../assets/hero.svg
-    alt: A jar with a stream of records leaving it
-  actions:
-    - text: Get started
-      link: /start/requirements/
-      icon: right-arrow
-    - text: View on GitHub
-      link: https://github.com/linkjar/pds
-      icon: external
-      variant: minimal
+title: Host your own PDS
+description: A practical guide to installing, configuring, and operating LinkJar PDS, an AT Protocol Personal Data Server written in Rust.
+sidebar:
+  label: Overview
+prev: false
+next:
+  label: Requirements
+  link: /start/requirements/
 ---
 
-import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+import { Aside, CardGrid, LinkCard, Steps } from '@astrojs/starlight/components';
 
-<CardGrid stagger>
-	<Card title="Running in fifteen minutes" icon="rocket">
-		A Compose file with the server and Caddy. Point DNS at the host, fill in
-		three secrets, start it. [What you need →](/start/requirements/)
-	</Card>
-	<Card title="A drop-in for the reference PDS" icon="random">
-		The same data directory, the same `PDS_*` variables, the same user id.
-		Stop one server, start the other; the relay resumes at its cursor.
-		[Switch over →](/operate/migrate-from-reference/)
-	</Card>
-	<Card title="Small and quick" icon="laptop">
-		The server starts in a few megabytes of memory. On a laptop it exported a
-		repository of 100,000 records in 167 ms, where the reference server took
-		1,385 ms. [Measurements →](https://github.com/linkjar/pds/blob/main/parity/results/perf-reads.md)
-	</Card>
-	<Card title="An audit log you can check offline" icon="approve-check">
-		Every account and admin action is an entry in a hash chain. Checkpoints are
-		signed, and a bundle verifies away from the host.
-		[Audit log →](/operate/audit-log/)
-	</Card>
-</CardGrid>
+<div class="docs-lead">
+	LinkJar PDS is an AT Protocol Personal Data Server written in Rust.
+	Host your accounts, records, and media, and connect them to the wider network.
+</div>
 
-## Where to go
+This guide takes you from a Linux host to your first account, then covers
+the work of keeping the server running.
+
+## Choose your starting point
 
 <CardGrid>
 	<LinkCard
-		title="Configure"
-		description="Environment variables, email, blob storage, handles and certificates."
-		href="/configure/environment/"
+		title="Set up a new server"
+		description="Prepare a host and domain, then install with Docker Compose."
+		href="/start/requirements/"
 	/>
 	<LinkCard
-		title="Operate"
-		description="Update, back up, watch the logs and metrics, manage accounts."
+		title="Move from the reference PDS"
+		description="Check your existing data, plan the switch, and review rollback limits."
+		href="/operate/migrate-from-reference/"
+	/>
+</CardGrid>
+
+## Get a server running
+
+Follow these pages in order for a new installation. The guide uses Docker
+Compose with Caddy for HTTPS and a local data directory for SQLite and blobs.
+
+<Steps>
+
+1. **[Prepare the host](/start/requirements/)**
+
+   Check Docker, storage, network access, and the domain you will use.
+
+2. **[Set up DNS](/start/dns/)**
+
+   Point the server name and account handles at your host.
+
+3. **[Install with Docker Compose](/start/install/)**
+
+   Pin the image, generate secrets, and check the configuration before starting.
+
+4. **[Verify the setup](/start/verify/)**
+
+   Check HTTPS, server metadata, and health from outside the host.
+
+5. **[Create your first account](/start/first-account/)**
+
+   Make an invite, create an account, and sign in with a client.
+
+</Steps>
+
+## Keep it running
+
+<div class="docs-links">
+	<LinkCard
+		title="Back up and restore"
+		description="Keep account data, blobs, and the secrets needed to recover them."
+		href="/operate/backup/"
+	/>
+	<LinkCard
+		title="Update the server"
+		description="Deploy a pinned image and understand recovery-aware rollback."
 		href="/operate/update/"
 	/>
 	<LinkCard
-		title="Scale"
-		description="Postgres for the shared tier, an entryway with a member host, the sidecars."
-		href="/scale/postgres/"
+		title="Monitor the service"
+		description="Read logs, check health, and collect operational metrics."
+		href="/operate/monitoring/"
 	/>
 	<LinkCard
-		title="How it fits together"
-		description="The parts of the server and the files it writes, in three diagrams."
-		href="/reference/architecture/"
+		title="Find a setting"
+		description="Environment variables, defaults, and request resource limits."
+		href="/configure/environment/"
 	/>
-</CardGrid>
+</div>
+
+<Aside title="Before hosting other people's data">
+	Set up [email for account recovery](/configure/email/), keep a tested
+	[backup](/operate/backup/), and review the
+	[authentication limits when rolling back](/operate/update/#roll-back).
+	A database that an older server can read does not guarantee the same
+	credential-revocation protection.
+</Aside>
+
+## Understand the system
+
+The [architecture guide](/reference/architecture/) explains the server's
+parts and data files. For larger deployments, start with
+[Postgres](/scale/postgres/) or the [entryway and member model](/scale/entryway/).
+If a check fails, use the [troubleshooting guide](/reference/troubleshooting/).
+
+These pages describe LinkJar PDS. The upstream
+[AT Protocol documentation](https://atproto.com/) explains the protocol,
+and its [self-hosting guide](https://atproto.com/guides/self-hosting)
+links to the reference server. LinkJar's implementation and deployment
+instructions are maintained in the [source repository](https://github.com/linkjar/pds).

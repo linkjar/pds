@@ -1,13 +1,14 @@
 ---
 title: Migrate from the reference PDS
-description: Switch a host that runs the reference PDS to LinkJar PDS on the same data directory, and switch back if you must.
+description: Plan a switch from the reference PDS using the existing data directory, with backup and rollback safeguards.
 sidebar:
   order: 7
 ---
 
-LinkJar PDS serves a data directory the reference server wrote, with the
-same `pds.env`, and the reference server serves what LinkJar PDS wrote. A
-switch is a stop and a start, and so is the way back.
+LinkJar PDS can serve a data directory the reference server wrote, with
+the existing `pds.env`. Check a restored copy before switching the running
+server. Database compatibility alone does not make an older image a safe
+rollback target.
 
 This page assumes the reference server's installer: the data at `/pds`,
 the settings in `/pds/pds.env`, and a systemd unit named `pds` that runs
@@ -82,20 +83,23 @@ its Compose file.
    cursor; its status for the host goes back to `active` with the first
    write.
 
-## Back to the reference server
+## Plan for rollback
 
-```bash
-docker compose down
-```
+Prefer a forward fix or a validated build that retains LinkJar's recovery
+checks. This release adds a `credential_epoch` table to the shared account
+database and a blob-reference index to actor databases. The reference
+migration ledger stays unchanged, and older servers can read the layout.
 
-```bash
-sudo systemctl enable --now pds
-```
+The reference server and older LinkJar images do not enforce credential
+epochs or the member host's live session check. They can accept revoked,
+unexpired legacy tokens after password recovery. Read the
+[update and rollback guidance](/operate/update/#roll-back) before choosing
+an older image.
 
-LinkJar PDS leaves three files of its own in the directory, `audit.sqlite`,
-`ops.sqlite` and `linkjar-pds.lock`. The reference server ignores them. A
-session that an app opened on LinkJar PDS goes on at the reference server,
-because the rows are the reference server's.
+Keep the current account database and `credential_epoch` in backups and
+copies. Do not restore a pre-recovery account database to undo the switch:
+that can restore old passwords, credentials, and access. Preserve
+`audit.sqlite` and `ops.sqlite` as well.
 
 :::note[The relay and the AppView]
 The reference server's `pds.env` already names `PDS_BSKY_APP_VIEW_URL`,

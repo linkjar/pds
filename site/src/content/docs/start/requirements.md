@@ -1,6 +1,6 @@
 ---
 title: What you need
-description: The host, the domain name and the fifteen minutes a LinkJar PDS takes.
+description: Prepare a Linux host, Docker, a domain name, and the network access needed to run LinkJar PDS.
 sidebar:
   order: 1
 ---
