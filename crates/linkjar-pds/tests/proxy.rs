@@ -6,6 +6,8 @@
     missing_docs
 )]
 
+#[path = "proxy/chat.rs"]
+mod chat;
 mod common;
 
 use std::sync::{Arc, Mutex};

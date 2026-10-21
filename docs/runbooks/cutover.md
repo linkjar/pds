@@ -165,18 +165,34 @@ pds-audit-verify audit-bundle.json
 
 ## 4. Rollback
 
-The rollback window is open until the operator applies the first
-Candidate-only migration of a shared database. No such migration exists
-yet: the migrations of the `linkjar` profile are the patch stack's own, and
-the reference image knows them.
+This release adds the `credential_epoch` table to the shared account
+database and `record_blob_record_uri_idx` to actor databases on writable
+open. These additions leave the Reference migration ledger unchanged.
+Older servers can still read the database layout, but they do not provide
+the same recovery protection.
+
+The Reference and older Candidate images do not enforce credential epochs
+or the member host's live session check. After password recovery, they can
+accept revoked, unexpired legacy tokens even with the current database.
+
+Prefer a forward fix or a previously validated image that includes these
+recovery checks:
 
 1. Stop the Candidate.
-2. Start the reference image on the same data directory.
+2. Preserve the current account database, including `credential_epoch`,
+   and the rest of the data directory. Keep `ops.sqlite` and `audit.sqlite`
+   in the backup.
+3. Start the compatible security build, pinned by digest, on that data.
+4. Check service health and confirm that credentials revoked by a test
+   account's password recovery remain rejected.
 
-The Candidate's own files stay in place and the Reference ignores them:
-`ops.sqlite`, `audit.sqlite`, `linkjar-pds.lock`. A session that an OAuth
-client opened on the Candidate goes on at the Reference, because the rows
-are the Reference's.
+Do not restore a pre-recovery account database or remove `credential_epoch`
+to undo this release. Restoring older security state can restore old
+passwords, credentials, and access. If an older image is unavoidable,
+complete the signing-secret and key rotation described in the
+[update guidance](../../site/src/content/docs/operate/update.md#roll-back)
+and require sign-in again before serving traffic. Treat this as a separate
+security recovery procedure, not an ordinary image rollback.
 
 ## 5. What this runbook does not cover
 

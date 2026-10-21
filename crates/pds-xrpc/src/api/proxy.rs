@@ -21,25 +21,6 @@ use crate::body;
 use crate::error::{XrpcError, json_response};
 use crate::state::AppState;
 
-/// Methods of the chat service: an app password reaches them only when it
-/// is privileged.
-const CHAT_METHODS: &[&str] = &[
-    "chat.bsky.actor.deleteAccount",
-    "chat.bsky.actor.exportAccountData",
-    "chat.bsky.convo.deleteMessageForSelf",
-    "chat.bsky.convo.getConvo",
-    "chat.bsky.convo.getConvoForMembers",
-    "chat.bsky.convo.getLog",
-    "chat.bsky.convo.getMessages",
-    "chat.bsky.convo.leaveConvo",
-    "chat.bsky.convo.listConvos",
-    "chat.bsky.convo.muteConvo",
-    "chat.bsky.convo.sendMessage",
-    "chat.bsky.convo.sendMessageBatch",
-    "chat.bsky.convo.unmuteConvo",
-    "chat.bsky.convo.updateRead",
-];
-
 /// Account management: never proxied and never the method of a service
 /// token.
 const PROTECTED_METHODS: &[&str] = &[
@@ -83,7 +64,10 @@ fn listed(list: &[&str], lxm: &str) -> bool {
 }
 
 fn privileged(lxm: &str) -> bool {
-    listed(CHAT_METHODS, lxm) || lxm.eq_ignore_ascii_case("com.atproto.server.createAccount")
+    // New chat methods must inherit the same app-password restriction.
+    lxm.get(.."chat.bsky.".len())
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("chat.bsky."))
+        || lxm.eq_ignore_ascii_case("com.atproto.server.createAccount")
 }
 
 fn bad_method() -> XrpcError {
