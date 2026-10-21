@@ -4,8 +4,9 @@
 //! by two cookies, shows the pages of `pds_oauth::pages`, and sends the
 //! browser back to the client with a code or with an error.
 
+use std::collections::HashMap;
 use std::net::IpAddr;
-use std::sync::{Arc, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use axum::body::Body;
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
@@ -23,7 +24,9 @@ use sha2::Sha256;
 use subtle::ConstantTimeEq;
 
 use super::clients::{self, LoadedClient};
-use super::{Fields, OAuthError, accounts, iso, issuer, millis, new_id};
+use super::{
+    Fields, OAuthError, account_reads, account_snapshot, accounts, iso, issuer, millis, new_id,
+};
 use crate::state::AppState;
 
 const DEVICE_COOKIE: &str = "dev-id";
@@ -35,6 +38,43 @@ const SESSION_ROTATION_MS: i64 = 5 * 60 * 1000;
 const SESSION_FIXATION_MS: i64 = 5 * 1000;
 /// A cookie of a device lives 10 years.
 const COOKIE_MAX_AGE_S: i64 = 10 * 365 * 24 * 60 * 60;
+
+struct PreviousSession {
+    previous: String,
+    current: String,
+    expires_ms: i64,
+}
+
+/// Exact predecessors of recently rotated cookies. A restart loses only
+/// the overlap window; current cookies remain valid in the database.
+#[derive(Default)]
+pub(super) struct PreviousSessions(Mutex<HashMap<String, PreviousSession>>);
+
+impl PreviousSessions {
+    fn accepts(&self, device: &str, given: &str, current: &str, now_ms: i64) -> bool {
+        let sessions = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        sessions.get(device).is_some_and(|session| {
+            session.expires_ms > now_ms
+                && session.current == current
+                && bool::from(session.previous.as_bytes().ct_eq(given.as_bytes()))
+        })
+    }
+
+    fn remember(&self, device: String, previous: String, current: String, now_ms: i64) {
+        let mut sessions = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        sessions.retain(|_, session| session.expires_ms > now_ms);
+        if sessions.len() < 4096 || sessions.contains_key(&device) {
+            sessions.insert(
+                device,
+                PreviousSession {
+                    previous,
+                    current,
+                    expires_ms: now_ms + SESSION_FIXATION_MS,
+                },
+            );
+        }
+    }
+}
 
 /// The first step of a sign-up, which the server keeps until the second.
 #[derive(Clone)]
@@ -94,13 +134,15 @@ pub(super) async fn device(
         .filter(|id| Id::Device.matches(id))
         .zip(cookie(headers, SESSION_COOKIE).filter(|id| Id::Session.matches(id)))
         .map(|(device, session)| (device.to_owned(), session.to_owned()));
+    let session_state = state.clone();
     let (row, changed) = accounts(state, move |db| {
         if let Some((id, session)) = given
             && let Some(mut row) = db.device(&id)?
         {
             let age = now_ms - millis(&row.last_seen_at);
             let same = bool::from(row.session_id.as_bytes().ct_eq(session.as_bytes()));
-            if same || age <= SESSION_FIXATION_MS {
+            let previous = &session_state.oauth().previous_sessions;
+            if same || previous.accepts(&id, &session, &row.session_id, now_ms) {
                 let rotate = same && age > SESSION_ROTATION_MS;
                 if rotate {
                     row.session_id = new_id(Id::Session);
@@ -109,11 +151,12 @@ pub(super) async fn device(
                 row.ip_address = ip_address;
                 row.last_seen_at = iso(now_ms);
                 db.update_device(&row)?;
+                if rotate {
+                    previous.remember(id, session, row.session_id.clone(), now_ms);
+                }
                 return Ok((Some(row), rotate || !same));
             }
-            // A session identifier that is neither the current one nor the
-            // one just before is a copy.
-            db.delete_device(&id)?;
+            // Knowing a device identifier does not authorize deleting its session.
         }
         if !create {
             return Ok((None, false));
@@ -329,7 +372,7 @@ pub(super) async fn load(
         };
         let parameters: Map<String, Value> =
             serde_json::from_str(&row.parameters).unwrap_or_default();
-        let refusal = if row.did.is_some() || row.code.is_some() {
+        let refusal = if row.code.is_some() {
             Some("This request was already authorized")
         } else if millis(&row.expires_at) < now_ms {
             Some("This request has expired")
@@ -393,7 +436,7 @@ async fn sessions(
 ) -> Result<Vec<Session>, OAuthError> {
     let now_ms = state.now_ms();
     let (device_id, client_id) = (device_id.to_owned(), pending.row.client_id.clone());
-    let rows = accounts(state, move |db| {
+    let rows = account_snapshot(state, move |db| {
         let mut out = Vec::new();
         for remembered in db.device_accounts(&device_id)? {
             let Some(actor) = db.actor(&remembered.did, Availability::ANY)? else {
@@ -428,49 +471,63 @@ pub(super) async fn authorize(
 ) -> Result<Response, OAuthError> {
     let now_ms = state.now_ms();
     let code = new_id(Id::Code);
-    let mut row = pending.row.clone();
+    let request_id = pending.row.id.clone();
     let scopes: Vec<String> = pending.scopes().iter().map(|s| (*s).to_owned()).collect();
     let (did, stored_code) = (did.to_owned(), code.clone());
     let outcome = accounts(state, move |db| {
-        let available = Availability {
-            include_taken_down: false,
-            include_deactivated: true,
-        };
-        let Some(actor) = db.actor(&did, available)? else {
-            db.delete_request(&row.id)?;
-            return Ok(Err("This account is not available"));
-        };
-        if actor.deactivated_at.is_some() {
-            db.delete_request(&row.id)?;
-            return Ok(Err("This account has been deactivated"));
-        }
-        row.did = Some(did.clone());
-        row.code = Some(stored_code);
-        row.expires_at = iso(now_ms + PAR_EXPIRES_IN_MS);
-        db.update_request(&row)?;
-        let mut granted: Vec<String> = db
-            .authorized_client(&did, &row.client_id)?
-            .and_then(|data| serde_json::from_str::<Value>(&data).ok())
-            .and_then(|data| {
-                data.get("authorizedScopes")
-                    .and_then(Value::as_array)
-                    .map(|scopes| {
-                        scopes
-                            .iter()
-                            .filter_map(Value::as_str)
-                            .map(str::to_owned)
-                            .collect()
-                    })
-            })
-            .unwrap_or_default();
-        for scope in scopes {
-            if !granted.contains(&scope) {
-                granted.push(scope);
+        db.with_account_lock(&did, |db| {
+            let Some(mut row) = db.request(&request_id)?.filter(|row| row.code.is_none()) else {
+                return Ok(Err("This authorization has ended. Sign in again."));
+            };
+            if row
+                .did
+                .as_deref()
+                .is_some_and(|authenticated| authenticated != did)
+            {
+                return Ok(Err(
+                    "This sign-in belongs to another account. Sign in again.",
+                ));
             }
-        }
-        let data = json!({ "authorizedScopes": granted }).to_string();
-        db.set_authorized_client(&did, &row.client_id, &data, &iso(now_ms))?;
-        Ok(Ok(()))
+            let available = Availability {
+                include_taken_down: false,
+                include_deactivated: true,
+            };
+            let Some(actor) = db.actor(&did, available)? else {
+                db.delete_request(&row.id)?;
+                return Ok(Err("This account is not available"));
+            };
+            if actor.deactivated_at.is_some() {
+                db.delete_request(&row.id)?;
+                return Ok(Err("This account has been deactivated"));
+            }
+            row.did = Some(did.clone());
+            row.code = Some(stored_code);
+            row.expires_at = iso(now_ms + PAR_EXPIRES_IN_MS);
+            db.update_request(&row)?;
+            let mut granted: Vec<String> = db
+                .authorized_client(&did, &row.client_id)?
+                .and_then(|data| serde_json::from_str::<Value>(&data).ok())
+                .and_then(|data| {
+                    data.get("authorizedScopes")
+                        .and_then(Value::as_array)
+                        .map(|scopes| {
+                            scopes
+                                .iter()
+                                .filter_map(Value::as_str)
+                                .map(str::to_owned)
+                                .collect()
+                        })
+                })
+                .unwrap_or_default();
+            for scope in scopes {
+                if !granted.contains(&scope) {
+                    granted.push(scope);
+                }
+            }
+            let data = json!({ "authorizedScopes": granted }).to_string();
+            db.set_authorized_client(&did, &row.client_id, &data, &iso(now_ms))?;
+            Ok(Ok(()))
+        })
     })
     .await?;
     Ok(match outcome {
@@ -569,7 +626,7 @@ async fn hint_handle(state: &AppState, hint: &str) -> Result<String, OAuthError>
         return Ok(hint.to_owned());
     }
     let did = hint.to_owned();
-    let handle = accounts(state, move |db| {
+    let handle = account_reads(state, move |db| {
         Ok(db
             .actor(&did, Availability::ANY)?
             .and_then(|actor| actor.handle))
@@ -843,21 +900,41 @@ async fn after_authentication(
     handle: &str,
     remember: bool,
     ask: Option<bool>,
+    verified: Option<crate::api::session::Login>,
 ) -> Result<Response, OAuthError> {
     let now_ms = state.now_ms();
     let authorized = {
         let (device, did) = (posted.device.id.clone(), did.to_owned());
         let client_id = posted.pending.row.client_id.clone();
+        let request_id = posted.pending.row.id.clone();
+        let auth = state.config().auth.clone();
         accounts(state, move |db| {
-            if remember {
-                db.upsert_device_account(&device, &did, &iso(now_ms))?;
-            } else {
-                // A sign-in without "remember" ends what the device remembered of the account.
-                db.remove_device_account(&device, &did)?;
-            }
-            db.authorized_client(&did, &client_id)
+            db.with_account_lock(&did, |db| {
+                if let Some(verified) = &verified
+                    && !verified.current(db, &auth)?
+                {
+                    return Ok(None);
+                }
+                if !db.authenticate_request(&request_id, &did)? {
+                    return Ok(None);
+                }
+                if remember {
+                    db.upsert_device_account(&device, &did, &iso(now_ms))?;
+                } else {
+                    // A sign-in without "remember" ends what the device remembered of the account.
+                    db.remove_device_account(&device, &did)?;
+                }
+                Ok(Some(db.authorized_client(&did, &client_id)?))
+            })
         })
         .await?
+    };
+    let Some(authorized) = authorized else {
+        return Ok(posted.page(state).sign_in(
+            StatusCode::BAD_REQUEST,
+            handle,
+            Some("This sign-in has ended. Sign in again."),
+        ));
     };
     let ephemeral = (!remember).then(|| {
         mint_ephemeral(
@@ -888,7 +965,7 @@ async fn sign_in_inner(
         Err(response) => return Ok(response),
     };
     let page = posted.page(state);
-    let username = posted.field("username").trim().to_owned();
+    let username = posted.field("username").trim().to_lowercase();
     let password = posted.field("password").to_owned();
     let refused =
         |status: StatusCode, message: &str| Ok(page.sign_in(status, &username, Some(message)));
@@ -922,25 +999,30 @@ async fn sign_in_inner(
         }
     }
     let found = crate::api::session::timed_login(state, &username, &password).await;
-    let (account, app_password) = match found {
+    let found = match found {
         Ok(found) => found,
         Err(error) if error.status.is_server_error() => {
             return Err(OAuthError::server(error.message));
         }
         Err(_) => return refused(StatusCode::BAD_REQUEST, "Invalid identifier or password"),
     };
-    let did = account.actor.did.clone();
-    let handle = account.actor.handle.clone().unwrap_or_else(|| did.clone());
+    let did = found.account.actor.did.clone();
+    let handle = found
+        .account
+        .actor
+        .handle
+        .clone()
+        .unwrap_or_else(|| did.clone());
     // An app password opens no browser session, and a request that names an account is for that account only.
     let hint = posted.pending.text("login_hint");
-    if app_password.is_some() || (hint.is_some() && !matches_hint(hint, &did, &handle)) {
+    if found.app_password.is_some() || (hint.is_some() && !matches_hint(hint, &did, &handle)) {
         return refused(StatusCode::BAD_REQUEST, "Invalid identifier or password");
     }
-    if account.actor.takedown_ref.is_some() {
+    if found.account.actor.takedown_ref.is_some() {
         return refused(StatusCode::BAD_REQUEST, "This account has been taken down");
     }
     let remember = posted.fields.contains_key("remember");
-    after_authentication(state, &posted, &did, &handle, remember, None).await
+    after_authentication(state, &posted, &did, &handle, remember, None, Some(found)).await
 }
 
 /// `POST /oauth/authorize/sign-in`.
@@ -1068,7 +1150,7 @@ async fn sign_up_credentials(state: &AppState, posted: &Posted) -> Result<Respon
     }
     let problem = {
         let (email, invite) = (email.to_lowercase(), invite.clone());
-        accounts(state, move |db| {
+        account_snapshot(state, move |db| {
             if required && !db.invite_available(&invite)? {
                 return Ok(Some("This invite code is not available"));
             }
@@ -1232,7 +1314,7 @@ async fn sign_up_handle(
     .await;
     // A new account that came through a trusted client has authorized it by signing up there.
     let ask = !posted.client.trusted;
-    after_authentication(state, posted, did, &handle, false, Some(ask)).await
+    after_authentication(state, posted, did, &handle, false, Some(ask), None).await
 }
 
 /// `POST /oauth/authorize/sign-up`: both steps of the sign-up.

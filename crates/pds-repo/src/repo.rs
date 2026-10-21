@@ -598,6 +598,7 @@ pub fn verify_diff_car<S: BlockStore>(
 
     let old_nodes: HashSet<Cid> = before.nodes.iter().copied().collect();
     let new_nodes: HashSet<Cid> = after.nodes.iter().copied().collect();
+    let kept_records: HashSet<Cid> = after.leaves.iter().map(|(_, cid)| *cid).collect();
     let mut new_blocks = BlockMap::new();
     for node in after.nodes.iter().filter(|n| !old_nodes.contains(n)) {
         let block = both.get(node)?.ok_or_else(|| RepoError::missing(*node))?;
@@ -616,7 +617,13 @@ pub fn verify_diff_car<S: BlockStore>(
         .filter(|n| !new_nodes.contains(n))
         .copied()
         .collect();
-    removed_cids.extend(leaves.removed.iter().copied());
+    removed_cids.extend(
+        leaves
+            .removed
+            .iter()
+            .filter(|cid| !kept_records.contains(cid))
+            .copied(),
+    );
     if cid != current.cid {
         new_blocks.insert(cid, commit.to_bytes());
         removed_cids.insert(current.cid);

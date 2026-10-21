@@ -1,0 +1,1233 @@
+{
+  "binaries": {
+    "baseline": {
+      "path": "/private/tmp/linkjar-pds-small-page-controls-20261021/baseline_http",
+      "sha256": "e75a55525a8641469c4ce0ab6019bb3f0b4ee8288fa11d2e1ebe62db49b64141"
+    },
+    "candidate": {
+      "path": "/private/tmp/linkjar-pds-small-page-controls-20261021/before_http",
+      "sha256": "36023a5785083ec69e5058c9213030f5054e2cd8b164c61dd108281786bfde18"
+    }
+  },
+  "pairs": [
+    {
+      "pair": 1,
+      "runs": {
+        "baseline": {
+          "rate": 5490,
+          "p50_us": 1468,
+          "p99_us": 2178,
+          "elapsed_seconds": 2.3592562498524785,
+          "before": {
+            "utc": "2026-10-21T20:48:23.439099+00:00",
+            "processes": [
+              {
+                "pid": 15543,
+                "cpu_percent": 40.6,
+                "command": "suggestd"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 20.8,
+                "command": "idea"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 17.4,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 14.0,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 19028,
+                "cpu_percent": 12.5,
+                "command": "python3"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 11.0,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 18787,
+                "cpu_percent": 10.3,
+                "command": "deleted"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 10.1,
+                "command": "codex"
+              },
+              {
+                "pid": 19023,
+                "cpu_percent": 8.2,
+                "command": "MTLAssetUpgraderD"
+              },
+              {
+                "pid": 361,
+                "cpu_percent": 7.0,
+                "command": "logd"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T20:48:25.843581+00:00",
+            "processes": [
+              {
+                "pid": 15543,
+                "cpu_percent": 43.9,
+                "command": "suggestd"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 29.9,
+                "command": "syncthing"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 24.5,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 20.8,
+                "command": "idea"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 17.2,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 19023,
+                "cpu_percent": 10.2,
+                "command": "MTLAssetUpgraderD"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 9.5,
+                "command": "Codex (Service)"
+              },
+              {
+                "pid": 361,
+                "cpu_percent": 8.0,
+                "command": "logd"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 5.8,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 18787,
+                "cpu_percent": 2.7,
+                "command": "deleted"
+              }
+            ]
+          }
+        },
+        "candidate": {
+          "rate": 5609,
+          "p50_us": 1422,
+          "p99_us": 2184,
+          "elapsed_seconds": 2.064979959046468,
+          "before": {
+            "utc": "2026-10-21T20:48:25.886859+00:00",
+            "processes": [
+              {
+                "pid": 15543,
+                "cpu_percent": 43.9,
+                "command": "suggestd"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 29.9,
+                "command": "syncthing"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 24.5,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 20.8,
+                "command": "idea"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 17.2,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 9.5,
+                "command": "Codex (Service)"
+              },
+              {
+                "pid": 19023,
+                "cpu_percent": 9.0,
+                "command": "MTLAssetUpgraderD"
+              },
+              {
+                "pid": 361,
+                "cpu_percent": 8.0,
+                "command": "logd"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 5.8,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 35613,
+                "cpu_percent": 2.4,
+                "command": "Browser Helper"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T20:48:27.996194+00:00",
+            "processes": [
+              {
+                "pid": 19024,
+                "cpu_percent": 43.0,
+                "command": "sirittsd"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 35.1,
+                "command": "syncthing"
+              },
+              {
+                "pid": 15543,
+                "cpu_percent": 17.7,
+                "command": "suggestd"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 17.1,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 12.6,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 19046,
+                "cpu_percent": 12.3,
+                "command": "mdworker_shared"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 3.9,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 3.4,
+                "command": "idea"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 3.3,
+                "command": "Codex (Service)"
+              },
+              {
+                "pid": 19023,
+                "cpu_percent": 2.5,
+                "command": "MTLAssetUpgraderD"
+              }
+            ]
+          }
+        }
+      },
+      "order": [
+        "baseline",
+        "candidate"
+      ],
+      "candidate_ratio": 1.0216757741347906
+    },
+    {
+      "pair": 2,
+      "runs": {
+        "candidate": {
+          "rate": 5506,
+          "p50_us": 1450,
+          "p99_us": 2391,
+          "elapsed_seconds": 1.7864972921088338,
+          "before": {
+            "utc": "2026-10-21T20:48:28.040784+00:00",
+            "processes": [
+              {
+                "pid": 19024,
+                "cpu_percent": 43.0,
+                "command": "sirittsd"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 35.1,
+                "command": "syncthing"
+              },
+              {
+                "pid": 15543,
+                "cpu_percent": 17.7,
+                "command": "suggestd"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 17.1,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 12.6,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 19046,
+                "cpu_percent": 12.3,
+                "command": "mdworker_shared"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 3.9,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 3.4,
+                "command": "idea"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 3.3,
+                "command": "Codex (Service)"
+              },
+              {
+                "pid": 19023,
+                "cpu_percent": 2.5,
+                "command": "MTLAssetUpgraderD"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T20:48:29.871101+00:00",
+            "processes": [
+              {
+                "pid": 85892,
+                "cpu_percent": 35.6,
+                "command": "syncthing"
+              },
+              {
+                "pid": 9987,
+                "cpu_percent": 33.9,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 22.7,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 16.5,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 15543,
+                "cpu_percent": 14.9,
+                "command": "suggestd"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 14.8,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 9.7,
+                "command": "Codex (Service)"
+              },
+              {
+                "pid": 60179,
+                "cpu_percent": 6.4,
+                "command": "mds_stores"
+              },
+              {
+                "pid": 19024,
+                "cpu_percent": 4.1,
+                "command": "sirittsd"
+              },
+              {
+                "pid": 36689,
+                "cpu_percent": 3.9,
+                "command": "claude"
+              }
+            ]
+          }
+        },
+        "baseline": {
+          "rate": 5386,
+          "p50_us": 1481,
+          "p99_us": 2673,
+          "elapsed_seconds": 1.7249763750005513,
+          "before": {
+            "utc": "2026-10-21T20:48:29.914108+00:00",
+            "processes": [
+              {
+                "pid": 85892,
+                "cpu_percent": 35.6,
+                "command": "syncthing"
+              },
+              {
+                "pid": 9987,
+                "cpu_percent": 33.9,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 22.7,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 16.5,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 15543,
+                "cpu_percent": 14.9,
+                "command": "suggestd"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 14.8,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 9.7,
+                "command": "Codex (Service)"
+              },
+              {
+                "pid": 60179,
+                "cpu_percent": 6.4,
+                "command": "mds_stores"
+              },
+              {
+                "pid": 19024,
+                "cpu_percent": 4.1,
+                "command": "sirittsd"
+              },
+              {
+                "pid": 36689,
+                "cpu_percent": 3.9,
+                "command": "claude"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T20:48:31.685097+00:00",
+            "processes": [
+              {
+                "pid": 15543,
+                "cpu_percent": 36.6,
+                "command": "suggestd"
+              },
+              {
+                "pid": 361,
+                "cpu_percent": 33.4,
+                "command": "logd"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 17.8,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 17.5,
+                "command": "codex"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 13.8,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 13.4,
+                "command": "idea"
+              },
+              {
+                "pid": 94502,
+                "cpu_percent": 8.5,
+                "command": "com.docker.backend"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 8.3,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 5.3,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 49841,
+                "cpu_percent": 4.0,
+                "command": "Browser Helper (Renderer)"
+              }
+            ]
+          }
+        }
+      },
+      "order": [
+        "candidate",
+        "baseline"
+      ],
+      "candidate_ratio": 1.0222799851466766
+    },
+    {
+      "pair": 3,
+      "runs": {
+        "baseline": {
+          "rate": 5185,
+          "p50_us": 1522,
+          "p99_us": 2614,
+          "elapsed_seconds": 1.6683422080241144,
+          "before": {
+            "utc": "2026-10-21T20:48:31.730944+00:00",
+            "processes": [
+              {
+                "pid": 15543,
+                "cpu_percent": 39.6,
+                "command": "suggestd"
+              },
+              {
+                "pid": 361,
+                "cpu_percent": 37.2,
+                "command": "logd"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 21.4,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 13.6,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 12.2,
+                "command": "idea"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 10.3,
+                "command": "codex"
+              },
+              {
+                "pid": 19058,
+                "cpu_percent": 7.1,
+                "command": "mdworker_shared"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 6.2,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 94502,
+                "cpu_percent": 5.1,
+                "command": "com.docker.backend"
+              },
+              {
+                "pid": 2082,
+                "cpu_percent": 3.9,
+                "command": "spotlightknowledged.importer"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T20:48:33.442299+00:00",
+            "processes": [
+              {
+                "pid": 15543,
+                "cpu_percent": 44.7,
+                "command": "suggestd"
+              },
+              {
+                "pid": 361,
+                "cpu_percent": 39.8,
+                "command": "logd"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 22.1,
+                "command": "idea"
+              },
+              {
+                "pid": 19076,
+                "cpu_percent": 21.3,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 18.4,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 13.6,
+                "command": "Dia"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 13.4,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 8.3,
+                "command": "Codex (Service)"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 7.2,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 729,
+                "cpu_percent": 4.9,
+                "command": "fontd"
+              }
+            ]
+          }
+        },
+        "candidate": {
+          "rate": 5305,
+          "p50_us": 1412,
+          "p99_us": 3688,
+          "elapsed_seconds": 1.7802782498765737,
+          "before": {
+            "utc": "2026-10-21T20:48:33.499486+00:00",
+            "processes": [
+              {
+                "pid": 19076,
+                "cpu_percent": 50.0,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 361,
+                "cpu_percent": 35.5,
+                "command": "logd"
+              },
+              {
+                "pid": 15543,
+                "cpu_percent": 31.6,
+                "command": "suggestd"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 26.1,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 9987,
+                "cpu_percent": 16.0,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 13.7,
+                "command": "idea"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 11.7,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 9.9,
+                "command": "Codex (Service)"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 9.5,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 8.6,
+                "command": "Dia"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T20:48:35.368042+00:00",
+            "processes": [
+              {
+                "pid": 77547,
+                "cpu_percent": 182.8,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 15543,
+                "cpu_percent": 48.9,
+                "command": "suggestd"
+              },
+              {
+                "pid": 361,
+                "cpu_percent": 38.2,
+                "command": "logd"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 16.0,
+                "command": "idea"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 13.7,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 11.2,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 19076,
+                "cpu_percent": 6.5,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 5.1,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 3.7,
+                "command": "Codex (Service)"
+              },
+              {
+                "pid": 9987,
+                "cpu_percent": 2.8,
+                "command": "mediaanalysisd"
+              }
+            ]
+          }
+        }
+      },
+      "order": [
+        "baseline",
+        "candidate"
+      ],
+      "candidate_ratio": 1.0231436837029895
+    },
+    {
+      "pair": 4,
+      "runs": {
+        "candidate": {
+          "rate": 5694,
+          "p50_us": 1426,
+          "p99_us": 2247,
+          "elapsed_seconds": 1.6516916670370847,
+          "before": {
+            "utc": "2026-10-21T20:48:35.417065+00:00",
+            "processes": [
+              {
+                "pid": 77547,
+                "cpu_percent": 182.8,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 15543,
+                "cpu_percent": 39.1,
+                "command": "suggestd"
+              },
+              {
+                "pid": 361,
+                "cpu_percent": 38.2,
+                "command": "logd"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 16.0,
+                "command": "idea"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 13.7,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 11.2,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 5.1,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 19076,
+                "cpu_percent": 4.0,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 3.7,
+                "command": "Codex (Service)"
+              },
+              {
+                "pid": 9987,
+                "cpu_percent": 2.8,
+                "command": "mediaanalysisd"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T20:48:37.110935+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 43.9,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 15543,
+                "cpu_percent": 40.9,
+                "command": "suggestd"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 17.9,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 16.4,
+                "command": "idea"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 14.4,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 361,
+                "cpu_percent": 10.1,
+                "command": "logd"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 8.8,
+                "command": "Codex (Service)"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 4.8,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 15551,
+                "cpu_percent": 4.3,
+                "command": "siriknowledged"
+              },
+              {
+                "pid": 19086,
+                "cpu_percent": 2.4,
+                "command": "SetStoreUpdateService"
+              }
+            ]
+          }
+        },
+        "baseline": {
+          "rate": 5626,
+          "p50_us": 1420,
+          "p99_us": 2348,
+          "elapsed_seconds": 1.731360208010301,
+          "before": {
+            "utc": "2026-10-21T20:48:37.154387+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 43.9,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 15543,
+                "cpu_percent": 40.9,
+                "command": "suggestd"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 17.9,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 16.4,
+                "command": "idea"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 14.4,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 361,
+                "cpu_percent": 10.1,
+                "command": "logd"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 8.8,
+                "command": "Codex (Service)"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 4.8,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 15551,
+                "cpu_percent": 4.3,
+                "command": "siriknowledged"
+              },
+              {
+                "pid": 19086,
+                "cpu_percent": 2.4,
+                "command": "SetStoreUpdateService"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T20:48:38.929025+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 61.9,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 15543,
+                "cpu_percent": 35.8,
+                "command": "suggestd"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 13.3,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 11.8,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 10.5,
+                "command": "idea"
+              },
+              {
+                "pid": 361,
+                "cpu_percent": 5.6,
+                "command": "logd"
+              },
+              {
+                "pid": 23774,
+                "cpu_percent": 4.2,
+                "command": "agent-server"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 3.7,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 13421,
+                "cpu_percent": 3.5,
+                "command": "Microsoft Teams WebView Helper (Renderer)"
+              },
+              {
+                "pid": 19035,
+                "cpu_percent": 3.4,
+                "command": "ReportMemoryException"
+              }
+            ]
+          }
+        }
+      },
+      "order": [
+        "candidate",
+        "baseline"
+      ],
+      "candidate_ratio": 1.012086740135087
+    },
+    {
+      "pair": 5,
+      "runs": {
+        "baseline": {
+          "rate": 5654,
+          "p50_us": 1442,
+          "p99_us": 2181,
+          "elapsed_seconds": 1.7128712921403348,
+          "before": {
+            "utc": "2026-10-21T20:48:38.972479+00:00",
+            "processes": [
+              {
+                "pid": 15543,
+                "cpu_percent": 39.5,
+                "command": "suggestd"
+              },
+              {
+                "pid": 9987,
+                "cpu_percent": 38.5,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 19.6,
+                "command": "idea"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 13.9,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 12.2,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 361,
+                "cpu_percent": 9.4,
+                "command": "logd"
+              },
+              {
+                "pid": 75464,
+                "cpu_percent": 4.7,
+                "command": "claude"
+              },
+              {
+                "pid": 41634,
+                "cpu_percent": 4.6,
+                "command": "omp"
+              },
+              {
+                "pid": 41297,
+                "cpu_percent": 4.3,
+                "command": "claude"
+              },
+              {
+                "pid": 15358,
+                "cpu_percent": 3.8,
+                "command": "contactsd"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T20:48:40.730379+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 63.7,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 15543,
+                "cpu_percent": 35.4,
+                "command": "suggestd"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 14.2,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 13.0,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 10.2,
+                "command": "idea"
+              },
+              {
+                "pid": 19113,
+                "cpu_percent": 7.9,
+                "command": "gh"
+              },
+              {
+                "pid": 361,
+                "cpu_percent": 4.5,
+                "command": "logd"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 4.2,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 3.6,
+                "command": "Codex (Service)"
+              },
+              {
+                "pid": 15358,
+                "cpu_percent": 3.0,
+                "command": "contactsd"
+              }
+            ]
+          }
+        },
+        "candidate": {
+          "rate": 5581,
+          "p50_us": 1421,
+          "p99_us": 2158,
+          "elapsed_seconds": 1.71782529191114,
+          "before": {
+            "utc": "2026-10-21T20:48:40.774618+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 63.7,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 15543,
+                "cpu_percent": 35.4,
+                "command": "suggestd"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 14.2,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 13.0,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 10.2,
+                "command": "idea"
+              },
+              {
+                "pid": 19113,
+                "cpu_percent": 7.9,
+                "command": "gh"
+              },
+              {
+                "pid": 361,
+                "cpu_percent": 4.5,
+                "command": "logd"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 4.2,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 3.6,
+                "command": "Codex (Service)"
+              },
+              {
+                "pid": 15358,
+                "cpu_percent": 3.0,
+                "command": "contactsd"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T20:48:42.537946+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 49.2,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 15543,
+                "cpu_percent": 40.2,
+                "command": "suggestd"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 18.2,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 17.1,
+                "command": "idea"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 13.4,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 361,
+                "cpu_percent": 8.7,
+                "command": "logd"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 6.4,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 15358,
+                "cpu_percent": 4.4,
+                "command": "contactsd"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 4.3,
+                "command": "Codex (Service)"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 3.4,
+                "command": "Activity Monitor"
+              }
+            ]
+          }
+        }
+      },
+      "order": [
+        "baseline",
+        "candidate"
+      ],
+      "candidate_ratio": 0.9870887866996816
+    }
+  ],
+  "decision_rule": "RED if median paired candidate/baseline list throughput is below 0.98 and at least 80% of pairs are slower. Otherwise the short loop is inconclusive, not proof of parity.",
+  "verdict": {
+    "red": false,
+    "median_ratio": 1.0216757741347906,
+    "slower_pairs": 1,
+    "pairs": 5
+  },
+  "script_sha256": "fdc6013b566ce9e3a4f0eeb1723a4cf9ea639857a3ed5ede0ee7104c2340b7b2",
+  "classification": "Exploratory reproduction with existing historical executables; later focused cohorts use a different predeclared analysis gate."
+}

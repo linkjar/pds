@@ -4,6 +4,6 @@ stateDiagram-v2
   Verify --> Candidate: start linkjar-pds on the same dir and secrets
   Candidate --> Smoke: health, describeServer, OAuth metadata, relay resumes cursor
   Smoke --> Watch: web, iOS, extension sign-in, write, firehose, mail
-  Watch --> Reference: rollback, start the Reference image
+  Watch --> Reference: rollback; rotate token keys if revocation must remain effective
   Watch --> Closed: migrate with allow-candidate-only closes the window
   Closed --> [*]

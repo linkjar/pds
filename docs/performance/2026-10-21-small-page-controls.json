@@ -1,0 +1,26 @@
+{
+  "created_utc": "2026-10-21T20:47:35.343000+00:00",
+  "purpose": "Immutable copied executable controls for the small-page throughput regression investigation. No rebuilds for the initial reproduction.",
+  "binaries": {
+    "baseline_http": {
+      "original_path": "/tmp/linkjar-pds-perf-baseline-target-20261021/release/deps/read_timing-ef9551ab8fddbc0a",
+      "path": "/tmp/linkjar-pds-small-page-controls-20261021/baseline_http",
+      "sha256": "e75a55525a8641469c4ce0ab6019bb3f0b4ee8288fa11d2e1ebe62db49b64141"
+    },
+    "before_http": {
+      "original_path": "/tmp/linkjar-pds-audit-target/release/deps/read_timing-fecc9d2005d8f778",
+      "path": "/tmp/linkjar-pds-small-page-controls-20261021/before_http",
+      "sha256": "36023a5785083ec69e5058c9213030f5054e2cd8b164c61dd108281786bfde18"
+    },
+    "before_mixed": {
+      "original_path": "/tmp/linkjar-pds-audit-target/release/deps/mixed_read_timing-6331f0d4652461e8",
+      "path": "/tmp/linkjar-pds-small-page-controls-20261021/before_mixed",
+      "sha256": "c21c9c1ead48f365f45e2223e287c7967c62642cdf2a2d9b35eb1611bd0412aa"
+    },
+    "baseline_mixed": {
+      "original_path": "/tmp/linkjar-pds-perf-baseline-target-20261021/release/deps/mixed_read_timing-c1b7865d3c25b97e",
+      "path": "/tmp/linkjar-pds-small-page-controls-20261021/baseline_mixed",
+      "sha256": "a90569ad627fd62d142371ed1031450a52adc697d4909b1c2d614792c1808c59"
+    }
+  }
+}

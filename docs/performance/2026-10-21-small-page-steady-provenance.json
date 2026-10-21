@@ -1,0 +1,27 @@
+{
+  "baseline_commit": "77bf09e2e4e94079c38b86e47fb2d84e6ed36bbc",
+  "source_file_rule": "crates/**/src/**/*.rs, crates/**/Cargo.toml, root Cargo.toml, root Cargo.lock; sorted SHA256, two spaces, relative path, newline",
+  "production_source_aggregates": {
+    "baseline": "7a1eed5f3438a32c9041bd11086240e19aa99f983b037944c4506886bbf1205d",
+    "before": "997a2259d1a9278c35a10f12168d2c3072f2c892e6fb2432ac71c66cc2d88be5"
+  },
+  "candidate_archive_sha256": "35051a12e937568be465f1105a569e09652d7f74cd6263b579cd9ec49a9a2d2c",
+  "candidate_archive_manifest_sha256": "1d19feb541bd1f646aaa72da04a2581d09111a6a104d53e17793947de648e185",
+  "fixture_hashes": {
+    "crates/linkjar-pds/tests/list_read_timing.rs": "1ff3cfbbc56b0c82fb3dbdb69135229165120bc3fc8099da91b0517364390336",
+    "crates/linkjar-pds/tests/common/mod.rs": "83cbf94af91717ecd2c3db6778b9df27cc0a7663311beb89d914673e775a72ad",
+    "crates/linkjar-pds/tests/common/http.rs": "c45322a9e32d186b52a2062129883f4232ec74fad324712ed66a03455d2888ca"
+  },
+  "binaries": {
+    "baseline": {
+      "build_path": "/tmp/linkjar-pds-perf-baseline-target-20261021/release/deps/list_read_timing-24713691b561b2b3",
+      "path": "/tmp/linkjar-pds-small-page-controls-20261021/baseline_steady",
+      "sha256": "f96d1d7a4c0138fdaebf817c401479dd16e356a533ad38f8d163d54852026bd6"
+    },
+    "before": {
+      "build_path": "/tmp/linkjar-pds-audit-target/release/deps/list_read_timing-769e9b34680b2e5f",
+      "path": "/tmp/linkjar-pds-small-page-controls-20261021/before_steady",
+      "sha256": "3f0f91d97f86d6d99a8c2462cf9a93034c9e2f24a43ef46325dcb15e86983c2f"
+    }
+  }
+}

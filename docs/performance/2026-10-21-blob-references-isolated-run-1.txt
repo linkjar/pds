@@ -1,0 +1,11 @@
+sqlite=3.53.2
+shared_rows=100000,distinct_rows=500,warmup=20,trials=201,journal=wal,process_per_case_and_variant=true
+operation,p50_us,p95_us,returned_rows
+shared_one_before,10034.417,10857.625,100000
+shared_one_after,0.542,0.583,1
+distinct_500_before,328.958,333.958,500
+distinct_500_after,191.500,196.291,500
+missing_500_before,198.917,206.291,0
+missing_500_after,158.875,163.916,0
+record_lookup_200_before,232.875,237.791,200
+record_lookup_200_after,61.834,62.750,200

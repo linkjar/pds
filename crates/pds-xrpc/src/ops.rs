@@ -291,9 +291,15 @@ async fn act(
     };
     let name = nsid.to_owned();
     let who = acting.clone();
-    let done = state
-        .blocking(move |state| Ok(action(state, &who, &name, &input)))
-        .await;
+    let repository = (nsid == "internal.ops.emitSync")
+        .then(|| did_of(&input).ok())
+        .flatten();
+    let work = move |state: &AppState| Ok(action(state, &who, &name, &input));
+    let done = if let Some(repository) = repository {
+        state.repo_blocking(repository, work).await
+    } else {
+        state.blocking(work).await
+    };
     let (subject, result) = match done {
         Ok(done) => done,
         Err(error) => (None, Err(error)),

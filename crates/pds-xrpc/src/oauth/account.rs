@@ -16,7 +16,7 @@ use pds_storage::Availability;
 use subtle::ConstantTimeEq;
 
 use super::authorize::{Device, csrf, device, error_page, html, new_nonce};
-use super::{OAuthError, accounts, iso, issuer, millis};
+use super::{OAuthError, account_snapshot, accounts, iso, issuer, millis};
 use crate::state::AppState;
 
 /// What the form token of the account pages is computed over, in the place
@@ -37,7 +37,7 @@ pub(super) async fn signed_in(
 ) -> Result<Vec<(String, String)>, OAuthError> {
     let now_ms = state.now_ms();
     let device_id = device_id.to_owned();
-    accounts(state, move |db| {
+    account_snapshot(state, move |db| {
         let mut out = Vec::new();
         for remembered in db.device_accounts(&device_id)? {
             if now_ms - millis(&remembered.updated_at) > AUTHENTICATION_MAX_AGE_MS {
@@ -64,7 +64,7 @@ async fn methods(state: &AppState, did: &str) -> Result<Methods, OAuthError> {
         });
     }
     let owned = did.to_owned();
-    let (has_password, identities) = accounts(state, move |db| {
+    let (has_password, identities) = account_snapshot(state, move |db| {
         Ok((db.has_password(&owned)?, db.external_identities(&owned)?))
     })
     .await?;
@@ -112,7 +112,7 @@ async fn home(
     error: Option<&str>,
 ) -> Result<Response, OAuthError> {
     let owned = did.to_owned();
-    let (tokens, devices) = accounts(state, move |db| {
+    let (tokens, devices) = account_snapshot(state, move |db| {
         Ok((db.account_tokens(&owned)?, db.account_devices(&owned)?))
     })
     .await?;
@@ -286,23 +286,32 @@ async fn sign_in(
             );
         }
     }
-    let (account, app_password) =
-        match crate::api::session::timed_login(state, username, password).await {
-            Ok(found) => found,
-            Err(error) if error.status.is_server_error() => {
-                return Err(OAuthError::server(error.message));
-            }
-            Err(_) => return refused(StatusCode::BAD_REQUEST, "Invalid identifier or password"),
-        };
-    if app_password.is_some() || account.actor.takedown_ref.is_some() {
+    let found = match crate::api::session::timed_login(state, username, password).await {
+        Ok(found) => found,
+        Err(error) if error.status.is_server_error() => {
+            return Err(OAuthError::server(error.message));
+        }
+        Err(_) => return refused(StatusCode::BAD_REQUEST, "Invalid identifier or password"),
+    };
+    if found.app_password.is_some() || found.account.actor.takedown_ref.is_some() {
         return refused(StatusCode::BAD_REQUEST, "Invalid identifier or password");
     }
     let now_ms = state.now_ms();
-    let (device_id, did) = (device.id.clone(), account.actor.did);
-    accounts(state, move |db| {
-        db.upsert_device_account(&device_id, &did, &iso(now_ms))
+    let (device_id, did) = (device.id.clone(), found.account.actor.did.clone());
+    let auth = state.config().auth.clone();
+    let remembered = accounts(state, move |db| {
+        db.with_account_lock(&did, |db| {
+            if !found.current(db, &auth)? {
+                return Ok(false);
+            }
+            db.upsert_device_account(&device_id, &did, &iso(now_ms))?;
+            Ok(true)
+        })
     })
     .await?;
+    if !remembered {
+        return refused(StatusCode::BAD_REQUEST, "Invalid identifier or password");
+    }
     Ok(back(&device.cookies))
 }
 
@@ -345,7 +354,8 @@ async fn post_inner(
     }
     let field = |name: &str| fields.get(name).map_or("", String::as_str);
     if path == "/account/sign-in" {
-        return sign_in(state, &device, field("username").trim(), field("password")).await;
+        let username = field("username").trim().to_lowercase();
+        return sign_in(state, &device, &username, field("password")).await;
     }
     // The other forms act on an account that is signed in on this device.
     let did = field("did").to_owned();

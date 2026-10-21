@@ -1,0 +1,45 @@
+{
+  "description": "Source snapshot at the corrected HTTP measurements, before the final getSession connection-pool change. The initial SQL harness and mixed harness captured here were later corrected; use their separate final provenance records. HTTP executable hashes identify the measured snapshot; the current production source has since changed.",
+  "superseded_binaries": [
+    "candidate_blob_references",
+    "candidate_mixed_read_timing"
+  ],
+  "baseline_commit": "77bf09e2e4e94079c38b86e47fb2d84e6ed36bbc",
+  "source_file_rule": "crates/**/*.rs, all Cargo.toml outside target directories, and root Cargo.lock; aggregate hashes lines of SHA256, two spaces, relative path, newline, sorted by relative path",
+  "source_aggregates": {
+    "baseline": "19fe3262c9a19baa9072a5e1b9c8e32c4be81608a42ab72327a33310b586f5f1",
+    "candidate": "148f0ee393ac392b219f90f7b44f79be7116244a53d519e19a67ff439434c0b3"
+  },
+  "lock_sha256": {
+    "baseline": "9612b1745403930a2e6130b2a0076c31928e1f1c9bdd3d409c2ca71098d630c6",
+    "candidate": "b2982608660232f3a33a2fa89f871753bd0415e862dbc7d1d049075643d3df0f"
+  },
+  "identical_fixture_files": {
+    "crates/linkjar-pds/tests/common/mod.rs": "83cbf94af91717ecd2c3db6778b9df27cc0a7663311beb89d914673e775a72ad",
+    "crates/linkjar-pds/tests/common/http.rs": "c45322a9e32d186b52a2062129883f4232ec74fad324712ed66a03455d2888ca",
+    "crates/linkjar-pds/tests/read_timing.rs": "a09a31132a267c8f5a53dc029b7aa1c1f23d1acd169d7db7b0785468cfac42fa"
+  },
+  "additional_candidate_files": {
+    "crates/pds-storage/src/actor_txn.rs": "0b9d42b4a54bc8a55b90f19550e1a7bfeb68fe90e20dc41d71564915f31ec11f",
+    "crates/pds-storage/examples/blob_references.rs": "faba8249b1c2843ce20e68d234645731d93e71a59a667f7e7254c8911d343c8a",
+    "crates/linkjar-pds/tests/mixed_read_timing.rs": "85b83ac11f5484386889e4a5d5b9e482b2dadef4ad0e5faf6614a301de41b00e"
+  },
+  "binaries": {
+    "baseline_read_timing": {
+      "path": "/tmp/linkjar-pds-perf-baseline-target-20261021/release/deps/read_timing-ef9551ab8fddbc0a",
+      "sha256": "e75a55525a8641469c4ce0ab6019bb3f0b4ee8288fa11d2e1ebe62db49b64141"
+    },
+    "candidate_read_timing": {
+      "path": "/tmp/linkjar-pds-audit-target/release/deps/read_timing-fecc9d2005d8f778",
+      "sha256": "36023a5785083ec69e5058c9213030f5054e2cd8b164c61dd108281786bfde18"
+    },
+    "candidate_mixed_read_timing": {
+      "path": "/tmp/linkjar-pds-audit-target/release/deps/mixed_read_timing-6331f0d4652461e8",
+      "sha256": "23b3d93025650a228230fa77396d56be65f546221caf52d0d95e09d2913fa830"
+    },
+    "candidate_blob_references": {
+      "path": "/tmp/linkjar-pds-audit-target/release/examples/blob_references",
+      "sha256": "35417d2bbc1577e0665a1a7d9441877a9b9c8404a7446cf7a0a68a7c432c61fc"
+    }
+  }
+}

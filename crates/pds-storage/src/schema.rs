@@ -32,6 +32,15 @@ create index "backlink_link_to_idx" on "backlink" ("path", "linkTo");
 create table "account_pref" ("id" integer primary key autoincrement, "name" varchar not null, "valueJson" text not null);
 "#;
 
+/// Compatible indexes of the Candidate, outside the Reference's migration
+/// ledger. They do not change the tables or the data the Reference serves.
+pub(crate) fn ensure_actor_indexes(conn: &Connection) -> Result<(), StorageError> {
+    conn.execute_batch(
+        r#"create index if not exists "record_blob_record_uri_idx" on "record_blob" ("recordUri")"#,
+    )?;
+    Ok(())
+}
+
 /// Creates a database at `path` with `schema`, in WAL mode as the Reference
 /// keeps its databases (SPEC §8.3). The file must not exist.
 pub fn create(path: &Path, schema: &str) -> Result<Connection, StorageError> {
@@ -114,10 +123,12 @@ pub fn fill_shared(
 
 /// Creates the store of a new actor as the Reference creates it: the
 /// tables of [`ACTOR_STORE`] and its one migration, recorded at `now`.
+/// Adds the Candidate's compatible indexes outside that migration ledger.
 pub fn create_actor_store(path: &Path, now: &str) -> Result<Connection, StorageError> {
     let conn = create(path, ACTOR_STORE)?;
     conn.execute_batch(MIGRATOR)?;
     record_migrations(&conn, &["001"], now)?;
+    ensure_actor_indexes(&conn)?;
     Ok(conn)
 }
 

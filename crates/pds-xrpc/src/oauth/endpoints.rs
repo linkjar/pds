@@ -23,6 +23,77 @@ use super::{
 };
 use crate::state::AppState;
 
+/// Private member-to-entryway session status. Only the configured admin
+/// credential can inspect a token; discovery does not advertise this route.
+pub async fn introspect(
+    state: &AppState,
+    headers: &HeaderMap,
+    body: Body,
+) -> Result<Response, crate::error::XrpcError> {
+    use crate::{auth, body as input, error::XrpcError};
+    if !matches!(
+        auth::optional_credentials(headers, &state.config().auth, &[], state.now_s()),
+        Ok(auth::Credentials::Admin)
+    ) {
+        return Err(XrpcError::auth_required("AuthenticationRequired"));
+    }
+    let value = input::read_json(headers, &mut Some(body), 16 * 1024).await?;
+    let token = value
+        .get("token")
+        .and_then(Value::as_str)
+        .ok_or_else(|| XrpcError::invalid_request("token is required"))?;
+    let kind = value
+        .get("kind")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let active = match kind {
+        "legacy" => auth::legacy_token_active(state, token)
+            .await?
+            .map(|did| json!({"active": true, "kind": kind, "sub": did})),
+        "oauth" => oauth_token_status(state, token).await?,
+        _ => return Err(XrpcError::invalid_request("invalid token kind")),
+    };
+    Ok(answer(
+        StatusCode::OK,
+        &active.unwrap_or_else(|| json!({"active": false})),
+    ))
+}
+
+async fn oauth_token_status(
+    state: &AppState,
+    token: &str,
+) -> Result<Option<Value>, crate::error::XrpcError> {
+    let Some((claims, _)) = super::read_access_token(state, token) else {
+        return Ok(None);
+    };
+    let now_ms = state.now_ms();
+    if claims.exp <= now_ms / 1000 {
+        return Ok(None);
+    }
+    state
+        .blocking(move |state| {
+            let db = state.reads().accounts()?;
+            let Some(row) = db.token(&claims.jti)? else {
+                return Ok(None);
+            };
+            let parameters = parameters_of(&row.parameters);
+            if row.did != claims.sub {
+                return Ok(None);
+            }
+            if row.client_id != claims.client_id
+                || millis(&row.expires_at) <= now_ms
+                || parameters.get("dpop_jkt").and_then(Value::as_str) != claims.jkt.as_deref()
+                || db.actor(&row.did, Availability::ANY)?.is_none()
+            {
+                return Ok(None);
+            }
+            Ok(Some(
+                json!({"active": true, "kind": "oauth", "sub": claims.sub, "jti": claims.jti}),
+            ))
+        })
+        .await
+}
+
 /// The parameters of an authorization request that the server keeps.
 const PARAMETERS: [&str; 16] = [
     "client_id",
@@ -495,6 +566,46 @@ fn code_parameters(
     Ok(parameters)
 }
 
+struct ConsumedCode {
+    request: RequestRow,
+    signup: Option<String>,
+    password_hash: Option<String>,
+}
+
+fn consume_code(
+    db: &mut pds_storage::AccountDb,
+    code: &str,
+    receipts: bool,
+) -> Result<Option<ConsumedCode>, StorageError> {
+    let initial = db.request_by_code(code)?;
+    let Some(did) = initial.and_then(|row| row.did) else {
+        // A code that comes twice ends the session it opened first.
+        if let Some(token) = db.token_by_code(code)? {
+            db.delete_token(&token.token_id)?;
+            if let Some(device) = &token.device_id {
+                db.remove_device_account(device, &token.did)?;
+            }
+        }
+        return Ok(None);
+    };
+    db.with_account_lock(&did, |db| {
+        let signup = if receipts {
+            db.signup_of_code(code)?
+        } else {
+            None
+        };
+        let Some(request) = db.consume_request_code(code)? else {
+            return Ok(None);
+        };
+        let password_hash = db.password_hash(&did)?;
+        Ok(Some(ConsumedCode {
+            request,
+            signup,
+            password_hash,
+        }))
+    })
+}
+
 async fn code_grant(
     state: &AppState,
     fields: &Fields,
@@ -511,31 +622,13 @@ async fn code_grant(
     let receipts = state.config().profile.keeps_signup_receipts();
     let taken = {
         let code = code.clone();
-        accounts(state, move |db| {
-            // The receipt of an account that was created in this
-            // authorization goes with the code into the session.
-            let signup = if receipts {
-                db.signup_of_code(&code)?
-            } else {
-                None
-            };
-            let request = db
-                .consume_request_code(&code)?
-                .map(|request| (request, signup));
-            if request.is_none() {
-                // A code that comes twice ends the session it opened the first time.
-                if let Some(token) = db.token_by_code(&code)? {
-                    db.delete_token(&token.token_id)?;
-                    if let Some(device) = &token.device_id {
-                        db.remove_device_account(device, &token.did)?;
-                    }
-                }
-            }
-            Ok(request)
-        })
-        .await?
+        accounts(state, move |db| consume_code(db, &code, receipts)).await?
     };
-    let (request, signup) = taken.ok_or_else(|| grant("Invalid code"))?;
+    let ConsumedCode {
+        request,
+        signup,
+        password_hash: authenticated_hash,
+    } = taken.ok_or_else(|| grant("Invalid code"))?;
     let (Some(did), Some(device_id)) = (request.did.clone(), request.device_id.clone()) else {
         return Err(OAuthError::server("a request with a code has no account"));
     };
@@ -567,22 +660,29 @@ async fn code_grant(
     };
     let stored = row.clone();
     let found = accounts(state, move |db| {
-        // An account that was deleted or taken down since the consent gets no session.
-        let account = db.actor(
-            &stored.did,
-            Availability {
-                include_taken_down: false,
-                include_deactivated: true,
-            },
-        )?;
-        if account.is_some() {
-            db.create_token(&stored)?;
-            // Only the session of the account that was created holds its receipt.
-            if signup.as_deref() == Some(stored.did.as_str()) {
-                db.set_token_signup(&stored.token_id, &stored.did)?;
+        db.with_account_lock(&stored.did, |db| {
+            // Recovery can run after the one-time code was consumed. Its
+            // password change must not be followed by a resurrected token.
+            if db.password_hash(&stored.did)? != authenticated_hash {
+                return Ok(false);
             }
-        }
-        Ok(account.is_some())
+            // An account that was deleted or taken down since the consent gets no session.
+            let account = db.actor(
+                &stored.did,
+                Availability {
+                    include_taken_down: false,
+                    include_deactivated: true,
+                },
+            )?;
+            if account.is_some() {
+                db.create_token(&stored)?;
+                // Only the session of the account that was created holds its receipt.
+                if signup.as_deref() == Some(stored.did.as_str()) {
+                    db.set_token_signup(&stored.token_id, &stored.did)?;
+                }
+            }
+            Ok(account.is_some())
+        })
     })
     .await?;
     if !found {

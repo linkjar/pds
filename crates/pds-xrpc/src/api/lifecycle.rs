@@ -5,6 +5,7 @@
 use axum::body::Body;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse as _, Response};
+use pds_identity::safe_fetch::{self, Policy};
 use pds_identity::{Algorithm, Keypair};
 use pds_sequencer::{account_event, identity_event, sync_event};
 use pds_storage::{AccountDb, ActorDb, Availability};
@@ -124,6 +125,7 @@ async fn published(state: &AppState, did: &str) -> Result<Published, XrpcError> 
         let response = state
             .http()
             .get(format!("{}/{did}/data", identity.plc_url))
+            .timeout(state.config().proxy_timeout)
             .send()
             .await
             .map_err(XrpcError::internal)?;
@@ -133,7 +135,9 @@ async fn published(state: &AppState, did: &str) -> Result<Published, XrpcError> 
                 response.status().as_u16()
             )));
         }
-        let bytes = response.bytes().await.map_err(XrpcError::internal)?;
+        let bytes = safe_fetch::read_bounded(response, pds_identity::resolver::MAX_DID_DOC_LEN)
+            .await
+            .map_err(XrpcError::internal)?;
         let data: Value = serde_json::from_slice(&bytes).map_err(XrpcError::internal)?;
         let text = |value: &Value| value.as_str().map(str::to_owned);
         return Ok(Published {
@@ -325,6 +329,7 @@ async fn publish_handle(
     let last = state
         .http()
         .get(format!("{}/{did}/log/last", identity.plc_url))
+        .timeout(state.config().proxy_timeout)
         .send()
         .await
         .map_err(XrpcError::internal)?;
@@ -334,13 +339,16 @@ async fn publish_handle(
             last.status().as_u16()
         )));
     }
-    let last: Value = serde_json::from_slice(&last.bytes().await.map_err(XrpcError::internal)?)
+    let last = safe_fetch::read_bounded(last, pds_identity::resolver::MAX_DID_DOC_LEN)
+        .await
         .map_err(XrpcError::internal)?;
+    let last: Value = serde_json::from_slice(&last).map_err(XrpcError::internal)?;
     let operation =
         pds_identity::plc::update_handle_op(&last, &signer, handle).map_err(XrpcError::internal)?;
     let sent = state
         .http()
         .post(format!("{}/{did}", identity.plc_url))
+        .timeout(state.config().proxy_timeout)
         .header("content-type", "application/json")
         .body(operation.to_string())
         .send()
@@ -405,17 +413,31 @@ pub(crate) async fn assert_handle_resolves(
     handle: &str,
     did: &str,
 ) -> Result<(), XrpcError> {
-    let named = state
-        .http()
-        .get(format!("https://{handle}/.well-known/atproto-did"))
-        .send()
-        .await
-        .ok()
-        .filter(|response| response.status().is_success());
-    let text = match named {
-        Some(response) => response.text().await.unwrap_or_default(),
-        None => String::new(),
+    let policy = if state.config().dev_mode {
+        Policy::Development
+    } else {
+        Policy::Public
     };
+    let named = match safe_fetch::request(
+        reqwest::Method::GET,
+        &format!("https://{handle}/.well-known/atproto-did"),
+        policy,
+    ) {
+        Ok(request) => request
+            .timeout(state.config().proxy_timeout)
+            .send()
+            .await
+            .ok()
+            .filter(|response| response.status().is_success()),
+        Err(_) => None,
+    };
+    let bytes = match named {
+        Some(response) => safe_fetch::read_bounded(response, 4096)
+            .await
+            .unwrap_or_default(),
+        None => Vec::new(),
+    };
+    let text = String::from_utf8_lossy(&bytes);
     let resolved = pds_identity::handle::did_from_well_known(&text);
     if resolved.as_ref().map(Did::as_str) != Some(did) {
         return Err(XrpcError::invalid_request(
@@ -564,6 +586,13 @@ pub(crate) async fn tell_member_of_deletion(state: &AppState, did: &str) -> Resu
 pub(crate) fn delete_account_now(state: &AppState, did: &str) -> Result<(), XrpcError> {
     let writes = writes(state)?;
     writes.with_accounts(|accounts| accounts.delete_account(did))?;
+    finish_account_deletion(state, did)
+}
+
+/// Finishes deletion after the account rows were durably removed. No
+/// credential transaction remains open during repository or blob cleanup.
+fn finish_account_deletion(state: &AppState, did: &str) -> Result<(), XrpcError> {
+    let writes = writes(state)?;
     let now = pds_types::iso_millis(state.now_ms());
     let sequenced =
         writes
@@ -673,15 +702,29 @@ pub async fn delete_account(
             if accounts.actor(&did, Availability::ANY)?.is_none() {
                 return Err(XrpcError::invalid_request("account not found"));
             }
-            let valid = accounts
+            let verified_hash = accounts
                 .password_hash(&did)?
-                .is_some_and(|stored| crate::password::verify(&given, &stored));
-            if !valid {
-                return Err(denied("Invalid did or password"));
-            }
+                .filter(|stored| crate::password::verify(&given, stored))
+                .ok_or_else(|| denied("Invalid did or password"))?;
             super::email::valid_token(state, "delete_account", &token, Some(&did))?;
             drop(accounts);
-            delete_account_now(state, &did)
+            writes(state)?.with_accounts(|db| {
+                db.with_account_lock(&did, |db| {
+                    if db.password_hash(&did)?.as_deref() != Some(verified_hash.as_str()) {
+                        return Err(denied("Invalid did or password"));
+                    }
+                    super::email::valid_token_in(
+                        db,
+                        state.now_ms(),
+                        "delete_account",
+                        &token,
+                        Some(&did),
+                    )?;
+                    db.delete_account(&did)?;
+                    Ok::<_, XrpcError>(())
+                })
+            })?;
+            finish_account_deletion(state, &did)
         })
         .await?;
     tell_member_of_deletion(state, &deleted).await?;

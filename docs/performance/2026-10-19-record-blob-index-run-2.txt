@@ -1,0 +1,12 @@
+sqlite=3.53.2
+rows=100000,warmup=20,trials=201,journal=wal,cache_size=-2000,synchronous=2
+initial_insert_commit_checkpoint_ms=244.544
+operation,p50_us,p95_us
+plan_before=SCAN record_blob
+delete_one_before,7158.041,8678.125
+insert_100_before,146.917,171.959
+index_open_build_commit_ms=72.945
+database_bytes_before=28966912,database_bytes_after=36294656,index_growth_bytes=7327744
+plan_after=SEARCH record_blob USING COVERING INDEX record_blob_record_uri_idx (recordUri=?)
+delete_one_after,6.500,6.875
+insert_100_after,183.500,228.000

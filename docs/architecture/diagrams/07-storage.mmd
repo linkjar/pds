@@ -11,9 +11,9 @@ flowchart LR
   end
   subgraph dir [PDS_DATA_DIRECTORY, reference layout]
     direction TB
-    st[(actors/2hex/did/store.sqlite<br/>plus the sibling key file)]
+    st[(actors/2hex/did/store.sqlite<br/>record_blob index by recordUri<br/>plus the sibling key file)]
     rk[(actors/reserved_keys/)]
-    a[(account.sqlite)]
+    a[(account.sqlite<br/>credential_epoch recovery state)]
     s[(sequencer.sqlite)]
     d[(did_cache.sqlite)]
     audit[(audit.sqlite, Candidate-only)]

@@ -16,6 +16,8 @@ use crate::error::XrpcError;
 /// The part of the configuration that the HTTP surface reads.
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
+    /// Development-only access to local identity and metadata services.
+    pub dev_mode: bool,
     /// `PDS_HOSTNAME`.
     pub hostname: String,
     /// `PDS_VERSION`, reported by the health route.
@@ -418,6 +420,7 @@ struct Inner {
     audit: std::sync::OnceLock<crate::audit::AuditLog>,
     metrics: crate::metrics::Metrics,
     subscribers: crate::subscribers::Subscribers,
+    resources: crate::resources::Resources,
     now_ms: Box<dyn Fn() -> i64 + Send + Sync>,
 }
 
@@ -451,6 +454,7 @@ impl AppState {
                 audit: std::sync::OnceLock::new(),
                 metrics: crate::metrics::Metrics::default(),
                 subscribers: crate::subscribers::Subscribers::default(),
+                resources: crate::resources::Resources::default(),
                 config,
                 reads,
                 keys: KeyCache::default(),
@@ -467,6 +471,11 @@ impl AppState {
     /// The live subscribers of the firehose.
     pub fn subscribers(&self) -> &crate::subscribers::Subscribers {
         &self.inner.subscribers
+    }
+
+    /// Admission for work that retains large buffers or blocking workers.
+    pub fn resources(&self) -> &crate::resources::Resources {
+        &self.inner.resources
     }
 
     /// The buckets of the rate limits.
@@ -547,7 +556,29 @@ impl AppState {
         F: FnOnce(&Self) -> Result<T, XrpcError> + Send + 'static,
     {
         let state = self.clone();
-        tokio::task::spawn_blocking(move || call(&state)).await?
+        let permit = self.resources().blocking()?;
+        tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            call(&state)
+        })
+        .await?
+    }
+
+    /// Serializes asynchronous work for a DID before taking a blocking worker.
+    /// Up to eight operations per DID and 64 overall may run or wait. The
+    /// worker keeps admission after its caller disconnects. Transactions
+    /// still take the repository mutex to coordinate synchronous callers.
+    pub async fn repo_blocking<T, F>(&self, did: String, call: F) -> Result<T, XrpcError>
+    where
+        T: Send + 'static,
+        F: FnOnce(&Self) -> Result<T, XrpcError> + Send + 'static,
+    {
+        let admission = self.resources().repository(&did).await?;
+        self.blocking(move |state| {
+            let _admission = admission;
+            call(state)
+        })
+        .await
     }
 
     /// The signing key of the account `did`: the one in memory, or the

@@ -3,6 +3,8 @@
 
 #![allow(dead_code)] // each test file uses a part of this module
 
+pub mod http;
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -102,7 +104,46 @@ pub fn key(n: u8) -> Keypair {
     Keypair::generate(Algorithm::Secp256k1, |bytes| bytes.fill(n + 1))
 }
 
+#[derive(Clone, Copy)]
+enum FixtureSchema {
+    Reference,
+    Production,
+}
+
+impl FixtureSchema {
+    fn shared(self, layout: &pds_storage::DataLayout) -> (Connection, Connection, Connection) {
+        match self {
+            Self::Production => {
+                use pds_storage::{schema::create_shared, schema_shared};
+                (
+                    create_shared(&layout.account_db, &schema_shared::ACCOUNT, TIME).unwrap(),
+                    create_shared(&layout.sequencer_db, &schema_shared::SEQUENCER, TIME).unwrap(),
+                    create_shared(&layout.did_cache_db, &schema_shared::DID_CACHE, TIME).unwrap(),
+                )
+            }
+            // Keep independently declared schemas for compatibility tests.
+            Self::Reference => (
+                connection(&layout.account_db, ACCOUNT_SCHEMA),
+                connection(&layout.sequencer_db, SEQUENCER_SCHEMA),
+                connection(&layout.did_cache_db, DID_CACHE_SCHEMA),
+            ),
+        }
+    }
+
+    fn actor(self, path: &Path) -> Connection {
+        match self {
+            Self::Production => pds_storage::schema::create_actor_store(path, TIME).unwrap(),
+            Self::Reference => connection(path, ACTOR_SCHEMA),
+        }
+    }
+}
+
 impl DataDir {
+    /// A performance fixture with the production tables and indexes.
+    pub fn production(posts: usize) -> Self {
+        Self::seeded(posts, &[], FixtureSchema::Production)
+    }
+
     /// Three accounts: alice with `posts` posts and one blob, dana
     /// deactivated, tara taken down.
     pub fn new(posts: usize) -> Self {
@@ -111,6 +152,10 @@ impl DataDir {
 
     /// [`DataDir::new`] with more variables of the configuration.
     pub fn new_with(posts: usize, extra: &[(&str, &str)]) -> Self {
+        Self::seeded(posts, extra, FixtureSchema::Reference)
+    }
+
+    fn seeded(posts: usize, extra: &[(&str, &str)], schema: FixtureSchema) -> Self {
         let root = std::env::temp_dir().join(format!(
             "linkjar-pds-test-{}-{}",
             std::process::id(),
@@ -137,9 +182,7 @@ impl DataDir {
         .collect();
         let config = Config::from_vars(&vars).unwrap();
 
-        let accounts = connection(&config.layout.account_db, ACCOUNT_SCHEMA);
-        let sequencer = connection(&config.layout.sequencer_db, SEQUENCER_SCHEMA);
-        let did_cache = connection(&config.layout.did_cache_db, DID_CACHE_SCHEMA);
+        let (accounts, sequencer, did_cache) = schema.shared(&config.layout);
         let dir = Self { root, config };
         for (n, (did, handle, takedown, deactivated)) in [
             (ALICE, "alice.pds.test", None, None),
@@ -151,7 +194,7 @@ impl DataDir {
         {
             let n = u8::try_from(n).unwrap();
             let count = if did == ALICE { posts } else { 1 };
-            let (cid, rev) = dir.write_actor(did, n, count);
+            let (cid, rev) = dir.write_actor(did, n, count, schema);
             accounts
                 .execute(
                     r#"insert into "actor" values (?1, ?2, ?3, ?4, ?5, null)"#,
@@ -208,12 +251,18 @@ impl DataDir {
 
     /// Writes one actor store with `count` posts, and for alice a blob.
     /// Returns the commit CID and the revision.
-    fn write_actor(&self, did: &str, n: u8, count: usize) -> (String, String) {
+    fn write_actor(
+        &self,
+        did: &str,
+        n: u8,
+        count: usize,
+        schema: FixtureSchema,
+    ) -> (String, String) {
         let layout = &self.config.layout;
         std::fs::create_dir_all(layout.actor_store_dir(did)).unwrap();
         let keypair = key(n);
         std::fs::write(layout.actor_key(did), keypair.secret_bytes().as_slice()).unwrap();
-        let store = connection(&layout.actor_db(did), ACTOR_SCHEMA);
+        let store = schema.actor(&layout.actor_db(did));
         // One transaction: a large repository is thousands of rows, and a
         // commit for each would sync the file as many times.
         store.execute_batch("begin").unwrap();

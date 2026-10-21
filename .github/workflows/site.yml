@@ -8,10 +8,10 @@ name: Site
 
 on:
   pull_request:
-    paths: ['site/**', 'docs/architecture/svg/**', '.github/workflows/site.yml']
+    paths: ['site/**', 'docs/architecture/**', '.github/workflows/site.yml']
   push:
     branches: [main]
-    paths: ['site/**', 'docs/architecture/svg/**', '.github/workflows/site.yml']
+    paths: ['site/**', 'docs/architecture/**', '.github/workflows/site.yml']
   workflow_dispatch:
 
 permissions:
@@ -35,6 +35,11 @@ jobs:
         with:
           path: ./site
           node-version: 24
+          build-cmd: |
+            pnpm check
+            pnpm --dir ../docs/architecture install --frozen-lockfile
+            pnpm --dir ../docs/architecture check
+            pnpm build
 
   deploy:
     name: Publish

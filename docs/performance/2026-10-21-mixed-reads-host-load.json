@@ -1,0 +1,350 @@
+{
+  "executable_sha256": "1e4323c8e37bddf16245cb965b89c92ea47ac9896fd20e5711833b24896fe9e3",
+  "runs": [
+    {
+      "trial": 1,
+      "before": {
+        "utc": "2026-10-21T20:22:09.754753+00:00",
+        "processes": [
+          {
+            "pid": 85892,
+            "cpu_percent": 58.8,
+            "command": "syncthing"
+          },
+          {
+            "pid": 95127,
+            "cpu_percent": 23.8,
+            "command": "sysmond"
+          },
+          {
+            "pid": 91442,
+            "cpu_percent": 12.6,
+            "command": "Activity Monitor"
+          },
+          {
+            "pid": 77548,
+            "cpu_percent": 11.6,
+            "command": "codex"
+          },
+          {
+            "pid": 35609,
+            "cpu_percent": 9.4,
+            "command": "Dia"
+          },
+          {
+            "pid": 15002,
+            "cpu_percent": 6.2,
+            "command": "python3"
+          },
+          {
+            "pid": 78096,
+            "cpu_percent": 5.3,
+            "command": "codex-code-mode-host"
+          },
+          {
+            "pid": 36689,
+            "cpu_percent": 3.8,
+            "command": "claude"
+          },
+          {
+            "pid": 41297,
+            "cpu_percent": 3.0,
+            "command": "claude"
+          },
+          {
+            "pid": 594,
+            "cpu_percent": 2.8,
+            "command": "com.apple.DriverKit-AppleBCMWLAN"
+          }
+        ]
+      },
+      "after": {
+        "utc": "2026-10-21T20:22:25.851947+00:00",
+        "processes": [
+          {
+            "pid": 85892,
+            "cpu_percent": 74.6,
+            "command": "syncthing"
+          },
+          {
+            "pid": 45049,
+            "cpu_percent": 6.7,
+            "command": "idea"
+          },
+          {
+            "pid": 91442,
+            "cpu_percent": 4.7,
+            "command": "Activity Monitor"
+          },
+          {
+            "pid": 594,
+            "cpu_percent": 2.0,
+            "command": "com.apple.DriverKit-AppleBCMWLAN"
+          },
+          {
+            "pid": 76181,
+            "cpu_percent": 1.4,
+            "command": "claude"
+          },
+          {
+            "pid": 77548,
+            "cpu_percent": 1.4,
+            "command": "codex"
+          },
+          {
+            "pid": 35609,
+            "cpu_percent": 1.2,
+            "command": "Dia"
+          },
+          {
+            "pid": 96309,
+            "cpu_percent": 0.7,
+            "command": "Browser Helper (Renderer)"
+          },
+          {
+            "pid": 72566,
+            "cpu_percent": 0.6,
+            "command": "rex"
+          },
+          {
+            "pid": 60179,
+            "cpu_percent": 0.5,
+            "command": "mds_stores"
+          }
+        ]
+      },
+      "exit_code": 0,
+      "elapsed_seconds": 16.096982750110328
+    },
+    {
+      "trial": 2,
+      "before": {
+        "utc": "2026-10-21T20:22:25.894876+00:00",
+        "processes": [
+          {
+            "pid": 85892,
+            "cpu_percent": 74.6,
+            "command": "syncthing"
+          },
+          {
+            "pid": 45049,
+            "cpu_percent": 6.7,
+            "command": "idea"
+          },
+          {
+            "pid": 91442,
+            "cpu_percent": 4.7,
+            "command": "Activity Monitor"
+          },
+          {
+            "pid": 594,
+            "cpu_percent": 2.0,
+            "command": "com.apple.DriverKit-AppleBCMWLAN"
+          },
+          {
+            "pid": 76181,
+            "cpu_percent": 1.4,
+            "command": "claude"
+          },
+          {
+            "pid": 77548,
+            "cpu_percent": 1.4,
+            "command": "codex"
+          },
+          {
+            "pid": 35609,
+            "cpu_percent": 1.2,
+            "command": "Dia"
+          },
+          {
+            "pid": 96309,
+            "cpu_percent": 0.7,
+            "command": "Browser Helper (Renderer)"
+          },
+          {
+            "pid": 72566,
+            "cpu_percent": 0.6,
+            "command": "rex"
+          },
+          {
+            "pid": 60179,
+            "cpu_percent": 0.5,
+            "command": "mds_stores"
+          }
+        ]
+      },
+      "after": {
+        "utc": "2026-10-21T20:22:41.592135+00:00",
+        "processes": [
+          {
+            "pid": 45049,
+            "cpu_percent": 7.4,
+            "command": "idea"
+          },
+          {
+            "pid": 49846,
+            "cpu_percent": 4.5,
+            "command": "claude"
+          },
+          {
+            "pid": 95127,
+            "cpu_percent": 1.7,
+            "command": "sysmond"
+          },
+          {
+            "pid": 391,
+            "cpu_percent": 1.2,
+            "command": "mds"
+          },
+          {
+            "pid": 60179,
+            "cpu_percent": 1.2,
+            "command": "mds_stores"
+          },
+          {
+            "pid": 594,
+            "cpu_percent": 1.0,
+            "command": "com.apple.DriverKit-AppleBCMWLAN"
+          },
+          {
+            "pid": 15065,
+            "cpu_percent": 1.0,
+            "command": "mdworker_shared"
+          },
+          {
+            "pid": 91442,
+            "cpu_percent": 0.9,
+            "command": "Activity Monitor"
+          },
+          {
+            "pid": 72566,
+            "cpu_percent": 0.8,
+            "command": "rex"
+          },
+          {
+            "pid": 545,
+            "cpu_percent": 0.6,
+            "command": "searchpartyd"
+          }
+        ]
+      },
+      "exit_code": 0,
+      "elapsed_seconds": 15.69724762509577
+    },
+    {
+      "trial": 3,
+      "before": {
+        "utc": "2026-10-21T20:22:41.630638+00:00",
+        "processes": [
+          {
+            "pid": 45049,
+            "cpu_percent": 7.4,
+            "command": "idea"
+          },
+          {
+            "pid": 49846,
+            "cpu_percent": 2.9,
+            "command": "claude"
+          },
+          {
+            "pid": 95127,
+            "cpu_percent": 1.7,
+            "command": "sysmond"
+          },
+          {
+            "pid": 391,
+            "cpu_percent": 1.2,
+            "command": "mds"
+          },
+          {
+            "pid": 60179,
+            "cpu_percent": 1.2,
+            "command": "mds_stores"
+          },
+          {
+            "pid": 594,
+            "cpu_percent": 1.0,
+            "command": "com.apple.DriverKit-AppleBCMWLAN"
+          },
+          {
+            "pid": 15065,
+            "cpu_percent": 0.9,
+            "command": "mdworker_shared"
+          },
+          {
+            "pid": 91442,
+            "cpu_percent": 0.9,
+            "command": "Activity Monitor"
+          },
+          {
+            "pid": 72566,
+            "cpu_percent": 0.7,
+            "command": "rex"
+          },
+          {
+            "pid": 545,
+            "cpu_percent": 0.6,
+            "command": "searchpartyd"
+          }
+        ]
+      },
+      "after": {
+        "utc": "2026-10-21T20:22:57.323040+00:00",
+        "processes": [
+          {
+            "pid": 91442,
+            "cpu_percent": 5.5,
+            "command": "Activity Monitor"
+          },
+          {
+            "pid": 72566,
+            "cpu_percent": 2.1,
+            "command": "rex"
+          },
+          {
+            "pid": 35609,
+            "cpu_percent": 0.6,
+            "command": "Dia"
+          },
+          {
+            "pid": 25828,
+            "cpu_percent": 0.5,
+            "command": "zed"
+          },
+          {
+            "pid": 3955,
+            "cpu_percent": 0.4,
+            "command": ".devenv-wrapped"
+          },
+          {
+            "pid": 15106,
+            "cpu_percent": 0.4,
+            "command": "Browser Helper (Renderer)"
+          },
+          {
+            "pid": 85892,
+            "cpu_percent": 0.4,
+            "command": "syncthing"
+          },
+          {
+            "pid": 36689,
+            "cpu_percent": 0.4,
+            "command": "claude"
+          },
+          {
+            "pid": 23775,
+            "cpu_percent": 0.3,
+            "command": "Browser Helper (Renderer)"
+          },
+          {
+            "pid": 477,
+            "cpu_percent": 0.2,
+            "command": "clocksyncd"
+          }
+        ]
+      },
+      "exit_code": 0,
+      "elapsed_seconds": 15.692381375003606
+    }
+  ]
+}

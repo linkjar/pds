@@ -1,0 +1,17 @@
+Current working-tree release benchmark; trial 3
+Executable SHA256: 1e4323c8e37bddf16245cb965b89c92ea47ac9896fd20e5711833b24896fe9e3
+UTC start: 2026-10-21T20:22:41.630638+00:00
+
+running 1 test
+test large_pages_small_reads_and_legacy_sessions ...
+Current-code local benchmark: production SQLite schema, 500 small records, 50 distinct 49152-byte payload records, four Tokio workers, 20 warmups/client, 5s/window.
+Response bytes: getRecord=234, listRecords=2468872, getSession=132
+| workload | endpoint | clients | p50 µs | p95 µs | p99 µs | completed | req/s | body bytes | elapsed s |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| small only | getRecord | 4 | 125 | 177 | 202 | 156054 | 31209.0 | 36516636 | 5.000 |
+| mixed | getRecord | 4 | 175 | 283 | 389 | 107867 | 21560.4 | 25240878 | 5.003 |
+| mixed | listRecords 50 x 48KiB | 4 | 5113 | 7117 | 7712 | 3825 | 764.5 | 9443435400 | 5.003 |
+| authenticated only | getSession legacy | 4 | 2130 | 2629 | 2905 | 9473 | 1893.9 | 1250436 | 5.002 |
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 15.64s

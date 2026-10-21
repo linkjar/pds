@@ -190,6 +190,15 @@ impl AccountDb {
         Ok(())
     }
 
+    /// Associates a sign-in awaiting consent with its account so recovery
+    /// can revoke it even when the browser does not remember the account.
+    pub fn authenticate_request(&self, id: &str, did: &str) -> Result<bool, StorageError> {
+        Ok(self.conn.execute(
+            r#"update "authorization_request" set "did" = ?2 where "id" = ?1 and "code" is null"#,
+            [id, did],
+        )? > 0)
+    }
+
     /// Removes a request.
     pub fn delete_request(&self, id: &str) -> Result<(), StorageError> {
         self.conn.execute(
@@ -206,6 +215,21 @@ impl AccountDb {
             [now],
         )?;
         Ok(())
+    }
+
+    /// Finds the account of a code before taking its account lock. Callers
+    /// must re-read or consume the request while holding that lock.
+    pub fn request_by_code(&self, code: &str) -> Result<Option<RequestRow>, StorageError> {
+        Ok(self
+            .conn
+            .query_row(
+                &format!(
+                    r#"select {REQUEST_COLUMNS} from "authorization_request" where "code" = ?1"#
+                ),
+                [code],
+                request_from_row,
+            )
+            .optional()?)
     }
 
     /// Takes the request of a code. A code is good once: the row goes with

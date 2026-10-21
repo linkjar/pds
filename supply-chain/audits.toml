@@ -1,4 +1,80 @@
 
 # cargo-vet audits file
 
-[audits]
+[[audits.rustls-webpki]]
+who = "Codex (AI agent; no human certification)"
+criteria = "safe-to-deploy"
+delta = "0.103.15 -> 0.103.16"
+notes = """
+Automated source-delta review on 2026-10-21, against the existing 0.103.15
+bootstrap exemption. This does not claim a full audit of the base version.
+Reviewed the complete published-crate diff, RUSTSEC-2026-0382, and
+https://github.com/rustls/webpki/pull/546. The downloaded crate SHA-256 matches
+Cargo.lock. All changed runtime source and eight SPKI data files match upstream
+release commit 8ecdcc76f56b68fda67a6adf7976f5eed5006a4c byte-for-byte.
+
+The production change adds a fixed denylist to certificate path construction.
+It checks the leaf and each intermediate before path expansion, and checks
+trust-anchor keys before accepting a path. The compared SPKI representation
+matches the existing certificate and trust-anchor parsers. Existing signature,
+time, name, usage, and revocation checks remain. The new error retains normal
+alternative-path search. Reviewed upstream regression cases for leaf, root,
+intermediate, unrelated certificates, and cross-signing; these upstream unit
+tests were inspected, not executed as part of this delta review.
+
+No new dependency, feature, build script, unsafe block, I/O, or unbounded work
+was added. Other published changes are version/commit metadata and the package's
+own lockfile version. This review supports this exact patch delta only.
+"""
+
+[[audits.webpki-root-certs]]
+who = "Codex (AI agent; no human certification)"
+criteria = "safe-to-deploy"
+delta = "1.0.9 -> 1.0.10"
+notes = """
+Automated source-delta review on 2026-10-21, against the existing 1.0.9 bootstrap
+exemption. This does not claim a full audit of the base version. Reviewed the
+complete published-crate diff, RUSTSEC-2026-0383, and
+https://github.com/rustls/webpki-roots/pull/133. The downloaded crate SHA-256
+matches Cargo.lock; src/lib.rs matches upstream release commit
+70760478b9d3ea729b22faa0b5324da38a297c1c byte-for-byte.
+
+The only runtime change removes emSign ECC Root CA - G3. Decoded all certificate
+constants: the list changes from 121 to 120, with no additions or changes to
+remaining certificates or their order. OpenSSL identifies the removed subject
+and its SPKI SHA-256 is
+8d417db2dd8bf5e3084d1e3f196d583849d81bdd4c00c70b9d39369e96b8c782,
+matching the upstream removal. This reduces the trusted root set.
+
+Dependency, feature, and build-script declarations are unchanged. The declared
+Rust minimum rises from 1.70 to 1.71. Remaining changes are version/commit
+metadata and the packaged development lockfile, which does not replace the
+consumer workspace lockfile. No executable code was added. This review
+supports this exact patch delta only; no upstream test execution is claimed.
+"""
+
+[[audits.webpki-roots]]
+who = "Codex (AI agent; no human certification)"
+criteria = "safe-to-deploy"
+delta = "1.0.9 -> 1.0.10"
+notes = """
+Automated source-delta review on 2026-10-21, against the existing 1.0.9 bootstrap
+exemption. This does not claim a full audit of the base version. Reviewed the
+complete published-crate diff, RUSTSEC-2026-0381, and
+https://github.com/rustls/webpki-roots/pull/133. The downloaded crate SHA-256
+matches Cargo.lock; src/lib.rs matches upstream release commit
+70760478b9d3ea729b22faa0b5324da38a297c1c byte-for-byte.
+
+The only runtime change removes the emSign ECC Root CA - G3 trust anchor.
+Compared every anchor: the list changes from 121 to 120, with no additions or
+changes to remaining anchors or their order. Reconstructed the removed SPKI's
+DER wrapper and checked SHA-256
+8d417db2dd8bf5e3084d1e3f196d583849d81bdd4c00c70b9d39369e96b8c782,
+matching the upstream removal and webpki-root-certs. This reduces trust.
+
+Dependency, feature, and build-script declarations are unchanged. The declared
+Rust minimum rises from 1.70 to 1.71. Remaining changes are version/commit
+metadata and the packaged development lockfile, which does not replace the
+consumer workspace lockfile. No executable code was added. This review
+supports this exact patch delta only; no upstream test execution is claimed.
+"""

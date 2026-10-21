@@ -12,8 +12,9 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse as _, Response};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD_NO_PAD;
-use pds_storage::{Account, AppPassword, Availability};
+use pds_storage::{Account, AccountDb, AppPassword, Availability, StorageError};
 use serde_json::{Map, Value};
+use subtle::ConstantTimeEq as _;
 
 use super::writes;
 use crate::auth::{
@@ -85,12 +86,39 @@ fn tokens(access: String, refresh: String) -> Map<String, Value> {
     out
 }
 
-/// The account and, when the password is an app password, which one.
-fn login(
-    state: &AppState,
-    identifier: &str,
-    given: &str,
-) -> Result<(Account, Option<AppPassword>), XrpcError> {
+/// A verified credential, checked again while its session is persisted.
+pub(crate) struct Login {
+    pub account: Account,
+    pub app_password: Option<AppPassword>,
+    fingerprint: String,
+    app_hash: Option<String>,
+}
+
+impl Login {
+    /// The account lock must cover this check and the session write. A
+    /// recovery or app-password revocation cannot cross between them.
+    pub(crate) fn current(
+        &self,
+        db: &AccountDb,
+        config: &auth::AuthConfig,
+    ) -> Result<bool, StorageError> {
+        let did = &self.account.actor.did;
+        let hash = db.password_hash(did)?.unwrap_or_default();
+        let Some(epoch) = auth::credential_fingerprint(config, &hash) else {
+            return Ok(false);
+        };
+        if !bool::from(self.fingerprint.as_bytes().ct_eq(epoch.as_bytes())) {
+            return Ok(false);
+        }
+        match &self.app_hash {
+            Some(hash) => Ok(db.app_password(did, hash)? == self.app_password),
+            None => Ok(true),
+        }
+    }
+}
+
+/// The account and the credential that was verified.
+fn login(state: &AppState, identifier: &str, given: &str) -> Result<Login, XrpcError> {
     let refused = || unauthorized("AuthenticationRequired", "Invalid identifier or password");
     let identifier = identifier.to_lowercase();
     let accounts = state.reads().accounts()?;
@@ -104,8 +132,15 @@ fn login(
     let account = account.ok_or_else(refused)?;
     let did = account.actor.did.as_str();
     let stored = accounts.password_hash(did)?;
+    let epoch = auth::credential_fingerprint(&state.config().auth, stored.as_deref().unwrap_or(""))
+        .ok_or_else(|| XrpcError::internal("the credential version could not be computed"))?;
     if stored.is_some_and(|stored| password::verify(given, &stored)) {
-        return Ok((account, None));
+        return Ok(Login {
+            account,
+            app_password: None,
+            fingerprint: epoch,
+            app_hash: None,
+        });
     }
     // An account that is taken down opens a session with its own password
     // only.
@@ -114,7 +149,12 @@ fn login(
     }
     let hash = password::hash_app_password(did, given).ok_or_else(refused)?;
     let app = accounts.app_password(did, &hash)?.ok_or_else(refused)?;
-    Ok((account, Some(app)))
+    Ok(Login {
+        account,
+        app_password: Some(app),
+        fingerprint: epoch,
+        app_hash: Some(hash),
+    })
 }
 
 /// A sign-in that takes at least [`LOGIN_FLOOR`], so that its duration says
@@ -123,7 +163,7 @@ pub(crate) async fn timed_login(
     state: &AppState,
     identifier: &str,
     given: &str,
-) -> Result<(Account, Option<AppPassword>), XrpcError> {
+) -> Result<Login, XrpcError> {
     if given.len() > password::OLD_PASSWORD_MAX_LENGTH {
         return Err(unauthorized(
             "AuthenticationRequired",
@@ -148,7 +188,7 @@ pub async fn create_session(
     let input = body::read_json(headers, body, DEFAULT_JSON_LIMIT).await?;
     let identifier = body::string(&input, "identifier", true, Format::Any, None, "$")?
         .unwrap_or_default()
-        .to_owned();
+        .to_lowercase();
     let given = body::string(&input, "password", true, Format::Any, None, "$")?
         .unwrap_or_default()
         .to_owned();
@@ -173,7 +213,8 @@ pub async fn create_session(
         )?;
     }
     let found = timed_login(state, &identifier, &given).await;
-    let (account, app_password) = found?;
+    let found = found?;
+    let account = found.account.clone();
     let taken_down = account.actor.takedown_ref.is_some();
     if taken_down && !allow_takendown {
         return Err(unauthorized(
@@ -186,25 +227,39 @@ pub async fn create_session(
     let now_s = state.now_s();
     let config = &state.config().auth;
     let did = account.actor.did.as_str();
-    let scope = scope_of(app_password.as_ref(), taken_down);
+    let scope = scope_of(found.app_password.as_ref(), taken_down);
     let id = token_id(writes);
-    let access = auth::mint_access(config, did, scope, now_s);
     let (refresh, expires_s) = auth::mint_refresh(config, did, &id, now_s);
-    // A session of an account that is taken down cannot be refreshed. The
-    // row goes in on the blocking pool, as every other write does.
-    if !taken_down {
-        let expires_at = pds_types::iso_millis(expires_s * 1000);
-        let name = app_password.as_ref().map(|app| app.name.clone());
-        let did = did.to_owned();
-        state
-            .blocking(move |state| {
-                super::writes(state)?.with_accounts(|accounts| {
-                    accounts.store_refresh_token(&id, &did, &expires_at, name.as_deref())
-                })?;
-                Ok(())
+    let expires_at = pds_types::iso_millis(expires_s * 1000);
+    let name = found.app_password.as_ref().map(|app| app.name.clone());
+    let stored_did = did.to_owned();
+    let epoch = state
+        .blocking(move |state| {
+            super::writes(state)?.with_accounts(|accounts| {
+                accounts.with_account_lock(&stored_did, |accounts| {
+                    if !found.current(accounts, &state.config().auth)? {
+                        return Err(unauthorized(
+                            "AuthenticationRequired",
+                            "Invalid identifier or password",
+                        ));
+                    }
+                    // A taken-down account can authenticate but cannot refresh.
+                    if !taken_down {
+                        accounts.store_refresh_token(
+                            &id,
+                            &stored_did,
+                            &expires_at,
+                            name.as_deref(),
+                        )?;
+                    }
+                    // Recovery versions are persistent opaque values. Reusing
+                    // this value keeps a signing-secret rotation independent.
+                    Ok::<_, XrpcError>(accounts.credential_epoch(&stored_did)?)
+                })
             })
-            .await?;
-    }
+        })
+        .await?;
+    let access = auth::mint_access_bound(config, did, scope, now_s, epoch.as_deref());
     let mut out = tokens(access, refresh);
     describe(&mut out, &account);
     Ok(json_response(StatusCode::OK, &out.into()))
@@ -249,38 +304,40 @@ fn rotate(state: &AppState, id: &str, now_s: i64) -> Result<Option<(String, Stri
     let writes = writes(state)?;
     let config = &state.config().auth;
     let now = pds_types::iso_millis(state.now_ms());
-    // Another request can give the token a successor between the read and
-    // the write; the second pass reads that successor.
-    for _ in 0..3 {
-        let Some(token) = writes.with_accounts(|accounts| accounts.refresh_token(id))? else {
+    // Read the credential and rotate under the same lock as recovery.
+    // A revoked refresh row cannot be upgraded to the recovered password.
+    writes.with_accounts(|accounts| {
+        let Some(initial) = accounts.refresh_token(id)? else {
             return Ok(None);
         };
-        writes
-            .with_accounts(|accounts| accounts.delete_expired_refresh_tokens(&token.did, &now))?;
-        let grace_ends = pds_types::iso_millis((now_s + REFRESH_GRACE_S) * 1000);
-        let expires_at = if grace_ends < token.expires_at {
-            grace_ends
-        } else {
-            token.expires_at.clone()
-        };
-        if expires_at <= now {
-            return Ok(None);
-        }
-        let next = token.next_id.clone().unwrap_or_else(|| token_id(writes));
-        let scope = scope_of(token.app_password.as_ref(), false);
-        let access = auth::mint_access(config, &token.did, scope, now_s);
-        let (refresh, next_expires_s) = auth::mint_refresh(config, &token.did, &next, now_s);
-        let next_expires_at = pds_types::iso_millis(next_expires_s * 1000);
-        let rotated = writes.with_accounts(|accounts| {
-            accounts.rotate_refresh_token(id, &expires_at, &next, &next_expires_at)
-        })?;
-        if rotated {
-            return Ok(Some((access, refresh)));
-        }
-    }
-    Err(XrpcError::internal(
-        "a refresh token changed three times while it was rotated",
-    ))
+        accounts.with_account_lock(&initial.did, |accounts| {
+            for _ in 0..3 {
+                let Some(token) = accounts.refresh_token(id)? else {
+                    return Ok(None);
+                };
+                accounts.delete_expired_refresh_tokens(&token.did, &now)?;
+                let grace_ends = pds_types::iso_millis((now_s + REFRESH_GRACE_S) * 1000);
+                let expires_at = grace_ends.min(token.expires_at.clone());
+                if expires_at <= now {
+                    return Ok(None);
+                }
+                let next = token.next_id.clone().unwrap_or_else(|| token_id(writes));
+                let scope = scope_of(token.app_password.as_ref(), false);
+                let epoch = accounts.credential_epoch(&token.did)?;
+                let access =
+                    auth::mint_access_bound(config, &token.did, scope, now_s, epoch.as_deref());
+                let (refresh, next_expires_s) =
+                    auth::mint_refresh(config, &token.did, &next, now_s);
+                let next_expires_at = pds_types::iso_millis(next_expires_s * 1000);
+                if accounts.rotate_refresh_token(id, &expires_at, &next, &next_expires_at)? {
+                    return Ok(Some((access, refresh)));
+                }
+            }
+            Err(XrpcError::internal(
+                "a refresh token changed three times while it was rotated",
+            ))
+        })
+    })
 }
 
 /// `com.atproto.server.getSession`.
@@ -293,7 +350,7 @@ pub async fn get_session(state: &AppState, headers: &HeaderMap) -> Result<Respon
                 include_deactivated: true,
             };
             state
-                .layout()
+                .reads()
                 .accounts()?
                 .account(&did, false, availability)?
                 .ok_or_else(|| {
@@ -366,6 +423,7 @@ pub async fn create_app_password(
         .unwrap_or_default()
         .to_owned();
     let privileged = body::boolean(&input, "privileged", "$")?.unwrap_or(false);
+    let headers = headers.clone();
     let created = state
         .blocking(move |state| {
             let writes = writes(state)?;
@@ -374,7 +432,21 @@ pub async fn create_app_password(
                 .ok_or_else(|| XrpcError::internal("the app password could not be hashed"))?;
             let created_at = pds_types::iso_millis(state.now_ms());
             let stored = writes.with_accounts(|accounts| {
-                accounts.create_app_password(&did, &name, &hash, &created_at, privileged)
+                accounts.with_account_lock(&did, |accounts| {
+                    auth::require_current_session(
+                        accounts,
+                        &state.config().auth,
+                        &headers,
+                        state.now_s(),
+                    )?;
+                    Ok::<_, XrpcError>(accounts.create_app_password(
+                        &did,
+                        &name,
+                        &hash,
+                        &created_at,
+                        privileged,
+                    )?)
+                })
             })?;
             // The Reference answers 500 here; 400 is a deliberate
             // difference (SPEC §2.3).

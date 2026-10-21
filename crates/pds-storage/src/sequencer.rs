@@ -162,40 +162,56 @@ impl SequencerDb {
         max_rows: u32,
         max_bytes: usize,
     ) -> Result<(Vec<SeqRow>, bool), StorageError> {
-        // The rows are read a batch at a time, so a page that ends at
-        // `max_bytes` leaves the rest of the log unread.
         const BATCH: usize = 64;
-        let mut statement = self.conn.prepare_cached(
-            r#"select "seq", "did", "eventType", "event", "sequencedAt" from "repo_seq" where "invalidated" = 0 and "seq" > :cursor order by "seq" asc limit :limit"#,
+        if max_rows == 0 {
+            return Ok((Vec::new(), false));
+        }
+        // Read lengths first: the shared SQL adapter materializes its
+        // result, so fetching a batch of full events defeats the byte cap.
+        let mut metadata = self.conn.prepare_cached(
+            r#"select "seq", length("event") from "repo_seq" where "invalidated" = 0 and "seq" > :cursor order by "seq" asc limit :limit"#,
         )?;
-        let mut page: Vec<SeqRow> = Vec::new();
+        let mut count = 0_usize;
         let mut bytes = 0_usize;
         let mut after = cursor;
-        loop {
-            let rows: Vec<SeqRow> = statement
+        let at_head = 'pages: loop {
+            let rows: Vec<(i64, usize)> = metadata
                 .query_map(named_params! { ":cursor": after, ":limit": BATCH }, |row| {
-                    Ok(SeqRow {
-                        seq: row.get(0)?,
-                        did: row.get(1)?,
-                        event_type: row.get(2)?,
-                        event: row.get(3)?,
-                        sequenced_at: row.get(4)?,
-                    })
+                    Ok((
+                        row.get(0)?,
+                        usize::try_from(row.get::<i64>(1)?).unwrap_or(usize::MAX),
+                    ))
                 })?
                 .collect::<Result<_, _>>()?;
             let read = rows.len();
-            for row in rows {
-                if page.len() >= max_rows as usize || bytes >= max_bytes {
-                    return Ok((page, false));
+            for (seq, size) in rows {
+                if count >= max_rows as usize
+                    || (count > 0 && bytes.saturating_add(size) > max_bytes)
+                {
+                    break 'pages false;
                 }
-                bytes = bytes.saturating_add(row.event.len());
-                after = row.seq;
-                page.push(row);
+                bytes = bytes.saturating_add(size);
+                after = seq;
+                count += 1;
             }
             if read < BATCH {
-                return Ok((page, true));
+                break true;
             }
-        }
+        };
+        let page = self.conn.prepare_cached(
+            r#"select "seq", "did", "eventType", "event", "sequencedAt" from "repo_seq" where "invalidated" = 0 and "seq" > :cursor and "seq" <= :last order by "seq" asc"#,
+        )?
+        .query_map(named_params! { ":cursor": cursor, ":last": after }, |row| {
+            Ok(SeqRow {
+                seq: row.get(0)?,
+                did: row.get(1)?,
+                event_type: row.get(2)?,
+                event: row.get(3)?,
+                sequenced_at: row.get(4)?,
+            })
+        })?
+        .collect::<Result<_, _>>()?;
+        Ok((page, at_head))
     }
 
     /// How many events follow `cursor`, counted up to `cap`.

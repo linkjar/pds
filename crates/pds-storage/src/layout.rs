@@ -177,7 +177,7 @@ impl DataLayout {
 
     /// A connection that reads and writes the accounts.
     pub fn accounts_writable(&self) -> Result<AccountDb, StorageError> {
-        Ok(AccountDb::over(self.connect(SharedDb::Account, true)?))
+        AccountDb::over_writable(self.connect(SharedDb::Account, true)?)
     }
 
     /// A read connection to the event log.
@@ -269,6 +269,7 @@ impl DataLayout {
                 None => {}
             }
         }
+        drop(self.accounts_writable()?);
         Ok(created)
     }
 

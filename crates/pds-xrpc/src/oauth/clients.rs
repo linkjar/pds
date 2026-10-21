@@ -3,11 +3,11 @@
 //! is the URL of its metadata.
 
 use std::collections::HashMap;
-use std::net::IpAddr;
 use std::sync::{Arc, PoisonError};
 use std::time::Duration;
 
 use axum::http::header;
+use pds_identity::safe_fetch::{self, Policy};
 use pds_oauth::client::{Client, ClientError, ClientId, validate};
 use pds_oauth::token::{
     REFRESH_LIFETIME_EXTENDED_MS, REFRESH_LIFETIME_MS, SESSION_LIFETIME_EXTENDED_MS,
@@ -106,35 +106,9 @@ fn is_documentation_host(host: &str) -> bool {
         .any(|domain| host == *domain || host.ends_with(&format!(".{domain}")))
 }
 
-fn is_public(address: IpAddr) -> bool {
-    match address {
-        IpAddr::V4(v4) => {
-            !(v4.is_loopback()
-                || v4.is_private()
-                || v4.is_link_local()
-                || v4.is_unspecified()
-                || v4.is_broadcast()
-                || v4.is_multicast()
-                || v4.is_documentation()
-                // Carrier-grade NAT, 100.64.0.0/10.
-                || (v4.octets()[0] == 100 && (v4.octets()[1] & 0xc0) == 64))
-        }
-        IpAddr::V6(v6) => v6.to_ipv4_mapped().map_or_else(
-            || {
-                !(v6.is_loopback()
-                    || v6.is_unspecified()
-                    || v6.is_multicast()
-                    || (v6.segments()[0] & 0xfe00) == 0xfc00
-                    || (v6.segments()[0] & 0xffc0) == 0xfe80)
-            },
-            |v4| is_public(IpAddr::V4(v4)),
-        ),
-    }
-}
-
 /// Fetches a JSON document of a client: HTTPS, no redirect, status 200,
-/// `application/json`, and a public address unless the operator turned the
-/// check off.
+/// `application/json`, and a public address. Disabling address checks
+/// requires both development mode and the explicit SSRF override.
 async fn fetch_json(state: &AppState, url: &Url, what: &str) -> Result<Value, OAuthError> {
     let failed = |why: &str| metadata_error(format!("Unable to obtain {what} \"{url}\": {why}"));
     let host = url.host_str().unwrap_or_default();
@@ -144,19 +118,13 @@ async fn fetch_json(state: &AppState, url: &Url, what: &str) -> Result<Value, OA
     if is_documentation_host(host) {
         return Err(failed("the host name is reserved for documentation"));
     }
-    if !state.config().oauth.disable_ssrf_protection {
-        let port = url.port_or_known_default().unwrap_or(443);
-        let addresses: Vec<_> = tokio::net::lookup_host((host, port))
-            .await
-            .map_err(|_| failed("the host name does not resolve"))?
-            .collect();
-        if addresses.is_empty() || !addresses.iter().all(|address| is_public(address.ip())) {
-            return Err(failed("the host is not on the public internet"));
-        }
-    }
-    let response = state
-        .http()
-        .get(url.as_str())
+    let policy = if state.config().dev_mode && state.config().oauth.disable_ssrf_protection {
+        Policy::Development
+    } else {
+        Policy::Public
+    };
+    let response = safe_fetch::request(reqwest::Method::GET, url.as_str(), policy)
+        .map_err(|_| failed("the destination is not allowed"))?
         .header(header::ACCEPT, "application/json")
         .timeout(FETCH_TIMEOUT)
         .send()
@@ -177,18 +145,9 @@ async fn fetch_json(state: &AppState, url: &Url, what: &str) -> Result<Value, OA
     if !json {
         return Err(failed("unexpected content type"));
     }
-    let mut bytes = Vec::new();
-    let mut response = response;
-    while let Some(chunk) = response
-        .chunk()
+    let bytes = safe_fetch::read_bounded(response, DOCUMENT_LIMIT)
         .await
-        .map_err(|_| failed("the request failed"))?
-    {
-        if bytes.len() + chunk.len() > DOCUMENT_LIMIT {
-            return Err(failed("the document is too large"));
-        }
-        bytes.extend_from_slice(&chunk);
-    }
+        .map_err(|_| failed("the request failed or the document is too large"))?;
     serde_json::from_slice(&bytes).map_err(|_| failed("the document is not JSON"))
 }
 
@@ -287,25 +246,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn private_and_reserved_addresses_are_not_public() {
-        for private in [
-            "127.0.0.1",
-            "10.1.2.3",
-            "192.168.0.1",
-            "172.16.0.1",
-            "169.254.169.254",
-            "100.64.0.1",
-            "0.0.0.0",
-            "::1",
-            "fd00::1",
-            "fe80::1",
-            "::ffff:10.0.0.1",
-        ] {
-            assert!(!is_public(private.parse().unwrap()), "{private}");
-        }
-        for public in ["8.8.8.8", "2606:4700::1111", "100.128.0.1"] {
-            assert!(is_public(public.parse().unwrap()), "{public}");
-        }
+    fn documentation_domains_are_reserved() {
         assert!(is_documentation_host("client.example.com"));
         assert!(!is_documentation_host("example.io"));
     }

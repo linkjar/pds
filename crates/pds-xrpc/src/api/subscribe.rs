@@ -6,7 +6,7 @@ use axum::body::Bytes;
 use axum::extract::FromRequestParts as _;
 use axum::extract::ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade};
 use axum::http::request::Parts;
-use axum::response::Response;
+use axum::response::{IntoResponse, Response};
 use pds_sequencer::{Frame, Sequencer, Subscription, error_frame};
 use pds_types::cbor::MAX_SAFE_INTEGER;
 
@@ -47,7 +47,13 @@ pub async fn upgrade(state: &AppState, parts: &mut Parts) -> Option<Response> {
     let writes = state.writes()?;
     let upgrade = WebSocketUpgrade::from_request_parts(parts, &())
         .await
-        .ok()?;
+        .ok()?
+        .max_message_size(64 * 1024)
+        .max_frame_size(64 * 1024);
+    let permit = match state.resources().subscription() {
+        Ok(permit) => permit,
+        Err(error) => return Some(error.into_response()),
+    };
     let cursor = cursor(parts.uri.query());
     let sequencer = Arc::clone(writes.sequencer());
     let backfill_limit_ms = writes.settings().backfill_limit_ms;
@@ -63,6 +69,7 @@ pub async fn upgrade(state: &AppState, parts: &mut Parts) -> Option<Response> {
         .map(|value| value.chars().take(200).collect());
     let state = state.clone();
     Some(upgrade.on_upgrade(move |socket| async move {
+        let _permit = permit;
         let from = Peer { remote, user_agent };
         serve(
             socket,
@@ -78,20 +85,31 @@ pub async fn upgrade(state: &AppState, parts: &mut Parts) -> Option<Response> {
 }
 
 async fn close(mut socket: WebSocket, code: u16, reason: &'static str) {
-    let _ = socket
-        .send(Message::Close(Some(CloseFrame {
+    let _ = send(
+        &mut socket,
+        Message::Close(Some(CloseFrame {
             code,
             reason: reason.into(),
-        })))
-        .await;
+        })),
+    )
+    .await;
+}
+
+async fn send(socket: &mut WebSocket, message: Message) -> Result<(), ()> {
+    tokio::time::timeout(std::time::Duration::from_secs(15), socket.send(message))
+        .await
+        .map_err(|_| ())?
+        .map_err(|_| ())
 }
 
 /// Sends the error frame and closes, as the Reference's stream server does.
 async fn refuse(mut socket: WebSocket, error: &'static str, message: &str) {
-    if socket
-        .send(Message::Binary(error_frame(error, message).into()))
-        .await
-        .is_ok()
+    if send(
+        &mut socket,
+        Message::Binary(error_frame(error, message).into()),
+    )
+    .await
+    .is_ok()
     {
         close(socket, CLOSE_POLICY, error).await;
     }
@@ -152,7 +170,7 @@ async fn serve(
                 Ok(Ok(frames)) => {
                     for frame in frames {
                         let len = frame.len();
-                        if socket.send(binary(frame)).await.is_err() {
+                        if send(&mut socket, binary(frame)).await.is_err() {
                             return;
                         }
                         subscriber.sent(len, subscription.cursor(), state.now_ms());

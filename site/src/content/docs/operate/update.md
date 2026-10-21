@@ -5,9 +5,10 @@ sidebar:
   order: 1
 ---
 
-An update is a new image digest in `.env` and a restart. The data
-directory needs nothing: the server writes the reference server's layout,
-and a newer server reads what an older one wrote.
+An update is a new image digest in `.env` and a restart. A newer server
+reads the existing data directory. This release adds a credential recovery
+table to the account database and an index to actor databases on writable
+open. The first index build takes a SQLite write lock and extra disk space.
 
 ## Find the new image
 
@@ -50,9 +51,15 @@ curl -s https://pds.example.com/xrpc/_health
 ## Roll back
 
 Put the previous digest back in `.env` and run `docker compose up -d`
-again. No release so far changes the layout of the data directory, so a
-rollback is a restart; a release that does will say so in its notes and
-in the [migration page](/operate/migrate-from-reference/).
+again, subject to the authentication limit below. The additive table and
+index leave the reference layout readable by older servers.
+
+The reference server and older Candidate images do not enforce credential
+epochs or the member host's live session check. They can accept revoked,
+unexpired legacy tokens after a password recovery. If recovery must remain
+effective, rotate the token-signing secrets and keys and require sign-in
+again before serving with an older image. Keep the account database and
+its recovery table in every [backup](/operate/backup/).
 
 :::note[Pin the digest, not a tag]
 `:main` moves with every merge. A digest names one build, so two hosts

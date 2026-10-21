@@ -91,7 +91,7 @@ pub async fn verify(
     if !response.status().is_success() {
         return false;
     }
-    let Ok(bytes) = response.bytes().await else {
+    let Ok(bytes) = pds_identity::safe_fetch::read_bounded(response, 64 * 1024).await else {
         return false;
     };
     serde_json::from_slice::<Value>(&bytes)

@@ -401,12 +401,23 @@ pub async fn record(state: &AppState, what: Draft) {
     };
     let time = pds_types::iso_millis(state.now_ms());
     let state = state.clone();
-    let action = what.action.clone();
-    let written =
-        tokio::task::spawn_blocking(move || state.audit().map(|log| log.record(&time, what))).await;
-    if !matches!(written, Ok(Some(Ok(_)))) {
-        tracing::error!(%action, "an audit entry was not written");
-    }
+    // Once the action completed, a disconnected caller must not cancel
+    // its audit entry while it waits for a blocking worker.
+    let job = tokio::spawn(async move {
+        let Ok(permit) = state.resources().audit().await else {
+            return;
+        };
+        let action = what.action.clone();
+        let written = tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            state.audit().map(|log| log.record(&time, what))
+        })
+        .await;
+        if !matches!(written, Ok(Some(Ok(_)))) {
+            tracing::error!(%action, "an audit entry was not written");
+        }
+    });
+    let _ = job.await;
 }
 
 /// Appends the entry of an action on a page (SPEC §20.1): a sign-up or a
@@ -441,9 +452,15 @@ pub async fn checkpoint(state: &AppState) {
     }
     let time = pds_types::iso_millis(state.now_ms());
     let made = {
+        let Ok(permit) = state.resources().audit().await else {
+            return;
+        };
         let state = state.clone();
-        tokio::task::spawn_blocking(move || state.audit().map(|log| log.checkpoint_after(&time)))
-            .await
+        tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            state.audit().map(|log| log.checkpoint_after(&time))
+        })
+        .await
     };
     let (checkpoint, previous_root) = match made {
         Ok(Some(Ok(Some(made)))) => made,
@@ -474,10 +491,11 @@ pub async fn checkpoint(state: &AppState) {
         "createdAt": checkpoint.time,
     });
     let published = {
-        let state = state.clone();
-        tokio::task::spawn_blocking(move || publish(&state, &repo, &record)).await
+        state
+            .repo_blocking(repo.clone(), move |state| publish(state, &repo, &record))
+            .await
     };
-    if !matches!(published, Ok(Ok(()))) {
+    if published.is_err() {
         tracing::error!(
             last = checkpoint.last,
             "an audit checkpoint was not published"

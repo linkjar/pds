@@ -153,6 +153,9 @@ fn probe(layout: &DataLayout, db: SharedDb, sql: &str) -> Result<Vec<Vec<Value>>
 
 fn verify(source: &DataLayout, target: &DataLayout, copied: &[Copied]) -> Result<(), MigrateError> {
     for db in SharedDb::ALL {
+        if !copied.iter().any(|table| table.database == db.name()) {
+            continue;
+        }
         let conn = target.connect(db, false)?;
         for table in copied.iter().filter(|table| table.database == db.name()) {
             let rows = count(&conn, &table.table)?;

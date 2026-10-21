@@ -1,0 +1,23 @@
+Same production library and fat LTO; same-connection and alternating controls
+sqlite=3.53.2
+same_connection_lookup200_cached=false: p50_us=229.959, p95_us=234.584
+same_connection_lookup200_cached=true: p50_us=59.791, p95_us=60.250
+production_lookup200: p50_us=60.584, p95_us=61.125
+alternating_lookup200: before=226.666,after=57.75
+distinct_previous_IN: p50_us=252.667, p95_us=255.708
+distinct_batched_EXISTS: p50_us=185.083, p95_us=188.208
+distinct_production_individual_EXISTS: p50_us=180.500, p95_us=184.292
+missing_previous_IN: p50_us=187.667, p95_us=192.709
+missing_batched_EXISTS: p50_us=114.958, p95_us=117.417
+missing_production_individual_EXISTS: p50_us=152.042, p95_us=156.875
+
+Exact example with only preceding shared-fanout comparison removed
+sqlite=3.53.2
+shared_rows=100000,distinct_rows=500,warmup=20,trials=201,journal=wal
+operation,p50_us,p95_us,returned_rows
+distinct_500_before,336.917,351.291,500
+distinct_500_after,191.666,200.750,500
+missing_500_before,199.375,204.667,0
+missing_500_after,160.083,164.625,0
+record_lookup_200_before,231.833,240.750,200
+record_lookup_200_after,60.917,64.542,200

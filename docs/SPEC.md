@@ -236,6 +236,20 @@ the Stock Reference only
 The production Reference carries upstream's fix as its ninth patch (§13)
 and agrees with the Candidate; the Stock Reference applies no patch.
 
+Security hardening approved on 2026-10-19 adds the following deliberate
+differences. Local regression tests cover them; a new Reference comparison
+has not been run for these cases.
+
+| Case | Candidate behaviour |
+|---|---|
+| Unauthenticated proxy request | Authenticate before resolving its target DID (§4.4). |
+| Untrusted outbound destination | Public HTTPS on port 443 only; validate connector addresses and refuse redirects (§15.1). |
+| Large or stalled transfers, exhausted work budgets | Fixed admission and time limits; 413, 408 or 503 as described in §3.2. |
+| Unconfigured repository import limit | 64 MiB; zero is invalid configuration (§6.5). |
+| Password recovery | Revoke sessions and remembered authorization state (§5.1). |
+| Member token validation | Check entryway recovery and OAuth session state on each validated request; fail closed if unavailable (§21.3). |
+| Incorrect OAuth session cookie during rotation | Accept only the exact recorded predecessor during the five-second overlap; preserve the legitimate device (§11.3). |
+
 ## 3. Architecture
 
 ### 3.1 Crates
@@ -283,6 +297,29 @@ are provisional.
   the same process and is observable through metrics and the ops listener.
 - Time, randomness and I/O enter the server only through injectable
   providers so that §19 can replace them.
+
+Work admission is bounded per process: 8 uploads, 2 imports, 8 streamed
+exports, 32 firehose connections and 64 ordinary blocking jobs. Exhaustion
+returns 503 `ServerBusy`; these budgets are independent of rate-limit
+bypass settings. Audit writes and checkpoints have four separate workers
+and wait asynchronously for admission. Permits cover the actual worker or
+connection lifetime, including cleanup after a client disconnects.
+
+HTTP repository operations admit at most eight active or waiting jobs per
+DID and 64 across the process. A queued job waits asynchronously before
+taking an ordinary blocking worker. One job per DID proceeds at a time,
+in admission order; cancelling a waiter releases its place. A running job
+keeps admission until its worker finishes, even after client cancellation.
+The repository mutex still coordinates synchronous maintenance callers.
+
+Request-body reads allow 15 seconds without progress and 300 seconds total.
+They return 408 `RequestTimeout` on expiry. Refused-body draining stops
+after five seconds or its byte cap; a size refusal remains 413 if draining
+times out. Streamed export producers have a 300-second total deadline and
+a 15-second queue stall
+limit. They use 64 KiB chunks and a queue of four chunks. A failed export
+ends with an incomplete response; clients must discard it. These are fixed
+implementation limits, not environment settings.
 
 ### 3.3 Determinism hooks
 
@@ -418,7 +455,9 @@ Reference's pipethrough does:
 - The target is the `atproto-proxy` header (`<did>#<service id>`) or the
   configured AppView for `app.bsky.*`. The target DID MUST resolve to a
   document with a `service` entry whose id matches the fragment; only
-  `/xrpc/<nsid>` paths are forwarded.
+  `/xrpc/<nsid>` paths are forwarded. Authentication precedes target
+  resolution. DID-discovered endpoints use safe fetch (§15.1); explicitly
+  configured AppView and report-service URLs are trusted destinations.
 - Forwarding mints a service-auth JWT (§5.4) for the target with `lxm` set
   to the method. At the pin the Reference sends the bare DID as `aud` while
   checking scopes against `<did>#<service id>` ([verify-at-pin.md](../parity/verify-at-pin.md));
@@ -427,14 +466,17 @@ Reference's pipethrough does:
 - `atproto-accept-labelers` passes through on the request and
   `atproto-content-labelers` on the response. At the pin the request header
   is not parsed: a malformed value is forwarded and the upstream decides.
-- An XRPC error from the upstream comes back with its status and body. A
+- An XRPC error from the upstream is parsed within 64 KiB. Its name and
+  message are returned; an oversized error becomes 502 `UpstreamFailure`. A
   failed upstream is 502 `UpstreamFailure`. A proxy target whose service id
   the DID document lacks, or that has no service id, or whose DID does not
   resolve, is 400 `InvalidRequest`. At the pin a value that does not start
   with a DID is 500 `InternalServerError`; the Candidate answers 400
   `InvalidRequest` (§2.3).
-- Header filtering, timeouts (`PDS_PROXY_*`), response size caps, retry
-  policy and HTTP/2 preference follow the Reference configuration.
+- `PDS_PROXY_HEADERS_TIMEOUT` covers the upstream response body as well as
+  connection and headers. Successful proxy bodies stream; the
+  read-after-write overlay has a 10 MiB buffer cap. The `getRecord` AppView
+  fallback accepts at most 16 MiB on success and 64 KiB on error.
 - Procedures are proxied only where the Reference proxies them.
 
 ### 4.5 Read-after-write
@@ -462,10 +504,22 @@ its first item.
   rotates the token. A rotated refresh token stays valid for a grace period
   of two hours and leads to the same successor, so two racing clients end
   with one session; after the grace period it is `ExpiredToken`
-  ([verify-at-pin.md](../parity/verify-at-pin.md)). A password reset and
-  `deleteSession` end the session at once.
+  ([verify-at-pin.md](../parity/verify-at-pin.md)). `deleteSession` revokes
+  the refresh session; an existing legacy access token can last until expiry.
 - The Candidate MUST accept tokens the Reference minted with the same secret,
-  so cutover keeps users signed in.
+  so cutover keeps users signed in, unless that account has since recovered
+  its credentials.
+- Password reset and admin password update atomically replace the password,
+  record a credential epoch, and revoke legacy refresh sessions, OAuth
+  sessions, remembered account-device links, authorized-client grants,
+  pending authorization requests, app passwords and outstanding email tokens.
+  New legacy tokens carry `pdsCredentialEpoch`; after recovery, access and
+  refresh tokens must match the account's recorded epoch. Reference tokens
+  without that claim remain valid only until the account first recovers.
+- The epoch lives in the shared account database (§8.2). Credential checks
+  and session creation are serialized with recovery, so an in-flight login
+  cannot restore a session using the old password. Member hosts check current
+  entryway state on each validated token request (§21.3).
 
 ### 5.2 Passwords and app passwords
 
@@ -685,6 +739,10 @@ the DPoP proof, nonce, scope.
   OAuth scopes.
 - `importRepo` accepts a CAR up to `PDS_MAX_REPO_IMPORT_SIZE` when
   `PDS_ACCEPTING_REPO_IMPORTS` is set and the caller's permissions allow it.
+  The default is 64 MiB (67,108,864 bytes); configuration must be positive.
+  Both declared length and streamed bytes enforce the cap; excess is 413
+  `PayloadTooLarge`. Admission precedes collection (§3.2). Parsing and
+  indexes need memory in addition to the body buffer.
   The import verifies structural completeness, that the commit names the
   account, and the commit signature against the account's own key. It
   ignores unreferenced and duplicate blocks and tolerates any block order.
@@ -692,6 +750,12 @@ the DPoP proof, nonce, scope.
   the account nor the signature: it accepts a commit that any key signed
   and a commit for another account, and replaces the repository with it
   (§2.3).
+- Import differences preserve any block still reached by the new record
+  set, including records moved between keys. Changed and deleted records
+  lose their old blob references before new references are installed.
+  Physical deletion of newly unreferenced blobs follows the durable actor
+  commit, for active and deactivated accounts. Blob-store cleanup failures
+  are logged; this does not sweep historical orphaned data.
 - As at the pin, the stored revision of an imported repository is a new
   one, whatever the commit says. An account that moves in is deactivated
   while it imports: the import appends no event to the log and does not
@@ -817,13 +881,16 @@ nothing.
 - Each event is encoded once and shared across subscribers by reference.
 - Each subscriber has a bounded queue. Backfill reads the log in pages; it
   never materialises the whole range in memory. A page ends after 500
-  events or 4 MiB of event bodies.
+  events or 4 MiB of event bodies, except that one oversized event is read
+  alone to advance the cursor. Length metadata selects the page before
+  event bodies are loaded.
 - A subscriber is too slow (§7.3) when it was at the head of the log and
   more events than `PDS_MAX_SUBSCRIPTION_BUFFER` were appended while it took
   the frames of its last read. A subscriber that waited at the head is idle,
   and a backfill is not held to the buffer; the Reference's buffer has the
   same two exceptions.
-- Keepalive pings and idle timeouts match the Reference.
+- A WebSocket send may stall for at most 15 seconds. Incoming frames and
+  messages are limited to 64 KiB; at most 32 subscriptions run per process.
 - The ops listener (§22.1) reports every subscriber's cursor, lag and queue
   depth and can disconnect one.
 
@@ -880,9 +947,10 @@ seconds. `verify` lists the objects of each account and does not ask for
 each blob (§18.2).
 
 The individual database locations are overridable by the same variables as
-the Reference (Appendix C). Candidate-only state lives only in the files
-marked Candidate-only, never in the account, sequencer, DID-cache or actor
-databases, so that §8.2 holds.
+the Reference (Appendix C). Candidate-only state lives in the files marked
+Candidate-only, with the approved recovery exception in §8.2: the account
+database also holds credential epochs so backups and backend copies preserve
+revocation state.
 
 ### 8.2 Schema
 
@@ -891,14 +959,29 @@ databases, so that §8.2 holds.
   migrations (`007a` to `007d`, §13) for the account database. The Candidate
   MUST serve a data directory the Reference wrote, and the Reference MUST be
   able to serve a data directory the Candidate wrote, until §18 closes the
-  rollback window. The Reference ignores the Candidate-only files.
-- Migrations are forward-only and run by the `migrate` command (§14.2), never
-  implicitly at serve time in production. The Candidate records applied
+  rollback window. The Reference ignores the Candidate-only files and the
+  additive recovery table below; its older authentication code does not
+  enforce that table (§18.3).
+- Migrations are forward-only and run by the `migrate` command (§14.2), except
+  the approved additive changes below. The Candidate records applied
   migrations in the Reference's migration table with the Reference's names.
 - Candidate-only migrations of the shared databases MUST require the explicit
-  operator flag of §18.3.
+  operator flag of §18.3, except the additive security changes approved on
+  2026-10-19 below.
 - Later schema work (for example moving blocks out of SQLite rows) is a
   versioned change after the window closes and is out of scope here.
+- The additive `record_blob_record_uri_idx` index on `record_blob(recordUri)`
+  is created for new actor stores and on the first writable open of an old
+  store. It changes no Reference migration ledger or table definition;
+  read-only opens remain unchanged. Its initial build takes a SQLite write
+  lock and uses additional disk space.
+- The account database has an additive `credential_epoch` table with `did`
+  as its primary key and a non-null `epoch`. Writable account opens and
+  initial database creation install it without changing the Reference's
+  migration ledger. Read-only opens of older stores return no epoch until
+  the table exists. Storage migration copies its rows between SQLite and
+  Postgres. Password recovery uses a SQLite immediate transaction or a
+  Postgres account-row lock to serialize credential and session changes.
 
 ### 8.3 SQLite behaviour
 
@@ -913,6 +996,14 @@ databases, so that §8.2 holds.
   snapshot; the read transaction of a repository export is opened on a
   connection of its own that is not kept. A few read connections to the
   account database are kept the same way.
+- OAuth account and consent reads use pooled account connections. Related
+  rows are read in one snapshot, released before the connection returns to
+  the pool. Credential changes and final authorization checks still use
+  the account write transaction.
+- Repository exports select pages by lengths before loading content, with
+  a 4 MiB budget or one oversized block. `getBlocks` reads content one block
+  at a time while preserving the original order within each 500-CID batch.
+  Record proofs and block exports use a consistent snapshot.
 - Busy timeouts and `synchronous` level match the Reference. Every file that
   is created or renamed is followed by a directory sync.
 - The process takes an exclusive lock file in the data directory at startup
@@ -986,10 +1077,13 @@ Rules:
   `PDS_SERVICE_HANDLE_DOMAINS` defines hosted suffixes.
 - Custom domains verify through DNS TXT at `_atproto.<handle>` with a value
   starting `did=`, or through HTTPS `/.well-known/atproto-did` on port 443
-  with a 2xx response whose body is stripped of surrounding whitespace and
-  with a bounded redirect count. More than one valid TXT record with
-  different DIDs fails. On a conflict between DNS and HTTPS, DNS wins.
-  `PDS_HANDLE_BACKUP_NAMESERVERS` is consulted as in the Reference.
+  with a 2xx response whose body is stripped of surrounding whitespace.
+  The Candidate's implemented external-handle check uses HTTPS only, with
+  no redirects and a 4 KiB response cap (§15.1); DNS verification remains
+  unimplemented. The Reference rejects TXT answers with different DIDs,
+  prefers DNS on a DNS/HTTPS conflict, and consults backup nameservers.
+  `PDS_HANDLE_BACKUP_NAMESERVERS` is retained for configuration compatibility;
+  the Candidate does not yet use it for verification.
 - `updateHandle` writes the PLC operation first and then the local state,
   and emits `#identity`. `resolveHandle` answers for hosted handles and
   falls back to the AppView.
@@ -1009,6 +1103,8 @@ Rules:
   `PDS_DID_CACHE_MAX_TTL`; stale entries refresh in the background. A
   service-auth signature that fails to verify triggers one refresh before the
   request is rejected.
+- `did:web` uses safe fetch; the configured PLC URL is explicitly trusted.
+  Both paths enforce `PDS_ID_RESOLVER_TIMEOUT` and a 512 KiB document cap.
 
 ### 9.4 Keys
 
@@ -1166,6 +1262,10 @@ emitting `#identity`.
   confidential or trusted clients. Untrusted clients are shown by their full
   `client_id` only: `client_name`, `client_uri` and `logo_uri` are not
   displayed for them.
+  During cookie rotation, only the exact previous session cookie is valid
+  for five seconds. A wrong cookie neither authenticates nor deletes the
+  legitimate device. The bounded predecessor cache is process-local; a
+  restart ends only the overlap window.
 - **Token**: `authorization_code` with PKCE S256 and DPoP binding
   (`cnf.jkt`); reuse of a `code_challenge` is refused for 24 hours; reuse of
   a `code` revokes every session issued from it; `refresh_token` with
@@ -1187,10 +1287,12 @@ emitting `#identity`.
 - **DPoP**: the nonce rotates with `PDS_DPOP_SECRET` with a lifetime of at
   most 5 minutes; recently stale nonces are accepted; the `jti` replay set
   is scoped to the nonce; `AccountDeactivated` is enforced.
-- **Revoke** and **introspect** per their RFCs with the Reference's
-  constraints. Revoking a token nobody holds succeeds. Redeeming a code
+- **Revoke** follows the Reference's constraints. Revoking a token nobody
+  holds succeeds. Redeeming a code
   twice and replaying a rotated refresh token are `invalid_grant`, and both
   end the session: its access token becomes `invalid_token`.
+- **Introspect** is the private, admin-authenticated member check in §21.3;
+  it is not a client-facing RFC 7662 endpoint.
 - A resource request with a proof from another key is 401 `invalid_token`,
   "Invalid DPoP key binding"; without a proof 401 `invalid_dpop_proof`; a
   DPoP-bound token presented as `Bearer` is 400 `InvalidToken`.
@@ -1254,7 +1356,7 @@ The Candidate serves §11.1 to §11.4 with the differences below. The
 - **Not built:** request objects (JAR); permission sets, so an `include:`
   scope grants nothing; the reactivation step for a deactivated account,
   which gets `access_denied`; hCaptcha on sign-up and the password reset
-  from the sign-in page; address pinning in safe fetch; the periodic
+  from the sign-in page; the periodic
   re-fetch of a confidential client's keys.
 
 ## 12. Extension Points
@@ -1522,14 +1624,39 @@ time.
 
 ### 15.1 Safe fetch
 
-Every outbound HTTP request (DID resolution, client metadata, JWKS, handle
-verification, lexicon resolution, identity providers, crawler notification)
-resolves the host, rejects loopback, private, link-local and multicast
-addresses, connects to the resolved address, re-checks on each redirect with
-a redirect cap, applies timeouts (`PDS_ID_RESOLVER_TIMEOUT`,
-provider-specific limits) and response size caps
-(`PDS_FETCH_MAX_RESPONSE_SIZE`). `PDS_DISABLE_SSRF_PROTECTION` is honoured
-only with `PDS_DEV_MODE`.
+Untrusted destinations from `did:web`, DID proxy services, OAuth client
+metadata and JWKS, MCP client metadata, and external handles use the shared
+safe-fetch transport. It requires HTTPS on port 443, rejects URL credentials
+and fragments, and rejects loopback, private, link-local, multicast and
+special-use IP ranges. The connector receives exactly the DNS addresses
+that were checked; an empty answer or any forbidden address fails without
+a second lookup or fallback. IP literals receive the same checks.
+Redirects and environment proxies are disabled. Clients are pooled.
+
+Configured PLC, AppView, report-service and other operator-selected service
+URLs remain trusted destinations and may use a private network. They do
+not inherit the untrusted-destination policy. The shared trusted client
+disables environment proxies and has a 30-second default request deadline;
+individual operations can set their documented timeout.
+
+| Buffered response | Maximum |
+|---|---|
+| DID document or PLC operation | 512 KiB |
+| OAuth client metadata or JWKS | 256 KiB |
+| MCP client metadata | 64 KiB |
+| External handle well-known file | 4 KiB |
+| AppView handle answer, hCaptcha answer, proxy error | 64 KiB |
+| AppView record fallback | 16 MiB success; 64 KiB error |
+| Read-after-write overlay | 10 MiB |
+| Entryway session introspection | 16 KiB request and response |
+
+Limits apply with and without `Content-Length`. Metadata requests have a
+10-second deadline; DID requests use `PDS_ID_RESOLVER_TIMEOUT`; proxy and
+handle requests use `PDS_PROXY_HEADERS_TIMEOUT`. Request deadlines cover body
+reads. `PDS_FETCH_MAX_RESPONSE_SIZE` is not implemented; these are per-call
+caps. `PDS_DEV_MODE` permits local DID and proxy services. The OAuth
+`PDS_DISABLE_SSRF_PROTECTION` override also requires development mode;
+production configuration rejects it.
 
 ### 15.2 Secrets and comparison
 
@@ -1765,6 +1892,14 @@ compared.
 
 Rollback within the window: stop the Candidate, start the Reference image on
 the same directory. The Candidate-only files are left in place and ignored.
+Older binaries accept the additive epoch table, but the Reference
+and older Candidate binaries do not enforce it or the member's live session
+check. A rollback can therefore restore access to revoked, unexpired legacy
+tokens. If recovery must remain effective, rotate the token-signing secrets
+and keys and require sign-in again before serving with the older binary.
+Backups must preserve the complete account database, including
+`credential_epoch`; restoring an older backup also restores its older
+credential and session state.
 
 ### 18.4 Fencing
 
@@ -2076,9 +2211,21 @@ As of unit 12:
 - **OAuth.** The entryway is the authorization server. It signs an OAuth
   access token with its key and puts the scope in it. A member host
   checks the signature, the issuer, the DPoP proof and the account, and
-  reads the scope from the token: it has no row of the session. A session
-  that the entryway ended is refused at the member host when its access
-  token ends, at most 60 minutes later.
+  reads the scope from the token: it has no row of the session.
+- **Current session state.** After local token validation, a member checks
+  both legacy and OAuth tokens through the entryway's private
+  `POST /oauth/introspect`. It uses HTTP Basic admin authentication with
+  `PDS_ENTRYWAY_ADMIN_TOKEN`. The JSON request contains `token` and `kind`;
+  the reply contains only `active`, `sub`, `kind` and, for OAuth, `jti`.
+  The member binds these values to the validated token and caches no result.
+  This adds one round trip per authenticated member request, bounded by
+  the smaller of `PDS_PROXY_HEADERS_TIMEOUT` and five seconds. Requests and
+  responses are capped at 16 KiB. The configured entryway URL is trusted;
+  redirects are refused. Missing credentials, transport failures or invalid
+  bindings fail closed with 503 `UpstreamFailure`. An inactive legacy token
+  is 400 `ExpiredToken`; an inactive OAuth token is 401 `invalid_token`.
+  Recovery takes effect at the next validated request. This private endpoint
+  is not advertised in authorization-server discovery.
 - **The Harness** runs the default scenarios with the Candidate as a
   member host behind an entryway (`PARITY_CANDIDATE_ENTRYWAY=1`).
 - **Streams and the firehose.** A request or an answer above 1 MiB, or
@@ -2275,18 +2422,27 @@ Names and signatures are illustrative. The normative content is §12.
 
 ## Appendix C. Configuration
 
-Accepted with the Reference's defaults and meaning:
+Accepted configuration follows the Reference unless a difference is noted
+below or in the relevant section:
 
 - **Service**: `PDS_HOSTNAME`, `PDS_PORT`, `PDS_SERVICE_DID`, `PDS_SERVICE_NAME`, `PDS_VERSION`, `PDS_HOME_URL`, `PDS_SERVICE_HANDLE_DOMAINS`, `PDS_DEV_MODE`, `PDS_CONTACT_EMAIL_ADDRESS`, `PDS_PRIVACY_POLICY_URL`, `PDS_TERMS_OF_SERVICE_URL`, `PDS_SUPPORT_URL`.
 - **Storage**: `PDS_DATA_DIRECTORY`, `PDS_ACCOUNT_DB_LOCATION`, `PDS_SEQUENCER_DB_LOCATION`, `PDS_DID_CACHE_DB_LOCATION`, `PDS_ACTOR_STORE_DIRECTORY`, `PDS_ACTOR_STORE_CACHE_SIZE`, `PDS_SQLITE_DISABLE_WAL_AUTO_CHECKPOINT`, `PDS_BLOBSTORE_DISK_LOCATION`, `PDS_BLOBSTORE_DISK_TMP_LOCATION`, `PDS_BLOBSTORE_S3_*`, `PDS_BLOB_UPLOAD_LIMIT`, `PDS_MAX_REPO_IMPORT_SIZE`, `PDS_ACCEPTING_REPO_IMPORTS`.
 - **Identity**: `PDS_DID_PLC_URL`, `PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX`, `PDS_PLC_ROTATION_KEY_KMS_KEY_ID`, `PDS_RECOVERY_DID_KEY`, `PDS_DID_CACHE_STALE_TTL`, `PDS_DID_CACHE_MAX_TTL`, `PDS_ID_RESOLVER_TIMEOUT`, `PDS_HANDLE_BACKUP_NAMESERVERS`, `PDS_ENABLE_DID_DOC_WITH_SESSION`.
 - **Auth and OAuth**: `PDS_JWT_SECRET`, `PDS_DPOP_SECRET`, `PDS_ADMIN_PASSWORD`, `PDS_OAUTH_TRUSTED_CLIENTS`, `PDS_LEXICON_AUTHORITY_DID`.
-- **Entryway (member mode)**: `PDS_ENTRYWAY_URL`, `PDS_ENTRYWAY_DID`, `PDS_ENTRYWAY_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX`, `PDS_ENTRYWAY_PLC_ROTATION_KEY`, `PDS_ENTRYWAY_ADMIN_TOKEN`. Refused until the entryway unit ships.
+- **Entryway (member mode)**: `PDS_ENTRYWAY_URL`, `PDS_ENTRYWAY_DID`, `PDS_ENTRYWAY_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX`, `PDS_ENTRYWAY_PLC_ROTATION_KEY`, `PDS_ENTRYWAY_ADMIN_TOKEN` (§21.3).
 - **Invites and abuse**: `PDS_INVITE_REQUIRED`, `PDS_INVITE_EPOCH`, `PDS_INVITE_INTERVAL`, `PDS_HCAPTCHA_SITE_KEY`, `PDS_HCAPTCHA_SECRET_KEY`, `PDS_HCAPTCHA_TOKEN_SALT`, `PDS_RATE_LIMITS_ENABLED`, `PDS_RATE_LIMIT_BYPASS_KEY`, `PDS_RATE_LIMIT_BYPASS_IPS`.
-- **Firehose and proxy**: `PDS_CRAWLERS`, `PDS_MAX_SUBSCRIPTION_BUFFER`, `PDS_REPO_BACKFILL_LIMIT_MS`, `PDS_BSKY_APP_VIEW_URL`, `PDS_BSKY_APP_VIEW_DID`, `PDS_BSKY_APP_VIEW_CDN_URL_PATTERN`, `PDS_PROXY_*`, `PDS_FETCH_MAX_RESPONSE_SIZE`, `PDS_DISABLE_SSRF_PROTECTION`.
+- **Firehose and proxy**: `PDS_CRAWLERS`, `PDS_MAX_SUBSCRIPTION_BUFFER`, `PDS_REPO_BACKFILL_LIMIT_MS`, `PDS_BSKY_APP_VIEW_URL`, `PDS_BSKY_APP_VIEW_DID`, `PDS_BSKY_APP_VIEW_CDN_URL_PATTERN`, `PDS_PROXY_HEADERS_TIMEOUT`, `PDS_DISABLE_SSRF_PROTECTION`.
 - **Moderation and mail**: `PDS_MOD_SERVICE_URL`, `PDS_MOD_SERVICE_DID`, `PDS_REPORT_SERVICE_URL`, `PDS_REPORT_SERVICE_DID`, `PDS_EMAIL_SMTP_URL`, `PDS_EMAIL_FROM_ADDRESS`, `PDS_EMAIL_DISABLE_CONFIRMATION_LINK`, `PDS_MODERATION_EMAIL_ADDRESS`, `PDS_MODERATION_EMAIL_SMTP_URL`.
 - **Branding**: `PDS_LOGO_URL`, `PDS_PRIMARY_COLOR`, `PDS_ERROR_COLOR`, `PDS_WARNING_COLOR`, `PDS_SUCCESS_COLOR`, `PDS_INFO_COLOR`, `PDS_BACKGROUND_LIGHT_URL`, `PDS_BACKGROUND_DARK_URL`.
 - **Refused in version 1**: `PDS_REDIS_SCRATCH_*`.
+
+`PDS_MAX_REPO_IMPORT_SIZE` defaults to 64 MiB and must be positive.
+`PDS_DISABLE_SSRF_PROTECTION=true` requires `PDS_DEV_MODE=true`.
+`PDS_PROXY_HEADERS_TIMEOUT` is in milliseconds, defaults to 10,000, and
+bounds the proxied response body as well as its headers.
+`PDS_FETCH_MAX_RESPONSE_SIZE` is not implemented; §15.1 lists the actual
+per-call response caps. Other `PDS_PROXY_*` names are recognized for
+configuration compatibility but do not configure the proxy's limits.
 
 `PDS_BLOBSTORE_S3_*` are `BUCKET`, `REGION`, `ENDPOINT`, `FORCE_PATH_STYLE`,
 `ACCESS_KEY_ID`, `SECRET_ACCESS_KEY`, `UPLOAD_TIMEOUT_MS` and
@@ -2313,7 +2469,8 @@ New in the Candidate:
 - `PDS_ENTRYWAY_URL`, `PDS_ENTRYWAY_DID`,
   `PDS_ENTRYWAY_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX`,
   `PDS_ENTRYWAY_PLC_ROTATION_KEY`, `PDS_ENTRYWAY_ADMIN_TOKEN`: the
-  entryway of a member host (§21.3). The first four go together.
+  entryway of a member host (§21.3). The first four go together; the admin
+  token is also required for authenticated member requests to succeed.
 - `PDS_MEMBER_URL`, `PDS_MEMBER_INTERNAL_URL`,
   `PDS_MEMBER_ADMIN_PASSWORD`, `PDS_MEMBER_DID`,
   `PDS_ENTRYWAY_JWT_SIGNING_KEY_K256_PRIVATE_KEY_HEX`: the member host of

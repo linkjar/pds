@@ -1,0 +1,17 @@
+{
+  "description": "Final candidate after the getSession read-pool change. Same harness/helpers as baseline and pre-pool control; see their separate provenance. No further production edits after this build.",
+  "base_commit": "77bf09e2e4e94079c38b86e47fb2d84e6ed36bbc",
+  "source_file_rule": "crates/**/src/**/*.rs, crates/**/Cargo.toml, root Cargo.toml, root Cargo.lock; sorted SHA256, two spaces, relative path, newline",
+  "source_aggregate": "997a2259d1a9278c35a10f12168d2c3072f2c892e6fb2432ac71c66cc2d88be5",
+  "lock_sha256": "b2982608660232f3a33a2fa89f871753bd0415e862dbc7d1d049075643d3df0f",
+  "fixture_files": {
+    "crates/linkjar-pds/tests/mixed_read_timing.rs": "e072e70a2e931904fb6d003e4a90ce624c5ce5d565a99bb9a485263ca3569735",
+    "crates/linkjar-pds/tests/common/mod.rs": "83cbf94af91717ecd2c3db6778b9df27cc0a7663311beb89d914673e775a72ad",
+    "crates/linkjar-pds/tests/common/http.rs": "c45322a9e32d186b52a2062129883f4232ec74fad324712ed66a03455d2888ca"
+  },
+  "binary": {
+    "path": "/tmp/linkjar-pds-audit-target/release/deps/mixed_read_timing-6331f0d4652461e8",
+    "sha256": "c21c9c1ead48f365f45e2223e287c7967c62642cdf2a2d9b35eb1611bd0412aa"
+  },
+  "build": "cargo test --release --locked -p linkjar-pds --test mixed_read_timing --no-run; CARGO_TARGET_DIR=/tmp/linkjar-pds-audit-target"
+}

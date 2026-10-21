@@ -135,7 +135,7 @@ pub async fn create_record(
     crate::oauth::resource::check_repo(&collection, "create")?;
 
     let (written, commit) = state
-        .blocking(move |state| {
+        .repo_blocking(caller.clone(), move |state| {
             let writes = writes(state)?;
             let did = own_repo(state, &repo, &caller)?;
             let write = prepare_record(
@@ -215,7 +215,7 @@ pub async fn put_record(
     crate::oauth::resource::check_repo(&collection, "update")?;
 
     let (written, commit) = state
-        .blocking(move |state| {
+        .repo_blocking(caller.clone(), move |state| {
             let writes = writes(state)?;
             let did = own_repo(state, &repo, &caller)?;
             let uri = record_uri(&did, &collection, &rkey);
@@ -275,7 +275,7 @@ pub async fn delete_record(
     crate::oauth::resource::check_repo(&collection, "delete")?;
 
     let commit = state
-        .blocking(move |state| {
+        .repo_blocking(caller.clone(), move |state| {
             let did = own_repo(state, &repo, &caller)?;
             let uri = record_uri(&did, &collection, &rkey);
             transact(state, &did, |session| {
@@ -408,7 +408,7 @@ pub async fn apply_writes(
     let swap_commit = body::cid(&input, "swapCommit", "$")?;
 
     let (prepared, commit) = state
-        .blocking(move |state| {
+        .repo_blocking(caller.clone(), move |state| {
             let writes = writes(state)?;
             let did = own_repo(state, &repo, &caller)?;
             if batch.len() > pds_repo::repo::MAX_WRITES {
@@ -526,6 +526,80 @@ async fn uploader(state: &AppState, headers: &HeaderMap) -> Result<String, XrpcE
     Ok(caller)
 }
 
+/// Streams a bounded, timed request into the blob store's staging area.
+async fn stage_upload(
+    state: &AppState,
+    did: String,
+    incoming: Body,
+    limit: u64,
+) -> Result<pds_blob::Staging, XrpcError> {
+    let blobs = state
+        .blobs()
+        .ok_or_else(|| XrpcError::internal("no blob store is configured"))?
+        .clone();
+
+    // The file is written on the blocking pool; the request body feeds it
+    // through a short queue, so a slow disk slows the client down.
+    let permit = state.resources().upload()?;
+    let (chunks, mut queue) = tokio::sync::mpsc::channel::<axum::body::Bytes>(8);
+    let key = staging_key(writes(state)?);
+    let writer = tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        let mut staging = blobs.stage(&did, &key).map_err(XrpcError::internal)?;
+        while let Some(chunk) = queue.blocking_recv() {
+            staging.write(&chunk).map_err(XrpcError::internal)?;
+        }
+        Ok::<_, XrpcError>(staging)
+    });
+    let mut stream = incoming.into_data_stream();
+    let mut received = 0_u64;
+    let mut failure = None;
+    let mut deadline = body::ReadDeadline::default();
+    loop {
+        let chunk = match deadline.run(stream.next()).await {
+            Ok(Some(chunk)) => chunk,
+            Ok(None) => break,
+            Err(error) => {
+                failure.get_or_insert(error);
+                break;
+            }
+        };
+        let Ok(chunk) = chunk else {
+            failure = Some(XrpcError::invalid_request("The request body ended early"));
+            break;
+        };
+        received += chunk.len() as u64;
+        if received > limit {
+            // The rest is read and discarded, so that the client receives
+            // the refusal and not a closed connection.
+            failure.get_or_insert_with(body::payload_too_large);
+            deadline.draining();
+            if received > limit.saturating_add(body::DRAIN_CAP as u64) {
+                break;
+            }
+            continue;
+        }
+        match deadline.run(chunks.send(chunk)).await {
+            Ok(Ok(())) => {}
+            Ok(Err(_)) => {
+                failure = Some(XrpcError::internal("upload writer closed"));
+                break;
+            }
+            Err(error) => {
+                failure = Some(error);
+                break;
+            }
+        }
+    }
+    drop(chunks);
+    // Dropping the staging value removes the file.
+    let staging = writer.await??;
+    if let Some(failure) = failure {
+        return Err(failure);
+    }
+    Ok(staging)
+}
+
 /// `com.atproto.repo.uploadBlob`.
 ///
 /// The body goes to the staging directory while it is hashed (SPEC §6.4).
@@ -549,55 +623,17 @@ pub async fn upload_blob(
     if body::content_length(headers)?.is_some_and(|length| length > limit) {
         return Err(body::payload_too_large());
     }
-    let blobs = state
-        .blobs()
-        .ok_or_else(|| XrpcError::internal("no blob store is configured"))?
-        .clone();
-
-    // The file is written on the blocking pool; the request body feeds it
-    // through a short queue, so a slow disk slows the client down.
-    let (chunks, mut queue) = tokio::sync::mpsc::channel::<axum::body::Bytes>(8);
-    let did = caller.clone();
-    let key = staging_key(writes(state)?);
-    let writer = tokio::task::spawn_blocking(move || {
-        let mut staging = blobs.stage(&did, &key).map_err(XrpcError::internal)?;
-        while let Some(chunk) = queue.blocking_recv() {
-            staging.write(&chunk).map_err(XrpcError::internal)?;
-        }
-        Ok::<_, XrpcError>(staging)
-    });
-    let mut stream = body.take().unwrap_or_default().into_data_stream();
-    let mut received = 0_u64;
-    let mut failure = None;
-    while let Some(chunk) = stream.next().await {
-        let Ok(chunk) = chunk else {
-            failure = Some(XrpcError::invalid_request("The request body ended early"));
-            break;
-        };
-        received += chunk.len() as u64;
-        if received > limit {
-            // The rest is read and discarded, so that the client receives
-            // the refusal and not a closed connection.
-            failure.get_or_insert_with(body::payload_too_large);
-            if received > limit.saturating_add(body::DRAIN_CAP as u64) {
-                break;
-            }
-            continue;
-        }
-        if chunks.send(chunk).await.is_err() {
-            break;
-        }
-    }
-    drop(chunks);
-    // Dropping the staging value removes the file.
-    let staging = writer.await??;
-    if let Some(failure) = failure {
-        return Err(failure);
-    }
+    let staging = stage_upload(
+        state,
+        caller.clone(),
+        body.take().unwrap_or_default(),
+        limit,
+    )
+    .await?;
 
     let did = caller;
     let blob = state
-        .blocking(move |state| {
+        .repo_blocking(did.clone(), move |state| {
             let staged = staging.finish().map_err(XrpcError::internal)?;
             let cid = staged.cid.to_string();
             let mime_type = staged.sniffed.map_or(declared, str::to_owned);

@@ -29,6 +29,7 @@ use tokio_tungstenite::tungstenite::Message;
 const NOTE: &str = "com.example.test.note";
 
 struct Server {
+    _listener: common::http::Listener,
     origin: String,
     http: reqwest::Client,
     state: pds_xrpc::AppState,
@@ -42,7 +43,7 @@ struct Answer {
 
 impl Answer {
     fn json(&self) -> Value {
-        serde_json::from_slice(&self.body).unwrap()
+        common::http::json(&self.body)
     }
 
     fn error(&self) -> (u16, String) {
@@ -130,12 +131,17 @@ async fn next_frame(socket: &mut Socket) -> Option<Frame> {
 impl Server {
     async fn start(posts: usize) -> Self {
         let dir = DataDir::new(posts);
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        Self::with_directory(dir).await
+    }
+
+    async fn with_directory(dir: DataDir) -> Self {
+        let listener = common::http::bind().await;
         let origin = format!("http://{}", listener.local_addr().unwrap());
         let state = app_state(&dir.config).unwrap();
         let router = pds_xrpc::router(state.clone());
-        tokio::spawn(async move { axum::serve(listener, router).await });
+        let listener = common::http::serve(listener, router);
         Self {
+            _listener: listener,
             origin,
             http: reqwest::Client::new(),
             state,
@@ -174,6 +180,30 @@ impl Server {
             &json!({"repo": ALICE, "collection": collection, "rkey": rkey, "record": record}),
         )
         .await
+    }
+
+    async fn import(&self, car: Vec<u8>) -> Answer {
+        self.send(
+            self.http
+                .post(format!("{}/xrpc/com.atproto.repo.importRepo", self.origin))
+                .header("authorization", token(ALICE))
+                .header("content-type", "application/vnd.ipld.car")
+                .body(car),
+        )
+        .await
+    }
+
+    async fn upload(&self, bytes: &'static [u8]) -> Value {
+        self.send(
+            self.http
+                .post(format!("{}/xrpc/com.atproto.repo.uploadBlob", self.origin))
+                .header("authorization", token(ALICE))
+                .header("content-type", "text/plain")
+                .body(bytes),
+        )
+        .await
+        .ok()["blob"]
+            .clone()
     }
 
     async fn subscribe(&self, cursor: Option<i64>) -> Socket {
@@ -791,6 +821,240 @@ async fn an_import_replaces_the_repository_and_checks_the_commit() {
 }
 
 #[tokio::test]
+async fn an_import_keeps_a_record_block_that_another_key_still_references() {
+    let server = Server::start(1).await;
+    let record = json!({"$type": NOTE, "name": "same content"});
+    server.create(NOTE, "a", record.clone()).await.ok();
+    let saved = server
+        .get(&format!("/xrpc/com.atproto.sync.getRepo?did={ALICE}"))
+        .await;
+    assert_eq!(saved.status, 200);
+    server.create(NOTE, "b", record.clone()).await.ok();
+
+    let restored = server
+        .send(
+            server
+                .http
+                .post(format!(
+                    "{}/xrpc/com.atproto.repo.importRepo",
+                    server.origin
+                ))
+                .header("authorization", token(ALICE))
+                .header("content-type", "application/vnd.ipld.car")
+                .body(saved.body),
+        )
+        .await;
+    assert_eq!(restored.status, 200);
+    let remaining = server
+        .get(&format!(
+            "/xrpc/com.atproto.repo.getRecord?repo={ALICE}&collection={NOTE}&rkey=a"
+        ))
+        .await
+        .ok();
+    assert_eq!(remaining["value"], record);
+    assert_eq!(
+        server
+            .get(&format!(
+                "/xrpc/com.atproto.repo.getRecord?repo={ALICE}&collection={NOTE}&rkey=b"
+            ))
+            .await
+            .error(),
+        (400, "RecordNotFound".to_owned())
+    );
+    server.assert_verifies();
+}
+
+#[tokio::test]
+async fn an_import_can_move_an_existing_record_to_another_key() {
+    let server = Server::start(1).await;
+    let record = json!({"$type": NOTE, "text": "the same record under another key"});
+    server.create(NOTE, "b", record.clone()).await.ok();
+    let saved = server
+        .get(&format!("/xrpc/com.atproto.sync.getRepo?did={ALICE}"))
+        .await;
+    assert_eq!(saved.status, 200);
+    server
+        .call(
+            "com.atproto.repo.deleteRecord",
+            ALICE,
+            &json!({"repo": ALICE, "collection": NOTE, "rkey": "b"}),
+        )
+        .await
+        .ok();
+    server.create(NOTE, "a", record.clone()).await.ok();
+    let imported = server.import(saved.body).await;
+    assert_eq!(imported.status, 200, "{:?}", imported.body);
+    let read = server
+        .get(&format!(
+            "/xrpc/com.atproto.repo.getRecord?repo={ALICE}&collection={NOTE}&rkey=b"
+        ))
+        .await
+        .ok();
+    assert_eq!(read["value"], record);
+    assert_eq!(
+        server
+            .get(&format!(
+                "/xrpc/com.atproto.repo.getRecord?repo={ALICE}&collection={NOTE}&rkey=a"
+            ))
+            .await
+            .error(),
+        (400, "RecordNotFound".to_owned())
+    );
+    server.assert_verifies();
+}
+
+#[tokio::test]
+async fn an_import_removes_obsolete_blobs_and_preserves_remaining_references() {
+    let server = Server::start(1).await;
+    let kept = server.upload(b"a blob still used by another record").await;
+    server
+        .create(NOTE, "kept", json!({"$type": NOTE, "file": kept}))
+        .await
+        .ok();
+    server
+        .create(NOTE, "replaced", json!({"$type": NOTE, "name": "before"}))
+        .await
+        .ok();
+    let saved_blobs = server
+        .get(&format!("/xrpc/com.atproto.sync.listBlobs?did={ALICE}"))
+        .await
+        .ok()["cids"]
+        .clone();
+    let saved = server
+        .get(&format!("/xrpc/com.atproto.sync.getRepo?did={ALICE}"))
+        .await;
+    assert_eq!(saved.status, 200);
+
+    let obsolete = server.upload(b"a photo removed by the import").await;
+    server
+        .create(NOTE, "deleted", json!({"$type": NOTE, "file": obsolete}))
+        .await
+        .ok();
+    server
+        .call(
+            "com.atproto.repo.putRecord",
+            ALICE,
+            &json!({"repo": ALICE, "collection": NOTE, "rkey": "replaced", "record": {
+                "$type": NOTE, "files": [obsolete, kept]
+            }}),
+        )
+        .await
+        .ok();
+    assert_eq!(server.import(saved.body).await.status, 200);
+
+    let obsolete_cid = obsolete["ref"]["$link"].as_str().unwrap();
+    let kept_cid = kept["ref"]["$link"].as_str().unwrap();
+    let listed = server
+        .get(&format!("/xrpc/com.atproto.sync.listBlobs?did={ALICE}"))
+        .await
+        .ok();
+    assert_eq!(listed["cids"], saved_blobs);
+    assert_eq!(
+        server
+            .get(&format!(
+                "/xrpc/com.atproto.sync.getBlob?did={ALICE}&cid={obsolete_cid}"
+            ))
+            .await
+            .status,
+        400
+    );
+    assert_eq!(
+        server
+            .get(&format!(
+                "/xrpc/com.atproto.sync.getBlob?did={ALICE}&cid={kept_cid}"
+            ))
+            .await
+            .body,
+        b"a blob still used by another record"
+    );
+    let blobs = server.state.blobs().unwrap();
+    assert!(!blobs.has(ALICE, obsolete_cid).unwrap());
+    assert!(blobs.has(ALICE, kept_cid).unwrap());
+    server.assert_verifies();
+}
+
+#[tokio::test]
+async fn an_import_into_a_deactivated_account_deletes_obsolete_blob_bytes() {
+    let server = Server::start(1).await;
+    let saved = server
+        .get(&format!("/xrpc/com.atproto.sync.getRepo?did={ALICE}"))
+        .await;
+    assert_eq!(saved.status, 200);
+    let blob = server.upload(b"a photo removed while deactivated").await;
+    let cid = blob["ref"]["$link"].as_str().unwrap();
+    server
+        .create(NOTE, "photo", json!({"$type": NOTE, "file": blob}))
+        .await
+        .ok();
+    let blobs = server.state.blobs().unwrap();
+    assert!(blobs.has(ALICE, cid).unwrap());
+    assert_eq!(
+        server
+            .call("com.atproto.server.deactivateAccount", ALICE, &json!({}))
+            .await
+            .status,
+        200
+    );
+    assert_eq!(server.import(saved.body).await.status, 200);
+    assert!(!blobs.has(ALICE, cid).unwrap());
+    server.assert_verifies();
+}
+
+#[tokio::test]
+async fn an_import_refuses_work_when_its_budget_is_full_and_recovers() {
+    let server = Server::start(1).await;
+    let saved = server
+        .get(&format!("/xrpc/com.atproto.sync.getRepo?did={ALICE}"))
+        .await;
+    assert_eq!(saved.status, 200);
+    let first = server.state.resources().import().unwrap();
+    let second = server.state.resources().import().unwrap();
+    let refused = server.import(saved.body.clone()).await;
+    assert_eq!(refused.status, 503);
+    assert_eq!(refused.error(), (503, "ServerBusy".to_owned()));
+    drop(first);
+    drop(second);
+    assert_eq!(server.import(saved.body).await.status, 200);
+    server.assert_verifies();
+}
+
+#[tokio::test]
+async fn an_import_without_a_configured_size_limit_is_still_bounded() {
+    use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+
+    let mut dir = DataDir::new(1);
+    dir.config.max_import_size = None;
+    let server = Server::with_directory(dir).await;
+    // Chunked input exercises the streaming bound without Content-Length.
+    // The sender keeps one chunk while the server reads at most 64 MiB.
+    let mut stream = tokio::net::TcpStream::connect(server.origin.strip_prefix("http://").unwrap())
+        .await
+        .unwrap();
+    stream
+        .write_all(
+            format!(
+                "POST /xrpc/com.atproto.repo.importRepo HTTP/1.1\r\nHost: pds.test\r\nAuthorization: {}\r\nContent-Type: application/vnd.ipld.car\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n",
+                token(ALICE)
+            )
+            .as_bytes(),
+        )
+        .await
+        .unwrap();
+    let chunk = vec![0_u8; 64 * 1024];
+    for _ in 0..1025 {
+        stream.write_all(b"10000\r\n").await.unwrap();
+        stream.write_all(&chunk).await.unwrap();
+        stream.write_all(b"\r\n").await.unwrap();
+    }
+    stream.write_all(b"0\r\n\r\n").await.unwrap();
+    let mut response = String::new();
+    stream.read_to_string(&mut response).await.unwrap();
+    assert!(response.starts_with("HTTP/1.1 413"), "{response}");
+    assert!(response.contains("PayloadTooLarge"));
+    server.assert_verifies();
+}
+
+#[tokio::test]
 async fn a_subscriber_receives_each_commit_once_and_in_order() {
     let server = Server::start(1).await;
     // The seeded rows of the test directory hold no event body, so the
@@ -880,8 +1144,8 @@ async fn a_subscriber_receives_each_commit_once_and_in_order() {
         "InvalidRequest"
     );
 
-    // Without an upgrade the method has no route (SPEC §7.2) and goes to
-    // the proxy, which has no service to send it to in this directory.
+    // Without an upgrade the method goes to the proxy, which requires
+    // authentication before it resolves a service.
     let plain = server.get("/xrpc/com.atproto.sync.subscribeRepos").await;
-    assert_eq!(plain.error(), (400, "InvalidRequest".to_owned()));
+    assert_eq!(plain.error(), (401, "AuthMissing".to_owned()));
 }

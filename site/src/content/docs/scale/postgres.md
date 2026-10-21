@@ -25,7 +25,9 @@ replication are already Postgres, or who plans an
   supported.
 - **Backups change.** A restore must bring back Postgres and the data
   directory from the same moment, because the repositories and the event
-  log refer to each other.
+  log refer to each other. Preserve the account schema's `credential_epoch`
+  table so password recovery continues to reject old tokens. Storage
+  migration copies this table in both directions.
 
 ## Move to Postgres
 

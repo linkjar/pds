@@ -57,7 +57,9 @@ pub async fn resolve_handle(state: &AppState, query: &Query<'_>) -> Result<Respo
     if !response.status().is_success() {
         return Err(unresolved());
     }
-    let bytes = response.bytes().await.map_err(|_| unresolved())?;
+    let bytes = pds_identity::safe_fetch::read_bounded(response, 64 * 1024)
+        .await
+        .map_err(|_| unresolved())?;
     let body: serde_json::Value = serde_json::from_slice(&bytes).map_err(|_| unresolved())?;
     // The Reference passes on the `did` of the answer and does not check
     // it: an answer without one gives an empty object.

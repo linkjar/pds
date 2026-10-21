@@ -558,7 +558,8 @@ impl Session<'_> {
             .collect();
         let removed = txn.delete_record_blobs(&replaced)?;
         if !removed.is_empty() {
-            let mut keep = txn.referenced_blobs(&removed)?;
+            let mut keep: std::collections::HashSet<_> =
+                txn.referenced_blobs(&removed)?.into_iter().collect();
             for write in writes {
                 if let Prepared::Create(record) | Prepared::Update(record) = write {
                     keep.extend(record.blobs.iter().map(|blob| blob.cid.clone()));
@@ -581,6 +582,25 @@ impl Session<'_> {
                 }
             }
         }
+        Ok(())
+    }
+
+    /// Removes imported blobs whose last reference is gone. The caller
+    /// has replaced every changed record's references before this check.
+    pub(crate) fn remove_unreferenced_blobs(
+        &mut self,
+        mut candidates: Vec<String>,
+    ) -> Result<(), XrpcError> {
+        candidates.sort();
+        candidates.dedup();
+        let kept: std::collections::HashSet<_> = self
+            .txn
+            .referenced_blobs(&candidates)?
+            .into_iter()
+            .collect();
+        candidates.retain(|cid| !kept.contains(cid));
+        self.txn.delete_blobs(&candidates)?;
+        self.dereferenced.extend(candidates);
         Ok(())
     }
 
@@ -623,6 +643,9 @@ impl Session<'_> {
 /// the log. One call runs at a time for a repository.
 ///
 /// When `work` fails nothing is written. This call blocks.
+/// HTTP callers use [`AppState::repo_blocking`] so repository waiters do
+/// not occupy the ordinary worker budget. The mutex also covers synchronous
+/// maintenance and simulation callers.
 pub fn transact<T>(
     state: &AppState,
     did: &str,
@@ -686,11 +709,13 @@ fn transact_on<T>(
 
     let Some((event, committed)) = event else {
         txn.commit()?;
+        remove_blob_files(state, did, &dereferenced);
         return Ok(out);
     };
     writes.with_ops(|ops| ops.note_commit(did, &committed.rev))?;
     fail::point("commit.before-store").map_err(XrpcError::internal)?;
     txn.commit()?;
+    remove_blob_files(state, did, &dereferenced);
     // From here the commit is durable. A failure below leaves the note,
     // and the repair at the next start emits `#sync`.
     fail::point("commit.stored").map_err(XrpcError::internal)?;
@@ -705,14 +730,19 @@ fn transact_on<T>(
     }) {
         tracing::error!(%did, %error, "failed to update account root");
     }
+    Ok(out)
+}
+
+/// Removes dereferenced bytes after the index transaction is durable,
+/// including imports that emit no event or whose sequencing later fails.
+fn remove_blob_files(state: &AppState, did: &str, dereferenced: &[String]) {
     if let Some(blobs) = state.blobs() {
-        for cid in &dereferenced {
+        for cid in dereferenced {
             if let Err(error) = blobs.delete(did, cid) {
                 tracing::error!(%did, %cid, %error, "could not delete a blob from the store");
             }
         }
     }
-    Ok(out)
 }
 
 /// What the startup repair did.

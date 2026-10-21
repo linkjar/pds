@@ -80,6 +80,15 @@ fn did() -> Did {
 
 /// A resolver with a clock the test moves.
 fn resolver(plc_url: &str, cache: &Arc<MemoryCache>, clock: &Arc<AtomicI64>) -> DidResolver {
+    resolver_with_mode(plc_url, cache, clock, false)
+}
+
+fn resolver_with_mode(
+    plc_url: &str,
+    cache: &Arc<MemoryCache>,
+    clock: &Arc<AtomicI64>,
+    dev_mode: bool,
+) -> DidResolver {
     let http = reqwest::Client::builder()
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none())
@@ -93,7 +102,7 @@ fn resolver(plc_url: &str, cache: &Arc<MemoryCache>, clock: &Arc<AtomicI64>) -> 
             timeout: Duration::from_secs(5),
             stale_ttl: Duration::from_millis(STALE_MS.unsigned_abs()),
             max_ttl: Duration::from_millis(MAX_MS.unsigned_abs()),
-            dev_mode: false,
+            dev_mode,
         },
         http,
         Some(cache),
@@ -112,8 +121,13 @@ struct Server {
 
 impl Server {
     fn start(status: &str, body: Vec<u8>) -> Self {
+        Self::with_body(status, |_| body)
+    }
+
+    fn with_body(status: &str, body: impl FnOnce(&str) -> Vec<u8>) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
+        let body = body(&url);
         let requests = Arc::new(Mutex::new(Vec::new()));
         let open = Arc::new(AtomicBool::new(true));
         let head = format!(
@@ -161,6 +175,43 @@ impl Server {
     fn count(&self) -> usize {
         self.requests.lock().unwrap().len()
     }
+}
+
+#[tokio::test]
+async fn untrusted_web_hosts_are_refused_before_network_access() {
+    let cache = Arc::new(MemoryCache::default());
+    let clock = Arc::new(AtomicI64::new(0));
+    let resolver = resolver(CLOSED, &cache, &clock);
+    let did = Did::parse("did:web:metadata.local").unwrap();
+    assert!(matches!(resolver.resolve(&did, false).await,
+        Err(ResolveError::Fetch { reason, .. }) if reason.contains("not on the public internet")));
+    assert_eq!(cache.puts.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn development_explicitly_allows_a_local_web_document() {
+    let server = Server::with_body("200 OK", |url| {
+        let port = url.rsplit(':').next().unwrap();
+        document(&format!("did:web:localhost%3A{port}"), "alice.test")
+            .to_string()
+            .into_bytes()
+    });
+    let port = server.url.rsplit(':').next().unwrap();
+    let did = Did::parse(&format!("did:web:localhost%3A{port}")).unwrap();
+    let cache = Arc::new(MemoryCache::default());
+    let clock = Arc::new(AtomicI64::new(0));
+    let production = resolver(CLOSED, &cache, &clock);
+    assert!(matches!(
+        production.resolve(&did, false).await,
+        Err(ResolveError::Unsupported(_))
+    ));
+    assert_eq!(server.count(), 0);
+    let development = resolver_with_mode(CLOSED, &cache, &clock, true);
+    assert_eq!(
+        development.resolve(&did, false).await.unwrap(),
+        Some(document(did.as_str(), "alice.test"))
+    );
+    assert_eq!(server.count(), 1);
 }
 
 /// Waits until `done` holds, for at most five seconds.

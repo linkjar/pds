@@ -54,19 +54,22 @@ pub async fn get_record(state: &AppState, query: &Query<'_>) -> Result<Response,
             let Some(actor) = accounts.actor(&repo, Availability::ACTIVE)? else {
                 return Ok(None);
             };
+            drop(accounts);
             let uri = format!("at://{}/{collection}/{rkey}", actor.did);
             let store = state.reads().store(&actor.did)?;
             let record = store.record(&uri, cid.as_deref())?.ok_or_else(|| {
                 XrpcError::bad_request("RecordNotFound", format!("Could not locate record: {uri}"))
             })?;
+            drop(store);
             let value = record_value(&record)?;
-            Ok(Some(
-                json!({ "uri": uri, "cid": record.cid, "value": value }),
-            ))
+            Ok(Some(json_response(
+                StatusCode::OK,
+                &json!({ "uri": uri, "cid": record.cid, "value": value }),
+            )))
         })
         .await?;
     match found {
-        Some(body) => Ok(json_response(StatusCode::OK, &body)),
+        Some(response) => Ok(response),
         None => forward_to_appview(state, query).await,
     }
 }
@@ -79,7 +82,7 @@ async fn forward_to_appview(state: &AppState, query: &Query<'_>) -> Result<Respo
         .appview_url
         .as_deref()
         .ok_or_else(|| XrpcError::invalid_request("Could not locate record"))?;
-    let upstream_failure = |_| XrpcError {
+    let upstream_failure = || XrpcError {
         status: StatusCode::BAD_GATEWAY,
         error: "UpstreamFailure".to_owned(),
         message: "Upstream Failure".to_owned(),
@@ -95,7 +98,7 @@ async fn forward_to_appview(state: &AppState, query: &Query<'_>) -> Result<Respo
         .timeout(state.config().proxy_timeout)
         .send()
         .await
-        .map_err(upstream_failure)?;
+        .map_err(|_| upstream_failure())?;
     // The Reference reports an upstream 500 as its own 502 and keeps the
     // upstream's error body.
     let status = match response.status().as_u16() {
@@ -108,7 +111,14 @@ async fn forward_to_appview(state: &AppState, query: &Query<'_>) -> Result<Respo
         .get(header::CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
         .and_then(|value| HeaderValue::from_str(&crate::error::express_content_type(value)).ok());
-    let bytes = response.bytes().await.map_err(upstream_failure)?;
+    let limit = if response.status().is_success() {
+        16 * 1024 * 1024
+    } else {
+        64 * 1024
+    };
+    let bytes = pds_identity::safe_fetch::read_bounded(response, limit)
+        .await
+        .map_err(|_| upstream_failure())?;
     let mut answer = (status, bytes).into_response();
     if let Some(content_type) = content_type {
         answer
@@ -125,7 +135,7 @@ pub async fn list_records(state: &AppState, query: &Query<'_>) -> Result<Respons
     let limit = query.params.limit("limit");
     let cursor = query.params.get("cursor").map(str::to_owned);
     let reverse = query.params.boolean("reverse");
-    let rows = state
+    state
         .blocking(move |state| {
             let accounts = state.reads().accounts()?;
             let actor = accounts
@@ -133,20 +143,25 @@ pub async fn list_records(state: &AppState, query: &Query<'_>) -> Result<Respons
                 .ok_or_else(|| {
                     XrpcError::invalid_request(format!("Could not find repo: {repo}"))
                 })?;
+            drop(accounts);
             let store = state.reads().store(&actor.did)?;
-            Ok(store.list_records(&actor.did, &collection, limit, reverse, cursor.as_deref())?)
+            let rows =
+                store.list_records(&actor.did, &collection, limit, reverse, cursor.as_deref())?;
+            drop(store);
+            let mut body = Map::new();
+            let records = rows
+                .iter()
+                .map(|row| {
+                    Ok(json!({ "uri": row.uri, "cid": row.cid, "value": record_value(row)? }))
+                })
+                .collect::<Result<Vec<Value>, XrpcError>>()?;
+            body.insert("records".to_owned(), records.into());
+            if let Some(rkey) = rows.last().and_then(|row| row.uri.rsplit('/').next()) {
+                body.insert("cursor".to_owned(), rkey.into());
+            }
+            Ok(json_response(StatusCode::OK, &body.into()))
         })
-        .await?;
-    let mut body = Map::new();
-    let records = rows
-        .iter()
-        .map(|row| Ok(json!({ "uri": row.uri, "cid": row.cid, "value": record_value(row)? })))
-        .collect::<Result<Vec<Value>, XrpcError>>()?;
-    body.insert("records".to_owned(), records.into());
-    if let Some(rkey) = rows.last().and_then(|row| row.uri.rsplit('/').next()) {
-        body.insert("cursor".to_owned(), rkey.into());
-    }
-    Ok(json_response(StatusCode::OK, &body.into()))
+        .await
 }
 
 /// `com.atproto.repo.describeRepo`.

@@ -1,0 +1,16 @@
+
+running 1 test
+test read_requests_timed ...
+| request (µs)                     |     p50 |     p90 |     p99 |    mean |
+|----------------------------------|---------|---------|---------|---------|
+| getRecord, sequential            |      75 |      92 |     141 |      79 |
+| listRecords 50, sequential       |     203 |     232 |     306 |     209 |
+| describeRepo, sequential         |      96 |     118 |     189 |     100 |
+| getRecord, 8 at a time           |     176 |     249 |     355 |     197 |
+| getRecord, 8 at a time: rate     |   39771 req/s                           |
+| listRecords 50, 8 at a time      |    1426 |    1799 |    2247 |    1395 |
+| listRecords 50, 8 at a time: rate |    5694 req/s                           |
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 1.64s

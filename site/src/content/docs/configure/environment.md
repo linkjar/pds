@@ -6,9 +6,9 @@ sidebar:
 ---
 
 The server reads its configuration from the environment, in the Compose
-deployment from `pds.env`. The variables are the reference server's, with
-the same names, meanings and defaults, so a `pds.env` written for the
-reference server works as it is. A handful are new; they are at the end.
+deployment from `pds.env`. It uses the reference server's variable names.
+The tables identify LinkJar defaults and safety restrictions; new settings
+are at the end.
 
 An invalid value stops the server at start with a message that names the
 variable. An unknown `PDS_*` variable is a warning. `check-config` runs
@@ -51,7 +51,7 @@ docker compose run --rm pds linkjar-pds check-config
 | `PDS_BLOBSTORE_S3_*` | An S3-compatible store in place of the disk. [Blob storage](/configure/blob-storage/) has the list. | |
 | `PDS_BLOB_UPLOAD_LIMIT` | The largest blob, in bytes. The example file sets 100 MiB. | 5 MiB |
 | `PDS_ACTOR_STORE_CACHE_SIZE` | How many accounts' databases stay open at once. | `100` |
-| `PDS_MAX_REPO_IMPORT_SIZE` | The largest repository an account may import, in bytes. | 100 MiB |
+| `PDS_MAX_REPO_IMPORT_SIZE` | The largest repository import body, in bytes. Must be positive; parsing uses additional memory. | 64 MiB (67,108,864 bytes) |
 | `PDS_ACCEPTING_REPO_IMPORTS` | Whether accounts may import a repository, as in a migration from another server. | `true` |
 | `PDS_SQLITE_DISABLE_WAL_AUTO_CHECKPOINT` | Hands SQLite checkpoints to a backup tool such as Litestream. | `false` |
 
@@ -73,6 +73,18 @@ docker compose run --rm pds linkjar-pds check-config
 | `PDS_CRAWLERS` | The relays the server asks to crawl it, separated by commas. | `https://bsky.network` |
 | `PDS_MAX_SUBSCRIPTION_BUFFER` | How many events a slow firehose subscriber may fall behind before the server drops it. | `500` |
 | `PDS_REPO_BACKFILL_LIMIT_MS` | How far back a firehose subscriber may ask for events, in milliseconds. | 3 days |
+| `PDS_PROXY_HEADERS_TIMEOUT` | Total upstream proxy deadline, including the response body, in milliseconds. | `10000` |
+| `PDS_DISABLE_SSRF_PROTECTION` | Allows private OAuth metadata destinations only with `PDS_DEV_MODE=true`. Production startup rejects it. | `false` |
+
+Untrusted DID, proxy, handle and client-metadata destinations must use
+public HTTPS on port 443. The connector checks the actual destination
+addresses, refuses redirects and ignores environment proxies. Configured
+service URLs, including PLC and AppView, remain trusted and can use private
+networks. Keep development mode off on a public host.
+
+Response caps are fixed per operation: DID/PLC 512 KiB, OAuth metadata
+256 KiB, MCP metadata 64 KiB, external handle files 4 KiB, and proxy errors
+64 KiB. `PDS_FETCH_MAX_RESPONSE_SIZE` is not an implemented setting.
 
 ## Invites and limits
 
@@ -83,6 +95,20 @@ docker compose run --rm pds linkjar-pds check-config
 | `PDS_RATE_LIMITS_ENABLED` | The reference server's rate limits, by client address and by account. | `true` |
 | `PDS_RATE_LIMIT_BYPASS_KEY`, `PDS_RATE_LIMIT_BYPASS_IPS` | A header value, and addresses, that bypass the limits. | unset |
 | `PDS_HCAPTCHA_SITE_KEY`, `PDS_HCAPTCHA_SECRET_KEY`, `PDS_HCAPTCHA_TOKEN_SALT` | hCaptcha on the sign-up page. All three or none. | unset |
+
+The process also admits at most 8 uploads, 2 imports, 8 streamed exports,
+32 firehose connections and 64 ordinary blocking jobs. Exhaustion returns
+503 `ServerBusy`; a rate-limit bypass does not bypass these limits. Audit
+writes use four separate workers and wait for capacity. These limits are
+fixed in the implementation.
+
+Request-body reads allow 15 seconds without progress and 300 seconds
+total; expiry returns 408 `RequestTimeout`. Exports have the same total
+deadline and a 15-second queue stall limit. Firehose sends may stall for
+15 seconds; incoming frames and messages are capped at 64 KiB. Clients
+must discard an incomplete export and retry later.
+Refused bodies are drained for at most five seconds or the byte cap;
+an oversized body still returns 413 if draining times out.
 
 ## Mail
 

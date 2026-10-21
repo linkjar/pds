@@ -17,8 +17,11 @@ pub const REFRESH_LIFE: Duration = Duration::from_hours(30 * 24);
 pub const REQUEST_LIFE: Duration = Duration::from_mins(10);
 /// How long a code is good: one minute.
 pub const CODE_LIFE: Duration = Duration::from_mins(1);
-/// The most entries of each table. One more replaces the oldest.
+/// The most entries of each table. A full client table refuses registrations.
 pub const MOST: usize = 4096;
+
+/// The global budget of public registration attempts in one minute.
+pub const REGISTRATIONS_PER_MINUTE: u32 = 30;
 
 /// How many rotated-away refresh tokens a session remembers. A second use
 /// of one of them ends the session.
@@ -140,6 +143,12 @@ struct Window {
     writes: u32,
 }
 
+#[derive(Debug)]
+struct Registrations {
+    since: Instant,
+    count: u32,
+}
+
 /// A session of an AI client.
 #[derive(Debug)]
 pub struct Session {
@@ -220,6 +229,7 @@ struct Sessions {
 #[derive(Debug, Default)]
 pub struct Store {
     clients: Mutex<HashMap<String, (McpClient, Instant)>>,
+    registrations: Mutex<Option<Registrations>>,
     requests: Mutex<HashMap<String, Request>>,
     codes: Mutex<HashMap<String, Code>>,
     sessions: Mutex<Sessions>,
@@ -254,17 +264,40 @@ fn locked<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 }
 
 impl Store {
-    /// Registers an AI client and gives it an identifier.
-    pub fn register(&self, name: Option<String>, redirect_uris: Vec<String>) -> McpClient {
+    /// Spends one public registration attempt from the global budget.
+    pub fn allow_registration(&self) -> bool {
+        let mut registrations = locked(&self.registrations);
+        let window = registrations.get_or_insert_with(|| Registrations {
+            since: Instant::now(),
+            count: 0,
+        });
+        if window.since.elapsed() >= Duration::from_mins(1) {
+            window.since = Instant::now();
+            window.count = 0;
+        }
+        if window.count >= REGISTRATIONS_PER_MINUTE {
+            return false;
+        }
+        window.count += 1;
+        drop(registrations);
+        true
+    }
+
+    /// Registers an AI client, or refuses when the table is full. Existing
+    /// registrations remain valid until the server restarts.
+    pub fn register(&self, name: Option<String>, redirect_uris: Vec<String>) -> Option<McpClient> {
+        let mut clients = locked(&self.clients);
+        if clients.len() >= MOST {
+            return None;
+        }
         let client = McpClient {
             id: format!("mcp-client-{}", random_text::<16>()),
             name,
             redirect_uris,
         };
-        let mut clients = locked(&self.clients);
-        make_room(&mut clients, Duration::MAX, |(_, made)| *made);
         clients.insert(client.id.clone(), (client.clone(), Instant::now()));
-        client
+        drop(clients);
+        Some(client)
     }
 
     /// A registered client.
@@ -465,6 +498,27 @@ mod tests {
     }
 
     #[test]
+    fn a_full_registration_table_preserves_existing_clients() {
+        let store = Store::default();
+        let first = store
+            .register(None, vec!["https://app.example/cb".to_owned()])
+            .unwrap();
+        for _ in 1..MOST {
+            assert!(
+                store
+                    .register(None, vec!["https://app.example/cb".to_owned()])
+                    .is_some()
+            );
+        }
+        assert!(
+            store
+                .register(None, vec!["https://extra.example/cb".to_owned()])
+                .is_none()
+        );
+        assert_eq!(store.client(&first.id), Some(first));
+    }
+
+    #[test]
     fn scopes_map_to_the_scopes_of_the_pds() {
         let scopes = |list: &[&str]| -> Vec<String> {
             list.iter().map(|scope| (*scope).to_owned()).collect()
@@ -516,7 +570,9 @@ mod tests {
         assert!(store.end(&issued.access).is_some());
         assert!(store.end(&issued.access).is_none());
 
-        let client = store.register(None, vec!["https://app.example/cb".to_owned()]);
+        let client = store
+            .register(None, vec!["https://app.example/cb".to_owned()])
+            .unwrap();
         assert_eq!(store.client(&client.id).unwrap(), client);
         let request = Request::new(
             client,

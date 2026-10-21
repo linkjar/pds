@@ -95,6 +95,7 @@ pub struct OAuthState {
     seen: Mutex<Swept<String, i64, TABLE_SWEEP_AT>>,
     clients: Mutex<Swept<String, (Arc<clients::LoadedClient>, i64), TABLE_SWEEP_AT>>,
     pending: Mutex<Swept<String, authorize::PendingSignUp, TABLE_SWEEP_AT>>,
+    previous_sessions: authorize::PreviousSessions,
     /// The sign-ins at identity providers that are in progress.
     pub(crate) flows: external::Flows,
 }
@@ -124,6 +125,7 @@ impl OAuthState {
             seen: Mutex::default(),
             clients: Mutex::new(clients::known(config).into()),
             pending: Mutex::default(),
+            previous_sessions: authorize::PreviousSessions::default(),
             flows: external::Flows::default(),
         }
     }
@@ -255,14 +257,51 @@ pub fn new_id(kind: pds_oauth::token::Id) -> String {
     kind.format(&bytes[..kind.bytes()])
 }
 
-/// Runs a call on the account database, on the blocking pool.
+/// Reads account rows using a pooled connection on the blocking pool.
+pub(super) async fn account_reads<T, F>(state: &AppState, call: F) -> Result<T, OAuthError>
+where
+    T: Send + 'static,
+    F: FnOnce(&AccountDb) -> Result<T, StorageError> + Send + 'static,
+{
+    let permit = account_permit(state)?;
+    let state = state.clone();
+    tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        let db = state.reads().accounts()?;
+        call(&db)
+    })
+    .await
+    .map_err(OAuthError::server)?
+    .map_err(OAuthError::from)
+}
+
+/// Keeps related reads consistent without holding the account writer lock.
+pub(super) async fn account_snapshot<T, F>(state: &AppState, call: F) -> Result<T, OAuthError>
+where
+    T: Send + 'static,
+    F: FnOnce(&AccountDb) -> Result<T, StorageError> + Send + 'static,
+{
+    account_reads(state, move |db| db.with_snapshot(call)).await
+}
+
+fn account_permit(state: &AppState) -> Result<tokio::sync::OwnedSemaphorePermit, OAuthError> {
+    state.resources().blocking().map_err(|error| OAuthError {
+        status: error.status,
+        error: "temporarily_unavailable".to_owned(),
+        description: error.message,
+    })
+}
+
+/// Mutates the account database under its writer lock, on the blocking pool.
 pub async fn accounts<T, F>(state: &AppState, call: F) -> Result<T, OAuthError>
 where
     T: Send + 'static,
     F: FnOnce(&mut AccountDb) -> Result<T, StorageError> + Send + 'static,
 {
+    let permit = account_permit(state)?;
     let state = state.clone();
     tokio::task::spawn_blocking(move || {
+        let _permit = permit;
         let writes = state
             .writes()
             .ok_or_else(|| OAuthError::server("a read-only server has no authorization server"))?;
@@ -482,6 +521,7 @@ pub async fn serve(
             | "/oauth/par"
             | "/oauth/token"
             | "/oauth/revoke"
+            | "/oauth/introspect"
             | "/oauth/authorize"
             | "/oauth/authorize/sign-in"
             | "/oauth/authorize/sign-up"
@@ -539,6 +579,9 @@ pub async fn serve(
             let answer = endpoints::revoke(state, headers, take(body)).await;
             with_nonce(state, answer.unwrap_or_else(IntoResponse::into_response))
         }
+        "/oauth/introspect" => endpoints::introspect(state, headers, take(body))
+            .await
+            .unwrap_or_else(IntoResponse::into_response),
         "/oauth/authorize/sign-in" => authorize::sign_in(state, headers, peer, take(body)).await,
         "/oauth/authorize/sign-up" => authorize::sign_up(state, headers, peer, take(body)).await,
         "/oauth/authorize/accept" => authorize::accept(state, headers, peer, take(body)).await,

@@ -96,9 +96,12 @@ fn placeholders(count: usize) -> String {
 }
 
 impl ActorDb {
-    /// Opens the store for reading and writing.
+    /// Opens the store for reading and writing, adding compatible indexes
+    /// when an existing Reference store lacks them.
     pub fn open_writable(path: &Path) -> Result<Self, StorageError> {
-        Ok(Self::from_connection(open_read_write(path)?))
+        let conn = open_read_write(path)?;
+        crate::schema::ensure_actor_indexes(&conn)?;
+        Ok(Self::from_connection(conn))
     }
 
     /// Starts a write transaction. It takes the write lock at once, so two
@@ -159,11 +162,8 @@ impl ActorDb {
     pub fn record_cid(&self, uri: &str) -> Result<Option<String>, StorageError> {
         Ok(self
             .conn()
-            .query_row(
-                r#"select "cid" from "record" where "uri" = :uri"#,
-                named_params! { ":uri": uri },
-                |row| row.get(0),
-            )
+            .prepare_cached(r#"select "cid" from "record" where "uri" = :uri"#)?
+            .query_row(named_params! { ":uri": uri }, |row| row.get(0))
             .optional()?)
     }
 
@@ -189,8 +189,10 @@ impl ActorDb {
     pub fn stored_blob(&self, cid: &str) -> Result<Option<StoredBlob>, StorageError> {
         Ok(self
             .conn()
-            .query_row(
+            .prepare_cached(
                 r#"select "tempKey", "size", "mimeType" from "blob" where "cid" = :cid and "takedownRef" is null"#,
+            )?
+            .query_row(
                 named_params! { ":cid": cid },
                 |row| {
                     Ok(StoredBlob {
@@ -371,29 +373,26 @@ impl ActorTxn<'_> {
 
     /// Removes the index row of a record and its backlinks.
     pub fn delete_record(&self, uri: &str) -> Result<(), StorageError> {
-        self.conn().execute(
-            r#"delete from "record" where "uri" = :uri"#,
-            named_params! { ":uri": uri },
-        )?;
+        self.conn()
+            .prepare_cached(r#"delete from "record" where "uri" = :uri"#)?
+            .execute(named_params! { ":uri": uri })?;
         self.remove_backlinks(uri)
     }
 
     /// Removes the backlinks of a record.
     pub fn remove_backlinks(&self, uri: &str) -> Result<(), StorageError> {
-        self.conn().execute(
-            r#"delete from "backlink" where "uri" = :uri"#,
-            named_params! { ":uri": uri },
-        )?;
+        self.conn()
+            .prepare_cached(r#"delete from "backlink" where "uri" = :uri"#)?
+            .execute(named_params! { ":uri": uri })?;
         Ok(())
     }
 
     /// Adds backlinks. One that exists stays.
     pub fn add_backlinks(&self, backlinks: &[Backlink]) -> Result<(), StorageError> {
         for link in backlinks {
-            self.conn().execute(
+            self.conn().prepare_cached(
                 r#"insert into "backlink" ("uri", "path", "linkTo") values (:uri, :path, :linkTo) on conflict do nothing"#,
-                named_params! { ":uri": link.uri, ":path": link.path, ":linkTo": link.link_to },
-            )?;
+            )?.execute(named_params! { ":uri": link.uri, ":path": link.path, ":linkTo": link.link_to })?;
         }
         Ok(())
     }
@@ -416,18 +415,18 @@ impl ActorTxn<'_> {
         Ok(removed)
     }
 
-    /// Of `cids`, those that a record still references.
+    /// Of `cids`, those that a record still references, once each in input
+    /// order. Each distinct candidate probes the index once, regardless of
+    /// how many records share it.
     pub fn referenced_blobs(&self, cids: &[String]) -> Result<Vec<String>, StorageError> {
+        let mut checked = std::collections::HashSet::new();
         let mut found = Vec::new();
-        for batch in cids.chunks(BIND_BATCH) {
-            let sql = format!(
-                r#"select "blobCid" from "record_blob" where "blobCid" in ({})"#,
-                placeholders(batch.len())
-            );
-            let mut statement = self.conn().prepare(&sql)?;
-            let rows = statement.query_map(params_from_iter(batch.iter()), |row| row.get(0))?;
-            for row in rows {
-                found.push(row?);
+        let mut statement = self.conn().prepare_cached(
+            r#"select exists (select 1 from "record_blob" where "blobCid" = ?1)"#,
+        )?;
+        for cid in cids {
+            if checked.insert(cid) && statement.query_row([cid], |row| row.get::<_, bool>(0))? {
+                found.push(cid.clone());
             }
         }
         Ok(found)

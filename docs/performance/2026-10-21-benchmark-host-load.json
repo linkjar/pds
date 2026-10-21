@@ -1,0 +1,41 @@
+{
+  "start_utc": "2026-10-21T20:10:32.336589+00:00",
+  "before": [
+    "  PID  %CPU     ELAPSED COMM",
+    "45049  79.1    06:14:35 idea",
+    "85892  55.7 14-00:34:44 syncthing",
+    "77548   8.4       26:17 codex",
+    "13168   8.3       00:00 python3",
+    "78096   5.8       25:20 codex-code-mode-host",
+    "  502   3.7 21-06:32:27 mDNSResponder",
+    "  480   3.0 21-06:32:27 lsd",
+    "  594   2.6 21-06:32:25 com.apple.DriverKit-AppleBCMWLAN",
+    "77480   1.9       26:21 ChatGPT",
+    "72566   1.1    01:21:49 rex",
+    "83470   1.0 01-11:23:25 bun",
+    "41634   0.9 01-06:52:47 omp",
+    "36689   0.8 01-07:34:46 claude",
+    "35609   0.8 04-06:59:15 Dia",
+    "  499   0.8 21-06:32:27 symptomsd"
+  ],
+  "end_utc": "2026-10-21T20:10:54.418861+00:00",
+  "after": [
+    "  PID  %CPU     ELAPSED COMM",
+    "45049  88.1    06:14:57 idea",
+    "85892  32.9 14-00:35:06 syncthing",
+    "13237  17.2       00:00 mdworker_shared",
+    "13239  16.5       00:00 mdworker_shared",
+    "13238  16.3       00:00 mdworker_shared",
+    "69332   7.4 14-01:04:40 Mail",
+    "36121   4.8 04-06:58:09 Raycast Backend",
+    "25584   4.3    09:51:41 DisplaysExt",
+    "    1   2.8 21-06:33:38 launchd",
+    "  391   2.0 21-06:32:50 mds",
+    "  594   1.6 21-06:32:47 com.apple.DriverKit-AppleBCMWLAN",
+    " 2082   1.5 21-06:28:59 spotlightknowledged.importer",
+    "60179   1.3 05-15:55:23 mds_stores",
+    "62683   1.3 15-11:09:44 cfprefsd",
+    "  436   1.1 21-06:32:49 cfprefsd"
+  ],
+  "publication_note": "Process executable paths were reduced to basenames before publication; timestamps, PIDs, CPU readings, and benchmark measurements are unchanged."
+}

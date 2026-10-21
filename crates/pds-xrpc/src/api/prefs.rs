@@ -195,7 +195,7 @@ pub async fn put_preferences(
     // The declared age is computed and never stored.
     put.retain(|(name, _)| name != DECLARED_AGE);
     state
-        .blocking(move |state| {
+        .repo_blocking(did.clone(), move |state| {
             transact(state, &did, |session| {
                 let remove: Vec<i64> = session
                     .txn()

@@ -221,7 +221,12 @@ async fn appview_get(
     if !response.status().is_success() {
         return None;
     }
-    serde_json::from_slice(&response.bytes().await.ok()?).ok()
+    serde_json::from_slice(
+        &pds_identity::safe_fetch::read_bounded(response, RESPONSE_LIMIT)
+            .await
+            .ok()?,
+    )
+    .ok()
 }
 
 fn images_view(state: &AppState, did: &str, embed: &Value) -> Value {

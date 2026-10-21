@@ -10,6 +10,7 @@ use axum::response::Response;
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use data_encoding::HEXLOWER;
+use pds_identity::safe_fetch::{self, Policy};
 use pds_identity::{DidDocument, Keypair};
 use pds_types::Did;
 use serde_json::{Value, json};
@@ -181,6 +182,8 @@ pub(crate) async fn account_jwt_with(
 struct Target {
     url: String,
     did: String,
+    /// Only explicit operator configuration can admit a private service.
+    trusted: bool,
 }
 
 /// Reads `atproto-proxy`, as `parseProxyHeader` of the Reference.
@@ -209,6 +212,7 @@ async fn from_header(state: &AppState, proxy_to: &str) -> Result<Target, XrpcErr
         return Ok(Target {
             url: url.clone(),
             did: did.to_owned(),
+            trusted: true,
         });
     }
     // A value that names no DID is the caller's error, a deliberate
@@ -228,6 +232,7 @@ async fn from_header(state: &AppState, proxy_to: &str) -> Result<Target, XrpcErr
     Ok(Target {
         url: endpoint.origin(),
         did: did.to_owned(),
+        trusted: false,
     })
 }
 
@@ -242,7 +247,11 @@ fn default_target(state: &AppState, lxm: &str) -> Result<Target, XrpcError> {
         config.appview_url.clone().zip(config.appview_did.clone())
     };
     service
-        .map(|(url, did)| Target { url, did })
+        .map(|(url, did)| Target {
+            url,
+            did,
+            trusted: true,
+        })
         .ok_or_else(|| XrpcError::invalid_request(format!("No service configured for {lxm}")))
 }
 
@@ -273,6 +282,25 @@ fn upstream_failure(message: &str) -> XrpcError {
     }
 }
 
+fn outbound_request(
+    state: &AppState,
+    target: &Target,
+    method: &Method,
+    path: &str,
+) -> Result<reqwest::RequestBuilder, XrpcError> {
+    let url = format!("{}{path}", target.url);
+    if target.trusted {
+        return Ok(state.http().request(method.clone(), &url));
+    }
+    let policy = if state.config().dev_mode {
+        Policy::Development
+    } else {
+        Policy::Public
+    };
+    safe_fetch::request(method.clone(), &url, policy)
+        .map_err(|_| XrpcError::invalid_request("proxy destination is not allowed"))
+}
+
 /// Sends a method that this server does not handle to the service that
 /// does. `path` is the path and the query as they arrived.
 pub async fn proxy(
@@ -291,6 +319,17 @@ pub async fn proxy(
     if listed(PROTECTED_METHODS, lxm) {
         return Err(bad_method());
     }
+    let (did, scope) =
+        match auth::optional_credentials(headers, &state.config().auth, &[], state.now_s())? {
+            Credentials::Access { did, scope } => (did, scope),
+            Credentials::None => return Err(XrpcError::auth_required("AuthMissing")),
+            Credentials::Admin => {
+                return Err(XrpcError::bad_request(
+                    "InvalidToken",
+                    "Unexpected authorization type",
+                ));
+            }
+        };
     let header = |name: &str| headers.get(name).and_then(|value| value.to_str().ok());
     // A push registration names its service in the body.
     let mut collected = None;
@@ -308,17 +347,6 @@ pub async fn proxy(
         (Some(proxy_to), None) => from_header(state, proxy_to).await?,
         (None, None) => default_target(state, lxm)?,
     };
-    let (did, scope) =
-        match auth::optional_credentials(headers, &state.config().auth, &[], state.now_s())? {
-            Credentials::Access { did, scope } => (did, scope),
-            Credentials::None => return Err(XrpcError::auth_required("AuthMissing")),
-            Credentials::Admin => {
-                return Err(XrpcError::bad_request(
-                    "InvalidToken",
-                    "Unexpected authorization type",
-                ));
-            }
-        };
     if privileged(lxm) && scope != SCOPE_ACCESS && scope != SCOPE_APP_PASS_PRIVILEGED {
         return Err(bad_method());
     }
@@ -336,9 +364,7 @@ pub async fn proxy(
     crate::oauth::resource::check_rpc(lxm, &audience)?;
     let token = account_jwt(state, &did, &target.did, Some(lxm), None).await?;
 
-    let mut request = state
-        .http()
-        .request(method.clone(), format!("{}{path}", target.url))
+    let mut request = outbound_request(state, &target, method, path)?
         .timeout(state.config().proxy_timeout)
         .header(
             "accept-encoding",
@@ -398,7 +424,9 @@ pub(crate) async fn refusal(upstream: reqwest::Response) -> XrpcError {
         .and_then(|value| value.to_str().ok())
         .is_none_or(|kind| kind.contains("json"));
     let parsed: Value = if is_json {
-        let bytes = upstream.bytes().await.unwrap_or_default();
+        let Ok(bytes) = safe_fetch::read_bounded(upstream, 64 * 1024).await else {
+            return upstream_failure("upstream error response failed or exceeded the size limit");
+        };
         serde_json::from_slice(&bytes).unwrap_or(Value::Null)
     } else {
         Value::Null

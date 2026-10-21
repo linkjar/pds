@@ -21,9 +21,16 @@ authorization server.
 - `PDS_ENTRYWAY_URL` of the member host is the public address of the
   entryway. OAuth clients read it, and tokens name it as their issuer.
 - Sessions with a password or an app password carry on: the client
-  refreshes once and gets tokens of the entryway. An OAuth session that
-  the entryway ends is refused at the member host when its access token
-  expires, at most 60 minutes later.
+  refreshes once and gets tokens of the entryway.
+- After local token checks, the member checks current legacy or OAuth
+  session state at the entryway. Results are not cached. Password recovery
+  takes effect at the next authenticated member request. This adds one
+  round trip, capped at five seconds or `PDS_PROXY_HEADERS_TIMEOUT` if
+  shorter. If the entryway cannot answer, the member refuses the request
+  with 503 `UpstreamFailure`.
+- `PDS_ENTRYWAY_ADMIN_TOKEN` must contain the entryway's admin password.
+  The member uses it for the private `/oauth/introspect` check and admin
+  forwarding. Keep it in the member's secret store.
 - The entryway passes uploads, exports and the firehose through to the
   member host as streams. Only the member host asks the relay to crawl it.
 - A member host answers no handle. `/.well-known/atproto-did` on the
@@ -50,7 +57,8 @@ authorization server.
 ## Split
 
 1. Stop the old server.
-2. Copy `account.sqlite` from its data directory to the entryway's.
+2. Copy the complete `account.sqlite`, including `credential_epoch`, from
+   its data directory to the entryway's.
 3. Configure the entryway with the old server's variables, and:
 
    | Variable | Value |
@@ -71,6 +79,7 @@ authorization server.
    | `PDS_ENTRYWAY_DID` | `did:web:` and the entryway's name |
    | `PDS_ENTRYWAY_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX` | the public key |
    | `PDS_ENTRYWAY_PLC_ROTATION_KEY` | the `did:key` of the rotation key |
+   | `PDS_ENTRYWAY_ADMIN_TOKEN` | the entryway's `PDS_ADMIN_PASSWORD` |
    | `PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX` | remove it |
    | `PDS_JWT_SECRET` | keep it; the member host answers `ExpiredToken` to a token from before, and the client refreshes |
 
@@ -85,6 +94,8 @@ authorization server.
 3. Create an account at the entryway. Its DID document names the member
    host.
 4. Change a handle. Both servers show it.
+5. Recover a test account's password. Its previous legacy and OAuth tokens
+   must fail on the member host; a fresh sign-in must work.
 
 ## Reconcile
 
@@ -105,8 +116,8 @@ in progress.
 
 Stop both. Remove the `PDS_ENTRYWAY_*` variables from the old server and
 give it its rotation key back. Copy `account.sqlite` from the entryway
-back: it has the accounts and the sessions since the split. A repository
-the member host created since then is in its directory already. Start the
+back: it has the accounts, sessions and recovery epochs since the split.
+A repository the member host created since then is in its directory already. Start the
 old server; clients refresh once more.
 
 The [runbook](https://github.com/linkjar/pds/blob/main/docs/runbooks/entryway.md)
