@@ -1,0 +1,42 @@
+{
+  "description": "Mixed HTTP workload with identical harness/helpers in the baseline archive and candidate working tree. Current-run artifacts precede the subsequent getSession read-pool fix; retain them as a control.",
+  "baseline_commit": "77bf09e2e4e94079c38b86e47fb2d84e6ed36bbc",
+  "source_file_rule": "crates/**/src/**/*.rs, crates/**/Cargo.toml, root Cargo.toml, root Cargo.lock; sorted SHA256, two spaces, relative path, newline",
+  "source_aggregates": {
+    "baseline": "7a1eed5f3438a32c9041bd11086240e19aa99f983b037944c4506886bbf1205d"
+  },
+  "lock_sha256": {
+    "baseline": "9612b1745403930a2e6130b2a0076c31928e1f1c9bdd3d409c2ca71098d630c6",
+    "candidate": "b2982608660232f3a33a2fa89f871753bd0415e862dbc7d1d049075643d3df0f"
+  },
+  "identical_fixture_files": {
+    "crates/linkjar-pds/tests/mixed_read_timing.rs": "e072e70a2e931904fb6d003e4a90ce624c5ce5d565a99bb9a485263ca3569735",
+    "crates/linkjar-pds/tests/common/mod.rs": "83cbf94af91717ecd2c3db6778b9df27cc0a7663311beb89d914673e775a72ad",
+    "crates/linkjar-pds/tests/common/http.rs": "c45322a9e32d186b52a2062129883f4232ec74fad324712ed66a03455d2888ca"
+  },
+  "binaries": {
+    "baseline": {
+      "path": "/tmp/linkjar-pds-perf-baseline-target-20261021/release/deps/mixed_read_timing-c1b7865d3c25b97e",
+      "sha256": "a90569ad627fd62d142371ed1031450a52adc697d4909b1c2d614792c1808c59"
+    },
+    "candidate_before_session_pool": {
+      "path": "/tmp/linkjar-pds-mixed-read-before-session-pool",
+      "sha256": "1e4323c8e37bddf16245cb965b89c92ea47ac9896fd20e5711833b24896fe9e3"
+    }
+  },
+  "environment": {
+    "cpu": "Apple M1 Pro",
+    "memory_bytes": 17179869184,
+    "macos": "27.0",
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)"
+  },
+  "initial_measurement_order": [
+    "candidate_before_session_pool:1",
+    "candidate_before_session_pool:2",
+    "candidate_before_session_pool:3",
+    "baseline:1",
+    "baseline:2",
+    "baseline:3"
+  ],
+  "control_source_note": "The pre-pool control executable was measured before the one-line getSession change from layout().accounts() to reads().accounts(). Its exact executable SHA256 is retained; no production source aggregate was captured before that edit. Final candidate provenance is recorded separately."
+}

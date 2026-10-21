@@ -14,7 +14,7 @@ secret, which signs every session.
 
 | Path | Content | Keep |
 |---|---|---|
-| `account.sqlite` | accounts, passwords, sessions, invites, OAuth state | yes |
+| `account.sqlite` | accounts, passwords, sessions, invites, OAuth state, credential recovery epochs | yes |
 | `sequencer.sqlite` | the event log the firehose serves | yes |
 | `did_cache.sqlite` | cached DID documents | no, rebuilt |
 | `audit.sqlite` | the [audit log](/operate/audit-log/) | yes |
@@ -29,6 +29,13 @@ secret, which signs every session.
 Each SQLite file has a `-wal` and a `-shm` sibling while the server runs.
 A copy made while the server runs must take them too, or it may miss the
 last writes. A cold backup avoids the question.
+
+Keep the whole account database, including its `credential_epoch` table.
+That table prevents tokens issued before password recovery from working
+again. A restore of an older backup also restores its older credentials,
+sessions and recovery state. If those credentials were compromised,
+repeat recovery before reopening the server. On
+[Postgres](/scale/postgres/), the table is part of the account schema.
 
 ## A cold backup
 

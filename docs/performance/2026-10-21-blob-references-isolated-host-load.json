@@ -1,0 +1,41 @@
+{
+  "start_utc": "2026-10-21T20:21:35.246353+00:00",
+  "before": [
+    "  PID  %CPU     ELAPSED COMM",
+    "85892  32.0 14-00:45:47 syncthing",
+    "91442  17.8 09-22:09:08 Activity Monitor",
+    "77548   9.7       37:20 codex",
+    "14921   8.0       00:00 python3",
+    "  366   6.7 21-06:43:31 fseventsd",
+    "74805   6.7    11:57:21 claude",
+    "78096   6.0       36:23 codex-code-mode-host",
+    "  525   5.5 21-06:43:30 syspolicyd",
+    "  405   3.8 21-06:43:31 launchservicesd",
+    "  594   2.9 21-06:43:28 com.apple.DriverKit-AppleBCMWLAN",
+    "13800   2.1 02-13:07:36 agent-server",
+    "83470   2.1 01-11:34:28 bun",
+    "77491   1.8       37:22 Codex (Service)",
+    "72566   1.4    01:32:52 rex",
+    "77643   1.1       37:13 Codex (Renderer)"
+  ],
+  "end_utc": "2026-10-21T20:21:51.060899+00:00",
+  "after": [
+    "  PID  %CPU     ELAPSED COMM",
+    "85892  34.3 14-00:46:03 syncthing",
+    "41297   2.3 01-07:04:28 claude",
+    "36689   0.7 01-07:46:05 claude",
+    "72566   0.5    01:33:08 rex",
+    "91442   0.4 09-22:09:24 Activity Monitor",
+    "41634   0.3 01-07:04:06 omp",
+    " 3955   0.2 01-19:21:35 .devenv-wrapped",
+    "  366   0.2 21-06:43:47 fseventsd",
+    "35609   0.2 04-07:10:34 Dia",
+    "49846   0.2    05:52:25 claude",
+    "60179   0.2 05-16:06:20 mds_stores",
+    "38713   0.1 04-06:57:25 herdr",
+    "14944   0.1       00:10 mdworker_shared",
+    "75464   0.1    11:56:00 claude",
+    "45049   0.1    06:25:54 idea"
+  ],
+  "publication_note": "Process executable paths were reduced to basenames before publication; timestamps, PIDs, CPU readings, and benchmark measurements are unchanged."
+}

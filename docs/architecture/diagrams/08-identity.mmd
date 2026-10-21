@@ -1,10 +1,10 @@
 flowchart LR
-  req[resolve DID or handle] --> cache[(did_cache.sqlite<br/>stale TTL, max TTL)]
-  cache -- miss or stale --> fetch[safe fetch<br/>unicast only, redirect cap, size cap]
-  fetch --> plc([plc.directory<br/>did:plc])
+  req[resolve DID] --> cache[(did_cache.sqlite<br/>stale TTL, max TTL)]
+  cache -- did:web miss or stale --> fetch[safe fetch<br/>public HTTPS 443, checked connector addresses<br/>no redirects, size and time caps]
+  cache -- did:plc miss or stale --> plc([configured trusted PLC URL<br/>512 KiB, resolver deadline])
   fetch --> web([https host /.well-known/did.json<br/>did:web])
-  handle[verify handle] --> txt([DNS TXT _atproto.handle<br/>did=...])
-  handle --> wk([https handle /.well-known/atproto-did])
-  txt -. DNS wins on conflict .- wk
+  handle[verify handle] --> fetch
+  fetch --> wk([https handle /.well-known/atproto-did<br/>4 KiB response cap])
+  handle -. not implemented .-> txt([DNS TXT _atproto.handle<br/>did=...])
   doc[DID document contract<br/>alsoKnownAs first at://, #atproto Multikey, #atproto_pds service]
   plc & web --> doc

@@ -1,0 +1,22 @@
+Pair 1: reference=5629.521 candidate=5941.215 req/s, change=+5.54%
+Pair 2: reference=5695.449 candidate=5906.098 req/s, change=+3.70%
+Pair 3: reference=5760.263 candidate=5835.454 req/s, change=+1.31%
+Pair 4: reference=5861.439 candidate=5885.690 req/s, change=+0.41%
+Pair 5: reference=5829.646 candidate=5781.808 req/s, change=-0.82%
+Pair 6: reference=5812.482 candidate=5683.853 req/s, change=-2.21%
+Pair 7: reference=5617.814 candidate=5825.847 req/s, change=+3.70%
+Pair 8: reference=5591.578 candidate=5784.944 req/s, change=+3.46%
+Pair 9: reference=5706.976 candidate=5685.586 req/s, change=-0.37%
+Pair 10: reference=5072.754 candidate=5107.480 req/s, change=+0.68%
+Pair 11: reference=5005.583 candidate=4996.482 req/s, change=-0.18%
+Pair 12: reference=4950.741 candidate=5132.138 req/s, change=+3.66%
+Pair 13: reference=5129.426 candidate=5107.981 req/s, change=-0.42%
+Pair 14: reference=5036.836 candidate=4983.855 req/s, change=-1.05%
+Pair 15: reference=4912.847 candidate=5005.237 req/s, change=+1.88%
+Pair 16: reference=4934.300 candidate=4370.685 req/s, change=-11.42%
+Pair 17: reference=4872.470 candidate=4982.544 req/s, change=+2.26%
+Pair 18: reference=5059.302 candidate=4770.293 req/s, change=-5.71%
+Pair 19: reference=5202.250 candidate=5718.178 req/s, change=+9.92%
+Pair 20: reference=5663.389 candidate=5938.344 req/s, change=+4.85%
+Pair 21: reference=5872.748 candidate=5924.954 req/s, change=+0.89%
+PASS: median paired change=+0.89%; exact97.3396% median interval=[-0.42%, +3.66%]; mean change=+0.96%; range=[-11.42%, +9.92%]

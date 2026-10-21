@@ -20,6 +20,7 @@ pub mod ops;
 pub mod params;
 pub mod password;
 pub mod ratelimit;
+pub mod resources;
 pub mod service_auth;
 pub mod state;
 pub mod stream;

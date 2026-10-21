@@ -11,8 +11,12 @@ Sources are Mermaid files in [`diagrams/`](diagrams/), rendered with
 [`svg/`](svg/) in a light and a dark variant. Render after editing a source:
 
 ```sh
-cd docs/architecture && pnpm install && pnpm render
+cd docs/architecture && pnpm install --frozen-lockfile && pnpm render
 ```
+
+Run `pnpm check` in this directory to verify that every committed SVG matches
+its source. The check writes nothing and fails on stale, missing, or orphaned SVGs.
+The site workflow runs it before building.
 
 Shapes carry the categories, so the diagrams read the same in any theme:
 stadiums are outside the host, rectangles are the PDS process, double-edged
@@ -79,7 +83,11 @@ crate needs, is [crates.md](../crates.md).
 ## Process and listeners
 
 SPEC §3.2, §4.1, §14.3. One process, three listeners, supervised background
-tasks, injectable time and randomness. Source: [`04-process.mmd`](diagrams/04-process.mmd).
+tasks, injectable time and randomness, and separate admission budgets for
+transfers, ordinary blocking jobs and audit work. Repository operations
+queue asynchronously, with at most eight jobs per DID and 64 overall,
+before they take a blocking worker. Source:
+[`04-process.mmd`](diagrams/04-process.mmd).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="svg/04-process.dark.svg">
@@ -118,6 +126,10 @@ export: no node twice, and no more nodes than the input has blocks. The
 engine is written here. Source:
 [`19-repository-engine.mmd`](diagrams/19-repository-engine.mmd).
 
+The HTTP import path admits two jobs and defaults to a 64 MiB body cap.
+Import differences retain blocks still referenced by the final record set;
+blob deletion follows the durable actor commit.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="svg/19-repository-engine.dark.svg">
   <img alt="Repository engine: a commit from writes, a tree from elsewhere through its checks, and the export, over a block store" src="svg/19-repository-engine.svg">
@@ -128,8 +140,10 @@ engine is written here. Source:
 SPEC §7. Frames come only from the durable log; the broadcast is a wakeup.
 Cursor rules: no cursor, live only; `0`, the whole window; in window,
 backfill then live; above head, `FutureCursor`; older than the window,
-`OutdatedCursor`; slow consumer, `ConsumerTooSlow`. A page of the log ends
-after 500 events or 4 MiB. Source:
+`OutdatedCursor`; slow consumer, `ConsumerTooSlow`. Length metadata limits
+each page to 500 events or 4 MiB before content is read; one oversized event
+is served alone. At most 32 subscriptions run, with a 15-second send stall
+limit and 64 KiB incoming frame/message cap. Source:
 [`06-firehose.mmd`](diagrams/06-firehose.mmd).
 
 <picture>
@@ -140,9 +154,13 @@ after 500 events or 4 MiB. Source:
 ## Storage layout and seams
 
 SPEC §8. The reference layout on disk, the Candidate-only files beside it, and
-the traits every subsystem goes through. Schema version 1 equals the
-reference schema in the shared files, so the reference image can serve the
-same directory during the rollback window. Source:
+the traits every subsystem goes through. The account database also holds
+the additive `credential_epoch` table, which backups and backend copies
+must preserve. Older binaries accept the table but do not enforce recovery
+epochs. The additive index on
+`record_blob(recordUri)` changes no migration ledger; its first writable
+open builds it if absent. [Measured query costs](../performance/record-blob-index.md)
+include the added disk space and insertion cost. Source:
 [`07-storage.mmd`](diagrams/07-storage.mmd).
 
 <picture>
@@ -152,7 +170,9 @@ same directory during the rollback window. Source:
 
 ## Identity
 
-SPEC §9. Resolution paths and what the server trusts. Source:
+SPEC §9. Untrusted `did:web` and handle requests check connector addresses
+and refuse redirects. The configured PLC URL remains trusted. DNS handle
+verification is not implemented. Source:
 [`08-identity.mmd`](diagrams/08-identity.mmd).
 
 <picture>
@@ -239,9 +259,11 @@ PDS on a test host by its URL. Source:
 
 ## Deployment topologies
 
-SPEC §21. Version 1 is one node. Scale follows the protocol: an entryway
-over member hosts. The shared-database cluster is documented, not
-recommended. Source: [`15-topologies.mmd`](diagrams/15-topologies.mmd).
+SPEC §21. Version 1 is one node. The implemented split is one entryway
+over one member host; additional members remain planned. The member checks
+current legacy and OAuth session state at the entryway on every validated
+request, without caching. The check fails closed if the entryway is
+unavailable. Source: [`15-topologies.mmd`](diagrams/15-topologies.mmd).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="svg/15-topologies.dark.svg">
@@ -260,8 +282,11 @@ connection or a signing key. Source: [`16-sidecars.mmd`](diagrams/16-sidecars.mm
 
 ## Cutover and rollback
 
-SPEC §18. Same hostname, same directory, same secrets; the window stays
-open until the first Candidate-only migration. Source:
+SPEC §18. Same hostname, same directory, same secrets. The additive index
+and recovery table preserve schema compatibility, but older binaries do
+not enforce the recovery epoch or live member session checks. A rollback
+that must preserve revocation needs token-signing key rotation and fresh
+sign-in. Source:
 [`17-cutover.mmd`](diagrams/17-cutover.mmd).
 
 <picture>

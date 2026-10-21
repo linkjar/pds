@@ -31,6 +31,9 @@ use crate::write::{Committed, Session, backlinks, blob_cids, record_uri, transac
 /// The encoding of the input.
 const CAR: &str = "application/vnd.ipld.car";
 
+/// The import body limit when the operator has not configured one: 64 MiB.
+pub const DEFAULT_MAX_IMPORT_SIZE: u64 = 64 * 1024 * 1024;
+
 fn refused(error: &RepoError) -> XrpcError {
     match error {
         // The wording of upstream's own refusal, which the production
@@ -147,13 +150,19 @@ impl Session<'_> {
     /// Indexes the records an import changed: the record row, the links and
     /// the blob references of each.
     fn index_imported(
-        &self,
+        &mut self,
         changes: &[pds_repo::repo::RecordChange],
         new_blocks: &BlockMap,
         rev: &str,
         now: &str,
     ) -> Result<(), XrpcError> {
         let txn = self.txn();
+        let replaced: Vec<_> = changes
+            .iter()
+            .filter(|change| change.prev.is_some())
+            .map(|change| format!("at://{}/{}", self.did(), change.key))
+            .collect();
+        let removed_blobs = txn.delete_record_blobs(&replaced)?;
         for change in changes {
             let (collection, rkey) = change
                 .key
@@ -169,10 +178,11 @@ impl Session<'_> {
                     "Could not parse record at '{collection}/{rkey}'"
                 ))
             };
-            let record = new_blocks
-                .get(&record_cid)
-                .and_then(|bytes| Data::from_dag_cbor(bytes).ok())
-                .ok_or_else(unparsed)?;
+            let bytes = match new_blocks.get_shared(&record_cid) {
+                Some(bytes) => bytes,
+                None => txn.block(&record_cid)?.ok_or_else(unparsed)?.into(),
+            };
+            let record = Data::from_dag_cbor(&bytes).map_err(|_| unparsed())?;
             txn.index_record(&uri, &record_cid.to_string(), collection, rkey, rev, now)?;
             if change.prev.is_some() {
                 txn.remove_backlinks(&uri)?;
@@ -182,6 +192,7 @@ impl Session<'_> {
                 txn.associate_blob(&blob, &uri)?;
             }
         }
+        self.remove_unreferenced_blobs(removed_blobs)?;
         Ok(())
     }
 }
@@ -218,18 +229,18 @@ pub async fn import_repo(
             "Service is not accepting repo imports",
         ));
     }
-    let limit = settings.max_import_size;
-    if let (Some(limit), Some(length)) = (limit, body::content_length(headers)?)
-        && length > limit
-    {
+    let limit = settings.max_import_size.unwrap_or(DEFAULT_MAX_IMPORT_SIZE);
+    if body::content_length(headers)?.is_some_and(|length| length > limit) {
         return Err(body::payload_too_large());
     }
-    let limit = limit.map_or(usize::MAX, |limit| {
-        usize::try_from(limit).unwrap_or(usize::MAX)
-    });
+    let permit = state.resources().import()?;
+    let limit = usize::try_from(limit).unwrap_or(usize::MAX);
     let car = body::collect(body.take().unwrap_or_default(), limit).await?;
     state
-        .blocking(move |state| transact(state, &did, |session| session.import(&car, active)))
+        .repo_blocking(did.clone(), move |state| {
+            let _permit = permit;
+            transact(state, &did, |session| session.import(&car, active))
+        })
         .await?;
     Ok(StatusCode::OK.into_response())
 }

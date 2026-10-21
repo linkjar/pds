@@ -1,0 +1,5802 @@
+{
+  "script_sha256": "c9a0054e913d6733113a9700a4b0016b11d27c576a1099d5eed0c718183ce433",
+  "planned_pairs": 21,
+  "analysis_plan": {
+    "interval": "exact symmetric binomial median interval with coverage at least95%",
+    "pass": "median ratio >= 1.00 and lower interval bound >= 0.98",
+    "red": "upper interval bound < 1.00",
+    "otherwise": "INCONCLUSIVE",
+    "stopping": "complete every planned pair; stop early only on invalid measurement or HTTP failure"
+  },
+  "binaries": {
+    "reference": {
+      "path": "/private/tmp/linkjar-pds-small-page-controls-20261021/baseline_steady",
+      "sha256": "f96d1d7a4c0138fdaebf817c401479dd16e356a533ad38f8d163d54852026bd6"
+    },
+    "candidate": {
+      "path": "/private/tmp/linkjar-pds-small-page-controls-20261021/before_steady",
+      "sha256": "3f0f91d97f86d6d99a8c2462cf9a93034c9e2f24a43ef46325dcb15e86983c2f"
+    }
+  },
+  "pairs": [
+    {
+      "pair": 1,
+      "order": [
+        "reference",
+        "candidate"
+      ],
+      "runs": {
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1429",
+            "p95_us": "1940",
+            "p99_us": "2342",
+            "requests": "28153",
+            "req_per_s": "5629.521",
+            "body_bytes": "335865290",
+            "elapsed_s": "5.000959"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.681633708998561,
+          "before": {
+            "utc": "2026-10-21T21:00:48.604387+00:00",
+            "processes": [
+              {
+                "pid": 77548,
+                "cpu_percent": 21.9,
+                "command": "codex"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 18.6,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 493,
+                "cpu_percent": 16.6,
+                "command": "airportd"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 16.3,
+                "command": "Dia"
+              },
+              {
+                "pid": 46910,
+                "cpu_percent": 13.8,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 26611,
+                "cpu_percent": 11.5,
+                "command": "python3"
+              },
+              {
+                "pid": 78096,
+                "cpu_percent": 5.7,
+                "command": "codex-code-mode-host"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 4.4,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 10564,
+                "cpu_percent": 4.4,
+                "command": "1Password Helper (Renderer)"
+              },
+              {
+                "pid": 801,
+                "cpu_percent": 4.1,
+                "command": "WiFiAgent"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:00:54.328724+00:00",
+            "processes": [
+              {
+                "pid": 85892,
+                "cpu_percent": 41.4,
+                "command": "syncthing"
+              },
+              {
+                "pid": 69332,
+                "cpu_percent": 7.3,
+                "command": "Mail"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 3.5,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 59012,
+                "cpu_percent": 2.7,
+                "command": "trustd"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 1.8,
+                "command": "Dia"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 1.8,
+                "command": "codex"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 1.6,
+                "command": "idea"
+              },
+              {
+                "pid": 410,
+                "cpu_percent": 1.5,
+                "command": "locationd"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 1.1,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 1.0,
+                "command": "WindowServer"
+              }
+            ]
+          }
+        },
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1354",
+            "p95_us": "1826",
+            "p99_us": "2106",
+            "requests": "29714",
+            "req_per_s": "5941.215",
+            "body_bytes": "354488020",
+            "elapsed_s": "5.001334"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.611105790827423,
+          "before": {
+            "utc": "2026-10-21T21:00:54.381070+00:00",
+            "processes": [
+              {
+                "pid": 85892,
+                "cpu_percent": 32.2,
+                "command": "syncthing"
+              },
+              {
+                "pid": 69332,
+                "cpu_percent": 12.2,
+                "command": "Mail"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 9.5,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 3.4,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 25588,
+                "cpu_percent": 2.1,
+                "command": "VTDecoderXPCService"
+              },
+              {
+                "pid": 60179,
+                "cpu_percent": 1.9,
+                "command": "mds_stores"
+              },
+              {
+                "pid": 59012,
+                "cpu_percent": 1.6,
+                "command": "trustd"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 1.5,
+                "command": "Dia"
+              },
+              {
+                "pid": 35832,
+                "cpu_percent": 1.5,
+                "command": "Slack"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 1.5,
+                "command": "codex"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:01:00.041055+00:00",
+            "processes": [
+              {
+                "pid": 77547,
+                "cpu_percent": 22.9,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 7.2,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 410,
+                "cpu_percent": 4.0,
+                "command": "locationd"
+              },
+              {
+                "pid": 25340,
+                "cpu_percent": 3.6,
+                "command": "Claude"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 2.2,
+                "command": "codex"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.7,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 26614,
+                "cpu_percent": 1.3,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 25588,
+                "cpu_percent": 1.2,
+                "command": "VTDecoderXPCService"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 0.9,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 0.9,
+                "command": "Activity Monitor"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 1.0553677657477432
+    },
+    {
+      "pair": 2,
+      "order": [
+        "candidate",
+        "reference"
+      ],
+      "runs": {
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1365",
+            "p95_us": "1832",
+            "p99_us": "2128",
+            "requests": "29536",
+            "req_per_s": "5906.098",
+            "body_bytes": "352364480",
+            "elapsed_s": "5.000933"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.548236459027976,
+          "before": {
+            "utc": "2026-10-21T21:01:00.096463+00:00",
+            "processes": [
+              {
+                "pid": 77547,
+                "cpu_percent": 22.9,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 7.2,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 410,
+                "cpu_percent": 4.0,
+                "command": "locationd"
+              },
+              {
+                "pid": 25340,
+                "cpu_percent": 3.6,
+                "command": "Claude"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 2.2,
+                "command": "codex"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.7,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 26614,
+                "cpu_percent": 1.3,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 25588,
+                "cpu_percent": 1.2,
+                "command": "VTDecoderXPCService"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 0.9,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 0.9,
+                "command": "Activity Monitor"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:01:05.690215+00:00",
+            "processes": [
+              {
+                "pid": 85892,
+                "cpu_percent": 4.3,
+                "command": "syncthing"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 3.1,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 77480,
+                "cpu_percent": 2.7,
+                "command": "ChatGPT"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 2.6,
+                "command": "codex"
+              },
+              {
+                "pid": 391,
+                "cpu_percent": 1.8,
+                "command": "mds"
+              },
+              {
+                "pid": 60179,
+                "cpu_percent": 1.7,
+                "command": "mds_stores"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.4,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 366,
+                "cpu_percent": 1.1,
+                "command": "fseventsd"
+              },
+              {
+                "pid": 361,
+                "cpu_percent": 1.0,
+                "command": "logd"
+              },
+              {
+                "pid": 525,
+                "cpu_percent": 1.0,
+                "command": "syspolicyd"
+              }
+            ]
+          }
+        },
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1421",
+            "p95_us": "1915",
+            "p99_us": "2212",
+            "requests": "28484",
+            "req_per_s": "5695.449",
+            "body_bytes": "339814120",
+            "elapsed_s": "5.001186"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.529810541076586,
+          "before": {
+            "utc": "2026-10-21T21:01:05.749846+00:00",
+            "processes": [
+              {
+                "pid": 85892,
+                "cpu_percent": 3.3,
+                "command": "syncthing"
+              },
+              {
+                "pid": 77480,
+                "cpu_percent": 2.7,
+                "command": "ChatGPT"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 2.6,
+                "command": "codex"
+              },
+              {
+                "pid": 60179,
+                "cpu_percent": 2.5,
+                "command": "mds_stores"
+              },
+              {
+                "pid": 391,
+                "cpu_percent": 2.4,
+                "command": "mds"
+              },
+              {
+                "pid": 366,
+                "cpu_percent": 2.1,
+                "command": "fseventsd"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 1.9,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.6,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 26640,
+                "cpu_percent": 1.0,
+                "command": "mdworker_shared"
+              },
+              {
+                "pid": 525,
+                "cpu_percent": 0.8,
+                "command": "syspolicyd"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:01:11.317697+00:00",
+            "processes": [
+              {
+                "pid": 95127,
+                "cpu_percent": 22.1,
+                "command": "sysmond"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 12.2,
+                "command": "codex"
+              },
+              {
+                "pid": 77480,
+                "cpu_percent": 3.9,
+                "command": "ChatGPT"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 3.7,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 78142,
+                "cpu_percent": 2.7,
+                "command": "com.apple.appkit.xpc.openAndSavePanelService"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 1.9,
+                "command": "syncthing"
+              },
+              {
+                "pid": 1,
+                "cpu_percent": 1.8,
+                "command": "launchd"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.6,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 366,
+                "cpu_percent": 1.4,
+                "command": "fseventsd"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 1.1,
+                "command": "Codex (Renderer)"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 1.036985494910059
+    },
+    {
+      "pair": 3,
+      "order": [
+        "reference",
+        "candidate"
+      ],
+      "runs": {
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1399",
+            "p95_us": "1927",
+            "p99_us": "2367",
+            "requests": "28806",
+            "req_per_s": "5760.263",
+            "body_bytes": "343655580",
+            "elapsed_s": "5.000813"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.51503250002861,
+          "before": {
+            "utc": "2026-10-21T21:01:11.366354+00:00",
+            "processes": [
+              {
+                "pid": 95127,
+                "cpu_percent": 23.8,
+                "command": "sysmond"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 12.2,
+                "command": "codex"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 11.0,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 77480,
+                "cpu_percent": 3.9,
+                "command": "ChatGPT"
+              },
+              {
+                "pid": 78142,
+                "cpu_percent": 2.7,
+                "command": "com.apple.appkit.xpc.openAndSavePanelService"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 2.1,
+                "command": "Dia"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.4,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 1.4,
+                "command": "syncthing"
+              },
+              {
+                "pid": 1,
+                "cpu_percent": 1.1,
+                "command": "launchd"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 1.1,
+                "command": "Codex (Renderer)"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:01:16.941124+00:00",
+            "processes": [
+              {
+                "pid": 85892,
+                "cpu_percent": 41.5,
+                "command": "syncthing"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 7.3,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 2.9,
+                "command": "idea"
+              },
+              {
+                "pid": 83470,
+                "cpu_percent": 1.8,
+                "command": "bun"
+              },
+              {
+                "pid": 77480,
+                "cpu_percent": 1.6,
+                "command": "ChatGPT"
+              },
+              {
+                "pid": 438,
+                "cpu_percent": 1.5,
+                "command": "runningboardd"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.5,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 1.2,
+                "command": "codex"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 0.9,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 687,
+                "cpu_percent": 0.8,
+                "command": "ControlCenter"
+              }
+            ]
+          }
+        },
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1378",
+            "p95_us": "1853",
+            "p99_us": "2157",
+            "requests": "29181",
+            "req_per_s": "5835.454",
+            "body_bytes": "348129330",
+            "elapsed_s": "5.000639"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.5456815420184284,
+          "before": {
+            "utc": "2026-10-21T21:01:16.999326+00:00",
+            "processes": [
+              {
+                "pid": 85892,
+                "cpu_percent": 33.5,
+                "command": "syncthing"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 4.6,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 35390,
+                "cpu_percent": 3.9,
+                "command": "Tailscale"
+              },
+              {
+                "pid": 13151,
+                "cpu_percent": 3.4,
+                "command": "MSTeams"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 2.9,
+                "command": "idea"
+              },
+              {
+                "pid": 493,
+                "cpu_percent": 2.7,
+                "command": "airportd"
+              },
+              {
+                "pid": 92976,
+                "cpu_percent": 2.4,
+                "command": "networkserviceproxy"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 2.3,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 2.1,
+                "command": "Dia"
+              },
+              {
+                "pid": 59013,
+                "cpu_percent": 1.8,
+                "command": "trustd"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:01:22.584051+00:00",
+            "processes": [
+              {
+                "pid": 62006,
+                "cpu_percent": 4.3,
+                "command": "CoreDeviceService"
+              },
+              {
+                "pid": 95127,
+                "cpu_percent": 0.9,
+                "command": "sysmond"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 0.8,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 0.6,
+                "command": "codex"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 0.5,
+                "command": "Dia"
+              },
+              {
+                "pid": 72566,
+                "cpu_percent": 0.5,
+                "command": "rex"
+              },
+              {
+                "pid": 35625,
+                "cpu_percent": 0.4,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 36689,
+                "cpu_percent": 0.4,
+                "command": "claude"
+              },
+              {
+                "pid": 24476,
+                "cpu_percent": 0.3,
+                "command": "parsecd"
+              },
+              {
+                "pid": 36121,
+                "cpu_percent": 0.3,
+                "command": "Raycast Backend"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 1.0130533970410727
+    },
+    {
+      "pair": 4,
+      "order": [
+        "candidate",
+        "reference"
+      ],
+      "runs": {
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1375",
+            "p95_us": "1820",
+            "p99_us": "2017",
+            "requests": "29434",
+            "req_per_s": "5885.690",
+            "body_bytes": "351147620",
+            "elapsed_s": "5.000943"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.5824047909118235,
+          "before": {
+            "utc": "2026-10-21T21:01:22.631925+00:00",
+            "processes": [
+              {
+                "pid": 62006,
+                "cpu_percent": 2.7,
+                "command": "CoreDeviceService"
+              },
+              {
+                "pid": 545,
+                "cpu_percent": 2.2,
+                "command": "searchpartyd"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 0.9,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 0.6,
+                "command": "Codex (Service)"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 0.6,
+                "command": "codex"
+              },
+              {
+                "pid": 95127,
+                "cpu_percent": 0.5,
+                "command": "sysmond"
+              },
+              {
+                "pid": 366,
+                "cpu_percent": 0.4,
+                "command": "fseventsd"
+              },
+              {
+                "pid": 33714,
+                "cpu_percent": 0.4,
+                "command": "1Password"
+              },
+              {
+                "pid": 60179,
+                "cpu_percent": 0.4,
+                "command": "mds_stores"
+              },
+              {
+                "pid": 72566,
+                "cpu_percent": 0.4,
+                "command": "rex"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:01:28.252770+00:00",
+            "processes": [
+              {
+                "pid": 32453,
+                "cpu_percent": 47.4,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 742,
+                "cpu_percent": 12.7,
+                "command": "corespotlightd"
+              },
+              {
+                "pid": 62683,
+                "cpu_percent": 6.3,
+                "command": "cfprefsd"
+              },
+              {
+                "pid": 414,
+                "cpu_percent": 3.9,
+                "command": "dasd"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 3.3,
+                "command": "idea"
+              },
+              {
+                "pid": 436,
+                "cpu_percent": 1.0,
+                "command": "cfprefsd"
+              },
+              {
+                "pid": 361,
+                "cpu_percent": 0.8,
+                "command": "logd"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 0.7,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 35637,
+                "cpu_percent": 0.6,
+                "command": "agent-server"
+              },
+              {
+                "pid": 438,
+                "cpu_percent": 0.5,
+                "command": "runningboardd"
+              }
+            ]
+          }
+        },
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1386",
+            "p95_us": "1834",
+            "p99_us": "2050",
+            "requests": "29311",
+            "req_per_s": "5861.439",
+            "body_bytes": "349680230",
+            "elapsed_s": "5.000649"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.517543375026435,
+          "before": {
+            "utc": "2026-10-21T21:01:28.301054+00:00",
+            "processes": [
+              {
+                "pid": 32453,
+                "cpu_percent": 47.4,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 742,
+                "cpu_percent": 12.7,
+                "command": "corespotlightd"
+              },
+              {
+                "pid": 62683,
+                "cpu_percent": 6.3,
+                "command": "cfprefsd"
+              },
+              {
+                "pid": 414,
+                "cpu_percent": 3.9,
+                "command": "dasd"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 1.9,
+                "command": "idea"
+              },
+              {
+                "pid": 436,
+                "cpu_percent": 1.0,
+                "command": "cfprefsd"
+              },
+              {
+                "pid": 361,
+                "cpu_percent": 0.8,
+                "command": "logd"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 0.7,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 72566,
+                "cpu_percent": 0.7,
+                "command": "rex"
+              },
+              {
+                "pid": 35637,
+                "cpu_percent": 0.6,
+                "command": "agent-server"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:01:33.862171+00:00",
+            "processes": [
+              {
+                "pid": 85892,
+                "cpu_percent": 72.1,
+                "command": "syncthing"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.1,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 83470,
+                "cpu_percent": 0.9,
+                "command": "bun"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 0.5,
+                "command": "Dia"
+              },
+              {
+                "pid": 96309,
+                "cpu_percent": 0.5,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 35614,
+                "cpu_percent": 0.4,
+                "command": "Browser Helper"
+              },
+              {
+                "pid": 72566,
+                "cpu_percent": 0.4,
+                "command": "rex"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 0.4,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 36689,
+                "cpu_percent": 0.4,
+                "command": "claude"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 0.3,
+                "command": ".devenv-wrapped"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 1.0041373799164333
+    },
+    {
+      "pair": 5,
+      "order": [
+        "reference",
+        "candidate"
+      ],
+      "runs": {
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1395",
+            "p95_us": "1840",
+            "p99_us": "2030",
+            "requests": "29152",
+            "req_per_s": "5829.646",
+            "body_bytes": "347783360",
+            "elapsed_s": "5.000646"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.551477583125234,
+          "before": {
+            "utc": "2026-10-21T21:01:33.912862+00:00",
+            "processes": [
+              {
+                "pid": 85892,
+                "cpu_percent": 72.5,
+                "command": "syncthing"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 7.1,
+                "command": "codex"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 1.7,
+                "command": "Dia"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 1.6,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 60179,
+                "cpu_percent": 1.5,
+                "command": "mds_stores"
+              },
+              {
+                "pid": 391,
+                "cpu_percent": 1.2,
+                "command": "mds"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.0,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 18627,
+                "cpu_percent": 1.0,
+                "command": "devicecheckd"
+              },
+              {
+                "pid": 77480,
+                "cpu_percent": 0.7,
+                "command": "ChatGPT"
+              },
+              {
+                "pid": 83470,
+                "cpu_percent": 0.6,
+                "command": "bun"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:01:39.503634+00:00",
+            "processes": [
+              {
+                "pid": 83455,
+                "cpu_percent": 2.8,
+                "command": "bun"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 1.2,
+                "command": "Dia"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.0,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 0.8,
+                "command": "Codex (Service)"
+              },
+              {
+                "pid": 41634,
+                "cpu_percent": 0.7,
+                "command": "omp"
+              },
+              {
+                "pid": 72566,
+                "cpu_percent": 0.6,
+                "command": "rex"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 0.6,
+                "command": "codex"
+              },
+              {
+                "pid": 85754,
+                "cpu_percent": 0.6,
+                "command": "Bitwarden Helper (Renderer)"
+              },
+              {
+                "pid": 36689,
+                "cpu_percent": 0.6,
+                "command": "claude"
+              },
+              {
+                "pid": 35625,
+                "cpu_percent": 0.4,
+                "command": "Browser Helper (Renderer)"
+              }
+            ]
+          }
+        },
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1390",
+            "p95_us": "1867",
+            "p99_us": "2151",
+            "requests": "28914",
+            "req_per_s": "5781.808",
+            "body_bytes": "344944020",
+            "elapsed_s": "5.000858"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.563578958855942,
+          "before": {
+            "utc": "2026-10-21T21:01:39.551942+00:00",
+            "processes": [
+              {
+                "pid": 36689,
+                "cpu_percent": 4.9,
+                "command": "claude"
+              },
+              {
+                "pid": 83455,
+                "cpu_percent": 1.7,
+                "command": "bun"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 1.2,
+                "command": "Dia"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.0,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 72566,
+                "cpu_percent": 0.7,
+                "command": "rex"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 0.6,
+                "command": "codex"
+              },
+              {
+                "pid": 85754,
+                "cpu_percent": 0.6,
+                "command": "Bitwarden Helper (Renderer)"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 0.5,
+                "command": "Codex (Service)"
+              },
+              {
+                "pid": 41634,
+                "cpu_percent": 0.5,
+                "command": "omp"
+              },
+              {
+                "pid": 49846,
+                "cpu_percent": 0.5,
+                "command": "claude"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:01:45.154917+00:00",
+            "processes": [
+              {
+                "pid": 91442,
+                "cpu_percent": 8.1,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 8.0,
+                "command": "idea"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 3.5,
+                "command": "Dia"
+              },
+              {
+                "pid": 405,
+                "cpu_percent": 2.4,
+                "command": "launchservicesd"
+              },
+              {
+                "pid": 410,
+                "cpu_percent": 2.1,
+                "command": "locationd"
+              },
+              {
+                "pid": 26902,
+                "cpu_percent": 0.9,
+                "command": "postgres: kadza ip_outbound 127.0.0.1(61607) idle"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 0.8,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 35613,
+                "cpu_percent": 0.6,
+                "command": "Browser Helper"
+              },
+              {
+                "pid": 83470,
+                "cpu_percent": 0.6,
+                "command": "bun"
+              },
+              {
+                "pid": 23775,
+                "cpu_percent": 0.4,
+                "command": "Browser Helper (Renderer)"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 0.991794012878312
+    },
+    {
+      "pair": 6,
+      "order": [
+        "candidate",
+        "reference"
+      ],
+      "runs": {
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1409",
+            "p95_us": "1918",
+            "p99_us": "2478",
+            "requests": "28423",
+            "req_per_s": "5683.853",
+            "body_bytes": "339086390",
+            "elapsed_s": "5.000657"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.520869417116046,
+          "before": {
+            "utc": "2026-10-21T21:01:45.203419+00:00",
+            "processes": [
+              {
+                "pid": 91442,
+                "cpu_percent": 8.1,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 8.0,
+                "command": "idea"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 3.5,
+                "command": "Dia"
+              },
+              {
+                "pid": 405,
+                "cpu_percent": 2.4,
+                "command": "launchservicesd"
+              },
+              {
+                "pid": 410,
+                "cpu_percent": 2.1,
+                "command": "locationd"
+              },
+              {
+                "pid": 26902,
+                "cpu_percent": 0.9,
+                "command": "postgres: kadza ip_outbound 127.0.0.1(61607) idle"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 0.8,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 35613,
+                "cpu_percent": 0.6,
+                "command": "Browser Helper"
+              },
+              {
+                "pid": 83470,
+                "cpu_percent": 0.6,
+                "command": "bun"
+              },
+              {
+                "pid": 23775,
+                "cpu_percent": 0.4,
+                "command": "Browser Helper (Renderer)"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:01:50.766064+00:00",
+            "processes": [
+              {
+                "pid": 26992,
+                "cpu_percent": 99.5,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 34.0,
+                "command": "syncthing"
+              },
+              {
+                "pid": 96308,
+                "cpu_percent": 7.2,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 3.3,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 2.2,
+                "command": "Dia"
+              },
+              {
+                "pid": 410,
+                "cpu_percent": 2.0,
+                "command": "locationd"
+              },
+              {
+                "pid": 96309,
+                "cpu_percent": 2.0,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.8,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 545,
+                "cpu_percent": 1.2,
+                "command": "searchpartyd"
+              },
+              {
+                "pid": 83470,
+                "cpu_percent": 1.0,
+                "command": "bun"
+              }
+            ]
+          }
+        },
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1402",
+            "p95_us": "1860",
+            "p99_us": "2080",
+            "requests": "29070",
+            "req_per_s": "5812.482",
+            "body_bytes": "346805100",
+            "elapsed_s": "5.001306"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.5823769581038505,
+          "before": {
+            "utc": "2026-10-21T21:01:50.835843+00:00",
+            "processes": [
+              {
+                "pid": 26992,
+                "cpu_percent": 111.0,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 34.0,
+                "command": "syncthing"
+              },
+              {
+                "pid": 96308,
+                "cpu_percent": 7.2,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 3.3,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 2.2,
+                "command": "Dia"
+              },
+              {
+                "pid": 410,
+                "cpu_percent": 2.0,
+                "command": "locationd"
+              },
+              {
+                "pid": 96309,
+                "cpu_percent": 2.0,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.8,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 545,
+                "cpu_percent": 1.2,
+                "command": "searchpartyd"
+              },
+              {
+                "pid": 83470,
+                "cpu_percent": 1.0,
+                "command": "bun"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:01:56.458536+00:00",
+            "processes": [
+              {
+                "pid": 45049,
+                "cpu_percent": 52.4,
+                "command": "idea"
+              },
+              {
+                "pid": 94507,
+                "cpu_percent": 8.0,
+                "command": "com.docker.backend"
+              },
+              {
+                "pid": 13421,
+                "cpu_percent": 7.5,
+                "command": "Microsoft Teams WebView Helper (Renderer)"
+              },
+              {
+                "pid": 13398,
+                "cpu_percent": 4.9,
+                "command": "Microsoft Teams WebView"
+              },
+              {
+                "pid": 13405,
+                "cpu_percent": 3.1,
+                "command": "Microsoft Teams WebView Helper"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 2.4,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 2.4,
+                "command": "codex"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 1.1,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 72566,
+                "cpu_percent": 0.6,
+                "command": "rex"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 0.5,
+                "command": ".devenv-wrapped"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 0.9778702110389331
+    },
+    {
+      "pair": 7,
+      "order": [
+        "reference",
+        "candidate"
+      ],
+      "runs": {
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1434",
+            "p95_us": "1938",
+            "p99_us": "2285",
+            "requests": "28096",
+            "req_per_s": "5617.814",
+            "body_bytes": "335185280",
+            "elapsed_s": "5.001234"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.545012749964371,
+          "before": {
+            "utc": "2026-10-21T21:01:56.507823+00:00",
+            "processes": [
+              {
+                "pid": 45049,
+                "cpu_percent": 52.4,
+                "command": "idea"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 10.2,
+                "command": "syncthing"
+              },
+              {
+                "pid": 94507,
+                "cpu_percent": 4.9,
+                "command": "com.docker.backend"
+              },
+              {
+                "pid": 13421,
+                "cpu_percent": 4.6,
+                "command": "Microsoft Teams WebView Helper (Renderer)"
+              },
+              {
+                "pid": 13398,
+                "cpu_percent": 3.0,
+                "command": "Microsoft Teams WebView"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 2.7,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 2.4,
+                "command": "codex"
+              },
+              {
+                "pid": 13405,
+                "cpu_percent": 1.9,
+                "command": "Microsoft Teams WebView Helper"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 0.6,
+                "command": "Dia"
+              },
+              {
+                "pid": 72566,
+                "cpu_percent": 0.6,
+                "command": "rex"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:02:02.095042+00:00",
+            "processes": [
+              {
+                "pid": 742,
+                "cpu_percent": 69.9,
+                "command": "corespotlightd"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 28.8,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 26.5,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 18.7,
+                "command": "idea"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 16.1,
+                "command": "codex"
+              },
+              {
+                "pid": 27016,
+                "cpu_percent": 13.8,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 437,
+                "cpu_percent": 10.4,
+                "command": "loginwindow"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 6.6,
+                "command": "Dia"
+              },
+              {
+                "pid": 25588,
+                "cpu_percent": 5.6,
+                "command": "VTDecoderXPCService"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 3.8,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              }
+            ]
+          }
+        },
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1390",
+            "p95_us": "1854",
+            "p99_us": "2112",
+            "requests": "29135",
+            "req_per_s": "5825.847",
+            "body_bytes": "347580550",
+            "elapsed_s": "5.000990"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.579010250046849,
+          "before": {
+            "utc": "2026-10-21T21:02:02.148433+00:00",
+            "processes": [
+              {
+                "pid": 742,
+                "cpu_percent": 85.9,
+                "command": "corespotlightd"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 31.8,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 26.0,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 23.6,
+                "command": "idea"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 15.8,
+                "command": "codex"
+              },
+              {
+                "pid": 27016,
+                "cpu_percent": 13.8,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 437,
+                "cpu_percent": 6.5,
+                "command": "loginwindow"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 4.6,
+                "command": "Dia"
+              },
+              {
+                "pid": 25588,
+                "cpu_percent": 4.0,
+                "command": "VTDecoderXPCService"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 3.8,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:02:07.765709+00:00",
+            "processes": [
+              {
+                "pid": 25584,
+                "cpu_percent": 2.7,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.4,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 15835,
+                "cpu_percent": 1.2,
+                "command": "routined"
+              },
+              {
+                "pid": 83470,
+                "cpu_percent": 0.9,
+                "command": "bun"
+              },
+              {
+                "pid": 36689,
+                "cpu_percent": 0.7,
+                "command": "claude"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 0.6,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 0.6,
+                "command": "Dia"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 0.6,
+                "command": "codex"
+              },
+              {
+                "pid": 734,
+                "cpu_percent": 0.4,
+                "command": "ContinuityCaptureAgent"
+              },
+              {
+                "pid": 25588,
+                "cpu_percent": 0.4,
+                "command": "VTDecoderXPCService"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 1.0370309518969476
+    },
+    {
+      "pair": 8,
+      "order": [
+        "candidate",
+        "reference"
+      ],
+      "runs": {
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1400",
+            "p95_us": "1877",
+            "p99_us": "2116",
+            "requests": "28930",
+            "req_per_s": "5784.944",
+            "body_bytes": "345134900",
+            "elapsed_s": "5.000912"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.539363291114569,
+          "before": {
+            "utc": "2026-10-21T21:02:07.815055+00:00",
+            "processes": [
+              {
+                "pid": 25584,
+                "cpu_percent": 2.7,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.4,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 83470,
+                "cpu_percent": 0.9,
+                "command": "bun"
+              },
+              {
+                "pid": 15835,
+                "cpu_percent": 0.7,
+                "command": "routined"
+              },
+              {
+                "pid": 36689,
+                "cpu_percent": 0.7,
+                "command": "claude"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 0.6,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 0.6,
+                "command": "Dia"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 0.6,
+                "command": "codex"
+              },
+              {
+                "pid": 734,
+                "cpu_percent": 0.4,
+                "command": "ContinuityCaptureAgent"
+              },
+              {
+                "pid": 25588,
+                "cpu_percent": 0.4,
+                "command": "VTDecoderXPCService"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:02:13.393222+00:00",
+            "processes": [
+              {
+                "pid": 35609,
+                "cpu_percent": 1.6,
+                "command": "Dia"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.5,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 60179,
+                "cpu_percent": 1.0,
+                "command": "mds_stores"
+              },
+              {
+                "pid": 77480,
+                "cpu_percent": 0.8,
+                "command": "ChatGPT"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 0.8,
+                "command": "codex"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 0.6,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 391,
+                "cpu_percent": 0.5,
+                "command": "mds"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 0.5,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 3978,
+                "cpu_percent": 0.3,
+                "command": "postgres"
+              },
+              {
+                "pid": 72566,
+                "cpu_percent": 0.3,
+                "command": "rex"
+              }
+            ]
+          }
+        },
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1443",
+            "p95_us": "1961",
+            "p99_us": "2300",
+            "requests": "27963",
+            "req_per_s": "5591.578",
+            "body_bytes": "333598590",
+            "elapsed_s": "5.000914"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.559623874956742,
+          "before": {
+            "utc": "2026-10-21T21:02:13.441666+00:00",
+            "processes": [
+              {
+                "pid": 35609,
+                "cpu_percent": 1.6,
+                "command": "Dia"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.5,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 60179,
+                "cpu_percent": 1.0,
+                "command": "mds_stores"
+              },
+              {
+                "pid": 77480,
+                "cpu_percent": 0.8,
+                "command": "ChatGPT"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 0.8,
+                "command": "codex"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 0.6,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 391,
+                "cpu_percent": 0.5,
+                "command": "mds"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 0.5,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 26619,
+                "cpu_percent": 0.5,
+                "command": "mdworker_shared"
+              },
+              {
+                "pid": 26611,
+                "cpu_percent": 0.4,
+                "command": "python3"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:02:19.046296+00:00",
+            "processes": [
+              {
+                "pid": 85892,
+                "cpu_percent": 33.0,
+                "command": "syncthing"
+              },
+              {
+                "pid": 95127,
+                "cpu_percent": 22.9,
+                "command": "sysmond"
+              },
+              {
+                "pid": 27125,
+                "cpu_percent": 18.7,
+                "command": "devenv"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 15.2,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 27143,
+                "cpu_percent": 4.9,
+                "command": "(bash)"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 4.4,
+                "command": "codex"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 3.3,
+                "command": "idea"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 2.1,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 27142,
+                "cpu_percent": 1.8,
+                "command": "nix-daemon"
+              },
+              {
+                "pid": 78096,
+                "cpu_percent": 1.8,
+                "command": "codex-code-mode-host"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 1.0345816511904153
+    },
+    {
+      "pair": 9,
+      "order": [
+        "reference",
+        "candidate"
+      ],
+      "runs": {
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1406",
+            "p95_us": "1929",
+            "p99_us": "2352",
+            "requests": "28539",
+            "req_per_s": "5706.976",
+            "body_bytes": "340470270",
+            "elapsed_s": "5.000722"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.607598457951099,
+          "before": {
+            "utc": "2026-10-21T21:02:19.101383+00:00",
+            "processes": [
+              {
+                "pid": 85892,
+                "cpu_percent": 33.0,
+                "command": "syncthing"
+              },
+              {
+                "pid": 95127,
+                "cpu_percent": 22.9,
+                "command": "sysmond"
+              },
+              {
+                "pid": 27125,
+                "cpu_percent": 18.7,
+                "command": "bash"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 15.2,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 4.4,
+                "command": "codex"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 3.3,
+                "command": "idea"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 2.1,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 27142,
+                "cpu_percent": 1.8,
+                "command": "(nix)"
+              },
+              {
+                "pid": 78096,
+                "cpu_percent": 1.8,
+                "command": "codex-code-mode-host"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 1.3,
+                "command": "Dia"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:02:24.750444+00:00",
+            "processes": [
+              {
+                "pid": 60179,
+                "cpu_percent": 16.0,
+                "command": "mds_stores"
+              },
+              {
+                "pid": 92976,
+                "cpu_percent": 4.7,
+                "command": "networkserviceproxy"
+              },
+              {
+                "pid": 27194,
+                "cpu_percent": 3.6,
+                "command": "mdworker_shared"
+              },
+              {
+                "pid": 95127,
+                "cpu_percent": 3.6,
+                "command": "sysmond"
+              },
+              {
+                "pid": 13151,
+                "cpu_percent": 2.8,
+                "command": "MSTeams"
+              },
+              {
+                "pid": 59013,
+                "cpu_percent": 2.8,
+                "command": "trustd"
+              },
+              {
+                "pid": 35390,
+                "cpu_percent": 2.7,
+                "command": "Tailscale"
+              },
+              {
+                "pid": 36689,
+                "cpu_percent": 2.7,
+                "command": "claude"
+              },
+              {
+                "pid": 69332,
+                "cpu_percent": 2.4,
+                "command": "Mail"
+              },
+              {
+                "pid": 35417,
+                "cpu_percent": 2.3,
+                "command": "io.tailscale.ipn.macsys.network-extension"
+              }
+            ]
+          }
+        },
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1402",
+            "p95_us": "1943",
+            "p99_us": "2390",
+            "requests": "28436",
+            "req_per_s": "5685.586",
+            "body_bytes": "339241480",
+            "elapsed_s": "5.001420"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.561386624816805,
+          "before": {
+            "utc": "2026-10-21T21:02:24.808192+00:00",
+            "processes": [
+              {
+                "pid": 60179,
+                "cpu_percent": 24.5,
+                "command": "mds_stores"
+              },
+              {
+                "pid": 61436,
+                "cpu_percent": 4.2,
+                "command": "PerfPowerServices"
+              },
+              {
+                "pid": 27194,
+                "cpu_percent": 3.9,
+                "command": "mdworker_shared"
+              },
+              {
+                "pid": 27193,
+                "cpu_percent": 2.9,
+                "command": "mdworker_shared"
+              },
+              {
+                "pid": 92976,
+                "cpu_percent": 2.9,
+                "command": "networkserviceproxy"
+              },
+              {
+                "pid": 95127,
+                "cpu_percent": 2.2,
+                "command": "sysmond"
+              },
+              {
+                "pid": 36689,
+                "cpu_percent": 2.1,
+                "command": "claude"
+              },
+              {
+                "pid": 391,
+                "cpu_percent": 1.8,
+                "command": "mds"
+              },
+              {
+                "pid": 13151,
+                "cpu_percent": 1.6,
+                "command": "MSTeams"
+              },
+              {
+                "pid": 35390,
+                "cpu_percent": 1.6,
+                "command": "Tailscale"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:02:30.414070+00:00",
+            "processes": [
+              {
+                "pid": 45049,
+                "cpu_percent": 243.4,
+                "command": "idea"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 7.0,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 96309,
+                "cpu_percent": 2.8,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 62006,
+                "cpu_percent": 2.6,
+                "command": "CoreDeviceService"
+              },
+              {
+                "pid": 405,
+                "cpu_percent": 1.6,
+                "command": "launchservicesd"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.3,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 0.9,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 48586,
+                "cpu_percent": 0.9,
+                "command": "Dock"
+              },
+              {
+                "pid": 23775,
+                "cpu_percent": 0.8,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 401,
+                "cpu_percent": 0.7,
+                "command": "contextstored"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 0.9962519555014776
+    },
+    {
+      "pair": 10,
+      "order": [
+        "candidate",
+        "reference"
+      ],
+      "runs": {
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1570",
+            "p95_us": "2192",
+            "p99_us": "2617",
+            "requests": "25542",
+            "req_per_s": "5107.480",
+            "body_bytes": "304716060",
+            "elapsed_s": "5.000901"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.680499208858237,
+          "before": {
+            "utc": "2026-10-21T21:02:30.477870+00:00",
+            "processes": [
+              {
+                "pid": 45049,
+                "cpu_percent": 243.4,
+                "command": "idea"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 7.0,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 96309,
+                "cpu_percent": 2.8,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 62006,
+                "cpu_percent": 2.6,
+                "command": "CoreDeviceService"
+              },
+              {
+                "pid": 405,
+                "cpu_percent": 1.6,
+                "command": "launchservicesd"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.3,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 0.9,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 48586,
+                "cpu_percent": 0.9,
+                "command": "Dock"
+              },
+              {
+                "pid": 23775,
+                "cpu_percent": 0.8,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 401,
+                "cpu_percent": 0.7,
+                "command": "contextstored"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:02:36.198081+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 145.9,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 27.4,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 62683,
+                "cpu_percent": 4.2,
+                "command": "cfprefsd"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 2.5,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 77480,
+                "cpu_percent": 2.4,
+                "command": "ChatGPT"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 2.3,
+                "command": "codex"
+              },
+              {
+                "pid": 414,
+                "cpu_percent": 2.1,
+                "command": "dasd"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.4,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 1.2,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 27528,
+                "cpu_percent": 1.1,
+                "command": "postgres: kadza ip_outbound 127.0.0.1(61793) idle"
+              }
+            ]
+          }
+        },
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1598",
+            "p95_us": "2168",
+            "p99_us": "2435",
+            "requests": "25372",
+            "req_per_s": "5072.754",
+            "body_bytes": "302687960",
+            "elapsed_s": "5.001622"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.604967874940485,
+          "before": {
+            "utc": "2026-10-21T21:02:36.254570+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 145.9,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 27.4,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 62683,
+                "cpu_percent": 4.2,
+                "command": "cfprefsd"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 2.5,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 77480,
+                "cpu_percent": 2.4,
+                "command": "ChatGPT"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 2.3,
+                "command": "codex"
+              },
+              {
+                "pid": 414,
+                "cpu_percent": 2.1,
+                "command": "dasd"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.4,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 1.2,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 27528,
+                "cpu_percent": 1.1,
+                "command": "postgres: kadza ip_outbound 127.0.0.1(61793) idle"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:02:41.908175+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 169.9,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 30.0,
+                "command": "syncthing"
+              },
+              {
+                "pid": 49846,
+                "cpu_percent": 7.5,
+                "command": "claude"
+              },
+              {
+                "pid": 36044,
+                "cpu_percent": 3.3,
+                "command": "Slack Helper (Renderer)"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 2.4,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 502,
+                "cpu_percent": 2.1,
+                "command": "mDNSResponder"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 1.5,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 36689,
+                "cpu_percent": 1.5,
+                "command": "claude"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 1.1,
+                "command": "idea"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 1.0,
+                "command": ".devenv-wrapped"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 1.0068455911719747
+    },
+    {
+      "pair": 11,
+      "order": [
+        "reference",
+        "candidate"
+      ],
+      "runs": {
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1616",
+            "p95_us": "2202",
+            "p99_us": "2502",
+            "requests": "25035",
+            "req_per_s": "5005.583",
+            "body_bytes": "298667550",
+            "elapsed_s": "5.001415"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.57820437499322,
+          "before": {
+            "utc": "2026-10-21T21:02:41.976229+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 169.9,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 30.0,
+                "command": "syncthing"
+              },
+              {
+                "pid": 49846,
+                "cpu_percent": 7.5,
+                "command": "claude"
+              },
+              {
+                "pid": 36044,
+                "cpu_percent": 3.3,
+                "command": "Slack Helper (Renderer)"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 2.4,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 502,
+                "cpu_percent": 2.1,
+                "command": "mDNSResponder"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 1.5,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 36689,
+                "cpu_percent": 1.5,
+                "command": "claude"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 1.1,
+                "command": "idea"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 1.0,
+                "command": ".devenv-wrapped"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:02:47.628074+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 118.9,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 27616,
+                "cpu_percent": 15.5,
+                "command": "bash"
+              },
+              {
+                "pid": 96308,
+                "cpu_percent": 8.1,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 96309,
+                "cpu_percent": 7.8,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 5.9,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 5.4,
+                "command": "Dia"
+              },
+              {
+                "pid": 89632,
+                "cpu_percent": 4.3,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 2.9,
+                "command": "syncthing"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 2.8,
+                "command": "codex"
+              },
+              {
+                "pid": 45822,
+                "cpu_percent": 2.6,
+                "command": "Browser Helper (Renderer)"
+              }
+            ]
+          }
+        },
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1607",
+            "p95_us": "2202",
+            "p99_us": "2574",
+            "requests": "24989",
+            "req_per_s": "4996.482",
+            "body_bytes": "298118770",
+            "elapsed_s": "5.001319"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.621544708963484,
+          "before": {
+            "utc": "2026-10-21T21:02:47.691935+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 141.1,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 96309,
+                "cpu_percent": 25.1,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 9.8,
+                "command": "Dia"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 6.5,
+                "command": "syncthing"
+              },
+              {
+                "pid": 96308,
+                "cpu_percent": 6.2,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 27616,
+                "cpu_percent": 4.4,
+                "command": "python3"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 4.4,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 77480,
+                "cpu_percent": 3.2,
+                "command": "ChatGPT"
+              },
+              {
+                "pid": 78142,
+                "cpu_percent": 2.9,
+                "command": "com.apple.appkit.xpc.openAndSavePanelService"
+              },
+              {
+                "pid": 89632,
+                "cpu_percent": 2.8,
+                "command": "Browser Helper (Renderer)"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:02:53.355532+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 169.1,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 27687,
+                "cpu_percent": 6.0,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 2.1,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 1.3,
+                "command": "Dia"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 1.2,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 1.1,
+                "command": "syncthing"
+              },
+              {
+                "pid": 414,
+                "cpu_percent": 0.9,
+                "command": "dasd"
+              },
+              {
+                "pid": 72566,
+                "cpu_percent": 0.8,
+                "command": "rex"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 0.7,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 742,
+                "cpu_percent": 0.5,
+                "command": "corespotlightd"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 0.998181830168434
+    },
+    {
+      "pair": 12,
+      "order": [
+        "candidate",
+        "reference"
+      ],
+      "runs": {
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1575",
+            "p95_us": "2148",
+            "p99_us": "2419",
+            "requests": "25664",
+            "req_per_s": "5132.138",
+            "body_bytes": "306171520",
+            "elapsed_s": "5.000645"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.5586769580841064,
+          "before": {
+            "utc": "2026-10-21T21:02:53.404664+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 181.9,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 27687,
+                "cpu_percent": 6.0,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 1.9,
+                "command": "syncthing"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 1.6,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 1.2,
+                "command": "Dia"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 1.0,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 72566,
+                "cpu_percent": 0.8,
+                "command": "rex"
+              },
+              {
+                "pid": 414,
+                "cpu_percent": 0.6,
+                "command": "dasd"
+              },
+              {
+                "pid": 502,
+                "cpu_percent": 0.5,
+                "command": "mDNSResponder"
+              },
+              {
+                "pid": 60179,
+                "cpu_percent": 0.4,
+                "command": "mds_stores"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:02:59.008934+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 151.0,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 4.8,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 742,
+                "cpu_percent": 1.5,
+                "command": "corespotlightd"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 1.5,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.1,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 1.1,
+                "command": "codex"
+              },
+              {
+                "pid": 83470,
+                "cpu_percent": 1.1,
+                "command": "bun"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 1.0,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 35832,
+                "cpu_percent": 1.0,
+                "command": "Slack"
+              },
+              {
+                "pid": 36044,
+                "cpu_percent": 1.0,
+                "command": "Slack Helper (Renderer)"
+              }
+            ]
+          }
+        },
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1631",
+            "p95_us": "2246",
+            "p99_us": "2673",
+            "requests": "24758",
+            "req_per_s": "4950.741",
+            "body_bytes": "295362940",
+            "elapsed_s": "5.000867"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.582312542013824,
+          "before": {
+            "utc": "2026-10-21T21:02:59.058188+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 171.0,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 5.5,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 3.6,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 2.2,
+                "command": "Dia"
+              },
+              {
+                "pid": 742,
+                "cpu_percent": 1.0,
+                "command": "corespotlightd"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 1.0,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 25588,
+                "cpu_percent": 1.0,
+                "command": "VTDecoderXPCService"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 0.9,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 0.8,
+                "command": "codex"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 0.7,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:03:04.685115+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 155.5,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 22.9,
+                "command": "syncthing"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 22.6,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 25588,
+                "cpu_percent": 3.0,
+                "command": "VTDecoderXPCService"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 2.8,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 25340,
+                "cpu_percent": 1.3,
+                "command": "Claude"
+              },
+              {
+                "pid": 62006,
+                "cpu_percent": 1.3,
+                "command": "CoreDeviceService"
+              },
+              {
+                "pid": 77480,
+                "cpu_percent": 1.3,
+                "command": "ChatGPT"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 1.2,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 1.1,
+                "command": "codex"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 1.0366403736329572
+    },
+    {
+      "pair": 13,
+      "order": [
+        "reference",
+        "candidate"
+      ],
+      "runs": {
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1577",
+            "p95_us": "2151",
+            "p99_us": "2432",
+            "requests": "25652",
+            "req_per_s": "5129.426",
+            "body_bytes": "306028360",
+            "elapsed_s": "5.000950"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.572243416914716,
+          "before": {
+            "utc": "2026-10-21T21:03:04.736127+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 155.5,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 22.9,
+                "command": "syncthing"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 22.6,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 25588,
+                "cpu_percent": 3.0,
+                "command": "VTDecoderXPCService"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 2.8,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 25340,
+                "cpu_percent": 1.3,
+                "command": "Claude"
+              },
+              {
+                "pid": 62006,
+                "cpu_percent": 1.3,
+                "command": "CoreDeviceService"
+              },
+              {
+                "pid": 77480,
+                "cpu_percent": 1.3,
+                "command": "ChatGPT"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 1.2,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 1.1,
+                "command": "codex"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:03:10.354462+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 114.5,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 1,
+                "cpu_percent": 32.1,
+                "command": "launchd"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 9.9,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 7.9,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 6.4,
+                "command": "codex"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 2.0,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 405,
+                "cpu_percent": 1.6,
+                "command": "launchservicesd"
+              },
+              {
+                "pid": 25588,
+                "cpu_percent": 1.6,
+                "command": "VTDecoderXPCService"
+              },
+              {
+                "pid": 49846,
+                "cpu_percent": 1.5,
+                "command": "claude"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 1.2,
+                "command": "Codex (Service)"
+              }
+            ]
+          }
+        },
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1580",
+            "p95_us": "2162",
+            "p99_us": "2477",
+            "requests": "25545",
+            "req_per_s": "5107.981",
+            "body_bytes": "304751850",
+            "elapsed_s": "5.000998"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.563196083065122,
+          "before": {
+            "utc": "2026-10-21T21:03:10.406279+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 143.2,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 1,
+                "cpu_percent": 40.1,
+                "command": "launchd"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 6.0,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 5.2,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 4.8,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 4.2,
+                "command": "codex"
+              },
+              {
+                "pid": 742,
+                "cpu_percent": 2.1,
+                "command": "corespotlightd"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.7,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 49846,
+                "cpu_percent": 1.2,
+                "command": "claude"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 1.1,
+                "command": ".devenv-wrapped"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:03:16.021774+00:00",
+            "processes": [
+              {
+                "pid": 45049,
+                "cpu_percent": 144.3,
+                "command": "idea"
+              },
+              {
+                "pid": 9987,
+                "cpu_percent": 75.5,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 7.6,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 3.3,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 27813,
+                "cpu_percent": 3.0,
+                "command": "postgres: kadza ip_outbound 127.0.0.1(61935) idle"
+              },
+              {
+                "pid": 83458,
+                "cpu_percent": 2.6,
+                "command": "node"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 2.3,
+                "command": "codex"
+              },
+              {
+                "pid": 742,
+                "cpu_percent": 1.1,
+                "command": "corespotlightd"
+              },
+              {
+                "pid": 83470,
+                "cpu_percent": 1.1,
+                "command": "bun"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 1.0,
+                "command": ".devenv-wrapped"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 0.9958192203182187
+    },
+    {
+      "pair": 14,
+      "order": [
+        "candidate",
+        "reference"
+      ],
+      "runs": {
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1618",
+            "p95_us": "2198",
+            "p99_us": "2489",
+            "requests": "24924",
+            "req_per_s": "4983.855",
+            "body_bytes": "297343320",
+            "elapsed_s": "5.000948"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.575048292055726,
+          "before": {
+            "utc": "2026-10-21T21:03:16.079145+00:00",
+            "processes": [
+              {
+                "pid": 45049,
+                "cpu_percent": 145.2,
+                "command": "idea"
+              },
+              {
+                "pid": 9987,
+                "cpu_percent": 116.0,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 27813,
+                "cpu_percent": 7.5,
+                "command": "postgres: kadza ip_outbound 127.0.0.1(61935) idle"
+              },
+              {
+                "pid": 83470,
+                "cpu_percent": 7.5,
+                "command": "bun"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 4.6,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 4.3,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 2.1,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 1.6,
+                "command": "codex"
+              },
+              {
+                "pid": 83458,
+                "cpu_percent": 1.5,
+                "command": "node"
+              },
+              {
+                "pid": 742,
+                "cpu_percent": 1.1,
+                "command": "corespotlightd"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:03:21.699955+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 166.6,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 27687,
+                "cpu_percent": 4.9,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 3.0,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 1.7,
+                "command": "syncthing"
+              },
+              {
+                "pid": 27732,
+                "cpu_percent": 1.6,
+                "command": "mdworker_shared"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 1.0,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 95127,
+                "cpu_percent": 1.0,
+                "command": "sysmond"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 0.9,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 0.7,
+                "command": "Dia"
+              },
+              {
+                "pid": 72566,
+                "cpu_percent": 0.7,
+                "command": "rex"
+              }
+            ]
+          }
+        },
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1614",
+            "p95_us": "2186",
+            "p99_us": "2456",
+            "requests": "25190",
+            "req_per_s": "5036.836",
+            "body_bytes": "300516700",
+            "elapsed_s": "5.001155"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.580520708113909,
+          "before": {
+            "utc": "2026-10-21T21:03:21.751248+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 166.6,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 27687,
+                "cpu_percent": 4.9,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 3.0,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 1.7,
+                "command": "syncthing"
+              },
+              {
+                "pid": 27732,
+                "cpu_percent": 1.6,
+                "command": "mdworker_shared"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 1.0,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 95127,
+                "cpu_percent": 1.0,
+                "command": "sysmond"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 0.9,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 0.7,
+                "command": "Dia"
+              },
+              {
+                "pid": 72566,
+                "cpu_percent": 0.7,
+                "command": "rex"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:03:27.376449+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 154.1,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 95127,
+                "cpu_percent": 18.0,
+                "command": "sysmond"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 11.8,
+                "command": "syncthing"
+              },
+              {
+                "pid": 41634,
+                "cpu_percent": 7.6,
+                "command": "omp"
+              },
+              {
+                "pid": 480,
+                "cpu_percent": 4.0,
+                "command": "lsd"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 3.1,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 2.8,
+                "command": "Dia"
+              },
+              {
+                "pid": 59013,
+                "cpu_percent": 2.7,
+                "command": "trustd"
+              },
+              {
+                "pid": 27736,
+                "cpu_percent": 2.3,
+                "command": "mdworker_shared"
+              },
+              {
+                "pid": 35417,
+                "cpu_percent": 2.3,
+                "command": "io.tailscale.ipn.macsys.network-extension"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 0.9894812934151518
+    },
+    {
+      "pair": 15,
+      "order": [
+        "reference",
+        "candidate"
+      ],
+      "runs": {
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1634",
+            "p95_us": "2237",
+            "p99_us": "2661",
+            "requests": "24567",
+            "req_per_s": "4912.847",
+            "body_bytes": "293084310",
+            "elapsed_s": "5.000563"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.571017042035237,
+          "before": {
+            "utc": "2026-10-21T21:03:27.426374+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 146.3,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 19.9,
+                "command": "syncthing"
+              },
+              {
+                "pid": 95127,
+                "cpu_percent": 15.9,
+                "command": "sysmond"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 10.2,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 41634,
+                "cpu_percent": 4.9,
+                "command": "omp"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 4.7,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 3.7,
+                "command": "Dia"
+              },
+              {
+                "pid": 26611,
+                "cpu_percent": 2.7,
+                "command": "python3"
+              },
+              {
+                "pid": 480,
+                "cpu_percent": 2.5,
+                "command": "lsd"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 2.4,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:03:33.042711+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 172.3,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 44.9,
+                "command": "syncthing"
+              },
+              {
+                "pid": 28077,
+                "cpu_percent": 18.3,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 7.9,
+                "command": "idea"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 4.4,
+                "command": "Dia"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 2.6,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 2.4,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 729,
+                "cpu_percent": 2.2,
+                "command": "fontd"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 1.6,
+                "command": "codex"
+              },
+              {
+                "pid": 95127,
+                "cpu_percent": 1.6,
+                "command": "sysmond"
+              }
+            ]
+          }
+        },
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1612",
+            "p95_us": "2197",
+            "p99_us": "2483",
+            "requests": "25032",
+            "req_per_s": "5005.237",
+            "body_bytes": "298631760",
+            "elapsed_s": "5.001162"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.569988833973184,
+          "before": {
+            "utc": "2026-10-21T21:03:33.092482+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 172.3,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 44.9,
+                "command": "syncthing"
+              },
+              {
+                "pid": 28077,
+                "cpu_percent": 11.3,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 7.9,
+                "command": "idea"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 4.4,
+                "command": "Dia"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 2.6,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 2.4,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 729,
+                "cpu_percent": 2.2,
+                "command": "fontd"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 1.6,
+                "command": "codex"
+              },
+              {
+                "pid": 95127,
+                "cpu_percent": 1.6,
+                "command": "sysmond"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:03:38.705208+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 155.0,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 96.9,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 49846,
+                "cpu_percent": 2.3,
+                "command": "claude"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 2.2,
+                "command": "codex"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.7,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 28206,
+                "cpu_percent": 1.5,
+                "command": "mdworker_shared"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 1.4,
+                "command": "Dia"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 1.2,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 0.8,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 72566,
+                "cpu_percent": 0.7,
+                "command": "rex"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 1.0188057963132173
+    },
+    {
+      "pair": 16,
+      "order": [
+        "candidate",
+        "reference"
+      ],
+      "runs": {
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1598",
+            "p95_us": "2832",
+            "p99_us": "8309",
+            "requests": "21858",
+            "req_per_s": "4370.685",
+            "body_bytes": "260765940",
+            "elapsed_s": "5.001047"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.579250541049987,
+          "before": {
+            "utc": "2026-10-21T21:03:38.753139+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 155.0,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 96.9,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 49846,
+                "cpu_percent": 2.3,
+                "command": "claude"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 2.2,
+                "command": "codex"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.7,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 28206,
+                "cpu_percent": 1.5,
+                "command": "mdworker_shared"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 1.4,
+                "command": "Dia"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 1.2,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 0.8,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 72566,
+                "cpu_percent": 0.7,
+                "command": "rex"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:03:44.420258+00:00",
+            "processes": [
+              {
+                "pid": 13421,
+                "cpu_percent": 274.0,
+                "command": "Microsoft Teams WebView Helper (Renderer)"
+              },
+              {
+                "pid": 9987,
+                "cpu_percent": 91.8,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 28286,
+                "cpu_percent": 29.2,
+                "command": "node"
+              },
+              {
+                "pid": 28287,
+                "cpu_percent": 26.7,
+                "command": "node"
+              },
+              {
+                "pid": 77546,
+                "cpu_percent": 8.7,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 3.3,
+                "command": "codex"
+              },
+              {
+                "pid": 525,
+                "cpu_percent": 2.9,
+                "command": "syspolicyd"
+              },
+              {
+                "pid": 77480,
+                "cpu_percent": 2.5,
+                "command": "ChatGPT"
+              },
+              {
+                "pid": 17183,
+                "cpu_percent": 2.1,
+                "command": "searchpartyuseragent"
+              },
+              {
+                "pid": 60179,
+                "cpu_percent": 1.7,
+                "command": "mds_stores"
+              }
+            ]
+          }
+        },
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1639",
+            "p95_us": "2337",
+            "p99_us": "2886",
+            "requests": "24676",
+            "req_per_s": "4934.300",
+            "body_bytes": "294384680",
+            "elapsed_s": "5.000912"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.594374708132818,
+          "before": {
+            "utc": "2026-10-21T21:03:44.514975+00:00",
+            "processes": [
+              {
+                "pid": 13421,
+                "cpu_percent": 171.1,
+                "command": "Microsoft Teams WebView Helper (Renderer)"
+              },
+              {
+                "pid": 9987,
+                "cpu_percent": 133.6,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 28286,
+                "cpu_percent": 71.7,
+                "command": "node"
+              },
+              {
+                "pid": 28287,
+                "cpu_percent": 34.8,
+                "command": "node"
+              },
+              {
+                "pid": 77480,
+                "cpu_percent": 9.2,
+                "command": "ChatGPT"
+              },
+              {
+                "pid": 77546,
+                "cpu_percent": 5.2,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 3.0,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 3.0,
+                "command": "codex"
+              },
+              {
+                "pid": 59012,
+                "cpu_percent": 2.7,
+                "command": "trustd"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.9,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:03:50.157306+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 104.1,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 28370,
+                "cpu_percent": 33.7,
+                "command": "node_repl"
+              },
+              {
+                "pid": 59012,
+                "cpu_percent": 25.1,
+                "command": "trustd"
+              },
+              {
+                "pid": 28368,
+                "cpu_percent": 23.4,
+                "command": "node"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 14.1,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 28367,
+                "cpu_percent": 10.3,
+                "command": "node_repl"
+              },
+              {
+                "pid": 28366,
+                "cpu_percent": 6.5,
+                "command": "node"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 5.7,
+                "command": "codex"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 4.4,
+                "command": "idea"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 3.0,
+                "command": "Codex (Service)"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 0.8857760979267576
+    },
+    {
+      "pair": 17,
+      "order": [
+        "reference",
+        "candidate"
+      ],
+      "runs": {
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1654",
+            "p95_us": "2286",
+            "p99_us": "2745",
+            "requests": "24367",
+            "req_per_s": "4872.470",
+            "body_bytes": "290698310",
+            "elapsed_s": "5.000954"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.570169457932934,
+          "before": {
+            "utc": "2026-10-21T21:03:50.216584+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 118.6,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 28370,
+                "cpu_percent": 21.0,
+                "command": "node_repl"
+              },
+              {
+                "pid": 59012,
+                "cpu_percent": 15.7,
+                "command": "trustd"
+              },
+              {
+                "pid": 28368,
+                "cpu_percent": 14.4,
+                "command": "node"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 11.0,
+                "command": "idea"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 8.6,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 28367,
+                "cpu_percent": 6.4,
+                "command": "node_repl"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 4.2,
+                "command": "codex"
+              },
+              {
+                "pid": 28366,
+                "cpu_percent": 3.9,
+                "command": "node"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 2.6,
+                "command": "spotlightknowledged.updater"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:03:55.833916+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 122.7,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 28.3,
+                "command": "syncthing"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 10.9,
+                "command": "codex"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 8.5,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 28383,
+                "cpu_percent": 6.1,
+                "command": "mdworker_shared"
+              },
+              {
+                "pid": 62006,
+                "cpu_percent": 4.0,
+                "command": "CoreDeviceService"
+              },
+              {
+                "pid": 742,
+                "cpu_percent": 2.6,
+                "command": "corespotlightd"
+              },
+              {
+                "pid": 28385,
+                "cpu_percent": 2.5,
+                "command": "postgres: kadza ip_outbound 127.0.0.1(62073) idle"
+              },
+              {
+                "pid": 62011,
+                "cpu_percent": 2.5,
+                "command": "remotepairingd"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 2.2,
+                "command": "Activity Monitor"
+              }
+            ]
+          }
+        },
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1608",
+            "p95_us": "2214",
+            "p99_us": "2605",
+            "requests": "24919",
+            "req_per_s": "4982.544",
+            "body_bytes": "297283670",
+            "elapsed_s": "5.001261"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.569537250092253,
+          "before": {
+            "utc": "2026-10-21T21:03:55.882824+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 122.7,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 28.3,
+                "command": "syncthing"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 10.9,
+                "command": "codex"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 8.5,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 28383,
+                "cpu_percent": 6.1,
+                "command": "mdworker_shared"
+              },
+              {
+                "pid": 62006,
+                "cpu_percent": 4.0,
+                "command": "CoreDeviceService"
+              },
+              {
+                "pid": 742,
+                "cpu_percent": 2.6,
+                "command": "corespotlightd"
+              },
+              {
+                "pid": 28385,
+                "cpu_percent": 2.5,
+                "command": "postgres: kadza ip_outbound 127.0.0.1(62073) idle"
+              },
+              {
+                "pid": 62011,
+                "cpu_percent": 2.5,
+                "command": "remotepairingd"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 2.2,
+                "command": "Activity Monitor"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:04:01.499338+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 123.1,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 41.1,
+                "command": "idea"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 23.0,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 437,
+                "cpu_percent": 10.7,
+                "command": "loginwindow"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 6.8,
+                "command": "syncthing"
+              },
+              {
+                "pid": 25588,
+                "cpu_percent": 5.3,
+                "command": "VTDecoderXPCService"
+              },
+              {
+                "pid": 433,
+                "cpu_percent": 3.4,
+                "command": "WindowServer"
+              },
+              {
+                "pid": 36689,
+                "cpu_percent": 3.1,
+                "command": "claude"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 1.9,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.6,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 1.0225910062042454
+    },
+    {
+      "pair": 18,
+      "order": [
+        "candidate",
+        "reference"
+      ],
+      "runs": {
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1648",
+            "p95_us": "2309",
+            "p99_us": "3155",
+            "requests": "23853",
+            "req_per_s": "4770.293",
+            "body_bytes": "284566290",
+            "elapsed_s": "5.000322"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.612003542017192,
+          "before": {
+            "utc": "2026-10-21T21:04:01.553547+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 142.4,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 30.9,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 45049,
+                "cpu_percent": 27.5,
+                "command": "idea"
+              },
+              {
+                "pid": 28471,
+                "cpu_percent": 12.1,
+                "command": "devenv"
+              },
+              {
+                "pid": 437,
+                "cpu_percent": 10.4,
+                "command": "loginwindow"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 8.1,
+                "command": "syncthing"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 7.1,
+                "command": "codex"
+              },
+              {
+                "pid": 25588,
+                "cpu_percent": 6.5,
+                "command": "VTDecoderXPCService"
+              },
+              {
+                "pid": 26611,
+                "cpu_percent": 5.2,
+                "command": "python3"
+              },
+              {
+                "pid": 78096,
+                "cpu_percent": 4.8,
+                "command": "codex-code-mode-host"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:04:07.212630+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 139.4,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 21.2,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 28608,
+                "cpu_percent": 20.3,
+                "command": "devenv"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 8.6,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 25588,
+                "cpu_percent": 4.2,
+                "command": "VTDecoderXPCService"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 3.1,
+                "command": "codex"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 3.1,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 2.7,
+                "command": "syncthing"
+              },
+              {
+                "pid": 28626,
+                "cpu_percent": 2.2,
+                "command": "nix-daemon"
+              },
+              {
+                "pid": 77480,
+                "cpu_percent": 2.2,
+                "command": "ChatGPT"
+              }
+            ]
+          }
+        },
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1595",
+            "p95_us": "2169",
+            "p99_us": "2486",
+            "requests": "25301",
+            "req_per_s": "5059.302",
+            "body_bytes": "301840930",
+            "elapsed_s": "5.000888"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.5966633330099285,
+          "before": {
+            "utc": "2026-10-21T21:04:07.266490+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 139.4,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 21.2,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 8.6,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 25588,
+                "cpu_percent": 4.2,
+                "command": "VTDecoderXPCService"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 3.1,
+                "command": "codex"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 3.1,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 2.7,
+                "command": "syncthing"
+              },
+              {
+                "pid": 77480,
+                "cpu_percent": 2.2,
+                "command": "ChatGPT"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 1.9,
+                "command": "Dia"
+              },
+              {
+                "pid": 78096,
+                "cpu_percent": 1.7,
+                "command": "codex-code-mode-host"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:04:12.911990+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 127.0,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 35625,
+                "cpu_percent": 56.9,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 7.7,
+                "command": "codex"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 6.7,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 35613,
+                "cpu_percent": 5.2,
+                "command": "Browser Helper"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 3.3,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 2.1,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.3,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 1.2,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 361,
+                "cpu_percent": 1.1,
+                "command": "logd"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 0.9428757168478972
+    },
+    {
+      "pair": 19,
+      "order": [
+        "reference",
+        "candidate"
+      ],
+      "runs": {
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1538",
+            "p95_us": "2187",
+            "p99_us": "2727",
+            "requests": "26014",
+            "req_per_s": "5202.250",
+            "body_bytes": "310347020",
+            "elapsed_s": "5.000529"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.572891332907602,
+          "before": {
+            "utc": "2026-10-21T21:04:12.964835+00:00",
+            "processes": [
+              {
+                "pid": 9987,
+                "cpu_percent": 125.6,
+                "command": "mediaanalysisd"
+              },
+              {
+                "pid": 35625,
+                "cpu_percent": 65.9,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 59012,
+                "cpu_percent": 17.4,
+                "command": "trustd"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 15.6,
+                "command": "codex"
+              },
+              {
+                "pid": 35613,
+                "cpu_percent": 5.9,
+                "command": "Browser Helper"
+              },
+              {
+                "pid": 77547,
+                "cpu_percent": 4.6,
+                "command": "Codex (Renderer)"
+              },
+              {
+                "pid": 32453,
+                "cpu_percent": 3.3,
+                "command": "spotlightknowledged.updater"
+              },
+              {
+                "pid": 77480,
+                "cpu_percent": 1.8,
+                "command": "ChatGPT"
+              },
+              {
+                "pid": 18627,
+                "cpu_percent": 1.6,
+                "command": "devicecheckd"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.3,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:04:18.582743+00:00",
+            "processes": [
+              {
+                "pid": 45049,
+                "cpu_percent": 44.6,
+                "command": "idea"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 13.0,
+                "command": "codex"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 6.0,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 28698,
+                "cpu_percent": 4.9,
+                "command": "node_repl"
+              },
+              {
+                "pid": 59012,
+                "cpu_percent": 3.9,
+                "command": "trustd"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 3.0,
+                "command": "Dia"
+              },
+              {
+                "pid": 28695,
+                "cpu_percent": 2.8,
+                "command": "node"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 2.8,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 2.2,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 28694,
+                "cpu_percent": 1.7,
+                "command": "node_repl"
+              }
+            ]
+          }
+        },
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1404",
+            "p95_us": "1920",
+            "p99_us": "2225",
+            "requests": "28596",
+            "req_per_s": "5718.178",
+            "body_bytes": "341150280",
+            "elapsed_s": "5.000894"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.563514166045934,
+          "before": {
+            "utc": "2026-10-21T21:04:18.635914+00:00",
+            "processes": [
+              {
+                "pid": 45049,
+                "cpu_percent": 44.6,
+                "command": "idea"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 13.0,
+                "command": "codex"
+              },
+              {
+                "pid": 25584,
+                "cpu_percent": 6.0,
+                "command": "DisplaysExt"
+              },
+              {
+                "pid": 28698,
+                "cpu_percent": 4.9,
+                "command": "node_repl"
+              },
+              {
+                "pid": 59012,
+                "cpu_percent": 3.9,
+                "command": "trustd"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 3.0,
+                "command": "Dia"
+              },
+              {
+                "pid": 28695,
+                "cpu_percent": 2.8,
+                "command": "node"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 2.8,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 2.2,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 28694,
+                "cpu_percent": 1.7,
+                "command": "node_repl"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:04:24.238329+00:00",
+            "processes": [
+              {
+                "pid": 77480,
+                "cpu_percent": 46.9,
+                "command": "ChatGPT"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 4.5,
+                "command": "Dia"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 2.3,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 25828,
+                "cpu_percent": 2.3,
+                "command": "zed"
+              },
+              {
+                "pid": 742,
+                "cpu_percent": 1.8,
+                "command": "corespotlightd"
+              },
+              {
+                "pid": 49846,
+                "cpu_percent": 1.7,
+                "command": "claude"
+              },
+              {
+                "pid": 23775,
+                "cpu_percent": 1.4,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 410,
+                "cpu_percent": 1.0,
+                "command": "locationd"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 0.9,
+                "command": "codex"
+              },
+              {
+                "pid": 366,
+                "cpu_percent": 0.8,
+                "command": "fseventsd"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 1.0991740112451343
+    },
+    {
+      "pair": 20,
+      "order": [
+        "candidate",
+        "reference"
+      ],
+      "runs": {
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1368",
+            "p95_us": "1814",
+            "p99_us": "2030",
+            "requests": "29696",
+            "req_per_s": "5938.344",
+            "body_bytes": "354273280",
+            "elapsed_s": "5.000721"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.528786750044674,
+          "before": {
+            "utc": "2026-10-21T21:04:24.287857+00:00",
+            "processes": [
+              {
+                "pid": 77480,
+                "cpu_percent": 46.9,
+                "command": "ChatGPT"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 3.6,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 2.9,
+                "command": "Dia"
+              },
+              {
+                "pid": 25828,
+                "cpu_percent": 2.3,
+                "command": "zed"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.9,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 49846,
+                "cpu_percent": 1.7,
+                "command": "claude"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 1.6,
+                "command": "syncthing"
+              },
+              {
+                "pid": 23775,
+                "cpu_percent": 1.4,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 742,
+                "cpu_percent": 1.1,
+                "command": "corespotlightd"
+              },
+              {
+                "pid": 366,
+                "cpu_percent": 0.9,
+                "command": "fseventsd"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:04:29.856297+00:00",
+            "processes": [
+              {
+                "pid": 41634,
+                "cpu_percent": 2.4,
+                "command": "omp"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.5,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 1.5,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 36689,
+                "cpu_percent": 1.4,
+                "command": "claude"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 0.8,
+                "command": "syncthing"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 0.6,
+                "command": "Codex (Service)"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 0.5,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 0.5,
+                "command": "codex"
+              },
+              {
+                "pid": 734,
+                "cpu_percent": 0.4,
+                "command": "ContinuityCaptureAgent"
+              },
+              {
+                "pid": 25340,
+                "cpu_percent": 0.4,
+                "command": "Claude"
+              }
+            ]
+          }
+        },
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1410",
+            "p95_us": "1957",
+            "p99_us": "2481",
+            "requests": "28322",
+            "req_per_s": "5663.389",
+            "body_bytes": "337881460",
+            "elapsed_s": "5.000893"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.520946125034243,
+          "before": {
+            "utc": "2026-10-21T21:04:29.905199+00:00",
+            "processes": [
+              {
+                "pid": 41634,
+                "cpu_percent": 2.4,
+                "command": "omp"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 1.5,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 73989,
+                "cpu_percent": 1.5,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 36689,
+                "cpu_percent": 1.4,
+                "command": "claude"
+              },
+              {
+                "pid": 85892,
+                "cpu_percent": 0.8,
+                "command": "syncthing"
+              },
+              {
+                "pid": 391,
+                "cpu_percent": 0.6,
+                "command": "mds"
+              },
+              {
+                "pid": 77491,
+                "cpu_percent": 0.6,
+                "command": "Codex (Service)"
+              },
+              {
+                "pid": 366,
+                "cpu_percent": 0.5,
+                "command": "fseventsd"
+              },
+              {
+                "pid": 3955,
+                "cpu_percent": 0.5,
+                "command": ".devenv-wrapped"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 0.5,
+                "command": "codex"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:04:35.465767+00:00",
+            "processes": [
+              {
+                "pid": 85892,
+                "cpu_percent": 42.0,
+                "command": "syncthing"
+              },
+              {
+                "pid": 95127,
+                "cpu_percent": 19.6,
+                "command": "sysmond"
+              },
+              {
+                "pid": 28858,
+                "cpu_percent": 7.3,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 5.0,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 4.3,
+                "command": "Dia"
+              },
+              {
+                "pid": 62006,
+                "cpu_percent": 4.1,
+                "command": "CoreDeviceService"
+              },
+              {
+                "pid": 62011,
+                "cpu_percent": 3.4,
+                "command": "remotepairingd"
+              },
+              {
+                "pid": 36689,
+                "cpu_percent": 2.2,
+                "command": "claude"
+              },
+              {
+                "pid": 502,
+                "cpu_percent": 1.6,
+                "command": "mDNSResponder"
+              },
+              {
+                "pid": 729,
+                "cpu_percent": 1.5,
+                "command": "fontd"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 1.0485495522204107
+    },
+    {
+      "pair": 21,
+      "order": [
+        "reference",
+        "candidate"
+      ],
+      "runs": {
+        "reference": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1385",
+            "p95_us": "1835",
+            "p99_us": "2050",
+            "requests": "29366",
+            "req_per_s": "5872.748",
+            "body_bytes": "350336380",
+            "elapsed_s": "5.000385"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.5965754999779165,
+          "before": {
+            "utc": "2026-10-21T21:04:35.518739+00:00",
+            "processes": [
+              {
+                "pid": 85892,
+                "cpu_percent": 42.0,
+                "command": "syncthing"
+              },
+              {
+                "pid": 95127,
+                "cpu_percent": 19.6,
+                "command": "sysmond"
+              },
+              {
+                "pid": 28858,
+                "cpu_percent": 7.3,
+                "command": "Browser Helper (Renderer)"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 5.0,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 4.3,
+                "command": "Dia"
+              },
+              {
+                "pid": 62006,
+                "cpu_percent": 4.1,
+                "command": "CoreDeviceService"
+              },
+              {
+                "pid": 62011,
+                "cpu_percent": 3.4,
+                "command": "remotepairingd"
+              },
+              {
+                "pid": 36689,
+                "cpu_percent": 2.2,
+                "command": "claude"
+              },
+              {
+                "pid": 502,
+                "cpu_percent": 1.6,
+                "command": "mDNSResponder"
+              },
+              {
+                "pid": 729,
+                "cpu_percent": 1.5,
+                "command": "fontd"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:04:41.154232+00:00",
+            "processes": [
+              {
+                "pid": 95127,
+                "cpu_percent": 9.5,
+                "command": "sysmond"
+              },
+              {
+                "pid": 1,
+                "cpu_percent": 6.8,
+                "command": "launchd"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 5.0,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 83470,
+                "cpu_percent": 1.9,
+                "command": "bun"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 1.0,
+                "command": "Dia"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 0.9,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 27736,
+                "cpu_percent": 0.7,
+                "command": "mdworker_shared"
+              },
+              {
+                "pid": 60179,
+                "cpu_percent": 0.7,
+                "command": "mds_stores"
+              },
+              {
+                "pid": 391,
+                "cpu_percent": 0.6,
+                "command": "mds"
+              },
+              {
+                "pid": 72566,
+                "cpu_percent": 0.6,
+                "command": "rex"
+              }
+            ]
+          }
+        },
+        "candidate": {
+          "preflight": {
+            "records": "50",
+            "cursor": "r9950",
+            "bytes": "11930",
+            "sha256": "24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f",
+            "workers": "10"
+          },
+          "stats": {
+            "clients": "8",
+            "warmups": "100",
+            "p50_us": "1374",
+            "p95_us": "1818",
+            "p99_us": "2012",
+            "requests": "29630",
+            "req_per_s": "5924.954",
+            "body_bytes": "353485900",
+            "elapsed_s": "5.000882"
+          },
+          "exit_code": 0,
+          "process_elapsed_seconds": 5.530438415938988,
+          "before": {
+            "utc": "2026-10-21T21:04:41.204087+00:00",
+            "processes": [
+              {
+                "pid": 95127,
+                "cpu_percent": 5.9,
+                "command": "sysmond"
+              },
+              {
+                "pid": 1,
+                "cpu_percent": 4.3,
+                "command": "launchd"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 3.1,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 83470,
+                "cpu_percent": 1.2,
+                "command": "bun"
+              },
+              {
+                "pid": 391,
+                "cpu_percent": 1.0,
+                "command": "mds"
+              },
+              {
+                "pid": 60179,
+                "cpu_percent": 0.9,
+                "command": "mds_stores"
+              },
+              {
+                "pid": 27736,
+                "cpu_percent": 0.8,
+                "command": "mdworker_shared"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 0.8,
+                "command": "Dia"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 0.7,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 72566,
+                "cpu_percent": 0.5,
+                "command": "rex"
+              }
+            ]
+          },
+          "after": {
+            "utc": "2026-10-21T21:04:46.778829+00:00",
+            "processes": [
+              {
+                "pid": 45049,
+                "cpu_percent": 16.1,
+                "command": "idea"
+              },
+              {
+                "pid": 95127,
+                "cpu_percent": 3.4,
+                "command": "sysmond"
+              },
+              {
+                "pid": 91442,
+                "cpu_percent": 2.0,
+                "command": "Activity Monitor"
+              },
+              {
+                "pid": 77548,
+                "cpu_percent": 1.8,
+                "command": "codex"
+              },
+              {
+                "pid": 594,
+                "cpu_percent": 0.9,
+                "command": "com.apple.DriverKit-AppleBCMWLAN"
+              },
+              {
+                "pid": 35609,
+                "cpu_percent": 0.8,
+                "command": "Dia"
+              },
+              {
+                "pid": 72566,
+                "cpu_percent": 0.3,
+                "command": "rex"
+              },
+              {
+                "pid": 77480,
+                "cpu_percent": 0.3,
+                "command": "ChatGPT"
+              },
+              {
+                "pid": 41634,
+                "cpu_percent": 0.3,
+                "command": "omp"
+              },
+              {
+                "pid": 36689,
+                "cpu_percent": 0.3,
+                "command": "claude"
+              }
+            ]
+          }
+        }
+      },
+      "candidate_ratio": 1.0088895351886373
+    }
+  ],
+  "analysis": {
+    "unit": "paired process-level candidate/reference throughput ratio",
+    "interval": "exact binomial/order-statistic median interval, at least 95% coverage",
+    "assumption": "independent continuous paired ratios; serial host effects can violate independence",
+    "pass": "median >= 1.00 and exact interval lower bound >= 0.98",
+    "red": "exact interval upper bound < 1.00",
+    "otherwise": "inconclusive; uncertainty is not evidence of parity",
+    "scope": "local engineering tolerances, not production SLOs"
+  },
+  "analysis_script_sha256": "e68696fdf63994225f57dd38040e239438f4286ad2e7dfbdb2ec202168b7bb28",
+  "verdict": {
+    "status": "PASS",
+    "median_ratio": 1.0088895351886373,
+    "arithmetic_mean_ratio": 1.009557278322592,
+    "minimum_ratio": 0.8857760979267576,
+    "maximum_ratio": 1.0991740112451343,
+    "exact_median_interval": [
+      0.9958192203182187,
+      1.0366403736329572
+    ],
+    "coverage": 0.9733963012695312,
+    "order_statistic_1based": 6,
+    "slower_pairs": 8,
+    "pairs": 21
+  }
+}

@@ -4,6 +4,7 @@
 use std::net::IpAddr;
 use std::time::Duration;
 
+use pds_identity::safe_fetch::{self, Policy};
 use serde_json::Value;
 use url::Url;
 
@@ -14,38 +15,6 @@ const DOCUMENT_LIMIT: usize = 64 * 1024;
 
 /// The most redirect URIs of a client.
 const MOST_REDIRECTS: usize = 16;
-
-/// Whether an address is on the public internet.
-fn is_public(address: IpAddr) -> bool {
-    match address {
-        IpAddr::V4(v4) => {
-            let [a, b, ..] = v4.octets();
-            !(v4.is_loopback()
-                || v4.is_private()
-                || v4.is_link_local()
-                || v4.is_unspecified()
-                || v4.is_broadcast()
-                || v4.is_documentation()
-                || v4.is_multicast()
-                || a == 0
-                || (a == 100 && (64..128).contains(&b))
-                || (a == 198 && (18..20).contains(&b))
-                || a >= 240)
-        }
-        IpAddr::V6(v6) => v6.to_ipv4_mapped().map_or_else(
-            || {
-                let first = v6.segments()[0];
-                !(v6.is_loopback()
-                    || v6.is_unspecified()
-                    || v6.is_multicast()
-                    || (first & 0xfe00) == 0xfc00
-                    || (first & 0xffc0) == 0xfe80
-                    || first == 0x2001 && v6.segments()[1] == 0x0db8)
-            },
-            |v4| is_public(IpAddr::V4(v4)),
-        ),
-    }
-}
 
 /// Whether a client may take the answer of an authorization at `uri`:
 /// `https`, `http` on a loopback address, or a scheme of an application.
@@ -131,22 +100,9 @@ pub fn is_document_url(client_id: &str) -> Option<Url> {
 /// Fetches the metadata document of a client: a public address, no
 /// redirect, status 200, JSON, at most 64 KiB, and a `client_id` that is
 /// the address.
-pub async fn fetch(
-    http: &reqwest::Client,
-    client_id: &str,
-    url: &Url,
-) -> Result<McpClient, String> {
-    let host = url.host_str().unwrap_or_default();
-    let port = url.port_or_known_default().unwrap_or(443);
-    let addresses: Vec<_> = tokio::net::lookup_host((host, port))
-        .await
-        .map_err(|_| "the host of the client does not resolve")?
-        .collect();
-    if addresses.is_empty() || !addresses.iter().all(|address| is_public(address.ip())) {
-        return Err("the host of the client is not on the public internet".to_owned());
-    }
-    let mut response = http
-        .get(url.as_str())
+pub async fn fetch(client_id: &str, url: &Url) -> Result<McpClient, String> {
+    let response = safe_fetch::request(reqwest::Method::GET, url.as_str(), Policy::Public)
+        .map_err(|_| "the host of the client is not on the public internet")?
         .header("accept", "application/json")
         .timeout(Duration::from_secs(10))
         .send()
@@ -155,17 +111,9 @@ pub async fn fetch(
     if response.status() != reqwest::StatusCode::OK {
         return Err("the client metadata could not be fetched".to_owned());
     }
-    let mut bytes = Vec::new();
-    while let Some(chunk) = response
-        .chunk()
+    let bytes = safe_fetch::read_bounded(response, DOCUMENT_LIMIT)
         .await
-        .map_err(|_| "the client metadata could not be fetched")?
-    {
-        if bytes.len() + chunk.len() > DOCUMENT_LIMIT {
-            return Err("the client metadata is too large".to_owned());
-        }
-        bytes.extend_from_slice(&chunk);
-    }
+        .map_err(|_| "the client metadata request failed or the document is too large")?;
     let document: Value =
         serde_json::from_slice(&bytes).map_err(|_| "the client metadata is not JSON")?;
     if document.get("client_id").and_then(Value::as_str) != Some(client_id) {
@@ -185,28 +133,19 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn private_and_reserved_addresses_are_not_public() {
-        for private in [
-            "127.0.0.1",
-            "10.0.0.1",
-            "172.16.0.1",
-            "192.168.1.1",
-            "169.254.169.254",
-            "100.64.0.1",
-            "0.0.0.0",
-            "198.18.0.1",
-            "240.0.0.1",
-            "::1",
-            "fc00::1",
-            "fe80::1",
-            "::ffff:10.0.0.1",
-            "2001:db8::1",
+    #[tokio::test]
+    async fn metadata_fetch_refuses_private_destinations() {
+        for address in [
+            "https://127.0.0.1/client.json",
+            "https://[::1]/client.json",
+            "https://169.254.169.254/client.json",
         ] {
-            assert!(!is_public(private.parse().unwrap()), "{private}");
-        }
-        for public in ["1.1.1.1", "8.8.8.8", "2606:4700:4700::1111"] {
-            assert!(is_public(public.parse().unwrap()), "{public}");
+            let url = Url::parse(address).unwrap();
+            let error = fetch(address, &url).await.err().unwrap();
+            assert_eq!(
+                error,
+                "the host of the client is not on the public internet"
+            );
         }
     }
 

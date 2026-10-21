@@ -597,6 +597,13 @@ pub enum TransactionBehavior {
     Immediate,
 }
 
+/// A transaction boundary, or a nested savepoint on the same connection.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum Scope {
+    Transaction,
+    Savepoint,
+}
+
 impl Connection {
     /// Whether the connection is to Postgres.
     pub const fn is_postgres(&self) -> bool {
@@ -750,6 +757,19 @@ impl Connection {
         &mut self,
         behavior: TransactionBehavior,
     ) -> Result<Transaction<'_>> {
+        let scope = self.begin_scope(behavior)?;
+        Ok(Transaction {
+            conn: self,
+            scope,
+            finished: false,
+        })
+    }
+
+    pub(crate) fn begin_scope(&self, behavior: TransactionBehavior) -> Result<Scope> {
+        if self.in_transaction.get() {
+            self.execute_batch("savepoint pds_nested_transaction")?;
+            return Ok(Scope::Savepoint);
+        }
         let immediate = behavior == TransactionBehavior::Immediate;
         match &self.inner {
             Inner::Sqlite(conn) => {
@@ -764,22 +784,32 @@ impl Connection {
             }
         }
         self.in_transaction.set(true);
-        let transaction = Transaction { conn: self };
-        if immediate && transaction.is_postgres() {
+        if immediate && self.is_postgres() {
             // One writer for the schema until the transaction ends.
-            transaction.run(
+            if let Err(error) = self.run(
                 "select pg_advisory_xact_lock(hashtext(current_schema()))",
                 Params::Positional(Vec::new()),
-            )?;
+            ) {
+                let _ = self.finish_scope(Scope::Transaction, false);
+                return Err(error);
+            }
         }
-        Ok(transaction)
+        Ok(Scope::Transaction)
     }
 
-    fn end(&self, how: &str) -> Result<()> {
-        self.in_transaction.set(false);
-        match &self.inner {
-            Inner::Sqlite(conn) => Ok(conn.execute_batch(how)?),
-            Inner::Postgres { .. } => self.run(how, Params::Positional(Vec::new())).map(|_| ()),
+    pub(crate) fn finish_scope(&self, scope: Scope, commit: bool) -> Result<()> {
+        match scope {
+            Scope::Savepoint => {
+                if !commit {
+                    self.execute_batch("rollback to savepoint pds_nested_transaction")?;
+                }
+                self.execute_batch("release savepoint pds_nested_transaction")
+            }
+            Scope::Transaction => {
+                self.execute_batch(if commit { "commit" } else { "rollback" })?;
+                self.in_transaction.set(false);
+                Ok(())
+            }
         }
     }
 }
@@ -813,7 +843,12 @@ impl Statement<'_> {
         mut read: impl FnMut(&Row<'_>) -> Result<T>,
     ) -> Result<std::vec::IntoIter<Result<T>>> {
         let (_, rows) = self.conn.run(&self.sql, params.into_params())?;
-        let read: Vec<Result<T>> = rows.iter().map(|values| read(&Row { values })).collect();
+        // Drop each source row once converted, rather than retaining a
+        // second complete copy of every BLOB until conversion finishes.
+        let read: Vec<Result<T>> = rows
+            .into_iter()
+            .map(|values| read(&Row { values: &values }))
+            .collect();
         Ok(read.into_iter())
     }
 
@@ -827,6 +862,8 @@ impl Statement<'_> {
 #[derive(Debug)]
 pub struct Transaction<'c> {
     conn: &'c Connection,
+    scope: Scope,
+    finished: bool,
 }
 
 impl std::ops::Deref for Transaction<'_> {
@@ -839,16 +876,18 @@ impl std::ops::Deref for Transaction<'_> {
 
 impl Transaction<'_> {
     /// Makes the changes of the transaction durable.
-    pub fn commit(self) -> Result<()> {
-        let done = self.conn.end("commit");
-        std::mem::forget(self);
+    pub fn commit(mut self) -> Result<()> {
+        let done = self.conn.finish_scope(self.scope, true);
+        self.finished = done.is_ok();
         done
     }
 }
 
 impl Drop for Transaction<'_> {
     fn drop(&mut self) {
-        let _ = self.conn.end("rollback");
+        if !self.finished {
+            let _ = self.conn.finish_scope(self.scope, false);
+        }
     }
 }
 

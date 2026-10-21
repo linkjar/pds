@@ -19,6 +19,69 @@ fn cid_of(bytes: &[u8]) -> Cid {
 }
 
 #[test]
+fn export_pages_bound_bytes_without_skipping_blocks() {
+    let scratch = Scratch::new();
+    let (path, conn) = scratch.database("actor.sqlite", ACTOR_SCHEMA);
+    for id in 0..12 {
+        conn.execute(
+            r#"insert into "repo_block" values (?1, 'rev', 1000000, zeroblob(1000000))"#,
+            [format!("block-{id:02}")],
+        )
+        .unwrap();
+    }
+    let store = ActorDb::open(&path).unwrap();
+    let mut after: Option<(String, String)> = None;
+    let mut seen = Vec::new();
+    loop {
+        let page = store
+            .block_page(
+                None,
+                after
+                    .as_ref()
+                    .map(|(rev, cid)| (rev.as_str(), cid.as_str())),
+            )
+            .unwrap();
+        if page.is_empty() {
+            break;
+        }
+        assert!(page.iter().map(|row| row.content.len()).sum::<usize>() <= 4 * 1024 * 1024);
+        let last = page.last().unwrap();
+        after = Some((last.rev.clone(), last.cid.clone()));
+        seen.extend(page.into_iter().map(|row| row.cid));
+    }
+    assert_eq!(
+        seen,
+        (0..12)
+            .rev()
+            .map(|id| format!("block-{id:02}"))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn firehose_pages_stop_before_the_next_event_exceeds_the_byte_budget() {
+    let scratch = Scratch::new();
+    let (path, conn) = scratch.database("sequencer.sqlite", SEQUENCER_SCHEMA);
+    for size in [7, 7, 20, 1] {
+        conn.execute(
+            r#"insert into "repo_seq" ("did", "eventType", "event", "sequencedAt") values ('did:plc:a', 'append', zeroblob(?1), 't')"#,
+            [size],
+        ).unwrap();
+    }
+    let db = SequencerDb::open(&path).unwrap();
+    let (page, end) = db.page(0, 64, 10).unwrap();
+    assert_eq!(page.iter().map(|row| row.seq).collect::<Vec<_>>(), [1]);
+    assert!(!end);
+    assert_eq!(db.page(1, 64, 10).unwrap().0[0].seq, 2);
+    let (page, end) = db.page(2, 64, 10).unwrap();
+    assert_eq!(page.len(), 1); // An oversized existing event still makes progress.
+    assert_eq!(page[0].event.len(), 20);
+    assert!(!end);
+    assert!(db.page(3, 64, 10).unwrap().1);
+    assert_eq!(db.page(0, 0, 10).unwrap().0, []);
+}
+
+#[test]
 fn list_repos_pages_by_creation_time_then_did() {
     let scratch = Scratch::new();
     let (path, conn) = scratch.database("account.sqlite", ACCOUNT_SCHEMA);

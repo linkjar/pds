@@ -179,6 +179,27 @@ impl ActorDb {
         Ok(FoundBlocks { found, missing })
     }
 
+    /// The stored CIDs in the same per-batch order as `blocks`, without
+    /// loading their contents. A snapshot keeps the subsequent reads stable.
+    pub fn block_cids(&self, cids: &[Cid]) -> Result<Vec<Cid>, StorageError> {
+        let mut found = Vec::new();
+        for batch in cids.chunks(BLOCK_BATCH) {
+            let marks = vec!["?"; batch.len()].join(", ");
+            let sql = format!(
+                r#"select "cid" from "repo_block" where "cid" in ({marks}) order by "cid""#
+            );
+            let mut statement = self.conn.prepare(&sql)?;
+            let rows = statement
+                .query_map(params_from_iter(batch.iter().map(Cid::to_string)), |row| {
+                    row.get::<_, String>(0)
+                })?;
+            for row in rows {
+                found.push(parse_cid("repo_block", &row?)?);
+            }
+        }
+        Ok(found)
+    }
+
     /// The CIDs among these that the store does not hold, in the order they
     /// were asked for. The contents of the blocks are not read.
     pub fn missing_blocks(&self, cids: &[Cid]) -> Result<Vec<Cid>, StorageError> {
@@ -234,14 +255,28 @@ impl ActorDb {
         if let Some(since) = &since {
             params.push((":since", since));
         }
-        let rows = statement.query_map(params.as_slice(), |row| {
-            Ok(BlockRow {
+        let mut rows = statement.query(params.as_slice())?;
+        let mut page = Vec::new();
+        let mut bytes = 0_usize;
+        while let Some(row) = rows.next()? {
+            // Inspect the borrowed SQLite value before allocating its copy.
+            // One oversized existing block must still make forward progress.
+            let size = row
+                .get_ref(2)?
+                .as_blob()
+                .map_err(|error| StorageError::corrupt("repo_block", error.to_string()))?
+                .len();
+            if !page.is_empty() && bytes.saturating_add(size) > 4 * 1024 * 1024 {
+                break;
+            }
+            bytes = bytes.saturating_add(size);
+            page.push(BlockRow {
                 cid: row.get(0)?,
                 rev: row.get(1)?,
                 content: row.get(2)?,
-            })
-        })?;
-        Ok(rows.collect::<Result<_, _>>()?)
+            });
+        }
+        Ok(page)
     }
 
     /// The record at `uri` that is not taken down. With `cid`, only when it

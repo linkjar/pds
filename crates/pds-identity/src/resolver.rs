@@ -11,16 +11,9 @@
 //! The cache is synchronous, so the resolver calls it on the blocking pool
 //! (SPEC §3.2).
 //!
-//! # Not done: safe fetch
-//!
-//! SPEC §15.1 requires every outbound request to resolve the host and to
-//! reject loopback, private, link-local and multicast addresses. The
-//! resolver does not do this. It checks the syntax of a `did:web` host name
-//! ([`crate::method`]) and not the address the name resolves to, so it
-//! fetches the document of a `did:web` whose name resolves to such an
-//! address. The resolver bounds the time and the size of a fetch. It does
-//! not forbid redirects: that is a property of the client the caller passes
-//! to [`DidResolver::new`].
+//! Untrusted `did:web` requests use connection-time public-address checks,
+//! with no redirects or environment proxies. The configured PLC directory
+//! is an explicitly trusted service. Both paths bound time and body size.
 
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex, PoisonError};
@@ -31,6 +24,7 @@ use serde_json::Value;
 
 use crate::did_doc::{DidDocError, DidDocument};
 use crate::method::{DidError, SupportedDid};
+use crate::safe_fetch::{self, Policy};
 
 /// The largest DID document the resolver reads.
 pub const MAX_DID_DOC_LEN: usize = 512 * 1024;
@@ -274,26 +268,38 @@ impl DidResolver {
     }
 
     async fn fetch(&self, did: &Did) -> Result<Option<Value>, ResolveError> {
-        let url = match SupportedDid::classify(did.clone(), self.inner.config.dev_mode)? {
+        let (url, trusted) = match SupportedDid::classify(did.clone(), self.inner.config.dev_mode)?
+        {
             SupportedDid::Plc(did) => {
                 // A valid did:plc has no character that a URL path escapes
                 // besides the colons.
-                format!(
-                    "{}/{}",
-                    self.inner.config.plc_url,
-                    did.as_str().replace(':', "%3A")
+                (
+                    format!(
+                        "{}/{}",
+                        self.inner.config.plc_url,
+                        did.as_str().replace(':', "%3A")
+                    ),
+                    true,
                 )
             }
-            web @ SupportedDid::Web { .. } => web.web_document_url().unwrap_or_default(),
+            web @ SupportedDid::Web { .. } => (web.web_document_url().unwrap_or_default(), false),
         };
         let fail = |reason: String| ResolveError::Fetch {
             did: did.to_string(),
             reason,
         };
-        let response = self
-            .inner
-            .http
-            .get(&url)
+        let request = if trusted {
+            self.inner.http.get(&url)
+        } else {
+            let policy = if self.inner.config.dev_mode {
+                Policy::Development
+            } else {
+                Policy::Public
+            };
+            safe_fetch::request(reqwest::Method::GET, &url, policy)
+                .map_err(|e| fail(e.to_string()))?
+        };
+        let response = request
             .timeout(self.inner.config.timeout)
             .send()
             .await
@@ -305,16 +311,9 @@ impl DidResolver {
         if !status.is_success() {
             return Err(fail(format!("status {status}")));
         }
-        let mut body = Vec::new();
-        let mut response = response;
-        while let Some(chunk) = response.chunk().await.map_err(|e| fail(e.to_string()))? {
-            if body.len() + chunk.len() > MAX_DID_DOC_LEN {
-                return Err(fail(format!(
-                    "the document is over {MAX_DID_DOC_LEN} bytes"
-                )));
-            }
-            body.extend_from_slice(&chunk);
-        }
+        let body = safe_fetch::read_bounded(response, MAX_DID_DOC_LEN)
+            .await
+            .map_err(|e| fail(e.to_string()))?;
         let document = |source| ResolveError::Document {
             did: did.to_string(),
             source,

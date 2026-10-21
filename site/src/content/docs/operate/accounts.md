@@ -60,6 +60,17 @@ curl -s -u "admin:$PDS_ADMIN_PASSWORD" -H 'content-type: application/json' -d '{
 A person who still has access resets their own password from the app,
 through [email](/configure/email/).
 
+Both password reset and admin password update revoke the account's legacy
+and OAuth sessions, remembered sign-ins, client grants, pending
+authorizations, app passwords and outstanding email tokens. The person
+must sign in again and create replacement app passwords. Member hosts
+check the entryway on each authenticated request, so recovery takes
+effect on the next request there too.
+
+Recovery state is part of the account database. Preserve it in
+[backups](/operate/backup/), and check the
+[rollback limits](/operate/update/#roll-back) before using an older image.
+
 ## Take an account down
 
 A takedown hides the repository and quarantines its blobs. The account

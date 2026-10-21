@@ -1,0 +1,3 @@
+# Remove after postcss-nested upgrades its parser past GHSA-rj75-hqrm-r3gf.
+overrides:
+  'postcss-nested@6.2.0>postcss-selector-parser': 7.1.6

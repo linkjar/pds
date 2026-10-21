@@ -149,8 +149,7 @@ async fn find_token(
 
 /// The grant of a token on a member host (SPEC §21.3). The host has no
 /// row of the session: the entryway has it. The token says the scope, and
-/// the host knows the account. A session that the entryway ended is
-/// refused when its token ends.
+/// the host knows the account. The entryway confirms the row is current.
 async fn member_grant(
     state: &AppState,
     claims: pds_oauth::token::AccessClaims,
@@ -221,6 +220,13 @@ pub async fn authenticate(
         return Err(invalid("Token expired"));
     }
     if state.config().entryway.is_some() {
+        let active =
+            crate::auth::member_token_active(state, token, "oauth", &claims.sub, Some(&claims.jti))
+                .await
+                .map_err(|error| Box::new(error.into_response()))?;
+        if !active {
+            return Err(invalid("This session has ended"));
+        }
         return member_grant(state, claims, carried).await;
     }
 

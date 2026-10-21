@@ -125,6 +125,7 @@ async fn last_operation(state: &AppState, did: &str) -> Result<Value, XrpcError>
     let response = state
         .http()
         .get(format!("{}/{did}/log/last", config.plc_url))
+        .timeout(state.config().proxy_timeout)
         .send()
         .await
         .map_err(XrpcError::internal)?;
@@ -134,8 +135,12 @@ async fn last_operation(state: &AppState, did: &str) -> Result<Value, XrpcError>
             response.status().as_u16()
         )));
     }
-    serde_json::from_slice(&response.bytes().await.map_err(XrpcError::internal)?)
-        .map_err(XrpcError::internal)
+    serde_json::from_slice(
+        &pds_identity::safe_fetch::read_bounded(response, 512 * 1024)
+            .await
+            .map_err(XrpcError::internal)?,
+    )
+    .map_err(XrpcError::internal)
 }
 
 /// `com.atproto.identity.signPlcOperation`: the server signs an operation
@@ -161,17 +166,52 @@ pub async fn sign_plc_operation(
         state
             .blocking(move |state| {
                 super::email::valid_token(state, "plc_operation", &token, Some(&did))?;
-                let writes = state
-                    .writes()
-                    .ok_or_else(|| XrpcError::internal("the server is read-only"))?;
-                writes.with_accounts(|db| db.delete_email_token(&did, "plc_operation"))?;
                 Ok(())
             })
             .await?;
     }
     let last = last_operation(state, &did).await?;
     let signer = rotation_key(state)?;
-    let operation = pds_identity::plc::update_op(&last, &signer, |fields| {
+    let token = input["token"].as_str().unwrap_or_default().to_owned();
+    let headers = headers.clone();
+    let operation = state
+        .blocking(move |state| {
+            super::writes(state)?.with_accounts(|db| {
+                db.with_account_lock(&did, |db| {
+                    crate::auth::require_current_session(
+                        db,
+                        &state.config().auth,
+                        &headers,
+                        state.now_s(),
+                    )?;
+                    super::email::valid_token_in(
+                        db,
+                        state.now_ms(),
+                        "plc_operation",
+                        &token,
+                        Some(&did),
+                    )?;
+                    let operation = sign_operation(&last, &signer, &input)?;
+                    db.delete_email_token(&did, "plc_operation")?;
+                    Ok(operation)
+                })
+            })
+        })
+        .await?;
+    Ok(json_response(
+        StatusCode::OK,
+        &json!({ "operation": operation }),
+    ))
+}
+
+/// Builds the operation while the account transaction still protects its
+/// authorization. The directory lookup happens before this transaction.
+fn sign_operation(
+    last: &Value,
+    signer: &Keypair,
+    input: &Map<String, Value>,
+) -> Result<Value, XrpcError> {
+    pds_identity::plc::update_op(last, signer, |fields| {
         for key in [
             "rotationKeys",
             "alsoKnownAs",
@@ -190,11 +230,7 @@ pub async fn sign_plc_operation(
             XrpcError::invalid_request("Did is tombstoned")
         }
         pds_identity::plc::UpdateError::Malformed => XrpcError::internal(error),
-    })?;
-    Ok(json_response(
-        StatusCode::OK,
-        &json!({ "operation": operation }),
-    ))
+    })
 }
 
 /// Whether `op` has the shape of an operation of today's form.
@@ -259,6 +295,7 @@ pub async fn submit_plc_operation(
     let sent = state
         .http()
         .post(format!("{}/{did}", config.plc_url))
+        .timeout(state.config().proxy_timeout)
         .header("content-type", "application/json")
         .body(op.to_string())
         .send()

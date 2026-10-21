@@ -612,6 +612,22 @@ async fn complete(
 /// The end of a flow, once the provider said who signed in: the account
 /// of the identity, and the way back to the authorization or to the
 /// account page.
+async fn available_actor(state: &AppState, did: &str) -> Result<pds_storage::Actor, Stop> {
+    let did = did.to_owned();
+    accounts(state, move |db| {
+        db.actor(
+            &did,
+            Availability {
+                include_taken_down: false,
+                include_deactivated: true,
+            },
+        )
+    })
+    .await
+    .map_err(|_| "The account database failed")?
+    .ok_or("The account is not available")
+}
+
 async fn finish(
     state: &AppState,
     device: &super::authorize::Device,
@@ -655,21 +671,7 @@ async fn finish(
         });
         create_account(state, identity, signup.as_ref(), invite_code, &device.id).await?
     };
-    let actor = {
-        let did = did.clone();
-        accounts(state, move |db| {
-            db.actor(
-                &did,
-                Availability {
-                    include_taken_down: false,
-                    include_deactivated: true,
-                },
-            )
-        })
-        .await
-        .map_err(|_| "The account database failed")?
-        .ok_or("The account is not available")?
-    };
+    let actor = available_actor(state, &did).await?;
     let handle = actor.handle.clone().unwrap_or_else(|| did.clone());
     if hint.is_some_and(|hint| hint != did && hint != handle) {
         return Err("External account does not match the requested account");
@@ -692,17 +694,24 @@ async fn finish(
     // by signing up there. A known identity gets no such grant.
     let authorized = {
         let (did, client_id) = (did.clone(), client.client.id.clone());
+        let request_id = pending.row.id.clone();
         let grant = (created && client.trusted)
             .then(|| json!({ "authorizedScopes": pending.scopes() }).to_string());
         accounts(state, move |db| {
-            if let Some(grant) = &grant {
-                db.set_authorized_client(&did, &client_id, grant, &iso(now_ms))?;
-            }
-            db.authorized_client(&did, &client_id)
+            db.with_account_lock(&did, |db| {
+                if !db.authenticate_request(&request_id, &did)? {
+                    return Ok(None);
+                }
+                if let Some(grant) = &grant {
+                    db.set_authorized_client(&did, &client_id, grant, &iso(now_ms))?;
+                }
+                Ok(Some(db.authorized_client(&did, &client_id)?))
+            })
         })
         .await
         .map_err(|_| "The account database failed")?
     };
+    let authorized = authorized.ok_or("This authorization has ended. Start again.")?;
     if actor.deactivated_at.is_none() && !consent_required(&pending, authorized.as_deref()) {
         return authorize(state, &pending, &did, &device.cookies)
             .await

@@ -1,0 +1,7 @@
+
+running 1 test
+test list_records_steady_timed ... LIST_PREFLIGHT records=50 cursor=r9950 bytes=11930 sha256=24c2b5533bd0c65716bac411a44c879b5adc48b4e6feedf940fc73dd05a7f58f workers=10
+LIST_STEADY clients=8 warmups=100 p50_us=1447 p95_us=2081 p99_us=2484 requests=27838 req_per_s=5566.587 body_bytes=332107340 elapsed_s=5.000909
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.58s

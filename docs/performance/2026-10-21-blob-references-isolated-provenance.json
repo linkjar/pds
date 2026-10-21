@@ -1,0 +1,12 @@
+{
+  "description": "Final isolated-process SQL benchmark. Production actor_txn.rs is unchanged from the HTTP measurement snapshot; only benchmark harness isolation changed.",
+  "binary": {
+    "path": "/tmp/linkjar-pds-audit-target/release/examples/blob_references",
+    "sha256": "f8b9095a328ad671b253fcea2af9cf2fdb5a1151484c1cee6ffe71d1c19abff9"
+  },
+  "files": {
+    "crates/pds-storage/src/actor_txn.rs": "0b9d42b4a54bc8a55b90f19550e1a7bfeb68fe90e20dc41d71564915f31ec11f",
+    "crates/pds-storage/examples/blob_references.rs": "a93f3519b6a6996f31462fc9c1ee99c8d74c60068772fef6e3ca282bb187e3db",
+    "Cargo.lock": "b2982608660232f3a33a2fa89f871753bd0415e862dbc7d1d049075643d3df0f"
+  }
+}

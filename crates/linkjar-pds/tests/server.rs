@@ -22,6 +22,7 @@ use serde_json::{Value, json};
 use sha2::Sha256;
 
 struct Server {
+    _listener: common::http::Listener,
     origin: String,
     http: reqwest::Client,
     _dir: DataDir,
@@ -35,7 +36,7 @@ struct Answer {
 
 impl Answer {
     fn json(&self) -> Value {
-        serde_json::from_slice(&self.body).unwrap()
+        common::http::json(&self.body)
     }
 
     fn header(&self, name: &str) -> &str {
@@ -55,11 +56,12 @@ impl Answer {
 impl Server {
     async fn start(posts: usize) -> Self {
         let dir = DataDir::new(posts);
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = common::http::bind().await;
         let origin = format!("http://{}", listener.local_addr().unwrap());
         let router = pds_xrpc::router(app_state(&dir.config).unwrap());
-        tokio::spawn(async move { axum::serve(listener, router).await });
+        let listener = common::http::serve(listener, router);
         Self {
+            _listener: listener,
             origin,
             http: reqwest::Client::new(),
             _dir: dir,
@@ -385,6 +387,56 @@ async fn records_are_listed_newest_first_and_paged() {
 }
 
 #[tokio::test]
+async fn large_record_responses_preserve_json_bytes_and_content_type() {
+    let server = Server::start(1).await;
+    let collection = "com.example.large";
+    let payload = "x".repeat(48 * 1024);
+    let record = json!({
+        "$type": collection,
+        "payload": payload,
+        "nested": {"z": [true, null, 42, {"$bytes": "AQID"}, {"$link": BLOB_CID}], "a": "line\n雪"}
+    });
+    let written = server.send(
+        server.http.post(format!("{}/xrpc/com.atproto.repo.createRecord", server.origin))
+            .header("authorization", access_token(ALICE, "com.atproto.access"))
+            .header("content-type", "application/json")
+            .body(json!({"repo": ALICE, "collection": collection, "rkey": "large", "validate": false, "record": record}).to_string())
+    ).await;
+    assert_eq!(written.status, 200);
+    let cid = written.json()["cid"].as_str().unwrap().to_owned();
+    let value = format!(
+        r#"{{"$type":"{collection}","nested":{{"a":"line\n雪","z":[true,null,42,{{"$bytes":"AQID"}},{{"$link":"{BLOB_CID}"}}]}},"payload":"{payload}"}}"#
+    );
+    let expected =
+        format!(r#"{{"uri":"at://{ALICE}/{collection}/large","cid":"{cid}","value":{value}}}"#);
+    let get = server
+        .get(&format!(
+            "/xrpc/com.atproto.repo.getRecord?repo={ALICE}&collection={collection}&rkey=large"
+        ))
+        .await;
+    assert_eq!(get.status, 200);
+    assert_eq!(
+        get.header("content-type"),
+        "application/json; charset=utf-8"
+    );
+    assert_eq!(get.body, expected.as_bytes());
+    let list = server
+        .get(&format!(
+            "/xrpc/com.atproto.repo.listRecords?repo={ALICE}&collection={collection}&limit=1"
+        ))
+        .await;
+    assert_eq!(list.status, 200);
+    assert_eq!(
+        list.header("content-type"),
+        "application/json; charset=utf-8"
+    );
+    assert_eq!(
+        list.body,
+        format!(r#"{{"records":[{expected}],"cursor":"large"}}"#).as_bytes()
+    );
+}
+
+#[tokio::test]
 async fn describe_repo_reads_the_cached_document() {
     let server = Server::start(2).await;
     let described = server
@@ -565,23 +617,24 @@ async fn an_account_that_is_not_active_is_read_by_its_owner_and_by_an_admin() {
 async fn a_method_without_a_handler_needs_a_service_to_go_to() {
     let server = Server::start(1).await;
     let path = "/xrpc/app.bsky.actor.getProfile?actor=alice.pds.test";
-    // This directory names no AppView. The service is looked up before the
-    // credential, as in the Reference; `tests/proxy.rs` has one.
-    for credential in [
-        None,
-        Some(admin()),
-        Some(access_token(ALICE, "com.atproto.access")),
-    ] {
-        let answer = match &credential {
-            Some(credential) => server.get_as(path, credential).await,
-            None => server.get(path).await,
-        };
-        assert_eq!(answer.error(), (400, "InvalidRequest".to_owned()));
-        assert_eq!(
-            answer.json()["message"],
-            "No service configured for app.bsky.actor.getProfile"
-        );
-    }
+    // Authenticate before resolving the destination. An authenticated
+    // request still reports that this directory names no AppView.
+    assert_eq!(
+        server.get(path).await.error(),
+        (401, "AuthMissing".to_owned())
+    );
+    assert_eq!(
+        server.get_as(path, &admin()).await.error(),
+        (400, "InvalidToken".to_owned())
+    );
+    let answer = server
+        .get_as(path, &access_token(ALICE, "com.atproto.access"))
+        .await;
+    assert_eq!(answer.error(), (400, "InvalidRequest".to_owned()));
+    assert_eq!(
+        answer.json()["message"],
+        "No service configured for app.bsky.actor.getProfile"
+    );
     assert_eq!(
         server.get("/xrpc/a/b").await.json()["message"],
         "invalid xrpc path"

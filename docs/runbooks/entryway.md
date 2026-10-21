@@ -17,8 +17,12 @@ who use the apps before the day.
 - The entryway serves one member host.
 - `PDS_ENTRYWAY_URL` of the member host is the public address of the
   entryway: OAuth clients read it, and tokens name it as their issuer.
-- An OAuth session that the entryway ends is refused at the member host
-  when its access token ends, at most 60 minutes later.
+- After local token validation, the member checks current legacy and OAuth
+  session state with the entryway's private `POST /oauth/introspect`.
+  It caches no result. Recovery takes effect on the next validated request.
+  The round trip is bounded by five seconds or `PDS_PROXY_HEADERS_TIMEOUT`,
+  whichever is shorter. Missing admin credentials or an unavailable
+  entryway cause 503 `UpstreamFailure`.
 - Sessions with a password and with an app password go on: the client
   refreshes once and gets tokens of the entryway.
 - The entryway passes uploads, exports and the firehose on to the member
@@ -54,8 +58,8 @@ who use the apps before the day.
 
 1. Stop the old server.
 2. Copy `account.sqlite` of the old data directory to the data directory
-   of the entryway. With the shared tier on Postgres, copy the
-   `<prefix>_account` schema.
+   of the entryway, including its `credential_epoch` table. With the shared
+   tier on Postgres, copy the complete `<prefix>_account` schema.
 3. Configure the entryway with the variables of the old server, and:
    - `PDS_HOSTNAME`: the host name of the entryway.
    - `PDS_JWT_SECRET`: the secret of the old server. The entryway takes
@@ -71,6 +75,8 @@ who use the apps before the day.
    - `PDS_ENTRYWAY_DID`: `did:web:` and the host name of the entryway.
    - `PDS_ENTRYWAY_JWT_VERIFY_KEY_K256_PUBLIC_KEY_HEX`: the public key.
    - `PDS_ENTRYWAY_PLC_ROTATION_KEY`: the `did:key` of the rotation key.
+   - `PDS_ENTRYWAY_ADMIN_TOKEN`: the entryway's `PDS_ADMIN_PASSWORD`, kept
+     as a secret. Both session checks and admin forwarding need it.
    - Remove `PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX`.
    - Keep `PDS_JWT_SECRET`: the member host answers `ExpiredToken` to a
      token from before, and the client then refreshes.
@@ -86,6 +92,8 @@ who use the apps before the day.
 3. Create an account at the entryway. Its DID document names the member
    host.
 4. Change a handle. Both servers show it.
+5. Recover a test account's password. Its previous legacy and OAuth tokens
+   must fail on the member host; a fresh sign-in must work.
 
 ## 5. Reconcile
 
@@ -106,7 +114,7 @@ progress.
 
 Stop both. Remove the `PDS_ENTRYWAY_*` variables from the old server and
 give it its rotation key again. Copy `account.sqlite` of the entryway
-back: it has the accounts and the sessions since the split. A repository
-that the member host created since then is in its data directory
+back: it has the accounts, sessions and recovery epochs since the split.
+A repository that the member host created since then is in its data directory
 already. Start the old server. Clients refresh once more: tokens of the
 entryway end at a server that has no entryway.

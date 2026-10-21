@@ -5,6 +5,9 @@
 //! repository that is deactivated or taken down. An OAuth access token with
 //! its `DPoP` proof is verified here too (§5.5).
 
+use std::cell::RefCell;
+use std::future::Future;
+
 use axum::http::{HeaderMap, header};
 use base64::Engine;
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
@@ -203,10 +206,43 @@ fn admin(token: &str, config: &AuthConfig) -> Result<Credentials, XrpcError> {
 }
 
 /// The claims of a token this server signed.
+#[derive(Clone)]
 struct Verified {
     did: String,
     scope: String,
     jti: Option<String>,
+    credential_epoch: Option<String>,
+}
+
+struct RequestCredential {
+    state: crate::state::AppState,
+    token: String,
+    checked_at: i64,
+    claims: Verified,
+}
+
+tokio::task_local! {
+    static REQUEST_CREDENTIAL: RefCell<Option<RequestCredential>>;
+}
+
+/// Keeps verified claims within one request. Recovery state is never cached.
+pub(crate) async fn with_request<F: Future>(serve: F) -> F::Output {
+    REQUEST_CREDENTIAL.scope(RefCell::new(None), serve).await
+}
+
+fn verified_access(token: &str, config: &AuthConfig, now_s: i64) -> Result<Verified, XrpcError> {
+    let cached = REQUEST_CREDENTIAL
+        .try_with(|slot| {
+            slot.borrow().as_ref().and_then(|cached| {
+                (cached.token == token
+                    && cached.checked_at == now_s
+                    && std::ptr::eq(&raw const cached.state.config().auth, config))
+                .then(|| cached.claims.clone())
+            })
+        })
+        .ok()
+        .flatten();
+    cached.map_or_else(|| verify(token, config, "at+jwt", Some(now_s)), Ok)
 }
 
 /// Checks the signature, the type, the audience and the expiry of a token,
@@ -323,7 +359,201 @@ fn verify(
         did: did.to_owned(),
         scope: scope.to_owned(),
         jti,
+        credential_epoch: epoch_claim(&claims),
     })
+}
+
+fn epoch_claim(claims: &serde_json::Value) -> Option<String> {
+    claims
+        .get("pdsCredentialEpoch")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned)
+}
+
+/// An opaque version of the password hash that a sign-in verified. Binding
+/// it to the credential prevents an old login racing recovery from gaining
+/// the recovered account's version.
+pub(crate) fn credential_fingerprint(config: &AuthConfig, password_hash: &str) -> Option<String> {
+    let mut mac = Hmac::<Sha256>::new_from_slice(&config.jwt_secret).ok()?;
+    mac.update(b"linkjar-pds:credential-epoch:v1\0");
+    mac.update(password_hash.as_bytes());
+    Some(URL_SAFE_NO_PAD.encode(mac.finalize().into_bytes()))
+}
+
+/// Rejects a legacy access token invalidated by account recovery. OAuth,
+/// service tokens, refresh tokens and admin credentials have their own checks.
+pub(crate) async fn check_recovery(
+    state: &crate::state::AppState,
+    headers: &HeaderMap,
+) -> Result<(), XrpcError> {
+    let Some((kind, token)) = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split_once(' '))
+    else {
+        return Ok(());
+    };
+    if !kind.eq_ignore_ascii_case("bearer") {
+        return Ok(());
+    }
+    let header = token
+        .split('.')
+        .next()
+        .and_then(|part| URL_SAFE_NO_PAD.decode(part).ok())
+        .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok());
+    if header
+        .as_ref()
+        .and_then(|value| value.get("typ"))
+        .and_then(serde_json::Value::as_str)
+        != Some("at+jwt")
+    {
+        return Ok(());
+    }
+    let checked_at = state.now_s();
+    let checked = verify(token, &state.config().auth, "at+jwt", Some(checked_at))?;
+    let current = if state.config().entryway.is_some() {
+        member_token_active(state, token, "legacy", &checked.did, None).await?
+    } else {
+        credential_current(state, checked.clone(), false).await?
+    };
+    if !current {
+        return Err(XrpcError::bad_request(
+            "ExpiredToken",
+            "Token has been revoked by account recovery",
+        ));
+    }
+    let _ = REQUEST_CREDENTIAL.try_with(|slot| {
+        *slot.borrow_mut() = Some(RequestCredential {
+            state: state.clone(),
+            token: token.to_owned(),
+            checked_at,
+            claims: checked,
+        });
+    });
+    Ok(())
+}
+
+async fn credential_current(
+    state: &crate::state::AppState,
+    checked: Verified,
+    require_actor: bool,
+) -> Result<bool, XrpcError> {
+    state
+        .blocking(move |state| {
+            let db = state.reads().accounts()?;
+            if require_actor
+                && db
+                    .actor(&checked.did, pds_storage::Availability::ANY)?
+                    .is_none()
+            {
+                return Ok(false);
+            }
+            credential_matches(&db, &checked)
+        })
+        .await
+}
+
+fn credential_matches(db: &pds_storage::AccountDb, checked: &Verified) -> Result<bool, XrpcError> {
+    let expected = db.credential_epoch(&checked.did)?;
+    Ok(expected.is_none_or(|expected| {
+        bool::from(
+            expected
+                .as_bytes()
+                .ct_eq(checked.credential_epoch.as_deref().unwrap_or("").as_bytes()),
+        )
+    }))
+}
+
+/// Rechecks a legacy credential under the account transaction before
+/// creating another credential that could survive the current request.
+pub(crate) fn require_current_session(
+    db: &pds_storage::AccountDb,
+    config: &AuthConfig,
+    headers: &HeaderMap,
+    now_s: i64,
+) -> Result<(), XrpcError> {
+    let token = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split_once(' '))
+        .map(|(_, token)| token)
+        .ok_or_else(|| invalid_token("Invalid token"))?;
+    let checked = verify(token, config, "at+jwt", Some(now_s))?;
+    if !credential_matches(db, &checked)? {
+        return Err(XrpcError::bad_request(
+            "ExpiredToken",
+            "Token has been revoked by account recovery",
+        ));
+    }
+    Ok(())
+}
+
+/// The private entryway status endpoint checks a legacy token locally.
+pub(crate) async fn legacy_token_active(
+    state: &crate::state::AppState,
+    token: &str,
+) -> Result<Option<String>, XrpcError> {
+    let Ok(checked) = verify(token, &state.config().auth, "at+jwt", Some(state.now_s())) else {
+        return Ok(None);
+    };
+    let did = checked.did.clone();
+    Ok(credential_current(state, checked, true)
+        .await?
+        .then_some(did))
+}
+
+/// The member verifies the token and proof before asking its configured
+/// credential owner whether the session still exists. No status is cached.
+pub(crate) async fn member_token_active(
+    state: &crate::state::AppState,
+    token: &str,
+    kind: &str,
+    did: &str,
+    jti: Option<&str>,
+) -> Result<bool, XrpcError> {
+    let unavailable = || XrpcError {
+        status: axum::http::StatusCode::SERVICE_UNAVAILABLE,
+        error: "UpstreamFailure".to_owned(),
+        message: "The entryway could not confirm this session".to_owned(),
+    };
+    let entryway = state.config().entryway.as_ref().ok_or_else(unavailable)?;
+    let password = entryway.admin_token.as_deref().ok_or_else(unavailable)?;
+    let response = state
+        .http()
+        .post(format!(
+            "{}/oauth/introspect",
+            entryway.url.trim_end_matches('/')
+        ))
+        .basic_auth("admin", Some(password))
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(serde_json::json!({"token": token, "kind": kind}).to_string())
+        .timeout(
+            state
+                .config()
+                .proxy_timeout
+                .min(std::time::Duration::from_secs(5)),
+        )
+        .send()
+        .await
+        .map_err(|_| unavailable())?;
+    if response.status() != reqwest::StatusCode::OK {
+        return Err(unavailable());
+    }
+    let bytes = pds_identity::safe_fetch::read_bounded(response, 16 * 1024)
+        .await
+        .map_err(|_| unavailable())?;
+    let body: serde_json::Value = serde_json::from_slice(&bytes).map_err(|_| unavailable())?;
+    match body.get("active").and_then(serde_json::Value::as_bool) {
+        Some(false) => Ok(false),
+        Some(true)
+            if body.get("sub").and_then(serde_json::Value::as_str) == Some(did)
+                && body.get("kind").and_then(serde_json::Value::as_str) == Some(kind)
+                && body.get("jti").and_then(serde_json::Value::as_str) == jti =>
+        {
+            Ok(true)
+        }
+        _ => Err(unavailable()),
+    }
 }
 
 fn access(
@@ -332,7 +562,7 @@ fn access(
     additional: &[&str],
     now_s: i64,
 ) -> Result<Credentials, XrpcError> {
-    let verified = verify(token, config, "at+jwt", Some(now_s))?;
+    let verified = verified_access(token, config, now_s)?;
     let scope = verified.scope.as_str();
     if !ACCESS_STANDARD.contains(&scope) && !additional.contains(&scope) {
         return Err(invalid_token("Bad token scope"));
@@ -422,14 +652,25 @@ fn sign(config: &AuthConfig, typ: &str, claims: &serde_json::Value) -> String {
 /// An access token for `did`, as `createAccessToken` of the Reference
 /// mints it.
 pub fn mint_access(config: &AuthConfig, did: &str, scope: &str, now_s: i64) -> String {
-    sign(
-        config,
-        "at+jwt",
-        &serde_json::json!({
-            "scope": scope, "aud": config.service_did, "sub": did,
-            "iat": now_s, "exp": now_s + ACCESS_LIFETIME_S,
-        }),
-    )
+    mint_access_bound(config, did, scope, now_s, None)
+}
+
+/// An access token bound to the credential that opened or refreshed it.
+pub(crate) fn mint_access_bound(
+    config: &AuthConfig,
+    did: &str,
+    scope: &str,
+    now_s: i64,
+    epoch: Option<&str>,
+) -> String {
+    let mut claims = serde_json::json!({
+        "scope": scope, "aud": config.service_did, "sub": did,
+        "iat": now_s, "exp": now_s + ACCESS_LIFETIME_S,
+    });
+    if let Some(epoch) = epoch {
+        claims["pdsCredentialEpoch"] = epoch.into();
+    }
+    sign(config, "at+jwt", &claims)
 }
 
 /// A refresh token for `did` with the id `jti`. Returns the token and the
@@ -448,290 +689,4 @@ pub fn mint_refresh(config: &AuthConfig, did: &str, jti: &str, now_s: i64) -> (S
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A token as an entryway signs it: ES256K over the header and the
-    /// claims.
-    fn entryway_token(
-        key: &pds_identity::Keypair,
-        typ: &str,
-        claims: &serde_json::Value,
-    ) -> String {
-        let head =
-            URL_SAFE_NO_PAD.encode(serde_json::json!({"typ": typ, "alg": "ES256K"}).to_string());
-        let body = URL_SAFE_NO_PAD.encode(claims.to_string());
-        let signature = key.sign(format!("{head}.{body}").as_bytes());
-        format!("{head}.{body}.{}", URL_SAFE_NO_PAD.encode(signature))
-    }
-
-    #[test]
-    fn a_member_host_takes_the_tokens_of_its_entryway_and_no_other() {
-        let key = pds_identity::Keypair::generate(pds_identity::Algorithm::Secp256k1, |bytes| {
-            bytes.fill(11);
-        });
-        let member = AuthConfig {
-            entryway: Some(EntrywayAuth {
-                did: "did:web:entryway.test".to_owned(),
-                key: key.public_key(),
-            }),
-            ..config()
-        };
-        let did = "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa";
-        let claims = |aud: &str| serde_json::json!({"sub": did, "aud": aud, "scope": SCOPE_ACCESS, "exp": 2_000});
-        let with = |token: &str| {
-            let mut headers = HeaderMap::new();
-            headers.insert(
-                header::AUTHORIZATION,
-                format!("Bearer {token}").parse().unwrap(),
-            );
-            headers
-        };
-        // For this server, and for the entryway.
-        for aud in ["did:web:pds.test", "did:web:entryway.test"] {
-            let token = entryway_token(&key, "at+jwt", &claims(aud));
-            let credential = optional_credentials(&with(&token), &member, &[], 1_000).unwrap();
-            assert!(matches!(credential, Credentials::Access { did: found, .. } if found == did));
-        }
-        // Another audience, another key, and a token of the server's own secret.
-        let other = entryway_token(&key, "at+jwt", &claims("did:web:other.test"));
-        assert!(optional_credentials(&with(&other), &member, &[], 1_000).is_err());
-        let stranger =
-            pds_identity::Keypair::generate(pds_identity::Algorithm::Secp256k1, |bytes| {
-                bytes.fill(12);
-            });
-        let forged = entryway_token(&stranger, "at+jwt", &claims("did:web:pds.test"));
-        assert!(optional_credentials(&with(&forged), &member, &[], 1_000).is_err());
-        let own = mint_access(&config(), did, SCOPE_ACCESS, 1_000);
-        assert!(optional_credentials(&with(&own), &config(), &[], 1_000).is_ok());
-        // A token of the server's own secret has ended, so the client
-        // refreshes. A token of another secret is not one of this server.
-        let ended = optional_credentials(&with(&own), &member, &[], 1_000).unwrap_err();
-        assert_eq!(ended.error, "ExpiredToken");
-        let elsewhere = AuthConfig {
-            jwt_secret: b"another".to_vec(),
-            ..config()
-        };
-        let foreign = mint_access(&elsewhere, did, SCOPE_ACCESS, 1_000);
-        let refused = optional_credentials(&with(&foreign), &member, &[], 1_000).unwrap_err();
-        assert_eq!(refused.error, "InvalidToken");
-        // A server without an entryway takes no ES256K token.
-        let token = entryway_token(&key, "at+jwt", &claims("did:web:pds.test"));
-        assert!(optional_credentials(&with(&token), &config(), &[], 1_000).is_err());
-    }
-
-    fn config() -> AuthConfig {
-        AuthConfig {
-            jwt_secret: b"secret".to_vec(),
-            admin_password: "pa:ss".to_owned(),
-            service_did: "did:web:pds.test".to_owned(),
-            entryway: None,
-            signer: None,
-        }
-    }
-
-    fn token(claims: &serde_json::Value, typ: &str, secret: &[u8]) -> String {
-        token_with_header(
-            &serde_json::json!({"alg": "HS256", "typ": typ}),
-            claims,
-            secret,
-        )
-    }
-
-    /// A token with any header, signed with HMAC-SHA-256 whatever `alg` the
-    /// header names.
-    fn token_with_header(
-        header: &serde_json::Value,
-        claims: &serde_json::Value,
-        secret: &[u8],
-    ) -> String {
-        let head = URL_SAFE_NO_PAD.encode(header.to_string());
-        let body = URL_SAFE_NO_PAD.encode(claims.to_string());
-        let mut mac = Hmac::<Sha256>::new_from_slice(secret).unwrap();
-        mac.update(format!("{head}.{body}").as_bytes());
-        let signature = URL_SAFE_NO_PAD.encode(mac.finalize().into_bytes());
-        format!("{head}.{body}.{signature}")
-    }
-
-    fn with(value: &str) -> HeaderMap {
-        let mut headers = HeaderMap::new();
-        headers.insert(header::AUTHORIZATION, value.parse().unwrap());
-        headers
-    }
-
-    fn claims() -> serde_json::Value {
-        serde_json::json!({"scope": "com.atproto.access", "sub": "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa", "aud": "did:web:pds.test", "iat": 100, "exp": 200})
-    }
-
-    #[test]
-    fn no_header_is_no_credential() {
-        assert_eq!(
-            optional_credentials(&HeaderMap::new(), &config(), &[], 0).unwrap(),
-            Credentials::None
-        );
-    }
-
-    #[test]
-    fn the_admin_password_may_hold_a_colon() {
-        let good = STANDARD.encode("admin:pa:ss");
-        assert_eq!(
-            optional_credentials(&with(&format!("Basic {good}")), &config(), &[], 0).unwrap(),
-            Credentials::Admin
-        );
-        let bad = STANDARD.encode("admin:nope");
-        let error =
-            optional_credentials(&with(&format!("basic {bad}")), &config(), &[], 0).unwrap_err();
-        assert_eq!(
-            (error.status.as_u16(), error.error.as_str()),
-            (401, "AuthenticationRequired")
-        );
-    }
-
-    #[test]
-    fn an_access_token_names_its_account() {
-        let headers = with(&format!("Bearer {}", token(&claims(), "at+jwt", b"secret")));
-        let got = optional_credentials(&headers, &config(), &[], 150).unwrap();
-        assert!(got.is_admin_or("did:plc:aaaaaaaaaaaaaaaaaaaaaaaa"));
-        assert!(!got.is_admin_or("did:plc:bbbbbbbbbbbbbbbbbbbbbbbb"));
-    }
-
-    #[test]
-    fn refusals_carry_the_reference_names() {
-        let check = |headers: HeaderMap, now: i64, error: &str, message: &str| {
-            let got = optional_credentials(&headers, &config(), &[], now).unwrap_err();
-            assert_eq!((got.error.as_str(), got.message.as_str()), (error, message));
-        };
-        let good = token(&claims(), "at+jwt", b"secret");
-        check(
-            with(&format!("Bearer {good}")),
-            200,
-            "ExpiredToken",
-            "Token has expired",
-        );
-        check(
-            with("Bearer abc"),
-            0,
-            "InvalidToken",
-            "Token could not be verified",
-        );
-        check(
-            with(&format!("Bearer {}", token(&claims(), "at+jwt", b"other"))),
-            150,
-            "InvalidToken",
-            "Token could not be verified",
-        );
-        check(
-            with(&format!(
-                "Bearer {}",
-                token(&claims(), "refresh+jwt", b"secret")
-            )),
-            150,
-            "InvalidToken",
-            "Token could not be verified",
-        );
-        check(
-            with("Weird abc"),
-            0,
-            "InvalidToken",
-            "Unsupported authorization type: Weird",
-        );
-        check(
-            with("Bearer a b"),
-            0,
-            "InvalidToken",
-            "Malformed authorization header",
-        );
-        let mut refresh = claims();
-        refresh["scope"] = "com.atproto.refresh".into();
-        check(
-            with(&format!("Bearer {}", token(&refresh, "at+jwt", b"secret"))),
-            150,
-            "InvalidToken",
-            "Bad token scope",
-        );
-    }
-
-    /// The messages are the ones this server gives. The Reference's wording
-    /// for these cases is not compared here.
-    #[test]
-    fn a_token_that_fails_a_check_is_refused() {
-        let check = |authorization: &str, message: &str| {
-            let got = optional_credentials(&with(authorization), &config(), &[], 150).unwrap_err();
-            assert_eq!(
-                (got.error.as_str(), got.message.as_str()),
-                ("InvalidToken", message),
-                "{authorization}"
-            );
-        };
-        let bearer = |header: &serde_json::Value, claims: &serde_json::Value| {
-            format!("Bearer {}", token_with_header(header, claims, b"secret"))
-        };
-        let good_header = serde_json::json!({"alg": "HS256", "typ": "at+jwt"});
-        let with_claim = |name: &str, value: serde_json::Value| {
-            let mut changed = claims();
-            changed[name] = value;
-            bearer(&good_header, &changed)
-        };
-
-        // An unsigned token: `alg` is `none` and the signature is empty.
-        let none = serde_json::json!({"alg": "none", "typ": "at+jwt"});
-        let head = URL_SAFE_NO_PAD.encode(none.to_string());
-        let body = URL_SAFE_NO_PAD.encode(claims().to_string());
-        check(
-            &format!("Bearer {head}.{body}."),
-            "Token could not be verified",
-        );
-        // The signature is good for the secret; only `alg` is wrong.
-        check(&bearer(&none, &claims()), "Token could not be verified");
-        check(
-            &bearer(
-                &serde_json::json!({"alg": "HS512", "typ": "at+jwt"}),
-                &claims(),
-            ),
-            "Token could not be verified",
-        );
-        check(
-            &with_claim("aud", "did:web:other.test".into()),
-            "Token could not be verified",
-        );
-        check(
-            &with_claim("exp", "soon".into()),
-            "Token could not be verified",
-        );
-        check(
-            &with_claim("lxm", "com.atproto.sync.getRepo".into()),
-            "Malformed token",
-        );
-        check(
-            &with_claim("cnf", serde_json::json!({"jkt": "abc"})),
-            "Malformed token",
-        );
-        check(&with_claim("sub", "alice".into()), "Malformed token");
-        check(&with_claim("jti", 1.into()), "Malformed token");
-        check("DPoP abc", "Token could not be verified");
-    }
-
-    /// A recorded decision: a token without `exp` does not expire.
-    #[test]
-    fn a_token_without_an_expiry_is_accepted() {
-        let mut eternal = claims();
-        eternal.as_object_mut().unwrap().remove("exp");
-        let headers = with(&format!("Bearer {}", token(&eternal, "at+jwt", b"secret")));
-        assert_eq!(
-            optional_credentials(&headers, &config(), &[], i64::MAX).unwrap(),
-            Credentials::Access {
-                did: "did:plc:aaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
-                scope: "com.atproto.access".to_owned(),
-            }
-        );
-    }
-
-    #[test]
-    fn a_takendown_token_is_read_only_where_the_method_allows_it() {
-        let mut taken = claims();
-        taken["scope"] = SCOPE_TAKENDOWN.into();
-        let headers = with(&format!("Bearer {}", token(&taken, "at+jwt", b"secret")));
-        assert!(optional_credentials(&headers, &config(), &[], 150).is_err());
-        assert!(optional_credentials(&headers, &config(), &[SCOPE_TAKENDOWN], 150).is_ok());
-    }
-}
+mod tests;

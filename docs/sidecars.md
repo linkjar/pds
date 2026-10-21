@@ -268,8 +268,10 @@ named here so the hosted mode is not mistaken for the whole story.
   bodies.
 - Audit: each tool call that writes is sent to the PDS with the sidecar's
   client id and the MCP client id, so the audit log attributes it.
-- Safe fetch (SPEC §15.1) for every outbound request, including client
-  metadata documents of MCP clients.
+- Safe fetch (SPEC §15.1) for untrusted MCP client metadata: public HTTPS
+  on port 443, connector address validation, no redirects or environment
+  proxies, a 10-second deadline and a 64 KiB body cap. Configured PDS URLs
+  remain trusted destinations and may use a private network.
 - The sidecar is public, so it carries the same CSP, body limits and
   fuzzed parsers as the PDS.
 
@@ -316,6 +318,11 @@ Built, as the crate `pds-mcp` and the binary `linkjar-pds-mcp` (image:
   `repo:write:<collection>` for each collection of
   `MCP_WRITE_COLLECTIONS`.
 - **Limits.** 120 calls and 20 writes in a minute for each session.
+  Public registration admits 30 attempts per minute across the process,
+  including invalid requests; excess returns 429 `temporarily_unavailable`
+  with `Retry-After: 60`. At 4,096 registered clients, new registrations
+  return 503 `temporarily_unavailable`. Existing registrations are retained
+  until restart; filling the table does not evict them.
 - **Audit.** Each write goes to the PDS with the id of the AI client,
   and the PDS writes the entry (SPEC §22.2).
 
@@ -336,10 +343,7 @@ Not built:
 4. The confirmation prompt for each write of a client that is not
    trusted. A write tool says in its annotations that it writes.
 5. DPoP for an AI client that offers it. Tokens are bearer tokens.
-6. A fetch that pins the address it checked. The server checks the
-   addresses of a client's host and then lets the HTTP client resolve the
-   name again, as the PDS does.
-7. A scope step-up for the official client. On `insufficient_scope` the
+6. A scope step-up for the official client. On `insufficient_scope` the
    SDK 1.30.1 refreshes with the scope it has, so a client that needs a
    wider scope signs in again. The official client and the Inspector run
    against the server in CI (`the_official_mcp_client_signs_in_through_the_pds`).

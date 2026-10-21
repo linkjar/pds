@@ -1,5 +1,6 @@
 //! `account.sqlite`: the actors this server hosts and their status.
 
+use std::cell::Cell;
 use std::path::Path;
 
 use crate::sql::{Connection, OptionalExtension, Row, named_params, params};
@@ -198,6 +199,43 @@ pub struct RepoListing {
 #[derive(Debug)]
 pub struct AccountDb {
     pub(crate) conn: Connection,
+    recovery_schema: Cell<bool>,
+}
+
+struct AccountLock<'a> {
+    db: &'a mut AccountDb,
+    scope: crate::sql::Scope,
+    finished: bool,
+}
+
+struct AccountSnapshot<'a> {
+    db: &'a AccountDb,
+    scope: crate::sql::Scope,
+    finished: bool,
+}
+
+impl Drop for AccountSnapshot<'_> {
+    fn drop(&mut self) {
+        if !self.finished {
+            let _ = self.db.conn.finish_scope(self.scope, false);
+        }
+    }
+}
+
+impl AccountLock<'_> {
+    fn commit(mut self) -> Result<(), StorageError> {
+        self.db.conn.finish_scope(self.scope, true)?;
+        self.finished = true;
+        Ok(())
+    }
+}
+
+impl Drop for AccountLock<'_> {
+    fn drop(&mut self) {
+        if !self.finished {
+            let _ = self.db.conn.finish_scope(self.scope, false);
+        }
+    }
 }
 
 const ACTOR_COLUMNS: &str =
@@ -238,21 +276,124 @@ fn invite_available(conn: &Connection, code: &str) -> Result<bool, StorageError>
 impl AccountDb {
     /// The database over a connection of the shared tier.
     pub(crate) const fn over(conn: Connection) -> Self {
-        Self { conn }
+        Self {
+            conn,
+            recovery_schema: Cell::new(false),
+        }
+    }
+
+    pub(crate) fn over_writable(mut conn: Connection) -> Result<Self, StorageError> {
+        if !conn.table_exists("credential_epoch")? {
+            // Serialize first-time upgrades across nodes, without adding
+            // an entry to the Reference's migration ledger.
+            let txn = conn.transaction_with_behavior(crate::sql::TransactionBehavior::Immediate)?;
+            txn.execute_batch(
+                r#"create table if not exists "credential_epoch" ("did" varchar primary key, "epoch" varchar not null)"#,
+            )?;
+            txn.commit()?;
+        }
+        Ok(Self {
+            conn,
+            recovery_schema: Cell::new(true),
+        })
     }
 
     /// Opens the database for reading.
     pub fn open(path: &Path) -> Result<Self, StorageError> {
-        Ok(Self {
-            conn: open_read_only(path)?.into(),
-        })
+        Ok(Self::over(open_read_only(path)?.into()))
     }
 
     /// Opens the database for reading and writing.
     pub fn open_writable(path: &Path) -> Result<Self, StorageError> {
-        Ok(Self {
-            conn: open_read_write(path)?.into(),
-        })
+        Self::over_writable(open_read_write(path)?.into())
+    }
+
+    /// The shared recovery marker. An unchanged Reference database has no
+    /// table or marker until it is first opened for writes by this server.
+    pub fn credential_epoch(&self, did: &str) -> Result<Option<String>, StorageError> {
+        if !self.recovery_schema.get() {
+            if !self.conn.table_exists("credential_epoch")? {
+                // Another node may add the table while this connection stays
+                // in the read pool. Absence must never be cached.
+                return Ok(None);
+            }
+            self.recovery_schema.set(true);
+        }
+        Ok(self
+            .conn
+            .query_row(
+                r#"select "epoch" from "credential_epoch" where "did" = ?1"#,
+                [did],
+                |row| row.get(0),
+            )
+            .optional()?)
+    }
+
+    /// Reads related account rows from one snapshot, releasing it before
+    /// the connection returns to the pool. Nested calls inherit the snapshot.
+    pub fn with_snapshot<T, E>(&self, call: impl FnOnce(&Self) -> Result<T, E>) -> Result<T, E>
+    where
+        E: From<StorageError>,
+    {
+        let scope = self
+            .conn
+            .begin_scope(crate::sql::TransactionBehavior::Deferred)
+            .map_err(StorageError::from)?;
+        let mut snapshot = AccountSnapshot {
+            db: self,
+            scope,
+            finished: false,
+        };
+        if self.conn.is_postgres() && matches!(scope, crate::sql::Scope::Transaction) {
+            self.conn
+                .execute_batch("set transaction isolation level repeatable read read only")
+                .map_err(StorageError::from)?;
+        }
+        let result = call(self)?;
+        self.conn
+            .finish_scope(scope, false)
+            .map_err(StorageError::from)?;
+        snapshot.finished = true;
+        Ok(result)
+    }
+
+    /// Checks credentials and stores their grant under one account lock.
+    /// Nested storage transactions stay inside this transaction.
+    pub fn with_account_lock<T, E>(
+        &mut self,
+        did: &str,
+        call: impl FnOnce(&mut Self) -> Result<T, E>,
+    ) -> Result<T, E>
+    where
+        E: From<StorageError>,
+    {
+        let lock = self.lock_account(did)?;
+        let result = call(lock.db)?;
+        lock.commit()?;
+        Ok(result)
+    }
+
+    fn lock_account(&mut self, did: &str) -> Result<AccountLock<'_>, StorageError> {
+        let behavior = if self.conn.is_postgres() {
+            crate::sql::TransactionBehavior::Deferred
+        } else {
+            crate::sql::TransactionBehavior::Immediate
+        };
+        let scope = self.conn.begin_scope(behavior)?;
+        let lock = AccountLock {
+            db: self,
+            scope,
+            finished: false,
+        };
+        let query = if lock.db.conn.is_postgres() {
+            r#"select "did" from "account" where "did" = ?1 for update"#
+        } else {
+            r#"select "did" from "account" where "did" = ?1"#
+        };
+        lock.db
+            .conn
+            .query_row(query, [did], |row| row.get::<String>(0))?;
+        Ok(lock)
     }
 
     /// Records the latest commit of an account, which `listRepos` reads.
@@ -511,30 +652,45 @@ impl AccountDb {
         Ok(true)
     }
 
-    /// Gives an account another password. Its sessions end, and the token
-    /// that reset the password is removed.
+    /// Gives an account another password. Recovery ends its sessions,
+    /// pending authorizations, app passwords and outstanding email tokens.
     pub fn update_password(
         &mut self,
         did: &str,
         hash: &str,
+        epoch: &str,
         notice: Option<(&str, i64)>,
     ) -> Result<(), StorageError> {
-        let txn = self.conn.transaction()?;
+        let lock = self.lock_account(did)?;
+        let txn = &lock.db.conn;
         // A profile that mails notices of sign-in changes gets one in the
         // transaction of the change: its id and the time.
         if let Some((id, now_ms)) = notice {
-            crate::linkjar::enqueue_notice(&txn, id, did, "password-set", None, now_ms)?;
+            crate::linkjar::enqueue_notice(txn, id, did, "password-set", None, now_ms)?;
         }
         txn.execute(
             r#"update "account" set "passwordScrypt" = ?2 where "did" = ?1"#,
             [did, hash],
         )?;
         txn.execute(
-            r#"delete from "email_token" where "did" = ?1 and "purpose" = 'reset_password'"#,
+            r#"insert into "credential_epoch" ("did", "epoch") values (?1, ?2) on conflict ("did") do update set "epoch" = excluded."epoch""#,
+            [did, epoch],
+        )?;
+        txn.execute(
+            r#"delete from "authorization_request" where "did" = ?1 or "deviceId" in (select "deviceId" from "account_device" where "did" = ?1)"#,
             [did],
         )?;
+        txn.execute(
+            r#"delete from "used_refresh_token" where "tokenId" in (select "id" from "token" where "did" = ?1)"#,
+            [did],
+        )?;
+        txn.execute(r#"delete from "token" where "did" = ?1"#, [did])?;
+        txn.execute(r#"delete from "account_device" where "did" = ?1"#, [did])?;
+        txn.execute(r#"delete from "authorized_client" where "did" = ?1"#, [did])?;
+        txn.execute(r#"delete from "app_password" where "did" = ?1"#, [did])?;
+        txn.execute(r#"delete from "email_token" where "did" = ?1"#, [did])?;
         txn.execute(r#"delete from "refresh_token" where "did" = ?1"#, [did])?;
-        txn.commit()?;
+        lock.commit()?;
         Ok(())
     }
 
@@ -726,6 +882,7 @@ impl AccountDb {
     pub fn delete_account(&mut self, did: &str) -> Result<(), StorageError> {
         let txn = self.conn.transaction()?;
         for table in [
+            "credential_epoch",
             "repo_root",
             "email_token",
             "refresh_token",
@@ -782,7 +939,8 @@ impl AccountDb {
 
     /// Removes an app password and the sessions it opened.
     pub fn revoke_app_password(&mut self, did: &str, name: &str) -> Result<(), StorageError> {
-        let txn = self.conn.transaction()?;
+        let lock = self.lock_account(did)?;
+        let txn = &lock.db.conn;
         txn.execute(
             r#"delete from "app_password" where "did" = ?1 and "name" = ?2"#,
             [did, name],
@@ -791,7 +949,7 @@ impl AccountDb {
             r#"delete from "refresh_token" where "did" = ?1 and "appPasswordName" = ?2"#,
             [did, name],
         )?;
-        txn.commit()?;
+        lock.commit()?;
         Ok(())
     }
 

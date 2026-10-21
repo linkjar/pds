@@ -2,7 +2,6 @@
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    clippy::too_many_lines,
     clippy::significant_drop_tightening,
     missing_docs
 )]
@@ -26,7 +25,7 @@ type Seen = Arc<Mutex<Vec<(String, String, Vec<(String, String)>, Vec<u8>)>>>;
 
 async fn appview() -> (String, Seen) {
     let seen = Seen::default();
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = common::http::bind().await;
     let origin = format!("http://{}", listener.local_addr().unwrap());
     let app = axum::Router::new()
         .fallback(|State(seen): State<Seen>, request: Request| async move {
@@ -91,6 +90,30 @@ async fn appview() -> (String, Seen) {
             if path.contains("app.bsky.unspecced.broken") {
                 return StatusCode::INTERNAL_SERVER_ERROR.into_response();
             }
+            if path.contains("com.example.largeError") {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    [("content-type", "application/json")],
+                    json!({"error":"InvalidRequest","message":"x".repeat(256 * 1024)}).to_string(),
+                )
+                    .into_response();
+            }
+            if path.contains("com.atproto.identity.resolveHandle") {
+                return (
+                    StatusCode::OK,
+                    [("content-type", "application/json")],
+                    json!({"did":"x".repeat(256 * 1024)}).to_string(),
+                )
+                    .into_response();
+            }
+            if path.contains("com.atproto.repo.getRecord") {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    [("content-type", "application/json")],
+                    json!({"error":"InvalidRequest","message":"x".repeat(256 * 1024)}).to_string(),
+                )
+                    .into_response();
+            }
             (StatusCode::OK, [("content-type", "application/json")], "{}").into_response()
         })
         .with_state(Arc::clone(&seen));
@@ -99,6 +122,7 @@ async fn appview() -> (String, Seen) {
 }
 
 struct Server {
+    _listener: common::http::Listener,
     origin: String,
     http: reqwest::Client,
     state: pds_xrpc::AppState,
@@ -107,19 +131,25 @@ struct Server {
 
 impl Server {
     async fn start(appview: &str) -> Self {
-        let dir = DataDir::new_with(
-            1,
-            &[
-                ("PDS_BSKY_APP_VIEW_URL", appview),
-                ("PDS_BSKY_APP_VIEW_DID", "did:web:appview.test"),
-            ],
-        );
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        Self::start_with(appview, &[]).await
+    }
+
+    async fn start_with(appview: &str, extra: &[(&str, &str)]) -> Self {
+        let vars: Vec<_> = [
+            ("PDS_BSKY_APP_VIEW_URL", appview),
+            ("PDS_BSKY_APP_VIEW_DID", "did:web:appview.test"),
+        ]
+        .into_iter()
+        .chain(extra.iter().copied())
+        .collect();
+        let dir = DataDir::new_with(1, &vars);
+        let listener = common::http::bind().await;
         let origin = format!("http://{}", listener.local_addr().unwrap());
         let state = app_state(&dir.config).unwrap();
         let router = pds_xrpc::router(state.clone());
-        tokio::spawn(async move { axum::serve(listener, router).await });
+        let listener = common::http::serve(listener, router);
         Self {
+            _listener: listener,
             origin,
             http: reqwest::Client::new(),
             state,
@@ -134,16 +164,128 @@ impl Server {
         let response = request.send().await.unwrap();
         let (status, headers) = (response.status().as_u16(), response.headers().clone());
         let bytes = response.bytes().await.unwrap();
-        (
-            status,
-            headers,
-            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
-        )
+        (status, headers, common::http::json(&bytes))
     }
 
     fn get(&self, path: &str) -> reqwest::RequestBuilder {
         self.http.get(format!("{}/xrpc/{path}", self.origin))
     }
+
+    async fn access(&self) -> String {
+        let (_, _, body) = self
+            .send(
+                self.http
+                    .post(format!(
+                        "{}/xrpc/com.atproto.server.createSession",
+                        self.origin
+                    ))
+                    .header("content-type", "application/json")
+                    .body(json!({"identifier":ALICE,"password":PASSWORD}).to_string()),
+            )
+            .await;
+        body["accessJwt"].as_str().unwrap().to_owned()
+    }
+}
+
+#[tokio::test]
+async fn proxy_authentication_precedes_did_resolution() {
+    let (directory, seen) = appview().await;
+    let server = Server::start_with(&directory, &[("PDS_DID_PLC_URL", &directory)]).await;
+    let (status, _, body) = server
+        .send(
+            server
+                .get("com.example.read")
+                .header("atproto-proxy", "did:plc:bbbbbbbbbbbbbbbbbbbbbbbb#service"),
+        )
+        .await;
+    assert_eq!((status, &body["error"]), (401, &json!("AuthMissing")));
+    assert!(
+        seen.lock().unwrap().is_empty(),
+        "unauthenticated request reached the DID directory"
+    );
+}
+
+#[tokio::test]
+async fn a_did_cannot_route_the_proxy_to_a_private_service() {
+    let (private_service, seen) = appview().await;
+    let server = Server::start(&private_service).await;
+    let did = "did:web:untrusted.test";
+    server.dir.config.layout.did_cache().unwrap().put(
+        did,
+        &json!({"id":did,"service":[{"id":"#service","type":"Test","serviceEndpoint":private_service}]}).to_string(),
+        server.state.now_ms(),
+    ).unwrap();
+    let access = server.access().await;
+    let (status, _, _) = server
+        .send(
+            server
+                .get("com.example.read")
+                .bearer_auth(access)
+                .header("atproto-proxy", format!("{did}#service")),
+        )
+        .await;
+    assert_eq!(status, 400);
+    assert!(
+        seen.lock().unwrap().is_empty(),
+        "untrusted DID reached a private service"
+    );
+}
+
+#[tokio::test]
+async fn proxy_error_documents_have_a_size_limit() {
+    let (appview, _) = appview().await;
+    let server = Server::start(&appview).await;
+    let access = server.access().await;
+    let (status, _, body) = server
+        .send(server.get("com.example.largeError").bearer_auth(access))
+        .await;
+    assert_eq!((status, &body["error"]), (502, &json!("UpstreamFailure")));
+    assert!(body.to_string().len() < 1024);
+}
+
+#[tokio::test]
+async fn a_private_did_service_requires_explicit_development_mode() {
+    let (private_service, seen) = appview().await;
+    let server = Server::start_with(&private_service, &[("PDS_DEV_MODE", "true")]).await;
+    let did = "did:web:untrusted.test";
+    server.dir.config.layout.did_cache().unwrap().put(
+        did,
+        &json!({"id":did,"service":[{"id":"#service","type":"Test","serviceEndpoint":private_service}]}).to_string(),
+        server.state.now_ms(),
+    ).unwrap();
+    let access = server.access().await;
+    let (status, _, _) = server
+        .send(
+            server
+                .get("com.example.read")
+                .bearer_auth(access)
+                .header("atproto-proxy", format!("{did}#service")),
+        )
+        .await;
+    assert_eq!(status, 200);
+    assert_eq!(seen.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn the_record_fallback_limits_trusted_upstream_error_bodies() {
+    let (appview, _) = appview().await;
+    let server = Server::start(&appview).await;
+    let (status, _, body) = server
+        .send(server.get("com.atproto.repo.getRecord?repo=did:plc:bbbbbbbbbbbbbbbbbbbbbbbb&collection=com.example.record&rkey=missing"))
+        .await;
+    assert_eq!((status, &body["error"]), (502, &json!("UpstreamFailure")));
+    assert!(body.to_string().len() < 1024);
+}
+
+#[tokio::test]
+async fn handle_resolution_limits_trusted_upstream_documents() {
+    let (appview, _) = appview().await;
+    let server = Server::start(&appview).await;
+    let (status, _, body) = server
+        .send(server.get("com.atproto.identity.resolveHandle?handle=alice.example.com"))
+        .await;
+    assert_eq!(status, 400);
+    assert!(body.to_string().len() < 1024);
 }
 
 fn claims(token: &str) -> Value {
@@ -152,6 +294,7 @@ fn claims(token: &str) -> Value {
 }
 
 #[tokio::test]
+#[allow(clippy::too_many_lines)] // one end-to-end protocol scenario
 async fn a_method_without_a_handler_goes_to_the_appview_with_a_service_token() {
     let (appview, seen) = appview().await;
     let server = Server::start(&appview).await;

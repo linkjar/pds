@@ -13,9 +13,12 @@ flowchart LR
       t7[permission-set cache]
     end
     prov[(providers: clock, random, StorageIo)]
-    pool[(blocking pool: SQLite)]
+    admission[admission<br/>8 uploads, 2 imports, 8 exports<br/>32 subscriptions]
+    repo[repository admission<br/>8 jobs per DID, 64 overall<br/>async wait, one writer per DID]
+    pool[(blocking pool: SQLite<br/>64 ordinary jobs, 4 audit jobs)]
   end
   proxy([reverse proxy<br/>asks /tls-check before a certificate]) --> pub
   console[[console]] --> ops & met
   bg --- prov
-  pub --- pool
+  pub --> admission --> pool
+  admission --> repo --> pool

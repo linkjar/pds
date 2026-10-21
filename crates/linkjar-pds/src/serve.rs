@@ -125,6 +125,7 @@ fn server_config(config: &Config, jwt_secret: &str, admin_password: &str) -> Ser
     });
     let profile = profile(config);
     ServerConfig {
+        dev_mode: config.dev_mode,
         hostname: config.hostname.clone(),
         version: config.version.clone(),
         handle_domains: config.handle_domains.clone(),
@@ -221,6 +222,8 @@ fn server_config(config: &Config, jwt_secret: &str, admin_password: &str) -> Ser
 pub fn app_state(config: &Config) -> Result<AppState, ServeError> {
     let (jwt_secret, admin_password) = config.serve_secrets()?;
     let http = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(std::time::Duration::from_secs(30))
         .user_agent(concat!("linkjar-pds/", env!("CARGO_PKG_VERSION")))
         .redirect(reqwest::redirect::Policy::none())
         .build()?;

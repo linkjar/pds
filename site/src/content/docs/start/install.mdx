@@ -10,6 +10,10 @@ import { Steps, Tabs, TabItem, FileTree } from '@astrojs/starlight/components';
 The deployment is four files from the repository: a Compose file with the
 server and Caddy, a Caddyfile, and two example environment files.
 
+The Compose template pins `caddy:2.11.7-alpine` by image digest. Updating
+the repository does not update an already running edge; apply the changed
+template during the deployment's normal update process.
+
 <FileTree>
 - deploy/compose/
   - compose.yml the server and Caddy

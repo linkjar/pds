@@ -64,14 +64,28 @@ pub(crate) fn valid_token(
     token: &str,
     did: Option<&str>,
 ) -> Result<String, XrpcError> {
-    let found = state
-        .layout()
-        .accounts()?
+    valid_token_in(
+        &state.layout().accounts()?,
+        state.now_ms(),
+        purpose,
+        token,
+        did,
+    )
+}
+
+pub(crate) fn valid_token_in(
+    db: &pds_storage::AccountDb,
+    now_ms: i64,
+    purpose: &str,
+    token: &str,
+    did: Option<&str>,
+) -> Result<String, XrpcError> {
+    let found = db
         .email_token(purpose, &token.to_uppercase(), did)?
         .ok_or_else(|| XrpcError::bad_request("InvalidToken", "Token is invalid"))?;
     let requested =
         chrono::DateTime::parse_from_rfc3339(&found.1).map_or(0, |at| at.timestamp_millis());
-    if state.now_ms() - requested >= TOKEN_LIFETIME_MS {
+    if now_ms - requested >= TOKEN_LIFETIME_MS {
         return Err(XrpcError::bad_request("ExpiredToken", "Token is expired"));
     }
     Ok(found.0)
@@ -213,31 +227,40 @@ pub async fn update_email(
             "This email address is not supported, please use a different email.",
         ));
     }
+    let headers = headers.clone();
     state
         .blocking(move |state| {
-            let account = state
-                .layout()
-                .accounts()?
-                .account(&did, false, Availability::ANY)?
-                .ok_or_else(|| XrpcError::invalid_request("account not found"))?;
-            match &token {
-                Some(token) => {
-                    valid_token(state, "update_email", token, Some(&did))?;
-                }
-                None if account.email_confirmed_at.is_some() => {
-                    return Err(XrpcError::bad_request(
-                        "TokenRequired",
-                        "confirmation token required",
-                    ));
-                }
-                None => {}
-            }
-            if !writes(state)?.with_accounts(|db| db.update_email(&did, &email))? {
-                return Err(XrpcError::invalid_request(
-                    "This email address is already in use, please use a different email.",
-                ));
-            }
-            Ok(())
+            writes(state)?.with_accounts(|db| {
+                db.with_account_lock(&did, |db| {
+                    auth::require_current_session(
+                        db,
+                        &state.config().auth,
+                        &headers,
+                        state.now_s(),
+                    )?;
+                    let account = db
+                        .account(&did, false, Availability::ANY)?
+                        .ok_or_else(|| XrpcError::invalid_request("account not found"))?;
+                    match &token {
+                        Some(token) => {
+                            valid_token_in(db, state.now_ms(), "update_email", token, Some(&did))?;
+                        }
+                        None if account.email_confirmed_at.is_some() => {
+                            return Err(XrpcError::bad_request(
+                                "TokenRequired",
+                                "confirmation token required",
+                            ));
+                        }
+                        None => {}
+                    }
+                    if !db.update_email(&did, &email)? {
+                        return Err(XrpcError::invalid_request(
+                            "This email address is already in use, please use a different email.",
+                        ));
+                    }
+                    Ok(())
+                })
+            })
         })
         .await?;
     Ok(StatusCode::OK.into_response())
@@ -283,17 +306,19 @@ pub async fn request_password_reset(
         let email = account.email.clone()?;
         Some((account, email))
     }) else {
-        return Err(XrpcError::invalid_request(
-            "account does not have an email address",
-        ));
+        // The response must not reveal whether an address has an account.
+        return Ok(StatusCode::OK.into_response());
     };
     let token = create_token(state, &account.actor.did, "reset_password").await?;
     let handle = account.actor.handle.as_deref().unwrap_or(&to);
-    state
+    if let Err(error) = state
         .config()
         .mail
         .send(Template::ResetPassword, &to, &token, Some(handle))
-        .await?;
+        .await
+    {
+        tracing::warn!(error = %error.message, "password reset delivery failed");
+    }
     Ok(StatusCode::OK.into_response())
 }
 
@@ -337,8 +362,21 @@ pub async fn reset_password(
                 .produces_notices()
                 .then(|| crate::oauth::new_id(pds_oauth::token::Id::Request));
             let now_ms = state.now_ms();
+            let epoch =
+                auth::credential_fingerprint(&state.config().auth, &hash).ok_or_else(|| {
+                    XrpcError::internal("the credential version could not be computed")
+                })?;
             writes.with_accounts(|db| {
-                db.update_password(&did, &hash, notice.as_deref().map(|id| (id, now_ms)))
+                db.with_account_lock(&did, |db| {
+                    valid_token_in(db, state.now_ms(), "reset_password", &token, Some(&did))?;
+                    db.update_password(
+                        &did,
+                        &hash,
+                        &epoch,
+                        notice.as_deref().map(|id| (id, now_ms)),
+                    )?;
+                    Ok::<_, XrpcError>(())
+                })
             })?;
             Ok(())
         })

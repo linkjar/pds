@@ -4,7 +4,8 @@
   "type": "module",
   "description": "Renders docs/architecture/diagrams/*.mmd to svg/ with beautiful-mermaid",
   "scripts": {
-    "render": "node render.mjs"
+    "render": "node render.mjs",
+    "check": "node render.mjs --check"
   },
   "dependencies": {
     "beautiful-mermaid": "^1.1.3"

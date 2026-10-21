@@ -13,7 +13,7 @@ use super::{Query, repo_availability};
 use crate::auth::SCOPE_TAKENDOWN;
 use crate::error::{XrpcError, express_content_type, json_response};
 use crate::state::AppState;
-use crate::stream::blocking_body;
+use crate::stream::admitted_body;
 
 const CAR: &str = "application/vnd.ipld.car";
 
@@ -55,6 +55,7 @@ fn root_of(store: &ActorDb) -> Result<RepoRoot, XrpcError> {
 /// commits during the export deletes the blocks its new tree no longer
 /// references, and pages read outside the root's snapshot would miss some
 /// of the blocks the root's tree needs.
+#[allow(clippy::significant_drop_tightening)] // The permit moves into the streaming producer.
 pub async fn get_repo(
     state: &AppState,
     query: &Query<'_>,
@@ -74,6 +75,7 @@ pub async fn get_repo(
             1,
         )],
     )?;
+    let permit = state.resources().export()?;
     let (store, root) = state
         .blocking(move |state| {
             repo_availability(state, &did, credentials.is_admin_or(&did))?;
@@ -83,7 +85,7 @@ pub async fn get_repo(
             Ok((store, root.cid))
         })
         .await?;
-    let body = blocking_body(move |out| {
+    let body = admitted_body(permit, move |out| {
         let mut car = CarWriter::new(out, Some(&root))?;
         let mut after: Option<(String, String)> = None;
         loop {
@@ -120,8 +122,9 @@ pub async fn get_record(state: &AppState, query: &Query<'_>) -> Result<Response,
     let car = state
         .blocking(move |state| {
             repo_availability(state, &did, credentials.is_admin_or(&did))?;
-            let (store, root) = open_with_root(state, &did)?;
-            let repo = Repo::load(&*store, root.cid)?;
+            let store = ActorDb::open_snapshot(&state.layout().actor_db(&did))?;
+            let root = root_of(&store)?;
+            let repo = Repo::load(&store, root.cid)?;
             let proof = repo.record_proof(&key)?;
             Ok(write_car(Some(&root.cid), &proof))
         })
@@ -134,6 +137,7 @@ pub async fn get_record(state: &AppState, query: &Query<'_>) -> Result<Response,
 /// The handler checks that the store holds every block before the status
 /// line goes out. It then streams the blocks, so the server never holds the
 /// whole answer in memory.
+#[allow(clippy::significant_drop_tightening)] // The permit moves into the streaming producer.
 pub async fn get_blocks(state: &AppState, query: &Query<'_>) -> Result<Response, XrpcError> {
     let did = query.params.text("did").to_owned();
     let cids: Vec<Cid> = query
@@ -143,10 +147,11 @@ pub async fn get_blocks(state: &AppState, query: &Query<'_>) -> Result<Response,
         .filter_map(|cid| Cid::try_from(cid).ok())
         .collect();
     let credentials = query.credentials(state, &[])?;
+    let permit = state.resources().export()?;
     let (store, cids) = state
         .blocking(move |state| {
             repo_availability(state, &did, credentials.is_admin_or(&did))?;
-            let store = state.reads().store(&did)?;
+            let store = ActorDb::open_snapshot(&state.layout().actor_db(&did))?;
             let missing = store.missing_blocks(&cids)?;
             if !missing.is_empty() {
                 let list: Vec<String> = missing.iter().map(Cid::to_string).collect();
@@ -158,16 +163,16 @@ pub async fn get_blocks(state: &AppState, query: &Query<'_>) -> Result<Response,
             Ok((store, cids))
         })
         .await?;
-    let body = blocking_body(move |out| {
+    let body = admitted_body(permit, move |out| {
         let mut car = CarWriter::new(out, None)?;
-        for batch in cids.chunks(pds_storage::BLOCK_BATCH) {
-            let blocks = store.blocks(batch).map_err(io_error)?;
-            if let Some(cid) = blocks.missing.first() {
-                return Err(io_error(format!("block {cid} left the store")));
-            }
-            for (cid, bytes) in &blocks.found {
-                car.block(cid, bytes)?;
-            }
+        // Only one block is resident even when the request names many
+        // maximum-sized records. The snapshot fixes the earlier check.
+        for cid in store.block_cids(&cids).map_err(io_error)? {
+            let bytes = store
+                .block(&cid)
+                .map_err(io_error)?
+                .ok_or_else(|| io_error(format!("block {cid} left the store")))?;
+            car.block(&cid, &bytes)?;
         }
         Ok(())
     });
@@ -322,12 +327,14 @@ pub async fn list_blobs(state: &AppState, query: &Query<'_>) -> Result<Response,
 
 /// `com.atproto.sync.getBlob`, with the headers that keep a browser from
 /// running what it downloads (SPEC §6.4, §15.3).
+#[allow(clippy::significant_drop_tightening)] // The permit moves into the streaming producer.
 pub async fn get_blob(state: &AppState, query: &Query<'_>) -> Result<Response, XrpcError> {
     let did = query.params.text("did").to_owned();
     let cid = query.params.text("cid").to_owned();
     let credentials = query.credentials(state, &[SCOPE_TAKENDOWN])?;
     let not_found = || XrpcError::invalid_request("Blob not found");
     let name = cid.clone();
+    let permit = state.resources().export()?;
     let (meta, mut file) = state
         .blocking(move |state| {
             repo_availability(state, &did, credentials.is_admin_or(&did))?;
@@ -347,7 +354,7 @@ pub async fn get_blob(state: &AppState, query: &Query<'_>) -> Result<Response, X
             Ok((meta, file))
         })
         .await?;
-    let body = blocking_body(move |out| {
+    let body = admitted_body(permit, move |out| {
         let mut buffer = vec![0_u8; 64 * 1024];
         loop {
             let read = file.read(&mut buffer)?;

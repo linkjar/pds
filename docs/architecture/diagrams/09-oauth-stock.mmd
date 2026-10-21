@@ -9,6 +9,7 @@ sequenceDiagram
   AS->>AS: fetch and validate client metadata (safe fetch, cache)
   AS-->>App: request_uri
   App->>UI: GET /oauth/authorize?request_uri
+  UI->>UI: verify current cookie or exact predecessor within 5 s
   UI->>Acc: sign-in (password) or remembered device account
   Acc-->>UI: account, consent decision
   UI-->>App: redirect with code and iss

@@ -3,6 +3,8 @@
 //! time. The numbers of the read-connection pool came from here.
 //!
 //! The test is ignored: it is a measurement, run by hand in release mode.
+//! Its short samples are exploratory. Use `list_read_timing` for a warmed,
+//! steady comparison of concurrent 50-record list throughput.
 //!
 //! ```sh
 //! cargo test --release -p linkjar-pds --test read_timing -- --ignored --nocapture
@@ -69,7 +71,7 @@ fn report(name: &str, times: &[Duration]) {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "a measurement, run by hand in release mode"]
 async fn read_requests_timed() {
-    let dir = DataDir::new(20_000);
+    let dir = DataDir::production(20_000);
     let origin = start(&dir).await;
     let http = reqwest::Client::new();
     let get_record = format!(
@@ -127,4 +129,23 @@ async fn read_requests_timed() {
         );
     }
     println!();
+}
+
+#[test]
+fn the_performance_fixture_uses_the_production_collection_index() {
+    let dir = DataDir::production(1);
+    let actor = dir.actor(ALICE);
+    let plan: String = actor
+        .query_row(
+            r#"explain query plan select min("collection") from "record" where "collection" > ?1"#,
+            [POST],
+            |row| row.get(3),
+        )
+        .unwrap();
+    assert!(plan.contains("record_collection_idx"), "{plan}");
+    assert!(plan.contains("COVERING INDEX"), "{plan}");
+    let journal: String = actor
+        .query_row("pragma journal_mode", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(journal, "wal");
 }

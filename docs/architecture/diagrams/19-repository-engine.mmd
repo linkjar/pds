@@ -6,12 +6,12 @@ flowchart LR
   signer[the caller's key]
   commit[signed commit]
   data[CommitData]
-  upload([CAR upload])
+  upload([CAR upload<br/>64 MiB default, 2 concurrent])
   rcar{CIDs}
   ccheck{commit}
   rtree{tree}
   guard{Guard}
-  records[records by key]
+  records[records by key<br/>preserve blocks still referenced]
   exp[export_blocks]
   out([CAR export])
   store[(BlockStore)]

@@ -150,6 +150,17 @@ pub async fn client_metadata(State(mcp): State<Mcp>) -> Response {
 
 /// `POST /register` (RFC 7591): a public client with its redirect URIs.
 pub async fn register(State(mcp): State<Mcp>, body: Body) -> Response {
+    if !mcp.store().allow_registration() {
+        let mut refused = oauth_error(
+            StatusCode::TOO_MANY_REQUESTS,
+            "temporarily_unavailable",
+            "too many client registration attempts",
+        );
+        refused
+            .headers_mut()
+            .insert(header::RETRY_AFTER, HeaderValue::from_static("60"));
+        return refused;
+    }
     let invalid = |description: &str| {
         oauth_error(
             StatusCode::BAD_REQUEST,
@@ -176,7 +187,13 @@ pub async fn register(State(mcp): State<Mcp>, body: Body) -> Response {
         Ok(read) => read,
         Err(description) => return invalid(&description),
     };
-    let client = mcp.store().register(name, redirect_uris);
+    let Some(client) = mcp.store().register(name, redirect_uris) else {
+        return oauth_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "temporarily_unavailable",
+            "the client registration table is full",
+        );
+    };
     json_response(
         StatusCode::CREATED,
         &json!({
@@ -196,7 +213,7 @@ async fn client_of(mcp: &Mcp, client_id: &str) -> Result<McpClient, String> {
         return Ok(client);
     }
     match clients::is_document_url(client_id) {
-        Some(url) => clients::fetch(mcp.http(), client_id, &url).await,
+        Some(url) => clients::fetch(client_id, &url).await,
         None => Err("The server does not know this client.".to_owned()),
     }
 }
@@ -478,4 +495,46 @@ pub async fn revoke(State(mcp): State<Mcp>, body: Body) -> Response {
         mcp.pds().revoke(&session.pds).await;
     }
     json_response(StatusCode::OK, &json!({}))
+}
+
+#[cfg(test)]
+mod tests {
+    use pds_identity::{Algorithm, Keypair};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn public_registration_has_a_global_budget() {
+        let mcp = Mcp::new(crate::config::Config {
+            address: "127.0.0.1:0".parse().unwrap(),
+            public_url: "https://mcp.example.com".to_owned(),
+            pds_public_url: "https://pds.example.com".to_owned(),
+            pds_internal_url: "https://pds.example.com".to_owned(),
+            client_key: Keypair::generate(Algorithm::P256, |bytes| bytes.fill(7)),
+            write_collections: vec![],
+        })
+        .unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/register", listener.local_addr().unwrap());
+        let router = crate::router(mcp.clone());
+        let serving = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+        let http = reqwest::Client::builder().no_proxy().build().unwrap();
+        let request = || {
+            http.post(&url)
+                .header("content-type", "application/json")
+                .body(json!({"redirect_uris": ["https://app.example/cb"]}).to_string())
+        };
+        let mut first = None;
+        for _ in 0..30 {
+            let response = request().send().await.unwrap();
+            assert_eq!(response.status(), StatusCode::CREATED);
+            let document: Value = serde_json::from_slice(&response.bytes().await.unwrap()).unwrap();
+            first.get_or_insert_with(|| document["client_id"].as_str().unwrap().to_owned());
+        }
+        let refused = request().send().await.unwrap();
+        assert_eq!(refused.status(), StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(refused.headers()[header::RETRY_AFTER], "60");
+        assert!(mcp.store().client(first.as_deref().unwrap()).is_some());
+        serving.abort();
+    }
 }

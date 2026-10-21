@@ -14,8 +14,8 @@
 //!
 //! [`resolver`] fetches DID documents from the PLC directory and from
 //! `did:web` hosts, through a cache with the Reference's two lifetimes. It
-//! does not apply the safe fetch of §15.1; its module documentation states
-//! the gap.
+//! uses [`safe_fetch`] for untrusted hosts, with connection-time address
+//! checks and bounded responses.
 //! The DNS and HTTPS verification of a handle is the server's
 //! (`pds-xrpc`, `updateHandle`); the parsing of the answers is here.
 
@@ -26,6 +26,7 @@ pub mod method;
 pub mod plc;
 pub mod reserved;
 pub mod resolver;
+pub mod safe_fetch;
 
 pub use did_doc::{DidDocError, DidDocument, ServiceEndpoint};
 pub use handle::{HandlePolicyError, check_handle_policy};

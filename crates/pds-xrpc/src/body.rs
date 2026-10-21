@@ -18,9 +18,53 @@ use pds_lexicon::wording::{
     invalid_format, invalid_type, json_path_segment, required_key, stringify_str,
 };
 use serde_json::{Map, Value};
+use std::time::Duration;
 
 use crate::error::XrpcError;
 use crate::params::Format;
+
+/// A request may be idle for 15 seconds and take five minutes overall.
+/// The fixed deadline also stops clients that keep sending a slow trickle.
+pub struct ReadDeadline {
+    expires: tokio::time::Instant,
+    idle: Duration,
+}
+
+impl Default for ReadDeadline {
+    fn default() -> Self {
+        Self {
+            expires: tokio::time::Instant::now() + Duration::from_secs(300),
+            idle: Duration::from_secs(15),
+        }
+    }
+}
+
+impl ReadDeadline {
+    /// A refused body gets at most five more seconds to drain.
+    pub fn draining(&mut self) {
+        self.expires = self
+            .expires
+            .min(tokio::time::Instant::now() + Duration::from_secs(5));
+    }
+    /// Bounds one read or queue operation by both deadlines.
+    pub async fn run<T>(
+        &self,
+        future: impl std::future::Future<Output = T>,
+    ) -> Result<T, XrpcError> {
+        let refused = || XrpcError {
+            status: StatusCode::REQUEST_TIMEOUT,
+            error: "RequestTimeout".to_owned(),
+            message: "The request body took too long".to_owned(),
+        };
+        let now = tokio::time::Instant::now();
+        if now >= self.expires {
+            return Err(refused());
+        }
+        tokio::time::timeout_at(self.expires.min(now + self.idle), future)
+            .await
+            .map_err(|_| refused())
+    }
+}
 
 /// 413, as the Reference's body parser answers a body over the limit.
 pub fn payload_too_large() -> XrpcError {
@@ -86,12 +130,15 @@ pub async fn drain(body: Body) {
     use futures_util::StreamExt as _;
     let mut stream = body.into_data_stream();
     let mut discarded = 0_usize;
-    while let Some(Ok(chunk)) = stream.next().await {
-        discarded = discarded.saturating_add(chunk.len());
-        if discarded > DRAIN_CAP {
-            return;
+    let _ = tokio::time::timeout(Duration::from_secs(5), async {
+        while let Some(Ok(chunk)) = stream.next().await {
+            discarded = discarded.saturating_add(chunk.len());
+            if discarded > DRAIN_CAP {
+                return;
+            }
         }
-    }
+    })
+    .await;
 }
 
 /// Reads a whole body of at most `limit` bytes. A longer one is 413, and
@@ -100,12 +147,14 @@ pub async fn collect(body: Body, limit: usize) -> Result<Vec<u8>, XrpcError> {
     use futures_util::StreamExt as _;
     let mut stream = body.into_data_stream();
     let mut bytes = Vec::new();
-    while let Some(chunk) = stream.next().await {
+    let mut deadline = ReadDeadline::default();
+    while let Some(chunk) = deadline.run(stream.next()).await? {
         let chunk =
             chunk.map_err(|_| XrpcError::invalid_request("The request body ended early"))?;
         if bytes.len().saturating_add(chunk.len()) > limit {
+            deadline.draining();
             let mut discarded = chunk.len();
-            while let Some(Ok(more)) = stream.next().await {
+            while let Ok(Some(Ok(more))) = deadline.run(stream.next()).await {
                 discarded = discarded.saturating_add(more.len());
                 if discarded > DRAIN_CAP {
                     break;
@@ -327,6 +376,31 @@ pub fn array<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn a_body_deadline_limits_idle_time_and_total_time() {
+        let idle = ReadDeadline {
+            expires: tokio::time::Instant::now() + Duration::from_secs(1),
+            idle: Duration::from_millis(10),
+        };
+        assert_eq!(
+            idle.run(std::future::pending::<()>())
+                .await
+                .unwrap_err()
+                .status,
+            StatusCode::REQUEST_TIMEOUT
+        );
+        let total = ReadDeadline {
+            expires: tokio::time::Instant::now() + Duration::from_millis(20),
+            idle: Duration::from_secs(1),
+        };
+        assert!(total.run(async {}).await.is_ok());
+        tokio::time::sleep(Duration::from_millis(30)).await;
+        assert_eq!(
+            total.run(async {}).await.unwrap_err().status,
+            StatusCode::REQUEST_TIMEOUT
+        );
+    }
 
     fn object(json: &str) -> Map<String, Value> {
         serde_json::from_str(json).unwrap()

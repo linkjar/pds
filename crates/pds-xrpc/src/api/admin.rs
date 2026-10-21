@@ -249,6 +249,28 @@ fn apply_takedown(
     }
 }
 
+/// The repository affected by a record or blob takedown. Account status
+/// changes do not wait for repository writes.
+fn takedown_repository(
+    subject: &Map<String, Value>,
+    takedown: Option<&Map<String, Value>>,
+) -> Result<Option<String>, XrpcError> {
+    if takedown.is_none() {
+        return Ok(None);
+    }
+    let text = |key: &str| subject.get(key).and_then(Value::as_str).unwrap_or_default();
+    match text("$type") {
+        "com.atproto.repo.strongRef" => {
+            let uri: pds_types::AtUri = text("uri")
+                .parse()
+                .map_err(|_| XrpcError::invalid_request("Invalid at uri"))?;
+            Ok(Some(uri.authority().to_string()))
+        }
+        "com.atproto.admin.defs#repoBlobRef" => Ok(Some(text("did").to_owned())),
+        _ => Ok(None),
+    }
+}
+
 /// `com.atproto.admin.updateSubjectStatus`.
 pub async fn update_subject_status(
     state: &AppState,
@@ -307,26 +329,30 @@ pub async fn update_subject_status(
         let (subject, takedown) = (subject.clone(), takedown.clone());
         let deactivate = applied(&deactivated);
         let did = did.clone();
-        state
-            .blocking(move |state| {
-                if let Some(takedown) = &takedown {
-                    apply_takedown(state, &subject, takedown)?;
+        let repository = takedown_repository(&subject, takedown.as_ref())?;
+        let work = move |state: &AppState| {
+            if let Some(takedown) = &takedown {
+                apply_takedown(state, &subject, takedown)?;
+            }
+            if is_account && deactivate == Some(true) {
+                let now = pds_types::iso_millis(state.now_ms());
+                let updated = writes(state)?
+                    .with_accounts(|accounts| accounts.deactivate(&did, &now, None))?;
+                if !updated {
+                    return Err(XrpcError::invalid_request("Account not found"));
                 }
-                if is_account && deactivate == Some(true) {
-                    let now = pds_types::iso_millis(state.now_ms());
-                    let updated = writes(state)?
-                        .with_accounts(|accounts| accounts.deactivate(&did, &now, None))?;
-                    if !updated {
-                        return Err(XrpcError::invalid_request("Account not found"));
-                    }
-                    sequence_status(state, &did)?;
-                }
-                if is_account && takedown.is_none() && deactivate.is_none() {
-                    sequence_status(state, &did)?;
-                }
-                Ok(())
-            })
-            .await?;
+                sequence_status(state, &did)?;
+            }
+            if is_account && takedown.is_none() && deactivate.is_none() {
+                sequence_status(state, &did)?;
+            }
+            Ok(())
+        };
+        if let Some(repository) = repository {
+            state.repo_blocking(repository, work).await?;
+        } else {
+            state.blocking(work).await?;
+        }
     }
     // A takedown of an account reaches the other server (SPEC §21.3): the
     // entryway refuses the sessions, and the member host the repository.
@@ -483,8 +509,17 @@ pub async fn update_account_password(
                 .produces_notices()
                 .then(|| crate::oauth::new_id(pds_oauth::token::Id::Request));
             let now_ms = state.now_ms();
+            let epoch = crate::auth::credential_fingerprint(&state.config().auth, &hash)
+                .ok_or_else(|| {
+                    XrpcError::internal("the credential version could not be computed")
+                })?;
             writes.with_accounts(|db| {
-                db.update_password(&did, &hash, notice.as_deref().map(|id| (id, now_ms)))
+                db.update_password(
+                    &did,
+                    &hash,
+                    &epoch,
+                    notice.as_deref().map(|id| (id, now_ms)),
+                )
             })?;
             Ok(())
         })
