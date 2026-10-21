@@ -1,6 +1,6 @@
-# One stack per target. Every target gets the same hostnames, the same
-# configuration and its own PLC directory, relay, mail catcher and TLS edge,
-# so two targets differ only in the PDS image (SPEC section 17.1).
+# One stack per target. Every target gets the same hostnames and its own
+# PLC directory, relay, mail catcher and TLS edge (SPEC section 17.1).
+# env.ts enables the Candidate's development mode for these private fixtures.
 #
 # The `inner` network is internal: the PDS, the PLC directory and the relay
 # cannot reach the internet, so no public identity is ever created and the

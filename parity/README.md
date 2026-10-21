@@ -100,10 +100,16 @@ The default profile passes 22 of 22 with either.
 Every target runs under the production hostnames, `pds.linkjar.social` with
 `.linkjar.social` handles, behind a TLS edge that uses the production Caddy
 snippet [`compose/Caddyfile.handles`](compose/Caddyfile.handles).
-The base environment is the production configuration with the outside
-services replaced by the stack's own. Because each target has its own stack,
-two targets differ in the PDS image and in nothing else, and transcripts need
-no hostname rewriting.
+The base environment uses the production settings with the outside services
+replaced by the stack's own. Each target has its own stack, and transcripts
+need no hostname rewriting.
+
+The Candidate runs with `PDS_DEV_MODE=true` so it can reach these private
+fixtures. Its production configuration rejects `PDS_DISABLE_SSRF_PROTECTION=true`.
+The Reference and official images retain their existing settings. The harness
+selects the mode from the image that is running, including when a restore or
+write run replaces the Reference with the Candidate on the same data volume.
+The production rejection remains covered by the Rust configuration tests.
 
 The stack's main network is internal: the PDS cannot reach the internet. Names
 of outside services resolve to the edge, which forwards them to the fixture
