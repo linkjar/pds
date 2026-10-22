@@ -1,6 +1,6 @@
 ---
 title: Console and MCP server
-description: Two optional containers beside the server. The operations console shows and acts; the MCP server lets AI clients read and write an account's records.
+description: Optional console and MCP sidecars, with Compose deployment examples and native build scope.
 sidebar:
   order: 3
 ---
@@ -9,6 +9,13 @@ Both sidecars talk to the server over its APIs. Neither holds a database
 connection, a signing key or a secret of the server, so each can be added
 and removed without touching the data directory, and every action they
 take is in the [audit log](/operate/audit-log/).
+
+The examples on this page use Docker Compose. The native PDS archives and Nix
+packages include only `linkjar-pds`, not these sidecars. A native PDS can use
+separately built sidecars through the same APIs. Replace Compose DNS names
+with reachable host addresses and keep operations listeners private. Native
+listeners on the same host should use loopback, not the container-only
+`0.0.0.0` examples below.
 
 ## The operations console
 

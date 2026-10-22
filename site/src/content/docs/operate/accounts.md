@@ -69,7 +69,7 @@ effect on the next request there too.
 
 Recovery state is part of the account database. Preserve it in
 [backups](/operate/backup/), and check the
-[rollback limits](/operate/update/#roll-back) before using an older image.
+[rollback limits](/operate/update/#roll-back) before using an older build.
 
 ## Take an account down
 

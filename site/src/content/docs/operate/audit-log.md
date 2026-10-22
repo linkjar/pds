@@ -27,7 +27,7 @@ Without a key the log chains its entries and signs nothing. Create a key,
 openssl rand -hex 32
 ```
 
-In `pds.env`:
+In the runtime environment file:
 
 ```ini
 PDS_AUDIT_KEY_ED25519_PRIVATE_KEY_HEX=…
@@ -48,6 +48,15 @@ A data directory that existed before the log, one the reference server
 wrote, has history the log did not see. Seal it once, before the first
 start of the server on it:
 
+For native services, stop `linkjar-pds` and use the
+[CLI helper](/operate/cli/#native-services):
+
+```bash
+pds audit seal
+```
+
+For Compose, stop the main container first:
+
 ```bash
 docker compose run --rm pds linkjar-pds audit seal
 ```
@@ -57,7 +66,17 @@ Keep both lines. The command is refused on a log that has entries.
 
 ## Export and verify
 
+For native services:
+
 ```bash
+umask 077
+pds audit export > audit-bundle.json
+```
+
+For Compose:
+
+```bash
+umask 077
 docker compose exec -T pds linkjar-pds audit export > audit-bundle.json
 ```
 

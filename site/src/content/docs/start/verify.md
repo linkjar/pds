@@ -2,7 +2,7 @@
 title: Check that it works
 description: Four requests from outside the host, each with the answer to expect, and the smoke test that makes them all.
 sidebar:
-  order: 4
+  order: 6
 ---
 
 Run these from your workstation, not from the host, so that DNS, the
@@ -39,7 +39,8 @@ sign in with OAuth, the Bluesky app among them, read it first.
 
 ## The certificate guard
 
-Caddy asks the server before it requests a certificate for a name, so
+The supplied Compose and native Caddy configurations ask the server before
+requesting a certificate for a name, so
 that only the server's name and the handles of its accounts get one. Ask
 the same question:
 

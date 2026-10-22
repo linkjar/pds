@@ -38,10 +38,12 @@ Keep the PDS on a domain of its own, not on a subdomain of a site that
 serves a web app. The server's authorization pages and the blobs it serves
 should not share a parent domain with an app's cookies.
 
-## An email address for the certificates
+## HTTPS and CA certificates
 
-Caddy obtains the certificates from Let's Encrypt and gives Let's Encrypt
-this address for notices about expiry.
+The Compose deployment includes Caddy. A native installation needs its own TLS
+proxy; the [native guide](/start/native/#public-https) includes a Caddy example.
+Caddy uses an operator email for certificate notices. Native hosts also need
+a CA certificate bundle for the PDS's outbound HTTPS requests.
 
 ## Optional: an SMTP account
 
@@ -58,6 +60,6 @@ Without SMTP it sends none, which is fine for a server of one.
 | `operator@example.com` | your email address |
 | `alice` | the first account's handle |
 
-Commands run on the host as a user who may run Docker, from the directory
-that holds the Compose file, unless a page says otherwise. Each code block
-is one command.
+Run commands on the host unless a page says otherwise. Docker commands run
+from the Compose directory. Native service commands use the service user
+and runtime configuration, as explained in [the CLI guide](/operate/cli/).

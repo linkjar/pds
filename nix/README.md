@@ -20,10 +20,10 @@ The normal package depends on its Nix store closure. On Linux, build the
 portable musl executable with:
 
 ```sh
-nix build .#linkjar-pds-static
+nix build .#linkjar-pds-static --out-link result-static
 ```
 
-Copy `result/bin/linkjar-pds` to a host with the same architecture. Keep
+Copy `result-static/bin/linkjar-pds` to a host with the same architecture. Keep
 the host's CA certificate package installed. This binary has no dynamic
 loader or shared-library dependency; the CI checks both ELF properties,
 copies it out of the store, and runs it on temporary data.
@@ -42,8 +42,13 @@ under the service state directory or configure S3. The module deliberately
 does not choose between these two storage backends. Keep `PDS_PORT` and
 `PDS_DATA_DIRECTORY` out of the runtime file; the module manages them.
 
-The [installation guide](../site/src/content/docs/start/native.md) has
-the input, module, and secret-file examples. An existing Docker deployment
+The [build guide](../site/src/content/docs/start/builds.md) explains download
+selection, checksum verification, and installation. The
+[installation guide](../site/src/content/docs/start/native.md) has the input,
+module, secret-file, generic systemd, and TLS examples. The operator guides
+cover [commands](../site/src/content/docs/operate/cli.md),
+[updates](../site/src/content/docs/operate/update.md), and
+[backups](../site/src/content/docs/operate/backup.md). An existing Docker deployment
 needs a separate cutover: preserve all data and secrets, check paths and
 ownership, and run one server against a directory at a time.
 

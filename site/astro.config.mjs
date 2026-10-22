@@ -54,6 +54,7 @@ export default defineConfig({
 						{ label: 'Overview', slug: 'start/overview' },
 						{ label: 'Requirements', slug: 'start/requirements' },
 						{ label: 'DNS and domains', slug: 'start/dns' },
+						{ label: 'Builds and downloads', slug: 'start/builds' },
 						{ label: 'Install with Docker', slug: 'start/install' },
 						{ label: 'Install with Nix or a binary', slug: 'start/native' },
 						{ label: 'Verify the setup', slug: 'start/verify' },

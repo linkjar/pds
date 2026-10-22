@@ -1,154 +1,250 @@
 ---
 title: Install with Nix or a binary
-description: Build and run LinkJar PDS directly with Nix, use its NixOS service, or build a portable Linux executable without Docker.
+description: Configure a native LinkJar PDS, run it with systemd or NixOS, and put HTTPS in front of it without Docker.
 sidebar:
-  order: 4
+  order: 5
 ---
 
-The server is one Rust executable, `linkjar-pds`. Docker is optional.
-The same executable provides `serve`, `check-config`, `health`, `verify`,
-and the operator commands in the [command-line guide](/operate/cli/).
+The server runs as one Rust executable. First [download or build it](/start/builds/).
+For Linux without Nix, use the portable static executable. On NixOS, use the
+module below. A foreground example is included for local checks.
 
-You still need a domain, a writable data directory, a blob store, CA
-certificates, and a TLS proxy or tunnel for public HTTPS. The server's
-own HTTP listener binds all interfaces. Keep its port behind the host's
-firewall and expose public traffic through your TLS proxy.
+You need a domain, a writable data directory, a blob store, CA certificates,
+and a TLS proxy for public HTTPS. The HTTP listener binds all interfaces.
+Keep port `2583` behind the host's firewall and allow public traffic through
+your TLS proxy. Never enable `PDS_DEV_MODE` on a public host.
 
-## Build and run with Nix
+## Configure the server
 
-Check out the reviewed revision of [the repository](https://github.com/linkjar/pds).
-Run these commands from its root:
-
-```bash
-nix build .#linkjar-pds
-```
-
-The executable is `result/bin/linkjar-pds`. Keep its Nix store closure;
-this package uses the libraries managed by Nix.
+For a new installation, generate a JWT secret and admin password separately:
 
 ```bash
-nix run . -- version
+openssl rand --hex 32
+openssl rand --hex 32
 ```
 
-Configure the `PDS_*` environment variables, then run:
+Generate a secp256k1 PLC rotation key on Linux:
 
 ```bash
-result/bin/linkjar-pds check-config
+openssl ecparam --name secp256k1 --genkey --noout --outform DER | tail --bytes=+8 | head --bytes=32 | xxd --plain --cols 32
 ```
+
+Keep these values in a secret manager or a restricted file. Reuse the original
+secrets when moving an existing server. The rotation key controls the accounts'
+DIDs; replacing it is not an installation reset.
+
+Create `/etc/linkjar-pds/pds.env`, owned by root with mode `0600`, under a
+root-owned directory. Create the directory before editing the file:
 
 ```bash
-result/bin/linkjar-pds serve
+sudo install -d -m 0700 -o root -g root /etc/linkjar-pds
+sudoedit /etc/linkjar-pds/pds.env
+sudo chmod 0600 /etc/linkjar-pds/pds.env
 ```
 
-Use a service manager for a persistent installation. The NixOS module below
-sets one up. On other hosts, configure your existing service manager to run
-`linkjar-pds serve` as a dedicated user.
+Put one literal `NAME=value` assignment on each line.
+Replace the three secret placeholders:
 
-The flake supports Linux on `x86_64` and `aarch64`, and macOS on Apple
-Silicon. `flake.lock` pins Nixpkgs and the Rust overlay. `Cargo.lock` pins
-the Rust dependencies. Update these locks deliberately.
+```dotenv
+PDS_HOSTNAME=pds.example.com
+PDS_JWT_SECRET=REPLACE_WITH_JWT_SECRET
+PDS_ADMIN_PASSWORD=REPLACE_WITH_ADMIN_PASSWORD
+PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX=REPLACE_WITH_ROTATION_KEY
+PDS_BLOBSTORE_DISK_LOCATION=/var/lib/linkjar-pds/blocks
+PDS_INVITE_REQUIRED=true
+PDS_BSKY_APP_VIEW_URL=https://api.bsky.app
+PDS_BSKY_APP_VIEW_DID=did:web:api.bsky.app
+PDS_CRAWLERS=https://bsky.network
+```
+
+Systemd reads this file; the binary does not load `.env` files itself. Keep all
+settings needed by operator commands in this runtime file. The examples below
+set `PDS_DATA_DIRECTORY` and `PDS_PORT` in the service definition. Leave them
+out of the file so they cannot override those settings.
+
+For [S3 storage](/configure/blob-storage/), remove
+`PDS_BLOBSTORE_DISK_LOCATION` and add the S3 settings and credentials.
+Set up [email](/configure/email/) before inviting other people.
+[Environment variables](/configure/environment/) lists the remaining options.
 
 ## NixOS service
 
-Add a pinned input to your host's flake. Replace `<reviewed-commit>` with
-the commit you intend to run:
+Add a pinned input to your host's flake. Replace `<reviewed-commit>` with the
+full commit you intend to run:
 
 ```nix
 inputs.linkjar-pds.url = "github:linkjar/pds/<reviewed-commit>";
 ```
 
-Add `inputs.linkjar-pds.nixosModules.default` to the `modules` list of
-your host's `nixpkgs.lib.nixosSystem`. Configure the service in a host module:
+Add `inputs.linkjar-pds.nixosModules.default` to your host's `modules` list.
+In a host module, enable the service and put the same package on the operator's
+command path:
 
 ```nix
+{ inputs, pkgs, ... }:
 {
   services.linkjar-pds = {
     enable = true;
-    environmentFile = "/run/secrets/linkjar-pds.env";
-    environment = {
-      PDS_HOSTNAME = "pds.example.com";
-      PDS_BLOBSTORE_DISK_LOCATION = "/var/lib/linkjar-pds/blocks";
-    };
+    environmentFile = "/etc/linkjar-pds/pds.env";
   };
+
+  environment.systemPackages = [
+    inputs.linkjar-pds.packages.${pkgs.stdenv.hostPlatform.system}.linkjar-pds
+  ];
 }
 ```
 
-The module runs as the `linkjar-pds` system user, stores data in
-`/var/lib/linkjar-pds`, and uses port `2583`. It checks configuration before
-starting, restarts after a failure, and restricts writes to its service
-state and private temporary directory. It does not open a firewall port
-by default. Point your TLS proxy or tunnel at `127.0.0.1:2583`.
+This example assumes your flake passes `inputs` through `specialArgs` to the
+host modules. You can instead reference the input in the outer flake expression.
 
-Store secrets in the runtime environment file using your existing secret
-manager, such as sops-nix. Systemd reads this file before dropping privileges;
-it can be owned by root with mode `0600`. Put these variables there:
+Provision the runtime file before activating the service. Your existing secret
+manager can supply it at another runtime path, such as `/run/secrets/linkjar-pds.env`.
+Use a quoted string for `environmentFile`; never put secrets in a Nix expression,
+`builtins.toFile`, or a Nix path copied into the store.
 
-```dotenv
-PDS_JWT_SECRET=replace-with-a-random-secret
-PDS_ADMIN_PASSWORD=replace-with-a-random-password
-PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX=replace-with-a-valid-rotation-key
-```
+The module creates the `linkjar-pds` user and group and mode `0700` state at
+`/var/lib/linkjar-pds`. It checks configuration before startup, restarts after
+failure, and restricts filesystem access. It supplies CA certificates and keeps
+the HTTP port closed in the firewall by default. Set `services.linkjar-pds.port`
+if you need a port other than `2583`. Configure your TLS proxy separately.
 
-Use the key-generation steps in the [installation guide](/start/install/).
-Keep passwords and keys out of Nix expressions and the Nix store.
-`environmentFile` must be an absolute runtime path outside the store.
-Leave `PDS_PORT` and `PDS_DATA_DIRECTORY` out of that file: the module
-manages them. Set `services.linkjar-pds.port` to change the listener port.
-
-For [S3 storage](/configure/blob-storage/), omit
-`PDS_BLOBSTORE_DISK_LOCATION` and put the S3 settings and credentials in the
-runtime file. The service must be able to read every additional key or
-configuration file you name. Its home-directory protection blocks `/home`
-and `/root`; use a runtime secret path such as `/run/secrets`.
-
-## A portable Linux executable
-
-On Linux, the flake can build a static musl executable:
+Activate the reviewed host configuration with your usual `nixos-rebuild`
+procedure. Then check the service:
 
 ```bash
-nix build .#linkjar-pds-static
+sudo systemctl status linkjar-pds
+sudo journalctl -u linkjar-pds -n 50 --no-pager
+curl --fail http://127.0.0.1:2583/xrpc/_health
 ```
 
-Copy `result/bin/linkjar-pds` to a Linux host with the same CPU architecture.
-This executable needs neither Nix nor Docker, and has no shared-library
-or dynamic-loader dependency. The host must still supply CA certificates
-for outbound HTTPS. Set `SSL_CERT_FILE` if the certificate bundle is in a
-nonstandard location.
+The service protects `/home` and `/root`. Keep additional key files in an
+accessible runtime secret directory. Use `services.linkjar-pds.environment`
+only for public settings; [operator commands](/operate/cli/#native-services)
+need those settings too.
 
-The **Native packages** GitHub Actions workflow builds `x86_64-linux` and
-`aarch64-linux` archives with SHA-256 checksums. Download the artifact for
-your architecture from a successful run at the revision you reviewed.
-The workflow checks the static ELF format and runs the copied executable
-on disposable data before publishing its artifact.
+## Linux binary with systemd
 
-You can also compile directly with Cargo and a C compiler:
+This example uses the executable installed at `/usr/local/bin/linkjar-pds`
+by the [download guide](/start/builds/#download-a-portable-linux-build).
+Keep the host's CA certificate package installed.
+
+Create a dedicated account and data directory. On Debian or Ubuntu:
 
 ```bash
-cargo build --release --locked --package linkjar-pds --bin linkjar-pds
+sudo useradd --system --user-group --home-dir /var/lib/linkjar-pds --shell /usr/sbin/nologin linkjar-pds
+sudo install -d -m 0700 -o linkjar-pds -g linkjar-pds /var/lib/linkjar-pds
 ```
 
-This produces `target/release/linkjar-pds` for the build host. A normal
-Cargo build can depend on that host's shared libraries; use the static
-Linux package when you need the portable executable described above.
+Create the account only once. If you use another distribution, use its system
+account command. Save this unit as `/etc/systemd/system/linkjar-pds.service`:
 
-## Development
+```ini
+[Unit]
+Description=LinkJar AT Protocol Personal Data Server
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=linkjar-pds
+Group=linkjar-pds
+WorkingDirectory=/var/lib/linkjar-pds
+EnvironmentFile=/etc/linkjar-pds/pds.env
+Environment=PDS_DATA_DIRECTORY=/var/lib/linkjar-pds
+Environment=PDS_PORT=2583
+ExecStartPre=/usr/local/bin/linkjar-pds check-config
+ExecStart=/usr/local/bin/linkjar-pds serve
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+StateDirectory=linkjar-pds
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target
+```
+
+After saving the runtime environment file and firewall rules, start it:
 
 ```bash
-nix develop
+sudo systemctl daemon-reload
+sudo systemctl enable --now linkjar-pds
+sudo systemctl status linkjar-pds
+sudo journalctl -u linkjar-pds -n 50 --no-pager
+curl --fail http://127.0.0.1:2583/xrpc/_health
 ```
 
-The shell provides Rust, the C build tools, libclang for the simulation,
-Node, pnpm, and the Rust policy tools. The existing `devenv` workflow also
-remains available.
+## Public HTTPS
 
-## Moving an existing server
+Point the TLS proxy at `127.0.0.1:2583`. It must handle the server hostname,
+account handle names, and long-lived WebSocket connections for the firehose.
+For a native Caddy installation, adapt the repository's Caddyfile:
 
-Plan the cutover before replacing a running Docker deployment. Take a
-tested [backup](/operate/backup/), stop the old process, and preserve the
-complete data directory and all secrets. That includes the authentication
-state described in the [update and rollback guide](/operate/update/).
+```text
+{
+    email operator@example.com
+    on_demand_tls {
+        ask http://127.0.0.1:2583/tls-check
+    }
+}
 
-The NixOS service uses a different user and data path from the container.
-Check file ownership and every absolute path in the environment before
-starting it. Verify the copied data with the selected executable. Run one
-server against a data directory at a time.
+pds.example.com, *.pds.example.com {
+    tls {
+        on_demand
+    }
+    reverse_proxy 127.0.0.1:2583
+}
+```
+
+Run Caddy as its own service with persistent certificate storage. The DNS and
+ports in [the DNS guide](/start/dns/) apply to this setup too. The `/tls-check`
+guard limits certificate requests to the server and active account handles.
+For a different proxy, configure equivalent hostname, TLS, and WebSocket support.
+
+## Foreground checks
+
+On a private development host, run the binary as your own user with disposable
+state. Set the required settings in that shell first:
+
+```bash
+export PDS_HOSTNAME=pds.example.com
+export PDS_DATA_DIRECTORY="$PWD/native-data"
+export PDS_BLOBSTORE_DISK_LOCATION="$PWD/native-data/blocks"
+export PDS_JWT_SECRET=REPLACE_WITH_JWT_SECRET
+export PDS_ADMIN_PASSWORD=REPLACE_WITH_ADMIN_PASSWORD
+linkjar-pds check-config
+linkjar-pds serve
+```
+
+Use the executable path from your build if it is not installed on `PATH`.
+Stop it with Ctrl-C. This example does not configure public TLS or a rotation
+key for creating accounts. Never point it at a live production data directory.
+
+## Move from Docker
+
+Take a tested [backup](/operate/backup/), stop the old server, and preserve the
+complete data directory and every secret. Review the
+[authentication limits on rollback](/operate/update/#roll-back).
+
+Copy the stopped data to `/var/lib/linkjar-pds`, then assign it to
+`linkjar-pds:linkjar-pds`. Change container paths such as `/app/data` to host
+paths in the environment. Preserve external database and blob-store settings.
+Run [native verification](/operate/cli/#native-services) before starting.
+Only one server may use the data, including copies on different hosts.
+
+Next: [verify the public setup](/start/verify/), then
+[create an account](/start/first-account/). Use the operator guides for
+[updates](/operate/update/), [backups](/operate/backup/), and
+[monitoring](/operate/monitoring/).

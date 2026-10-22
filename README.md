@@ -6,9 +6,10 @@ layout and settings. Dual-licensed MIT or Apache-2.0.
 
 **Host your own:** [pds.linkjar.io](https://pds.linkjar.io) is the guide,
 from the DNS records to the audit log. Its source is [`site/`](site/) and
-the deployment it describes is [`deploy/compose/`](deploy/compose/).
+the Compose deployment is [`deploy/compose/`](deploy/compose/).
 
-Docker is optional. The [native installation guide](https://pds.linkjar.io/start/native/)
+Docker is optional. [Builds and downloads](https://pds.linkjar.io/start/builds/)
+cover the available packages. The [native installation guide](https://pds.linkjar.io/start/native/)
 covers the Nix package, NixOS service, and portable Linux executable.
 The flake and its checks are described in [`nix/README.md`](nix/README.md).
 

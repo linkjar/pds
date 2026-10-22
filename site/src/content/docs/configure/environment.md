@@ -5,14 +5,23 @@ sidebar:
   order: 1
 ---
 
-The server reads its configuration from the environment, in the Compose
-deployment from `pds.env`. It uses the reference server's variable names.
+The server reads configuration from its process environment. Compose loads
+`pds.env`; native systemd examples load `/etc/linkjar-pds/pds.env`. The binary
+does not load either file itself. It uses the reference server's variable names.
 The tables identify LinkJar defaults and safety restrictions; new settings
 are at the end.
 
 An invalid value stops the server at start with a message that names the
 variable. An unknown `PDS_*` variable is a warning. `check-config` runs
 the same checks without starting anything:
+
+For native services, use the [CLI helper](/operate/cli/#native-services):
+
+```bash
+pds check-config
+```
+
+For Compose:
 
 ```bash
 docker compose run --rm pds linkjar-pds check-config
@@ -23,7 +32,7 @@ docker compose run --rm pds linkjar-pds check-config
 | Variable | Meaning | Default |
 |---|---|---|
 | `PDS_HOSTNAME` | The server's public name. **Required.** | |
-| `PDS_PORT` | The port the public listener binds. | `3000` in the image |
+| `PDS_PORT` | The port the public listener binds. | `2583` natively; `3000` in the image |
 | `PDS_SERVICE_DID` | The server's own DID. | `did:web:` and the hostname |
 | `PDS_SERVICE_HANDLE_DOMAINS` | The suffixes of hosted handles, each with a leading dot, separated by commas. | `.` and the hostname |
 | `PDS_VERSION` | Shown by the health route. | unset |
@@ -46,7 +55,7 @@ docker compose run --rm pds linkjar-pds check-config
 
 | Variable | Meaning | Default |
 |---|---|---|
-| `PDS_DATA_DIRECTORY` | The data directory. The Compose file mounts it at `/app/data`. | |
+| `PDS_DATA_DIRECTORY` | The data directory. Native examples use `/var/lib/linkjar-pds`; Compose mounts it at `/app/data`. | |
 | `PDS_BLOBSTORE_DISK_LOCATION` | Where blobs go on disk, usually `blocks` under the data directory. | |
 | `PDS_BLOBSTORE_S3_*` | An S3-compatible store in place of the disk. [Blob storage](/configure/blob-storage/) has the list. | |
 | `PDS_BLOB_UPLOAD_LIMIT` | The largest blob, in bytes. The example file sets 100 MiB. | 5 MiB |

@@ -12,9 +12,20 @@ the time, the level, the message and the fields of the event. Requests
 carry a request id. The logs never contain a token, a password, an email
 address or the body of a record.
 
+For NixOS and the native systemd service:
+
+```bash
+sudo journalctl -u linkjar-pds -f -o cat
+```
+
+For Compose:
+
 ```bash
 docker compose logs -f pds
 ```
+
+A foreground binary writes the same JSON to its standard error. Capture it
+through your service manager rather than discarding it.
 
 `LOG_LEVEL` sets the filter: `info` by default, `debug` for everything,
 or a filter by crate such as `info,pds_oauth=debug`. It takes effect at
@@ -35,14 +46,28 @@ and Caddy waits for the first pass before it starts.
 docker compose ps
 ```
 
-The `pds` service shows `(healthy)`.
+The `pds` service shows `(healthy)`. For native services:
+
+```bash
+sudo systemctl status linkjar-pds
+curl --fail http://127.0.0.1:2583/xrpc/_health
+```
+
+A running process alone does not establish health. Monitor the HTTP response;
+there is no container health scheduler in a native installation.
 
 ## Metrics
 
 `PDS_METRICS_ADDRESS` starts a private listener in Prometheus text
-format. It must not be reachable from the public name, so bind it to the
-container's address and publish it on the host's loopback only.
+format. Keep it private and outside the public proxy routes.
 
+For a native service, bind directly to loopback in its runtime environment:
+
+```ini
+PDS_METRICS_ADDRESS=127.0.0.1:9464
+```
+
+For Compose only, bind inside the container and publish on host loopback.
 In `pds.env`:
 
 ```ini
@@ -92,5 +117,6 @@ The reference server's limits run by default: by client address for
 requests overall and for sign-ups and sign-ins, and by account for writes.
 Every answer carries `RateLimit-Limit`, `RateLimit-Remaining` and
 `RateLimit-Reset`; a refused request is a 429 with `Retry-After`. The
-client's address comes from the connection, so the server sees Caddy's
-forwarding correctly inside the Compose network.
+server uses the connection address and forwarding from private proxy hops.
+The supplied Caddy setups forward the client address. Keep the upstream HTTP
+listener private so public clients cannot bypass the proxy.

@@ -29,6 +29,15 @@ replication are already Postgres, or who plans an
   table so password recovery continues to reject old tokens. Storage
   migration copies this table in both directions.
 
+## Command conventions
+
+The examples below use Compose. For NixOS or a native systemd service, use
+`sudo systemctl stop linkjar-pds` and `sudo systemctl start linkjar-pds`.
+Replace `docker compose run --rm pds linkjar-pds <command>` with `pds <command>`
+through the [native CLI helper](/operate/cli/#native-services). Update the native
+runtime file and use the database's reachable host address; the Compose name
+`db` does not resolve on a plain host. Keep the server stopped during migration.
+
 ## Move to Postgres
 
 1. Create a database and a role that owns it. The server creates four
