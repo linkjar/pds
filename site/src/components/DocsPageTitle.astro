@@ -1,0 +1,47 @@
+---
+import BlackPageTitle from 'starlight-theme-black/overrides/PageTitle.astro';
+import DocsCopy from './DocsCopy.astro';
+
+const { entry, hasSidebar } = Astro.locals.starlightRoute;
+const slug = entry.id || 'index';
+const source = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/${slug.split('/').map(encodeURIComponent).join('/')}.md.txt`;
+const showActions = hasSidebar && entry.id !== '404' && !entry.data.draft;
+---
+
+<BlackPageTitle {...Astro.props}>
+	<slot />
+</BlackPageTitle>
+{showActions && (
+	<div class="docs-page-actions" data-mdast="ignore">
+		<DocsCopy src={source} label="Copy page" />
+		<a href={source}>View Markdown</a>
+	</div>
+)}
+
+<style>
+	.docs-page-actions {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.8rem;
+		margin-top: 1rem;
+	}
+	.docs-page-actions a {
+		font-size: 0.8125rem;
+		color: var(--sl-color-gray-2);
+		text-decoration: none;
+	}
+	.docs-page-actions a:hover {
+		color: var(--sl-color-text);
+		text-decoration: underline;
+	}
+	.docs-page-actions a:focus-visible {
+		outline: 2px solid var(--sl-color-text-accent);
+		outline-offset: 3px;
+	}
+	@media print {
+		.docs-page-actions {
+			display: none;
+		}
+	}
+</style>

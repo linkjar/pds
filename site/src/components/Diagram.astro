@@ -22,6 +22,6 @@ if (!light || !dark) {
 
 <figure class="diagram">
 	<img src={light} alt={alt} class="dark:sl-hidden" loading="lazy" />
-	<img src={dark} alt={alt} class="light:sl-hidden" loading="lazy" />
+	<img src={dark} alt={alt} class="light:sl-hidden" loading="lazy" data-mdast="ignore" />
 	{caption && <figcaption>{caption}</figcaption>}
 </figure>

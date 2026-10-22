@@ -1,0 +1,56 @@
+---
+import SiteTitle from 'starlight-theme-black/overrides/SiteTitle.astro';
+---
+
+<linkjar-theme-navigation>
+	<SiteTitle />
+</linkjar-theme-navigation>
+
+<script>
+	class ThemeNavigation extends HTMLElement {
+		#events: AbortController | undefined;
+
+		connectedCallback() {
+			const button = this.querySelector<HTMLButtonElement>(
+				'black-menu-button button',
+			);
+			const menu = this.querySelector<HTMLElement>('.mobile-nav');
+			if (!button || !menu) return;
+
+			// Black 0.7.1 targets the desktop sidebar instead of its mobile panel.
+			menu.id = 'linkjar-mobile-navigation';
+			button.setAttribute('aria-controls', menu.id);
+			button.setAttribute(
+				'aria-label',
+				button.querySelector('.label')?.textContent?.trim() || 'Menu',
+			);
+
+			this.#events?.abort();
+			this.#events = new AbortController();
+			document.addEventListener(
+				'keydown',
+				(event) => {
+					if (
+						event.key !== 'Escape' ||
+						event.defaultPrevented ||
+						button.getAttribute('aria-expanded') !== 'true' ||
+						document.querySelector('dialog[open]')
+					)
+						return;
+
+					// Reuse the theme's toggle so its inert and expanded states stay in sync.
+					event.preventDefault();
+					button.click();
+					button.focus();
+				},
+				{ signal: this.#events.signal },
+			);
+		}
+
+		disconnectedCallback() {
+			this.#events?.abort();
+		}
+	}
+
+	customElements.define('linkjar-theme-navigation', ThemeNavigation);
+</script>

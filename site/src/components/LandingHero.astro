@@ -1,0 +1,367 @@
+---
+import { Image } from 'astro:assets';
+import logo from '../assets/linkjar-256.webp';
+---
+
+<section class="pds-hero" aria-labelledby="_top">
+	<div class="hero-copy">
+		<p class="eyebrow">Open source. Connected by AT Protocol.</p>
+		<h1 id="_top" data-page-title>
+			Your data.
+			<br />
+			Your server.
+			<br />
+			<span>The open network.</span>
+		</h1>
+		<p class="hero-description">
+			A home for your accounts, records, and media. LinkJar PDS is a Personal
+			Data Server written in Rust, built to connect your server to the
+			ATmosphere.
+		</p>
+		<div class="hero-actions">
+			<a class="pds-button primary" href="/start/requirements/">
+				Host a server <span aria-hidden="true">→</span>
+			</a>
+			<a class="pds-button secondary" href="/start/overview/">
+				Read the docs
+			</a>
+		</div>
+		<a class="migration-link" href="/operate/migrate-from-reference/">
+			Already running the reference PDS?{' '}
+			<span>
+				Plan your move <span aria-hidden="true">↗</span>
+			</span>
+		</a>
+	</div>
+	<figure
+		class="server-diagram"
+		aria-label="Your PDS stores accounts, records, and media, and connects to the AT Protocol network."
+	>
+		<div class="diagram-grid" aria-hidden="true"></div>
+		<div class="server-card">
+			<div class="server-label">
+				<span class="label-dot" aria-hidden="true"></span> Your infrastructure
+			</div>
+			<div class="server-identity">
+				<Image src={logo} alt="" width={76} height={76} loading="eager" />
+				<div>
+					<span class="server-name">LinkJar PDS</span>
+					<span class="server-domain">pds.example.com</span>
+				</div>
+			</div>
+			<div class="server-stores">
+				<div>
+					<svg viewBox="0 0 24 24" aria-hidden="true">
+						<circle cx="12" cy="8" r="3" />
+						<path d="M5 21v-3a7 7 0 0 1 14 0v3" />
+					</svg>
+					<span>Accounts</span>
+				</div>
+				<div>
+					<svg viewBox="0 0 24 24" aria-hidden="true">
+						<path d="M6 3h8l4 4v14H6zM14 3v5h4M9 12h6M9 16h6" />
+					</svg>
+					<span>Records</span>
+				</div>
+				<div>
+					<svg viewBox="0 0 24 24" aria-hidden="true">
+						<rect x="3" y="4" width="18" height="16" rx="2" />
+						<circle cx="8" cy="9" r="1" />
+						<path d="m4 18 5-5 4 4 3-3 5 5" />
+					</svg>
+					<span>Media</span>
+				</div>
+			</div>
+			<div class="server-foot">One server. Your domain.</div>
+		</div>
+		<div class="network-connector" aria-hidden="true">
+			<span></span>
+			<svg viewBox="0 0 24 24">
+				<path d="m8 9 4-4 4 4M12 5v14m-4-4 4 4 4-4" />
+			</svg>
+			<span></span>
+		</div>
+		<div class="network-node">
+			<svg viewBox="0 0 24 24" aria-hidden="true">
+				<circle cx="12" cy="12" r="9" />
+				<ellipse cx="12" cy="12" rx="4" ry="9" />
+				<path d="M3 12h18" />
+			</svg>{' '}
+			The AT Protocol network
+		</div>
+		<figcaption>Your data lives here. Your connections go further.</figcaption>
+	</figure>
+</section>
+<div class="pds-facts" aria-label="Project details">
+	<span>
+		<strong>Rust</strong> server
+	</span>
+	<a href="/scale/postgres/">
+		<strong>SQLite</strong> + optional Postgres{' '}
+		<span aria-hidden="true">↗</span>
+	</a>
+	<span>
+		<strong>Disk / S3</strong> blobs
+	</span>
+	<a href="https://github.com/linkjar/pds/blob/main/LICENSE">
+		<strong>MIT / Apache-2.0</strong> licensed <span aria-hidden="true">↗</span>
+	</a>
+</div>
+
+<style>
+	.pds-hero {
+		display: grid;
+		grid-template-columns: 1.1fr 1fr;
+		align-items: center;
+		gap: 4rem;
+		padding: 5.5rem 0 4.5rem;
+	}
+	.eyebrow {
+		margin: 0 0 1.5rem;
+		font-family: var(--sl-font-mono);
+		font-size: 0.6875rem;
+		font-weight: 500;
+		letter-spacing: 0.09em;
+		text-transform: uppercase;
+		color: var(--muted-foreground);
+	}
+	h1 {
+		margin: 0;
+		font-size: clamp(2.75rem, 5vw, 4rem);
+		line-height: 1.07;
+		letter-spacing: -0.055em;
+		font-weight: 550;
+	}
+	h1 span {
+		color: var(--muted-foreground);
+	}
+	.hero-description {
+		max-width: 30rem;
+		margin: 1.75rem 0 0;
+		font-size: 1.0625rem;
+		line-height: 1.75;
+		color: var(--muted-foreground);
+		text-wrap: pretty;
+	}
+	.hero-actions {
+		display: flex;
+		gap: 0.75rem;
+		flex-wrap: wrap;
+		margin-top: 2rem;
+	}
+	.migration-link {
+		display: block;
+		margin-top: 1.5rem;
+		font-size: 0.75rem;
+		line-height: 1.8;
+		text-decoration: none;
+		color: var(--muted-foreground);
+	}
+	.migration-link span {
+		color: var(--foreground);
+		white-space: nowrap;
+	}
+	.migration-link:hover span {
+		text-decoration: underline;
+		text-underline-offset: 4px;
+	}
+	.server-diagram {
+		position: relative;
+		margin: 0;
+		padding: 2.5rem 1.5rem 1rem;
+		isolation: isolate;
+	}
+	.diagram-grid {
+		position: absolute;
+		z-index: -1;
+		inset: 0 -1rem;
+		background-image:
+			linear-gradient(var(--border) 1px, transparent 1px),
+			linear-gradient(90deg, var(--border) 1px, transparent 1px);
+		background-size: 2rem 2rem;
+		mask-image: radial-gradient(ellipse at center, #000 15%, transparent 72%);
+		opacity: 0.65;
+	}
+	.server-card {
+		position: relative;
+		overflow: hidden;
+		border: 1px solid var(--border);
+		border-radius: 1rem;
+		background: var(--background);
+		box-shadow:
+			0 20px 60px -32px #0005,
+			0 2px 4px #0001;
+	}
+	.server-label {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 1rem 1.25rem;
+		border-bottom: 1px solid var(--border);
+		font-family: var(--sl-font-mono);
+		font-size: 0.6875rem;
+		color: var(--muted-foreground);
+	}
+	.label-dot {
+		height: 6px;
+		width: 6px;
+		border-radius: 50%;
+		background: var(--muted-foreground);
+	}
+	.server-identity {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 1rem;
+		padding: 2rem 1rem;
+	}
+	.server-identity img {
+		filter: drop-shadow(0 4px 10px #0001);
+	}
+	:global([data-theme='light']) .server-identity img {
+		background: #181818;
+		padding: 0.5rem;
+		border-radius: 1.25rem;
+	}
+	.server-name {
+		display: block;
+		font-size: 1.25rem;
+		font-weight: 550;
+		letter-spacing: -0.03em;
+	}
+	.server-domain {
+		display: block;
+		font-family: var(--sl-font-mono);
+		font-size: 0.6875rem;
+		color: var(--muted-foreground);
+		margin-top: 0.35rem;
+	}
+	.server-stores {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		margin: 0 1.25rem 1.25rem;
+		border: 1px solid var(--border);
+		border-radius: 0.5rem;
+		background: var(--muted);
+	}
+	.server-stores div {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		padding: 1rem 0.25rem;
+		gap: 0.625rem;
+		font-size: 0.6875rem;
+		color: var(--muted-foreground);
+	}
+	.server-stores div + div {
+		border-left: 1px solid var(--border);
+	}
+	svg {
+		height: 19px;
+		width: 19px;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.3;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+	.server-foot {
+		padding: 0.75rem 1rem;
+		border-top: 1px solid var(--border);
+		font-size: 0.6875rem;
+		text-align: center;
+		color: var(--muted-foreground);
+	}
+	.network-connector {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		height: 4rem;
+		color: var(--muted-foreground);
+	}
+	.network-connector span {
+		width: 1px;
+		flex: 1;
+		background: var(--border);
+	}
+	.network-connector svg {
+		margin: 5px 0;
+		height: 16px;
+	}
+	.network-node {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.625rem;
+		width: fit-content;
+		margin: auto;
+		padding: 0.75rem 1rem;
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		background: var(--background);
+		font-size: 0.75rem;
+		box-shadow: 0 3px 8px #0001;
+	}
+	figcaption {
+		text-align: center;
+		font-size: 0.6875rem;
+		margin-top: 1.25rem;
+		color: var(--muted-foreground);
+	}
+	.pds-facts {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		gap: 1rem 2rem;
+		padding: 1.5rem 0;
+		border-block: 1px solid var(--border);
+		font-family: var(--sl-font-mono);
+		font-size: 0.6875rem;
+		line-height: 1.6;
+		color: var(--muted-foreground);
+	}
+	.pds-facts strong {
+		font-weight: 500;
+		color: var(--foreground);
+	}
+	.pds-facts a {
+		text-decoration: none;
+		color: inherit;
+	}
+	.pds-facts a:hover {
+		text-decoration: underline;
+		text-underline-offset: 4px;
+	}
+	@media (max-width: 58rem) {
+		.pds-hero {
+			gap: 1.5rem;
+		}
+		.server-diagram {
+			padding-inline: 0;
+		}
+	}
+	@media (max-width: 44rem) {
+		.pds-hero {
+			grid-template-columns: 1fr;
+			padding: 3.5rem 0 2.5rem;
+			gap: 1.5rem;
+		}
+		h1 {
+			font-size: clamp(2.75rem, 9.5vw, 4rem);
+		}
+		.hero-description {
+			max-width: 34rem;
+		}
+		.server-diagram {
+			width: 100%;
+			max-width: 24rem;
+			margin: 0 auto;
+			padding-top: 1.5rem;
+		}
+		.pds-facts {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 1rem;
+		}
+	}
+</style>
