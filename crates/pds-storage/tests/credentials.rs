@@ -165,6 +165,38 @@ fn recovery_atomically_changes_the_shared_epoch_password_and_sessions() {
     assert!(accounts.refresh_token("old-refresh").unwrap().is_none());
 }
 
+#[test]
+fn recovery_unlinks_the_identities_of_providers() {
+    let scratch = Scratch::new();
+    let layout = DataLayout::new(&scratch.0);
+    account(&layout);
+    let mut accounts = layout.accounts_writable().unwrap();
+    accounts
+        .apply_linkjar_migrations("2026-10-19T00:00:00Z")
+        .unwrap();
+    accounts
+        .link_identity(
+            DID,
+            &pds_storage::linkjar::NewIdentity {
+                provider: "google",
+                subject: "planted",
+                email: None,
+                email_verified: false,
+                display_name: None,
+            },
+            "notice-1",
+            "2026-10-19T00:00:00Z",
+            0,
+        )
+        .unwrap();
+    assert_eq!(accounts.external_identities(DID).unwrap().len(), 1);
+    accounts
+        .update_password(DID, "new-hash", "new-epoch", None)
+        .unwrap();
+    assert!(accounts.external_identities(DID).unwrap().is_empty());
+    assert!(accounts.external_identity("google", "planted", "t").unwrap().is_none());
+}
+
 fn recovery_waits_for_a_grant(layout: &DataLayout) {
     use std::sync::mpsc;
     use std::time::Duration;

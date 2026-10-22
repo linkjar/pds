@@ -512,7 +512,8 @@ its first item.
 - Password reset and admin password update atomically replace the password,
   record a credential epoch, and revoke legacy refresh sessions, OAuth
   sessions, remembered account-device links, authorized-client grants,
-  pending authorization requests, app passwords and outstanding email tokens.
+  pending authorization requests, app passwords, outstanding email tokens and,
+  in the `linkjar` profile, linked identity-provider sign-ins (§12.5).
   New legacy tokens carry `pdsCredentialEpoch`; after recovery, access and
   refresh tokens must match the account's recorded epoch. Reference tokens
   without that claim remain valid only until the account first recovers.
