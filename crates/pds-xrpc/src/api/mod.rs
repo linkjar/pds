@@ -453,6 +453,7 @@ pub async fn entry(State(state): State<AppState>, request: axum::extract::Reques
         }
         response
     };
+    let answer = crate::service_auth::scope(&state, answer);
     Box::pin(crate::ratelimit::scope(
         &state,
         &parts.headers,
