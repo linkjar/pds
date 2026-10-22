@@ -28,7 +28,7 @@
   # Postgres is only needed for the shared-tier backend tests (unit 11).
   services.postgres = {
     enable = false;
-    initialDatabases = [{ name = "pds_test"; }];
+    initialDatabases = [ { name = "pds_test"; } ];
   };
 
   # The hooks are defined here and installed nowhere. Linked worktrees share
@@ -58,7 +58,8 @@
     '';
     "pds:codegen".exec = "cargo xtask codegen";
     # The git hooks, run by hand over every file.
-    "pds:hooks".exec = ''prek run --all-files --hook-stage manual --config "$DEVENV_ROOT/.pre-commit-config.yaml" "$@"'';
+    "pds:hooks".exec =
+      ''prek run --all-files --hook-stage manual --config "$DEVENV_ROOT/.pre-commit-config.yaml" "$@"'';
     # The parity harness (SPEC section 17). `parity:run reference` needs Docker.
     "parity:check".exec = ''
       set -euo pipefail
@@ -67,7 +68,8 @@
       pnpm typecheck
       pnpm test
     '';
-    "parity:run".exec = ''cd parity && pnpm install --frozen-lockfile --silent && pnpm parity run "$@"'';
+    "parity:run".exec =
+      ''cd parity && pnpm install --frozen-lockfile --silent && pnpm parity run "$@"'';
     "parity:compare".exec = ''cd parity && pnpm parity compare "$@"'';
     "docs:diagrams".exec = "cd docs/architecture && pnpm install --silent && pnpm render";
     # Upstream sources for reading, at the commits this repository pins.

@@ -1,6 +1,6 @@
 ---
 title: What you need
-description: Prepare a Linux host, Docker, a domain name, and the network access needed to run LinkJar PDS.
+description: Prepare a Linux host, choose Docker or a native installation, and configure the domain and network access for LinkJar PDS.
 sidebar:
   order: 1
 ---
@@ -13,12 +13,12 @@ network for them. One small host is enough.
 | | |
 |---|---|
 | Operating system | Linux, on `amd64` or `arm64` |
-| Software | Docker Engine with the Compose plugin |
+| Software | Docker Engine with Compose, or [Nix / a native executable](/start/native/) |
 | Memory | 1 GiB is plenty. The server starts in a few MiB; Caddy takes a few tens |
 | Disk | 20 GB to start. Records live in SQLite files, images and videos as files beside them |
 | Network | A public IP address, with ports 80 and 443 open to the internet |
 
-Check Docker on the host:
+If you choose the Compose deployment, check Docker on the host:
 
 ```bash
 docker compose version

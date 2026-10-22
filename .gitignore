@@ -12,6 +12,8 @@ __pycache__/
 /fuzz/artifacts
 /fuzz/corpus
 /target
+/result
+/result-*
 node_modules/
 # Source mirrors for reading; see .agent_sources/README.md.
 .agent_sources/github.com/

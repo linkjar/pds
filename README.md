@@ -8,6 +8,10 @@ layout and settings. Dual-licensed MIT or Apache-2.0.
 from the DNS records to the audit log. Its source is [`site/`](site/) and
 the deployment it describes is [`deploy/compose/`](deploy/compose/).
 
+Docker is optional. The [native installation guide](https://pds.linkjar.io/start/native/)
+covers the Nix package, NixOS service, and portable Linux executable.
+The flake and its checks are described in [`nix/README.md`](nix/README.md).
+
 ## What it is
 
 ```mermaid
@@ -72,6 +76,7 @@ steps and what is not built.
 | `crates/pds-sim/` | The simulation: `pds-sim --seeds N` runs seeded plans against the server in process |
 | `Dockerfile`, `Dockerfile.console`, `Dockerfile.mcp` | The images of the server and its two sidecars |
 | `deploy/compose/` | The Compose deployment of one host: the server behind Caddy |
+| `flake.nix`, `nix/` | Native packages, a development shell, the NixOS service, and packaging tests |
 | `site/` | The self-hosting guide, [pds.linkjar.io](https://pds.linkjar.io) |
 | `xtask/` | Repository tasks: `cargo xtask codegen` generates API types from the lexicons |
 | `lexicons/` | Vendored upstream lexicons at the pin, LinkJar lexicons, project lexicons ([notice](lexicons/NOTICE.md)) |
