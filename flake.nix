@@ -50,13 +50,21 @@
           linkjar-pds = server;
         }
         // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
-          linkjar-pds-static = pkgs.pkgsStatic.callPackage ./nix/package.nix {
-            rustPlatform = pkgs.pkgsStatic.makeRustPlatform {
-              cargo = staticToolchain;
-              rustc = staticToolchain;
-            };
-            inherit (pkgs) cmake pkg-config;
-          };
+          linkjar-pds-static =
+            (pkgs.pkgsStatic.callPackage ./nix/package.nix {
+              rustPlatform = pkgs.pkgsStatic.makeRustPlatform {
+                cargo = staticToolchain;
+                rustc = staticToolchain;
+              };
+              inherit (pkgs) cmake pkg-config;
+            }).overrideAttrs
+              (old: {
+                # Global -static also reaches the GNU host build scripts.
+                # Cargo's target-specific +crt-static still links the musl binary.
+                env = (old.env or { }) // {
+                  NIX_CFLAGS_LINK = "";
+                };
+              });
         }
       );
 
