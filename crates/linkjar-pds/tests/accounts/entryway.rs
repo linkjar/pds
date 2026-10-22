@@ -243,6 +243,35 @@ async fn a_member_host_keeps_repositories_and_leaves_accounts_to_its_entryway() 
         );
     }
 
+    // The mark of an entryway call keeps a method on this host only with
+    // the admin password: a client that sets it is still passed on.
+    let rename = json!({"handle": "victim.example.com"});
+    let marked = server
+        .http
+        .post(format!(
+            "{}/xrpc/com.atproto.identity.updateHandle",
+            server.origin
+        ))
+        .bearer_auth(&token)
+        .header(pds_xrpc::api::entryway::FROM_ENTRYWAY, "1")
+        .header("content-type", "application/json")
+        .body(rename.to_string())
+        .send()
+        .await
+        .unwrap();
+    let (status, answer) = common::http::json_response(marked).await;
+    assert_eq!(status, 200, "{answer}");
+    assert_eq!(answer["answeredBy"], "entryway");
+    assert_eq!(asked.lock().unwrap().len(), 4);
+    let handle: Option<String> = accounts
+        .query_row(
+            r#"select "handle" from "actor" where "did" = ?1"#,
+            [&genesis.did],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(handle.as_deref(), Some("mia.pds-users.org"));
+
     // The host answers for no handle and is no authorization server.
     let get = |path: &'static str| {
         let request = server

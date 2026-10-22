@@ -768,7 +768,7 @@ async fn xrpc(
     // A member host passes the methods of its entryway on (SPEC §21.3).
     if let Some(entryway) = &state.config().entryway
         && entryway::is_forwarded(nsid)
-        && !entryway::from_entryway(headers)
+        && !entryway::from_entryway(state, headers)
     {
         return entryway::forward(state, entryway, nsid, method, raw_query, headers, body).await;
     }

@@ -190,6 +190,17 @@ pub fn session(
     }
 }
 
+/// Whether the request carries the admin password.
+pub fn is_admin(headers: &HeaderMap, config: &AuthConfig) -> bool {
+    headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split_once(' '))
+        .is_some_and(|(kind, token)| {
+            kind.eq_ignore_ascii_case("basic") && admin(token, config).is_ok()
+        })
+}
+
 fn admin(token: &str, config: &AuthConfig) -> Result<Credentials, XrpcError> {
     let denied = || XrpcError::auth_required("AuthenticationRequired");
     let decoded = STANDARD.decode(token).map_err(|_| denied())?;

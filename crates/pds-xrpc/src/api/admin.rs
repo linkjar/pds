@@ -362,7 +362,7 @@ pub async fn update_subject_status(
         let input = serde_json::json!({ "subject": subject, "takedown": takedown });
         let nsid = "com.atproto.admin.updateSubjectStatus";
         if let Some(entryway) = &state.config().entryway
-            && !super::entryway::from_entryway(headers)
+            && !super::entryway::from_entryway(state, headers)
         {
             super::entryway::ask_entryway(state, entryway, nsid, &input).await?;
         }
