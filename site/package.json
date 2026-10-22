@@ -12,8 +12,9 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "deploy:dry": "wrangler deploy --dry-run",
-    "deploy": "wrangler deploy"
+    "test": "node --test tests/*.test.mjs",
+    "deploy:dry": "wrangler deploy --dry-run && wrangler deploy --config redirect/wrangler.jsonc --dry-run",
+    "deploy": "wrangler deploy && wrangler deploy --config redirect/wrangler.jsonc"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.42.6",

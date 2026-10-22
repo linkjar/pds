@@ -1,0 +1,12 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "linkjar-pds-docs-https",
+  "account_id": "0304bc8e8ac0558d06befabd3374475c",
+  "compatibility_date": "2026-10-22",
+  "main": "./worker.js",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    { "pattern": "http://pds.linkjar.io/*", "zone_name": "linkjar.io" }
+  ]
+}
