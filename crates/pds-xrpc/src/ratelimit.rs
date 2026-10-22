@@ -277,6 +277,21 @@ pub enum Key<'a> {
     Text(&'a str),
 }
 
+/// The longest text of a key that the table keeps as it is.
+const KEY_TEXT_LIMIT: usize = 256;
+
+/// The text of a key, or its hash when the text is longer than
+/// [`KEY_TEXT_LIMIT`]: a key may come from the request, and the buckets
+/// last a day.
+fn bounded(text: &str) -> std::borrow::Cow<'_, str> {
+    if text.len() <= KEY_TEXT_LIMIT {
+        return std::borrow::Cow::Borrowed(text);
+    }
+    use sha2::Digest as _;
+    let digest = sha2::Sha256::digest(text.as_bytes());
+    std::borrow::Cow::Owned(format!("sha256:{}", data_encoding::HEXLOWER.encode(&digest)))
+}
+
 /// Spends `points` of each limiter for the request that this task serves.
 /// The first limiter that is over its limit refuses the request.
 pub fn consume(state: &AppState, limits: &[(Limit, Key<'_>, i64)]) -> Result<(), XrpcError> {
@@ -295,8 +310,8 @@ pub fn consume(state: &AppState, limits: &[(Limit, Key<'_>, i64)]) -> Result<(),
         }
         let key = match key {
             Key::Ip => context.ip.clone(),
-            Key::WithIp(text) => format!("{text}-{}", context.ip),
-            Key::Text(text) => (*text).to_owned(),
+            Key::WithIp(text) => format!("{}-{}", bounded(text), context.ip),
+            Key::Text(text) => bounded(text).into_owned(),
         };
         let status = state.limiter().consume(*limit, &key, *points, now_ms);
         refused |= status.exceeded;
@@ -376,16 +391,26 @@ pub fn repo_write(state: &AppState, did: &str, points: i64) -> Result<(), XrpcEr
 }
 
 /// The limiters of a route with the global one: every request spends one
-/// point of the address bucket.
+/// point of the address bucket. The global one goes first, so that an
+/// address over it adds no bucket of the route.
 pub fn route(state: &AppState, limits: &[(Limit, Key<'_>, i64)]) -> Result<(), XrpcError> {
-    let mut all = limits.to_vec();
-    all.push((GLOBAL_IP, Key::Ip, 1));
+    let mut all = vec![(GLOBAL_IP, Key::Ip, 1)];
+    all.extend_from_slice(limits);
     consume(state, &all)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_long_key_is_kept_as_its_hash() {
+        assert_eq!(bounded("alice.test"), "alice.test");
+        let long = "a".repeat(100_000);
+        let kept = bounded(&long);
+        assert!(kept.starts_with("sha256:") && kept.len() < 80, "{kept}");
+        assert_ne!(kept, bounded(&"b".repeat(100_000)));
+    }
 
     #[test]
     fn a_window_starts_at_its_first_request_and_ends() {
