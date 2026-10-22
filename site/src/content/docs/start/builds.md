@@ -66,9 +66,9 @@ gh run download "$PDS_RUN_ID" --repo linkjar/pds \
 Verify the archive before extracting it:
 
 ```bash
-(cd native-download && sha256sum --check "linkjar-pds-$PDS_SYSTEM.tar.gz.sha256")
-mkdir native-unpack
-tar -xzf "native-download/linkjar-pds-$PDS_SYSTEM.tar.gz" -C native-unpack
+(cd native-download && sha256sum --check "linkjar-pds-$PDS_SYSTEM.tar.gz.sha256") &&
+mkdir native-unpack &&
+tar -xzf "native-download/linkjar-pds-$PDS_SYSTEM.tar.gz" -C native-unpack &&
 ./native-unpack/linkjar-pds version
 ```
 
@@ -80,10 +80,10 @@ Keep the full commit and archive checksum in your deployment record.
 Install the reviewed executable in a directory named after its commit:
 
 ```bash
-PDS_REV=$(gh run view "$PDS_RUN_ID" --repo linkjar/pds --json headSha --jq '.headSha')
-sudo install -d -m 0755 "/opt/linkjar-pds/$PDS_REV"
-sudo install -m 0755 native-unpack/linkjar-pds "/opt/linkjar-pds/$PDS_REV/linkjar-pds"
-sudo install -m 0644 native-unpack/LICENSE "/opt/linkjar-pds/$PDS_REV/LICENSE"
+PDS_REV=$(gh run view "$PDS_RUN_ID" --repo linkjar/pds --json headSha --jq '.headSha') &&
+sudo install -d -m 0755 "/opt/linkjar-pds/$PDS_REV" &&
+sudo install -m 0755 native-unpack/linkjar-pds "/opt/linkjar-pds/$PDS_REV/linkjar-pds" &&
+sudo install -m 0644 native-unpack/LICENSE "/opt/linkjar-pds/$PDS_REV/LICENSE" &&
 sudo ln -sfn "/opt/linkjar-pds/$PDS_REV/linkjar-pds" /usr/local/bin/linkjar-pds
 ```
 
