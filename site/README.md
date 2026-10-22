@@ -24,6 +24,21 @@ pnpm build      # dist/
 pnpm test:built # generated pages and Markdown export checks
 ```
 
+## Link previews
+
+`public/linkjar-pds-og-v1.jpg` is the shared 1200 × 630 social card. It was
+generated with the built-in image tool using the real LinkJar jar as a reference,
+then exported as an optimized JPEG. The generation prompt is saved in
+`src/assets/linkjar-pds-og-prompt.md`. Use a new versioned filename when replacing
+the image so sharing services can fetch a fresh asset.
+
+Starlight supplies each page's canonical URL, title, and description. The global
+head config adds the image, its dimensions and alt text, and the Open Graph locale.
+The homepage declares itself a website; documentation pages remain articles.
+`src/route-data.ts` mirrors the final Open Graph values into explicit Twitter card
+tags, preserving page overrides. All tags are in the built HTML, so crawlers do
+not need JavaScript. `pnpm test:built` checks the tags and the image itself.
+
 The workflow `.github/workflows/site.yml` builds every pull request that
 touches `site/` or `docs/architecture/`. It checks site types, redirect behavior,
 and diagram freshness. It builds the site, checks its generated pages and Markdown,
