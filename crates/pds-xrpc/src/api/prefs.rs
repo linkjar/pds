@@ -49,6 +49,7 @@ fn local(state: &AppState, headers: &HeaderMap) -> bool {
 fn session(
     state: &AppState,
     headers: &HeaderMap,
+    lxm: &str,
     additional: &[&str],
 ) -> Result<(String, bool), XrpcError> {
     match auth::optional_credentials(headers, &state.config().auth, additional, state.now_s())? {
@@ -57,10 +58,7 @@ fn session(
             // and never the personal details.
             let oauth = crate::oauth::resource::grant().is_some();
             let appview = state.config().appview_did.as_deref().unwrap_or_default();
-            crate::oauth::resource::check_rpc(
-                "app.bsky.actor.getPreferences",
-                &format!("{appview}#bsky_appview"),
-            )?;
+            crate::oauth::resource::check_rpc(lxm, &format!("{appview}#bsky_appview"))?;
             Ok((did, scope == SCOPE_ACCESS && !oauth))
         }
         Credentials::None => Err(XrpcError::auth_required("AuthMissing")),
@@ -106,7 +104,12 @@ pub async fn get_preferences(state: &AppState, query: &Query<'_>) -> Result<Resp
         )
         .await;
     }
-    let (did, full) = session(state, query.headers, &[SCOPE_TAKENDOWN])?;
+    let (did, full) = session(
+        state,
+        query.headers,
+        "app.bsky.actor.getPreferences",
+        &[SCOPE_TAKENDOWN],
+    )?;
     let today = chrono::DateTime::from_timestamp_millis(state.now_ms())
         .unwrap_or_default()
         .date_naive();
@@ -159,7 +162,7 @@ pub async fn put_preferences(
         )
         .await;
     }
-    let (did, full) = session(state, headers, &[])?;
+    let (did, full) = session(state, headers, "app.bsky.actor.putPreferences", &[])?;
     {
         let did = did.clone();
         state

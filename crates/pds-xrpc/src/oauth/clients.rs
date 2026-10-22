@@ -21,6 +21,10 @@ use crate::state::AppState;
 
 /// How long the server keeps a client's metadata.
 const CACHE_TTL_MS: i64 = 10 * 60 * 1000;
+
+/// The most fetched documents the cache keeps. Anyone may name a client,
+/// so a full cache serves the fetched document without keeping it.
+const CACHE_LIMIT: usize = 4096;
 /// The largest metadata document.
 const DOCUMENT_LIMIT: usize = 256 * 1024;
 const FETCH_TIMEOUT: Duration = Duration::from_secs(10);
@@ -236,7 +240,9 @@ pub async fn get(state: &AppState, client_id: &str) -> Result<Arc<LoadedClient>,
     {
         let mut cache = cache.lock().unwrap_or_else(PoisonError::into_inner);
         cache.sweep(|(_, fetched)| now_ms - *fetched < CACHE_TTL_MS);
-        cache.insert(client_id.to_owned(), (Arc::clone(&client), now_ms));
+        if cache.len() < CACHE_LIMIT {
+            cache.insert(client_id.to_owned(), (Arc::clone(&client), now_ms));
+        }
     }
     Ok(client)
 }

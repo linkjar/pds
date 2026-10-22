@@ -29,9 +29,14 @@ fn client_key() -> Keypair {
 }
 
 fn client_id() -> String {
+    client_id_for(SCOPE)
+}
+
+/// A loopback client that may ask for `scope`.
+fn client_id_for(scope: &str) -> String {
     let query = url::form_urlencoded::Serializer::new(String::new())
         .append_pair("redirect_uri", REDIRECT)
-        .append_pair("scope", SCOPE)
+        .append_pair("scope", scope)
         .finish();
     format!("http://localhost?{query}")
 }
@@ -73,6 +78,8 @@ struct Server {
     /// The PKCE verifier of the last pushed request.
     verifier: String,
     password: String,
+    /// The scope the client asks for.
+    scope: String,
     dir: DataDir,
 }
 
@@ -119,6 +126,7 @@ impl Server {
             serial: 0,
             verifier: String::new(),
             password: PASSWORD.to_owned(),
+            scope: SCOPE.to_owned(),
             dir,
         };
         let metadata = server
@@ -251,7 +259,7 @@ impl Server {
     async fn endpoint(&mut self, path: &str, form: &[(&str, &str)]) -> Answer {
         let key = client_key();
         let proof = self.proof(&key, "POST", path, None);
-        let id = client_id();
+        let id = client_id_for(&self.scope);
         let mut all = vec![("client_id", id.as_str())];
         all.extend_from_slice(form);
         self.send(reqwest::Method::POST, path, Some(&all), &[("dpop", proof)])
@@ -341,13 +349,14 @@ impl Server {
         // A challenge is good once in a day, so each request has its own.
         self.verifier = format!("{VERIFIER}{}", self.serial);
         let challenge = URL_SAFE_NO_PAD.encode(Sha256::digest(self.verifier.as_bytes()));
+        let scope = self.scope.clone();
         let mut form = vec![
             ("response_type", "code"),
             ("code_challenge", challenge.as_str()),
             ("code_challenge_method", "S256"),
             ("state", "the-state"),
             ("redirect_uri", REDIRECT),
-            ("scope", SCOPE),
+            ("scope", scope.as_str()),
             ("login_hint", ALICE),
         ];
         for (name, value) in change {
@@ -361,7 +370,8 @@ impl Server {
 
     /// The pages of one authorization, up to the redirect to the client.
     async fn authorize(&mut self, request_uri: &str, remember: bool) -> reqwest::Url {
-        self.authorize_as(&client_id(), request_uri, remember).await
+        let id = client_id_for(&self.scope);
+        self.authorize_as(&id, request_uri, remember).await
     }
 
     /// [`Server::authorize`] for the client `id`.
@@ -497,3 +507,5 @@ mod mcp;
 mod migration;
 #[path = "oauth/recovery.rs"]
 mod recovery;
+#[path = "oauth/scopes.rs"]
+mod scopes;

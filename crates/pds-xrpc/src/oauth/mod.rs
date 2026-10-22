@@ -130,6 +130,14 @@ impl OAuthState {
         }
     }
 
+    /// Drops the record of `key`, so that it counts as unseen again.
+    pub fn forget(&self, key: &str) {
+        self.seen
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(key);
+    }
+
     /// Records `key` until `until_ms`. `false` means it was recorded
     /// before and that record still counts.
     pub fn unique(&self, key: String, until_ms: i64, now_ms: i64) -> bool {

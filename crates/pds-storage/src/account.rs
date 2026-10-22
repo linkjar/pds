@@ -653,7 +653,9 @@ impl AccountDb {
     }
 
     /// Gives an account another password. Recovery ends its sessions,
-    /// pending authorizations, app passwords and outstanding email tokens.
+    /// pending authorizations, app passwords, outstanding email tokens and
+    /// the identities of providers linked to it: whoever held the account
+    /// before may have linked their own.
     pub fn update_password(
         &mut self,
         did: &str,
@@ -690,6 +692,10 @@ impl AccountDb {
         txn.execute(r#"delete from "app_password" where "did" = ?1"#, [did])?;
         txn.execute(r#"delete from "email_token" where "did" = ?1"#, [did])?;
         txn.execute(r#"delete from "refresh_token" where "did" = ?1"#, [did])?;
+        // Only the `linkjar` profile has linked identities.
+        if txn.table_exists("external_identity")? {
+            txn.execute(r#"delete from "external_identity" where "did" = ?1"#, [did])?;
+        }
         lock.commit()?;
         Ok(())
     }

@@ -714,9 +714,13 @@ async fn a_service_token_of_the_account_uploads_a_blob() {
     let own = "did:web:pds.test";
     let method = "com.atproto.repo.uploadBlob";
 
-    let (status, _, body) = upload(token_for(own, method).await).await;
+    let token = token_for(own, method).await;
+    let (status, _, body) = upload(token.clone()).await;
     assert_eq!(status, 200, "{body}");
     assert_eq!(body["blob"]["size"], 19);
+    // A token is good for one request.
+    let (status, _, body) = upload(token).await;
+    assert_eq!((status, &body["error"]), (401, &json!("BadJwt")), "{body}");
 
     let (status, _, body) = upload(token_for(own, "com.atproto.repo.createRecord").await).await;
     assert_eq!(
