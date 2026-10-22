@@ -284,12 +284,15 @@ const KEY_TEXT_LIMIT: usize = 256;
 /// [`KEY_TEXT_LIMIT`]: a key may come from the request, and the buckets
 /// last a day.
 fn bounded(text: &str) -> std::borrow::Cow<'_, str> {
+    use sha2::Digest as _;
     if text.len() <= KEY_TEXT_LIMIT {
         return std::borrow::Cow::Borrowed(text);
     }
-    use sha2::Digest as _;
     let digest = sha2::Sha256::digest(text.as_bytes());
-    std::borrow::Cow::Owned(format!("sha256:{}", data_encoding::HEXLOWER.encode(&digest)))
+    std::borrow::Cow::Owned(format!(
+        "sha256:{}",
+        data_encoding::HEXLOWER.encode(&digest)
+    ))
 }
 
 /// Spends `points` of each limiter for the request that this task serves.

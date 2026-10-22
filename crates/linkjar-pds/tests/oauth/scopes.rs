@@ -24,7 +24,8 @@ async fn signed_in_with(scope: &str) -> (Server, String) {
 // A grant to read the preferences does not let a client replace them.
 #[tokio::test(flavor = "multi_thread")]
 async fn a_grant_to_read_preferences_does_not_write_them() {
-    let read = format!("atproto rpc:app.bsky.actor.getPreferences?aud={APPVIEW_DID}%23bsky_appview");
+    let read =
+        format!("atproto rpc:app.bsky.actor.getPreferences?aud={APPVIEW_DID}%23bsky_appview");
     let (mut server, token) = signed_in_with(&read).await;
     let key = client_key();
     let got = server
@@ -33,17 +34,28 @@ async fn a_grant_to_read_preferences_does_not_write_them() {
     assert_eq!(got.status, 200, "{}", got.text);
     let body = json!({"preferences": [{"$type": "app.bsky.actor.defs#adultContentPref", "enabled": true}]});
     let put = server
-        .resource(&key, reqwest::Method::POST, PUT_PREFERENCES, &token, Some(&body))
+        .resource(
+            &key,
+            reqwest::Method::POST,
+            PUT_PREFERENCES,
+            &token,
+            Some(&body),
+        )
         .await;
     assert_eq!(put.status, 403, "{}", put.text);
     assert_eq!(put.json()["error"], "ScopeMissingError", "{}", put.text);
 
-    let write = format!(
-        "{read} rpc:app.bsky.actor.putPreferences?aud={APPVIEW_DID}%23bsky_appview"
-    );
+    let write =
+        format!("{read} rpc:app.bsky.actor.putPreferences?aud={APPVIEW_DID}%23bsky_appview");
     let (mut server, token) = signed_in_with(&write).await;
     let put = server
-        .resource(&key, reqwest::Method::POST, PUT_PREFERENCES, &token, Some(&body))
+        .resource(
+            &key,
+            reqwest::Method::POST,
+            PUT_PREFERENCES,
+            &token,
+            Some(&body),
+        )
         .await;
     assert_eq!(put.status, 200, "{}", put.text);
 }

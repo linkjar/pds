@@ -76,8 +76,9 @@ pub fn is_forwarded(nsid: &str) -> bool {
     FORWARDED.contains(&nsid) || FORWARDED_ADMIN.contains(&nsid)
 }
 
-/// The header of a call that an entryway makes on its member host. It
-/// keeps the member host from passing the call back. The entryway calls
+/// The header of a call that an entryway makes on its member host.
+///
+/// It keeps the member host from passing the call back. The entryway calls
 /// with the admin password of the member host, and the header counts only
 /// with it: a client could set it on any method.
 pub const FROM_ENTRYWAY: &str = "x-linkjar-entryway-call";

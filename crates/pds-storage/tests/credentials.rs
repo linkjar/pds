@@ -193,8 +193,13 @@ fn recovery_unlinks_the_identities_of_providers() {
     accounts
         .update_password(DID, "new-hash", "new-epoch", None)
         .unwrap();
-    assert!(accounts.external_identities(DID).unwrap().is_empty());
-    assert!(accounts.external_identity("google", "planted", "t").unwrap().is_none());
+    assert_eq!(accounts.external_identities(DID).unwrap(), Vec::new());
+    assert!(
+        accounts
+            .external_identity("google", "planted", "t")
+            .unwrap()
+            .is_none()
+    );
 }
 
 fn recovery_waits_for_a_grant(layout: &DataLayout) {
