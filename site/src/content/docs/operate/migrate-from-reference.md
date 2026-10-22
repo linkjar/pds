@@ -14,6 +14,11 @@ This page assumes the reference server's installer: the data at `/pds`,
 the settings in `/pds/pds.env`, and a systemd unit named `pds` that runs
 its Compose file.
 
+This procedure switches the reference Docker deployment to LinkJar's Compose
+stack. To run without Docker, also follow the [native cutover steps](/start/native/#move-from-docker).
+Preserve the original data and secrets, adapt host paths and ownership, and
+run verification with the selected native build before starting it.
+
 ## Before the switch
 
 1. Take a [cold backup](/operate/backup/#a-cold-backup) of `/pds`.

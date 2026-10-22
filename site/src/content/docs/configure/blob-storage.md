@@ -13,7 +13,7 @@ can keep them in an S3-compatible store instead.
 ## On the disk
 
 `PDS_BLOBSTORE_DISK_LOCATION` names the directory, `blocks` under the
-data directory in the Compose deployment. The layout is the reference
+data directory in both installation examples. The layout is the reference
 server's:
 
 | Path | Content |
@@ -65,6 +65,9 @@ request the store refuses with 429 or a 5xx is sent three times at most.
 
 `verify` lists the objects of each account and compares them with the
 blob index of its repository. It changes nothing in the bucket.
+
+For a native service, run `pds verify` with the
+[CLI helper](/operate/cli/#native-services). For Compose:
 
 ```bash
 docker compose run --rm pds linkjar-pds verify

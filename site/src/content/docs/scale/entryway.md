@@ -100,7 +100,8 @@ authorization server.
 ## Reconcile
 
 A crash during a sign-up can leave a repository on the member host with no
-account at the entryway. At the entryway:
+account at the entryway. At the entryway, use `pds reconcile` with the
+[native CLI helper](/operate/cli/#native-services), or for Compose:
 
 ```bash
 docker compose exec pds linkjar-pds reconcile

@@ -16,7 +16,7 @@ forgotten password.
 
 ## Set the SMTP URL
 
-Two lines in `pds.env`:
+Add these settings to your runtime environment file:
 
 ```ini
 PDS_EMAIL_SMTP_URL=smtps://user:password@smtp.example.com/
@@ -35,7 +35,13 @@ A password with a character that means something in a URL, such as `@`,
 A sender address at the server's own domain, or at a domain whose SPF and
 DKIM records name the provider, keeps the mail out of spam folders.
 
-Restart the server after the change:
+Restart after the change. For NixOS or the native systemd example:
+
+```bash
+sudo systemctl restart linkjar-pds
+```
+
+For Compose:
 
 ```bash
 docker compose up -d
@@ -53,9 +59,8 @@ The answer is empty with status 200, and the mail arrives within a
 minute. A mail that gates a flow is sent before the request is answered,
 so an SMTP failure fails the request, with the reason in the logs:
 
-```bash
-docker compose logs pds | grep -i smtp
-```
+For a native service, use `sudo journalctl -u linkjar-pds`. For Compose,
+use `docker compose logs pds`. See [monitoring](/operate/monitoring/#logs).
 
 ## Mail from a moderation service
 

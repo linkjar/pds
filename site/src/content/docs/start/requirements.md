@@ -1,6 +1,6 @@
 ---
 title: What you need
-description: Prepare a Linux host, Docker, a domain name, and the network access needed to run LinkJar PDS.
+description: Prepare a Linux host, choose Docker or a native installation, and configure the domain and network access for LinkJar PDS.
 sidebar:
   order: 1
 ---
@@ -13,12 +13,12 @@ network for them. One small host is enough.
 | | |
 |---|---|
 | Operating system | Linux, on `amd64` or `arm64` |
-| Software | Docker Engine with the Compose plugin |
+| Software | Docker Engine with Compose, or [Nix / a native executable](/start/native/) |
 | Memory | 1 GiB is plenty. The server starts in a few MiB; Caddy takes a few tens |
 | Disk | 20 GB to start. Records live in SQLite files, images and videos as files beside them |
 | Network | A public IP address, with ports 80 and 443 open to the internet |
 
-Check Docker on the host:
+If you choose the Compose deployment, check Docker on the host:
 
 ```bash
 docker compose version
@@ -38,10 +38,12 @@ Keep the PDS on a domain of its own, not on a subdomain of a site that
 serves a web app. The server's authorization pages and the blobs it serves
 should not share a parent domain with an app's cookies.
 
-## An email address for the certificates
+## HTTPS and CA certificates
 
-Caddy obtains the certificates from Let's Encrypt and gives Let's Encrypt
-this address for notices about expiry.
+The Compose deployment includes Caddy. A native installation needs its own TLS
+proxy; the [native guide](/start/native/#public-https) includes a Caddy example.
+Caddy uses an operator email for certificate notices. Native hosts also need
+a CA certificate bundle for the PDS's outbound HTTPS requests.
 
 ## Optional: an SMTP account
 
@@ -58,6 +60,6 @@ Without SMTP it sends none, which is fine for a server of one.
 | `operator@example.com` | your email address |
 | `alice` | the first account's handle |
 
-Commands run on the host as a user who may run Docker, from the directory
-that holds the Compose file, unless a page says otherwise. Each code block
-is one command.
+Run commands on the host unless a page says otherwise. Docker commands run
+from the Compose directory. Native service commands use the service user
+and runtime configuration, as explained in [the CLI guide](/operate/cli/).

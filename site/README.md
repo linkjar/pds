@@ -43,7 +43,16 @@ The workflow `.github/workflows/site.yml` builds every pull request that
 touches `site/` or `docs/architecture/`. It checks site types, redirect behavior,
 and diagram freshness. It builds the site, checks its generated pages and Markdown,
 validates both Cloudflare configurations,
-and saves the static output as the `pds-docs` artifact. GitHub Pages is not used.
+and saves the static output as the `pds-docs` artifact. GitHub Pages is disabled;
+there is no Pages deployment job, Pages environment, or Pages publishing permission.
+The live site is served only by the Cloudflare Workers described below.
+
+The separate `.github/workflows/nix.yml` workflow builds the native Rust server,
+not this Astro site. Its `linkjar-pds-x86_64-linux` and
+`linkjar-pds-aarch64-linux` artifacts contain portable executable archives and
+checksums. It does not deploy a NixOS host. See the public
+[build guide](https://pds.linkjar.io/start/builds/) and
+[native installation guide](https://pds.linkjar.io/start/native/).
 
 ## Markdown for AI assistants
 

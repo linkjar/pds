@@ -49,6 +49,8 @@ test('the landing and existing documentation URLs remain available', () => {
 		'/start/requirements/',
 		'/start/dns/',
 		'/start/install/',
+		'/start/builds/',
+		'/start/native/',
 		'/start/verify/',
 		'/start/first-account/',
 		'/configure/blob-storage/',

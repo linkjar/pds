@@ -2,7 +2,7 @@
 title: Create the first account
 description: An invite code, the Bluesky app, the first post, and when the rest of the network sees it.
 sidebar:
-  order: 5
+  order: 7
 ---
 
 Sign-up needs an invite code, so that strangers cannot fill the server.
@@ -10,7 +10,7 @@ The admin password creates codes.
 
 ## Create an invite code
 
-On the host, with `PDS_ADMIN_PASSWORD` from `pds.env` in the environment:
+On the host, with `PDS_ADMIN_PASSWORD` from your runtime secret file in the environment:
 
 ```bash
 curl -s -u "admin:$PDS_ADMIN_PASSWORD" -H 'content-type: application/json' -d '{"useCount": 1}' https://pds.example.com/xrpc/com.atproto.server.createInviteCode
@@ -28,8 +28,8 @@ It answers `{"code":"pds-example-com-xxxxx-xxxxx"}`. A code with a
    handle becomes `alice.pds.example.com`.
 4. Post something.
 
-The first request for `alice.pds.example.com` makes Caddy fetch its
-certificate, which takes a few seconds.
+With the supplied Caddy configuration, the first request for
+`alice.pds.example.com` triggers certificate issuance. It can take a few seconds.
 
 ## Or sign up from the terminal
 
@@ -70,4 +70,4 @@ has the rest of the invite commands.
 
 Next: set up [email](/configure/email/) so that confirmation and
 password-reset mail arrives, and [back up](/operate/backup/) the data
-directory and `pds.env`.
+directory and all configuration and secrets.

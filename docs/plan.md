@@ -191,7 +191,8 @@ Operations
 
 - [ ] Export over OTLP, and metrics of the commit path, the sequencer and
   the subscribers.
-- [ ] A Nix package.
+- [x] A Nix package, a NixOS service module, and a static Linux package
+  ([nix/](../nix/README.md)).
 - [ ] The `migrate` command of §18.3 and the `repair <did>` ladder of §19.5;
   the server repairs at start (§7.4).
 - [ ] The audit checkpoint key in a KMS or an HSM, and a witness that

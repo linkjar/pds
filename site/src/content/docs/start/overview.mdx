@@ -24,7 +24,7 @@ the work of keeping the server running.
 <CardGrid>
 	<LinkCard
 		title="Set up a new server"
-		description="Prepare a host and domain, then install with Docker Compose."
+		description="Prepare a host and domain, then choose Nix, a native binary, or Docker Compose."
 		href="/start/requirements/"
 	/>
 	<LinkCard
@@ -36,22 +36,25 @@ the work of keeping the server running.
 
 ## Get a server running
 
-Follow these pages in order for a new installation. The guide uses Docker
-Compose with Caddy for HTTPS and a local data directory for SQLite and blobs.
+Choose [Nix, a native binary](/start/native/), or [Docker Compose](/start/install/).
+All three run the same server and use the same data layout. The examples use
+SQLite and local blobs, with Caddy handling public HTTPS.
 
 <Steps>
 
 1. **[Prepare the host](/start/requirements/)**
 
-   Check Docker, storage, network access, and the domain you will use.
+   Check your chosen runtime, storage, network access, and domain.
 
 2. **[Set up DNS](/start/dns/)**
 
    Point the server name and account handles at your host.
 
-3. **[Install with Docker Compose](/start/install/)**
+3. **Choose a build and install**
 
-   Pin the image, generate secrets, and check the configuration before starting.
+   Read [builds and downloads](/start/builds/), then install with
+   [Nix or a binary](/start/native/) or [Docker Compose](/start/install/).
+   Pin the build, generate secrets, and check configuration before startup.
 
 4. **[Verify the setup](/start/verify/)**
 
@@ -73,7 +76,7 @@ Compose with Caddy for HTTPS and a local data directory for SQLite and blobs.
 	/>
 	<LinkCard
 		title="Update the server"
-		description="Deploy a pinned image and understand recovery-aware rollback."
+		description="Update a pinned binary, NixOS package, or image and review rollback limits."
 		href="/operate/update/"
 	/>
 	<LinkCard

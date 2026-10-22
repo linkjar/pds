@@ -46,8 +46,10 @@ Each prints `203.0.113.10`.
 
 Open ports 80 and 443 in the host's firewall and in your provider's
 firewall, if it has one. Port 80 serves the certificate challenge and the
-redirect to HTTPS; 443 serves everything else. The server itself listens
-on port 3000 inside the Compose network only. Nothing else on the host
-needs to be reachable.
+redirect to HTTPS; 443 serves everything else. The Compose server listens
+on port `3000` inside its network. Native examples
+use port `2583`, blocked from public access by the host firewall. Send public
+traffic through the TLS proxy; keep metrics and operations listeners private.
 
-Next: [install with Docker Compose](/start/install/).
+Next: [choose a build](/start/builds/), then install with
+[Nix or a binary](/start/native/) or [Docker Compose](/start/install/).
