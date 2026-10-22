@@ -2,7 +2,8 @@
 
 The pages of [pds.linkjar.io](https://pds.linkjar.io): how to host a
 LinkJar PDS, from the DNS records to the audit log. Built with
-[Astro Starlight](https://starlight.astro.build).
+[Astro Starlight](https://starlight.astro.build) and
+[Starlight Black](https://starlight-theme-black.vercel.app/).
 
 The pages are Markdown under `src/content/docs/`, one directory per
 sidebar group. The architecture diagrams come from
@@ -20,12 +21,44 @@ pnpm dev        # http://localhost:4321
 pnpm check      # type-check the site
 pnpm test       # HTTP redirect regression tests
 pnpm build      # dist/
+pnpm test:built # generated pages and Markdown export checks
 ```
 
 The workflow `.github/workflows/site.yml` builds every pull request that
 touches `site/` or `docs/architecture/`. It checks site types, redirect behavior,
-and diagram freshness. It builds the site, validates both Cloudflare configurations,
+and diagram freshness. It builds the site, checks its generated pages and Markdown,
+validates both Cloudflare configurations,
 and saves the static output as the `pds-docs` artifact. GitHub Pages is not used.
+
+## Markdown for AI assistants
+
+[starlight-llm-actions](https://holdenhewett.github.io/starlight-llm-actions/)
+generates `/<page>.md.txt`, `/llms.txt`, and `/llms-full.txt` during the build.
+The homepage's Markdown is `/index.md.txt`. The `.txt` extension lets static hosts
+serve the pages as readable text. `llms.txt` links to individual pages and the
+complete documentation; every page in the full bundle uses the same renderer.
+
+The renderer resolves MDX components before converting their HTML to Markdown.
+It keeps installation tab labels, code blocks, and diagram descriptions. A small
+adapter adds each page's canonical source URL and makes link and image destinations
+absolute, including their anchors. Draft pages are excluded. Use
+`data-mdast="ignore"` for controls or duplicated visual elements that should not
+appear in the exported text; do not use it to hide confidential material.
+
+Black's built-in action copies raw MDX, so it is disabled. `DocsPageTitle.astro`
+keeps Black's title layout and adds `DocsCopy.astro` plus a Markdown link. The same
+copy component serves the homepage's complete-documentation action. It fetches
+only public text from this origin when clicked, omits cookies, rejects redirects,
+and stops a stalled download after ten seconds. Clipboard or network failures
+show a message directing the reader to the Markdown link. No AI provider receives
+content automatically, and no API key or AI service is required.
+
+Run `pnpm test:built` after building. These tests inspect the published files,
+including MDX conversion, canonical links, diagram descriptions, and the page
+controls. The upstream renderer can warn and fall back to raw source if a component
+fails to render; review build warnings and keep these output checks passing when
+adding components. Preview the site in a browser to check clipboard permission
+handling and mobile layout. Static output tests do not exercise browser permissions.
 
 Cloudflare serves HTTPS pages and assets directly through the `linkjar-pds-docs`
 Worker's static asset configuration in `wrangler.jsonc`. HTTPS requests do not run
@@ -53,6 +86,7 @@ pnpm test
 pnpm --dir ../docs/architecture install --frozen-lockfile
 pnpm --dir ../docs/architecture check
 pnpm build
+pnpm test:built
 pnpm deploy:dry
 pnpm run deploy
 ```

@@ -1,6 +1,8 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import starlightThemeBlack from 'starlight-theme-black';
+import llmDocs from './src/integrations/llm-docs.mjs';
 
 // The self-hosting guide of LinkJar PDS. Pages are Markdown under
 // src/content/docs/; the architecture diagrams come from
@@ -9,6 +11,17 @@ export default defineConfig({
 	site: 'https://pds.linkjar.io',
 	integrations: [
 		starlight({
+			plugins: [
+				starlightThemeBlack({
+					docs: { showMarkdownActions: false },
+					navLinks: [
+						{ label: 'Home', link: '/' },
+						{ label: 'Docs', link: '/start/overview/' },
+						{ label: 'GitHub', link: 'https://github.com/linkjar/pds' },
+					],
+				}),
+				llmDocs(),
+			],
 			title: 'LinkJar PDS',
 			description:
 				'Install, configure, and operate LinkJar PDS, an AT Protocol Personal Data Server written in Rust.',
@@ -18,16 +31,20 @@ export default defineConfig({
 				{ tag: 'link', attrs: { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/logo/linkjar-32.png' } },
 				{ tag: 'link', attrs: { rel: 'apple-touch-icon', sizes: '180x180', href: '/logo/linkjar-180.png' } },
 			],
-			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/linkjar/pds' }],
 			editLink: { baseUrl: 'https://github.com/linkjar/pds/edit/main/site/' },
 			lastUpdated: true,
 			tableOfContents: { minHeadingLevel: 2, maxHeadingLevel: 3 },
+			components: {
+				Hero: './src/components/LandingHero.astro',
+				PageTitle: './src/components/DocsPageTitle.astro',
+				SiteTitle: './src/components/ThemeSiteTitle.astro',
+			},
 			customCss: ['./src/styles/custom.css'],
 			sidebar: [
 				{
 					label: 'Get started',
 					items: [
-						{ label: 'Overview', slug: '' },
+						{ label: 'Overview', slug: 'start/overview' },
 						{ label: 'Requirements', slug: 'start/requirements' },
 						{ label: 'DNS and domains', slug: 'start/dns' },
 						{ label: 'Install with Docker', slug: 'start/install' },

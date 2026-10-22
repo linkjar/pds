@@ -13,13 +13,26 @@
     "preview": "astro preview",
     "check": "astro check",
     "test": "node --test tests/*.test.mjs",
+    "test:built": "node --test tests/built/*.test.mjs",
     "deploy:dry": "wrangler deploy --dry-run && wrangler deploy --config redirect/wrangler.jsonc --dry-run",
     "deploy": "wrangler deploy && wrangler deploy --config redirect/wrangler.jsonc"
   },
   "dependencies": {
+    "@astrojs/mdx": "8.0.3",
     "@astrojs/starlight": "^0.42.6",
     "astro": "^7.2.10",
-    "sharp": "^0.35.3"
+    "hast-util-select": "6.0.4",
+    "rehype-parse": "9.0.1",
+    "rehype-remark": "10.0.1",
+    "remark-gfm": "4.0.1",
+    "remark-parse": "11.0.0",
+    "remark-stringify": "11.0.0",
+    "sharp": "^0.35.3",
+    "starlight-llm-actions": "0.13.0",
+    "starlight-theme-black": "0.7.1",
+    "unified": "11.0.5",
+    "unist-util-remove": "4.0.0",
+    "unist-util-visit": "5.1.0"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.10",

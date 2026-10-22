@@ -1,0 +1,517 @@
+---
+import DocsCopy from './DocsCopy.astro';
+const capabilities = [
+	{
+		number: '01',
+		title: 'Start with one host.',
+		description:
+			'Run the server with Docker Compose. Keep account repositories in SQLite and media on disk.',
+		href: '/start/install/',
+		link: 'Installation guide',
+	},
+	{
+		number: '02',
+		title: 'Keep your options open.',
+		description:
+			'Use S3-compatible blob storage or Postgres for shared state. Separate routing with an entryway and a member server.',
+		href: '/scale/entryway/',
+		link: 'Explore deployment options',
+	},
+	{
+		number: '03',
+		title: 'Know what you operate.',
+		description:
+			'Inspect the source, verify repositories, and export account data. Follow guides for backups, monitoring, and updates.',
+		href: '/operate/cli/',
+		link: 'Meet the operator tools',
+	},
+];
+const steps = [
+	{
+		number: '1',
+		title: 'Prepare a host and domain',
+		description: 'Check Docker, storage, and DNS before you install.',
+		href: '/start/requirements/',
+	},
+	{
+		number: '2',
+		title: 'Configure and start the server',
+		description:
+			'Pin your image, generate secrets, and check your configuration.',
+		href: '/start/install/',
+	},
+	{
+		number: '3',
+		title: 'Verify it. Create an account.',
+		description: 'Check HTTPS and health, then make your first invite.',
+		href: '/start/verify/',
+	},
+];
+---
+
+<div class="pds-landing not-content">
+	<section class="capabilities" aria-labelledby="built-heading">
+		<div class="section-intro">
+			<p class="section-label">A PDS you can make your own</p>
+			<h2 id="built-heading">
+				A small starting point.
+				<br />
+				Room to grow.
+			</h2>
+		</div>
+		<div class="capability-grid">
+			{capabilities.map((item) => (
+				<article>
+					<span class="item-number" data-mdast="ignore">
+						{item.number}
+					</span>
+					<h3>{item.title}</h3>
+					<p>{item.description}</p>
+					<a class="text-link" href={item.href}>
+						{item.link} <span aria-hidden="true">↗</span>
+					</a>
+				</article>
+			))}
+		</div>
+	</section>
+
+	<section class="start-section" aria-labelledby="start-heading">
+		<div class="section-intro">
+			<p class="section-label">From first install to daily operations</p>
+			<h2 id="start-heading">
+				Your next step
+				<br />
+				is in the guide.
+			</h2>
+			<p class="section-description">
+				A practical path from a Linux host to your first account. Then the
+				details that keep it running.
+			</p>
+			<a class="text-link" href="/start/overview/">
+				Explore the documentation <span aria-hidden="true">→</span>
+			</a>
+		</div>
+		<ol class="start-steps">
+			{steps.map((step) => (
+				<li>
+					<span class="step-number" data-mdast="ignore">
+						{step.number}
+					</span>
+					<div>
+						<h3>
+							<a href={step.href}>{step.title}</a>
+						</h3>
+						<p>{step.description}</p>
+					</div>
+					<span class="step-arrow" aria-hidden="true" data-mdast="ignore">
+						↗
+					</span>
+				</li>
+			))}
+		</ol>
+		<nav
+			class="operator-links"
+			aria-label="Operator guides"
+			data-mdast="ignore"
+		>
+			<span>Already up and running?</span>
+			<a href="/operate/backup/">
+				Back up & restore <span aria-hidden="true">↗</span>
+			</a>
+			<a href="/operate/update/">
+				Update your server <span aria-hidden="true">↗</span>
+			</a>
+			<a href="/operate/monitoring/">
+				Monitor health <span aria-hidden="true">↗</span>
+			</a>
+		</nav>
+	</section>
+
+	<section
+		class="llm-section"
+		aria-labelledby="llm-heading"
+		data-mdast="ignore"
+	>
+		<div class="section-intro">
+			<p class="section-label">For you. And your coding assistant.</p>
+			<h2 id="llm-heading">
+				Bring the docs
+				<br />
+				to your LLM.
+			</h2>
+			<p class="section-description">
+				Give your assistant the same guides you read. Copy a page as Markdown,
+				or take the complete documentation with you.
+			</p>
+			<div class="llm-actions">
+				<DocsCopy src="/llms-full.txt" label="Copy all docs" />
+				<a class="text-link" href="/llms-full.txt">
+					View Markdown <span aria-hidden="true">↗</span>
+				</a>
+			</div>
+		</div>
+		<div
+			class="markdown-preview"
+			aria-label="Example of the documentation format"
+		>
+			<div class="preview-header">
+				<span>llms-full.txt</span>
+				<span>Markdown</span>
+			</div>
+			<pre><code><span class="md-heading"># LinkJar PDS</span>{'\n\n'}A Personal Data Server for AT Protocol.{'\n\n'}<span class="md-heading">## Get started</span>{'\n'}  Host requirements · DNS · Installation{'\n\n'}<span class="md-heading">## Operate</span>{'\n'}  Backups · Updates · Monitoring{'\n\n'}<span class="md-comment">The full guides, ready for context.</span></code></pre>
+			<a href="/llms.txt">
+				Browse the documentation index <span aria-hidden="true">↗</span>
+			</a>
+		</div>
+	</section>
+
+	<section
+		class="closing-section"
+		aria-labelledby="closing-heading"
+		data-mdast="ignore"
+	>
+		<div>
+			<p class="section-label">Built in the open</p>
+			<h2 id="closing-heading">Your server starts here.</h2>
+		</div>
+		<div class="closing-actions">
+			<a class="pds-button primary" href="/start/requirements/">
+				Host a server <span aria-hidden="true">→</span>
+			</a>
+			<a class="pds-button secondary" href="https://github.com/linkjar/pds">
+				Explore the source <span aria-hidden="true">↗</span>
+			</a>
+		</div>
+	</section>
+	<footer class="landing-footer" data-mdast="ignore">
+		<a href="https://linkjar.io/">
+			Made by LinkJar <span aria-hidden="true">↗</span>
+		</a>
+		<nav aria-label="Project links">
+			<a href="https://github.com/linkjar/pds">GitHub</a>
+			<a href="/reference/architecture/">Architecture</a>
+			<a href="https://atproto.com/">AT Protocol</a>
+		</nav>
+	</footer>
+</div>
+
+<style>
+	.pds-landing {
+		color: var(--foreground);
+	}
+	.pds-landing :is(h2, h3, p, ol, pre) {
+		margin: 0;
+	}
+	.pds-landing h2 {
+		font-size: clamp(1.75rem, 3vw, 2.25rem);
+		font-weight: 550;
+		line-height: 1.2;
+		letter-spacing: -0.04em;
+		text-wrap: balance;
+	}
+	.pds-landing h3 {
+		font-size: 1rem;
+		font-weight: 550;
+		letter-spacing: -0.02em;
+		line-height: 1.45;
+	}
+	.pds-landing .section-label {
+		margin-bottom: 1rem;
+		font-family: var(--sl-font-mono);
+		font-size: 0.625rem;
+		line-height: 1.6;
+		letter-spacing: 0.09em;
+		text-transform: uppercase;
+		color: var(--muted-foreground);
+	}
+	.capabilities {
+		padding: 5rem 0;
+	}
+	.capability-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 3rem;
+		margin-top: 3rem;
+	}
+	.item-number {
+		display: block;
+		font-family: var(--sl-font-mono);
+		color: var(--muted-foreground);
+		font-size: 0.6875rem;
+		padding-bottom: 1rem;
+		margin-bottom: 1.5rem;
+		border-bottom: 1px solid var(--border);
+	}
+	.capability-grid p {
+		margin: 0.75rem 0 1.25rem;
+		font-size: 0.875rem;
+		line-height: 1.8;
+		color: var(--muted-foreground);
+	}
+	.text-link {
+		display: inline-flex;
+		gap: 0.5rem;
+		align-items: center;
+		color: var(--foreground);
+		font-size: 0.75rem;
+		font-weight: 500;
+		text-decoration: none;
+		line-height: 1.6;
+	}
+	.text-link:hover {
+		text-decoration: underline;
+		text-underline-offset: 4px;
+	}
+	.start-section {
+		display: grid;
+		grid-template-columns: 1fr 1.15fr;
+		gap: 3rem 5rem;
+		padding: 4.5rem 0 2rem;
+		border-top: 1px solid var(--border);
+	}
+	.section-description {
+		max-width: 25rem;
+		margin: 1.25rem 0 1.5rem !important;
+		font-size: 0.9375rem;
+		line-height: 1.8;
+		color: var(--muted-foreground);
+		text-wrap: pretty;
+	}
+	.start-steps {
+		list-style: none;
+		padding: 0;
+	}
+	.start-steps li + li {
+		border-top: 1px solid var(--border);
+	}
+	.start-steps li {
+		position: relative;
+		display: flex;
+		align-items: flex-start;
+		gap: 1.25rem;
+		padding: 1.5rem 0.5rem;
+		color: inherit;
+		text-decoration: none;
+		border-radius: 0.375rem;
+		transition: background-color 150ms;
+	}
+	.start-steps a {
+		color: inherit;
+		text-decoration: none;
+	}
+	.start-steps a::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: 0.375rem;
+	}
+	.start-steps li:first-child {
+		padding-top: 0.25rem;
+	}
+	.step-number {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.75rem;
+		height: 1.75rem;
+		flex-shrink: 0;
+		margin-top: 1px;
+		border: 1px solid var(--border);
+		border-radius: 50%;
+		font-family: var(--sl-font-mono);
+		font-size: 0.6875rem;
+		color: var(--muted-foreground);
+	}
+	.start-steps p {
+		font-size: 0.8125rem;
+		color: var(--muted-foreground);
+		line-height: 1.7;
+		margin-top: 0.375rem;
+	}
+	.step-arrow {
+		margin-left: auto;
+		color: var(--muted-foreground);
+	}
+	.operator-links {
+		grid-column: 1/-1;
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 1rem 2rem;
+		padding-top: 1.5rem;
+		border-top: 1px solid var(--border);
+		font-size: 0.6875rem;
+	}
+	.operator-links > span {
+		margin-right: auto;
+		color: var(--muted-foreground);
+	}
+	.operator-links a {
+		color: var(--foreground);
+		text-decoration: none;
+	}
+	.operator-links a:hover {
+		text-decoration: underline;
+		text-underline-offset: 4px;
+	}
+	.operator-links a span {
+		margin-left: 0.375rem;
+		color: var(--muted-foreground);
+	}
+	.llm-section {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 4rem;
+		padding: 2.75rem;
+		margin: 4rem 0 0;
+		border: 1px solid var(--border);
+		border-radius: 1rem;
+		background: var(--muted);
+	}
+	.llm-actions {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 1rem;
+	}
+	.markdown-preview {
+		min-width: 0;
+		align-self: center;
+		overflow: hidden;
+		border: 1px solid var(--border);
+		border-radius: 0.75rem;
+		background: var(--background);
+		box-shadow: 0 5px 20px -10px #0002;
+	}
+	.preview-header {
+		display: flex;
+		justify-content: space-between;
+		padding: 0.875rem 1rem;
+		border-bottom: 1px solid var(--border);
+		font-family: var(--sl-font-mono);
+		font-size: 0.625rem;
+		color: var(--muted-foreground);
+	}
+	.markdown-preview pre {
+		padding: 1.25rem 1rem;
+		overflow-x: auto;
+		font-family: var(--sl-font-mono);
+		font-size: 0.625rem;
+		line-height: 1.9;
+		color: var(--muted-foreground);
+		background: transparent;
+	}
+	.md-heading {
+		color: var(--foreground);
+		font-weight: 500;
+	}
+	.md-comment {
+		font-style: italic;
+	}
+	.markdown-preview > a {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.5rem;
+		padding: 0.875rem 1rem;
+		border-top: 1px solid var(--border);
+		color: var(--muted-foreground);
+		text-decoration: none;
+		font-size: 0.625rem;
+	}
+	.markdown-preview > a:hover {
+		color: var(--foreground);
+	}
+	.closing-section {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 2rem;
+		padding: 5rem 0;
+	}
+	.closing-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+	}
+	.landing-footer {
+		display: flex;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 1.5rem 0 2rem;
+		border-top: 1px solid var(--border);
+		font-size: 0.6875rem;
+		color: var(--muted-foreground);
+	}
+	.landing-footer a {
+		color: inherit;
+		text-decoration: none;
+	}
+	.landing-footer a:hover {
+		color: var(--foreground);
+	}
+	.landing-footer nav {
+		display: flex;
+		gap: 1.5rem;
+	}
+	@media (hover: hover) {
+		.start-steps li:hover {
+			background: var(--muted);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.start-steps li {
+			transition: none;
+		}
+	}
+	@media (max-width: 58rem) {
+		.capability-grid {
+			gap: 1.5rem;
+		}
+		.start-section {
+			gap: 2rem;
+		}
+		.llm-section {
+			gap: 2rem;
+			padding: 2rem;
+		}
+	}
+	@media (max-width: 44rem) {
+		.capabilities {
+			padding: 3.5rem 0;
+		}
+		.capability-grid {
+			grid-template-columns: 1fr;
+			gap: 2rem;
+			margin-top: 2rem;
+		}
+		.item-number {
+			margin-bottom: 1rem;
+			padding-bottom: 0.75rem;
+		}
+		.capability-grid p {
+			margin: 0.5rem 0 0.75rem;
+			max-width: 34rem;
+		}
+		.start-section {
+			grid-template-columns: 1fr;
+			padding-top: 3rem;
+			gap: 2rem;
+		}
+		.operator-links > span {
+			width: 100%;
+		}
+		.llm-section {
+			grid-template-columns: 1fr;
+			margin-top: 2rem;
+			padding: 1.5rem;
+		}
+		.closing-section {
+			flex-direction: column;
+			align-items: flex-start;
+			padding: 3rem 0;
+		}
+		.landing-footer {
+			flex-wrap: wrap;
+		}
+	}
+</style>

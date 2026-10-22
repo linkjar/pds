@@ -1,0 +1,136 @@
+---
+interface Props {
+	src?: string;
+	label?: string;
+}
+
+const { src = '/llms-full.txt', label = 'Copy all docs' } = Astro.props;
+---
+
+<docs-copy data-src={src} data-mdast="ignore">
+	<button type="button">
+		<svg
+			width="16"
+			height="16"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="1.5"
+			aria-hidden="true"
+		>
+			<rect width="14" height="14" x="8" y="8" rx="2" />
+			<path d="M4 16H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v1" />
+		</svg>
+		<span>{label}</span>
+	</button>
+	<span class="copy-status" role="status" aria-live="polite"></span>
+</docs-copy>
+
+<script>
+	class DocsCopy extends HTMLElement {
+		connectedCallback() {
+			if (this.dataset.ready) return;
+			this.dataset.ready = 'true';
+			const button = this.querySelector('button');
+			const status = this.querySelector('[role="status"]');
+			if (!button || !status) return;
+			button.addEventListener('click', async () => {
+				button.disabled = true;
+				status.textContent = 'Copying…';
+				const controller = new AbortController();
+				const deadline = setTimeout(() => controller.abort(), 10_000);
+				try {
+					const url = new URL(this.dataset.src ?? '', window.location.origin);
+					if (url.origin !== window.location.origin || !this.dataset.src) {
+						throw new Error('The documentation must be on this site.');
+					}
+					if (!navigator.clipboard)
+						throw new Error('The clipboard is unavailable.');
+					const text = fetch(url, {
+						credentials: 'omit',
+						mode: 'same-origin',
+						redirect: 'error',
+						signal: controller.signal,
+					}).then(async (response) => {
+						const type = response.headers.get('Content-Type') ?? '';
+						if (!response.ok || !/^text\/(?:plain|markdown)\b/i.test(type)) {
+							throw new Error('The documentation could not be loaded.');
+						}
+						return response.text();
+					});
+					// Start the clipboard write during the click, before the fetch finishes.
+					// Safari requires this user activation even for an HTTPS page.
+					if (
+						typeof ClipboardItem !== 'undefined' &&
+						navigator.clipboard?.write
+					) {
+						const blob = text.then(
+							(value) => new Blob([value], { type: 'text/plain' }),
+						);
+						// A denied clipboard write may never read its pending Blob.
+						void blob.catch(() => {});
+						await navigator.clipboard.write([
+							new ClipboardItem({ 'text/plain': blob }),
+						]);
+					} else {
+						await navigator.clipboard.writeText(await text);
+					}
+					status.textContent = 'Copied. Paste into your AI assistant.';
+				} catch {
+					status.textContent =
+						'Could not copy. Open the Markdown link and copy its text.';
+				} finally {
+					clearTimeout(deadline);
+					controller.abort();
+					button.disabled = false;
+				}
+			});
+		}
+	}
+
+	if (!customElements.get('docs-copy'))
+		customElements.define('docs-copy', DocsCopy);
+</script>
+
+<style>
+	docs-copy {
+		display: inline-flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.65rem;
+	}
+	button {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 0.75rem;
+		border: 1px solid var(--sl-color-hairline);
+		border-radius: var(--radius, 0.5rem);
+		background: var(--sl-color-bg-nav);
+		color: var(--sl-color-text);
+		font: inherit;
+		font-size: 0.8125rem;
+		cursor: pointer;
+	}
+	button:hover {
+		background: var(--sl-color-gray-6);
+	}
+	button:focus-visible {
+		outline: 2px solid var(--sl-color-text-accent);
+		outline-offset: 3px;
+	}
+	button:disabled {
+		cursor: wait;
+		opacity: 0.7;
+	}
+	.copy-status {
+		max-width: 27rem;
+		font-size: 0.8125rem;
+		color: var(--sl-color-gray-2);
+	}
+	@media print {
+		docs-copy {
+			display: none;
+		}
+	}
+</style>
