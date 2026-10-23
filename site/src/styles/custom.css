@@ -188,13 +188,75 @@ header.header :is(a, button, select):focus-visible {
 	color: var(--muted-foreground);
 }
 
-/* Keep command copying discoverable without a hover gesture. */
+/* A small, quiet icon inside a comfortable touch target. */
 .expressive-code .frame .copy button {
+	--copy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='8' y='8' width='13' height='13' rx='2'/%3E%3Cpath d='M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3'/%3E%3C/svg%3E");
 	opacity: 1;
 	width: 2.75rem;
 	height: 2.75rem;
+	border-radius: 0.5rem;
+	transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.expressive-code .frame .copy button > div { display: none; }
+.expressive-code .frame .copy button::before {
+	inset: 0.375rem;
+	border: 1px solid var(--border);
+	border-radius: 0.375rem;
+	background: var(--muted);
+	opacity: 0;
+	transition: opacity 120ms ease;
+}
+.expressive-code .frame .copy button::after {
+	inset: 0;
+	width: 1rem;
+	height: 1rem;
+	margin: auto;
+	background-color: var(--muted-foreground);
+	-webkit-mask: var(--copy-icon) center / contain no-repeat;
+	mask: var(--copy-icon) center / contain no-repeat;
+}
+.expressive-code .frame .copy button:focus-visible {
+	outline: 2px solid var(--foreground);
+	outline-offset: -0.375rem;
+	transition: none;
+}
+.expressive-code .frame .copy button:focus-visible::before,
+.expressive-code .frame .copy button:active::before { opacity: 1; }
+.expressive-code .frame .copy button:active:not(:focus-visible) {
+	transform: scale(0.97);
+}
+@media (hover: hover) and (pointer: fine) {
+	.expressive-code .frame .copy button:hover::before { opacity: 1; }
+	.expressive-code .frame .copy button:hover::after {
+		background-color: var(--foreground);
+	}
+}
+.expressive-code .frame .copy .feedback {
+	margin-inline-end: 0;
+	padding: 0.25rem 0.5rem;
+	border: 1px solid var(--border);
+	border-radius: 0.375rem;
+	background: var(--background);
+	color: var(--foreground);
+	font-size: 0.75rem;
+	line-height: 1.5;
+	transform: none;
+	transition: opacity 120ms ease;
+}
+.expressive-code .frame .copy .feedback::after { display: none; }
+.expressive-code .frame .copy:has(.feedback.show) button {
+	--copy-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 4 4L19 6'/%3E%3C/svg%3E");
+}
+.expressive-code .frame .copy:has(.feedback.show) button::after {
+	background-color: var(--foreground);
 }
 .expressive-code .frame pre { padding-inline-end: 3.5rem; }
+@media (prefers-reduced-motion: reduce) {
+	.expressive-code .frame .copy button,
+	.expressive-code .frame .copy button::before,
+	.expressive-code .frame .copy .feedback { transition: none; }
+	.expressive-code .frame .copy button:active:not(:focus-visible) { transform: none; }
+}
 
 /* Long guide names must wrap instead of widening the mobile page. */
 .pagination-links {
