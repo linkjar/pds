@@ -45,7 +45,7 @@ sudo chmod 0600 /etc/linkjar-pds/pds.env
 Put one literal `NAME=value` assignment on each line.
 Replace the three secret placeholders:
 
-```dotenv
+```dotenv title="/etc/linkjar-pds/pds.env"
 PDS_HOSTNAME=pds.example.com
 PDS_JWT_SECRET=REPLACE_WITH_JWT_SECRET
 PDS_ADMIN_PASSWORD=REPLACE_WITH_ADMIN_PASSWORD
@@ -140,7 +140,7 @@ sudo install -d -m 0700 -o linkjar-pds -g linkjar-pds /var/lib/linkjar-pds
 Create the account only once. If you use another distribution, use its system
 account command. Save this unit as `/etc/systemd/system/linkjar-pds.service`:
 
-```ini
+```ini title="/etc/systemd/system/linkjar-pds.service"
 [Unit]
 Description=LinkJar AT Protocol Personal Data Server
 Wants=network-online.target
@@ -194,7 +194,7 @@ Point the TLS proxy at `127.0.0.1:2583`. It must handle the server hostname,
 account handle names, and long-lived WebSocket connections for the firehose.
 For a native Caddy installation, adapt the repository's Caddyfile:
 
-```text
+```caddyfile title="Caddyfile"
 {
     email operator@example.com
     on_demand_tls {

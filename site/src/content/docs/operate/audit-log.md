@@ -29,7 +29,7 @@ openssl rand -hex 32
 
 In the runtime environment file:
 
-```ini
+```dotenv
 PDS_AUDIT_KEY_ED25519_PRIVATE_KEY_HEX=…
 PDS_AUDIT_CHECKPOINT_REPO=did:plc:…
 ```

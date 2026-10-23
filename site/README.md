@@ -19,7 +19,7 @@ aligned with the main website instead of drawing a separate PDS mark.
 pnpm install
 pnpm dev        # http://localhost:4321
 pnpm check      # type-check the site
-pnpm test       # HTTP redirect regression tests
+pnpm test       # clipboard and HTTP redirect regression tests
 pnpm build      # dist/
 pnpm test:built # generated pages and Markdown export checks
 ```
@@ -54,13 +54,33 @@ checksums. It does not deploy a NixOS host. See the public
 [build guide](https://pds.linkjar.io/start/builds/) and
 [native installation guide](https://pds.linkjar.io/start/native/).
 
+## Code examples
+
+Expressive Code highlights examples with GitHub's dark and light palettes while
+keeping the site's neutral styling. Use `bash` for shell commands, `dotenv` for
+environment files, `ini` for systemd units, and `nix` for Nix expressions. Use
+`text` for output or prose that does not need highlighting. Add `title="filename"`
+to a fence when the reader must save the example in a particular file.
+
+`src/integrations/caddyfile.mjs` supplies the Caddyfile highlighting used by the
+native and MCP guides. It covers the syntax in those examples; it does not
+validate proxy configuration. Code-copy controls preserve the original text.
+Built-site tests check token colours in both themes and the copy payload.
+
 ## Markdown for AI assistants
 
 [starlight-llm-actions](https://holdenhewett.github.io/starlight-llm-actions/)
 generates `/<page>.md.txt`, `/llms.txt`, and `/llms-full.txt` during the build.
 The homepage's Markdown is `/index.md.txt`. The `.txt` extension lets static hosts
-serve the pages as readable text. `llms.txt` links to individual pages and the
-complete documentation; every page in the full bundle uses the same renderer.
+serve the pages as readable text. `llms.txt` links to individual pages, the
+complete documentation, and three focused bundles: `/llms-setup.txt`,
+`/llms-operations.txt`, and `/llms-clients.txt`. Their membership and reading order
+are configured in `src/integrations/llm-docs.mjs`. Every bundle uses the same
+page renderer. Update the subset paths when adding a new documentation section.
+
+Every HTML page links to the index with `rel="describedby"`. Each guide also
+exposes its Markdown alternative with `rel="alternate"`. The **Use with AI** menu
+provides visible links, copy controls, and a guide to choosing the right context.
 
 The renderer resolves MDX components before converting their HTML to Markdown.
 It keeps installation tab labels, code blocks, and diagram descriptions. A small
@@ -78,8 +98,9 @@ show a message directing the reader to the Markdown link. No AI provider receive
 content automatically, and no API key or AI service is required.
 
 Run `pnpm test:built` after building. These tests inspect the published files,
-including MDX conversion, canonical links, diagram descriptions, and the page
-controls. The upstream renderer can warn and fall back to raw source if a component
+including MDX conversion, canonical links, bundle coverage, discovery links,
+diagram descriptions, and the page controls. The upstream renderer can warn and
+fall back to raw source if a component
 fails to render; review build warnings and keep these output checks passing when
 adding components. Preview the site in a browser to check clipboard permission
 handling and mobile layout. Static output tests do not exercise browser permissions.

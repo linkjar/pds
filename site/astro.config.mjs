@@ -3,6 +3,7 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import starlightThemeBlack from 'starlight-theme-black';
 import llmDocs from './src/integrations/llm-docs.mjs';
+import caddyfile from './src/integrations/caddyfile.mjs';
 
 // The self-hosting guide of LinkJar PDS. Pages are Markdown under
 // src/content/docs/; the architecture diagrams come from
@@ -29,6 +30,7 @@ export default defineConfig({
 			favicon: '/favicon.ico',
 			routeMiddleware: './src/route-data.ts',
 			head: [
+				{ tag: 'link', attrs: { rel: 'describedby', type: 'text/plain', href: 'https://pds.linkjar.io/llms.txt' } },
 				{ tag: 'link', attrs: { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/logo/linkjar-32.png' } },
 				{ tag: 'link', attrs: { rel: 'apple-touch-icon', sizes: '180x180', href: '/logo/linkjar-180.png' } },
 				{ tag: 'meta', attrs: { property: 'og:locale', content: 'en_US' } },
@@ -47,7 +49,12 @@ export default defineConfig({
 				SiteTitle: './src/components/ThemeSiteTitle.astro',
 			},
 			customCss: ['./src/styles/custom.css'],
-			expressiveCode: { frames: { showCopyToClipboardButton: true } },
+			expressiveCode: {
+				themes: ['github-dark-default', 'github-light-default'],
+				minSyntaxHighlightingColorContrast: 4.5,
+				frames: { showCopyToClipboardButton: true },
+				shiki: { langs: [caddyfile] },
+			},
 			sidebar: [
 				{
 					label: 'Start here',

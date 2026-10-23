@@ -74,6 +74,7 @@ test('documentation pages offer page copying, complete context, and a Markdown f
 		assert.match(controls[1][1], /data-src="\/llms-full\.txt"/);
 		assert.match(controls[2][1], /data-kind="link"/);
 		assert.match(html, /<summary[^>]*>Use with AI/);
+		assert.match(html, /<a\b[^>]*href="\/llms\.txt"[^>]*>Browse the llms.txt index<\/a>/);
 		assert.match(controls[0][1], new RegExp(`data-src="/${slug}\\.md\\.txt"`));
 		assert.match(
 			controls[0][2],
@@ -93,6 +94,66 @@ test('documentation pages offer page copying, complete context, and a Markdown f
 		);
 		assert.doesNotMatch(html, /class="copy-page-action"/);
 	}
+});
+
+test('the landing page and every guide expose the site index for discovery', async () => {
+	const files = (await readdir(output, { recursive: true })).filter((file) =>
+		file.endsWith('index.html'),
+	);
+	assert.ok(files.length > 20);
+	for (const file of files) {
+		assert.match(
+			await page(file),
+			/<link\b(?=[^>]*rel="describedby")(?=[^>]*type="text\/plain")(?=[^>]*href="https:\/\/pds\.linkjar\.io\/llms\.txt")[^>]*>/,
+			file,
+		);
+	}
+});
+
+test('focused bundles are discoverable, contain complete guides, and omit unrelated guides', async () => {
+	const index = await page('llms.txt');
+	const full = await page('llms-full.txt');
+	const guide = await page('connect/ai-guidance.md.txt');
+	for (const { name, includes, excludes } of [
+		{
+			name: 'setup',
+			includes: ['start/native', 'start/install', 'start/verify', 'configure/environment', 'operate/cli'],
+			excludes: ['connect/mcp', 'operate/backup'],
+		},
+		{
+			name: 'operations',
+			includes: ['operate/backup', 'operate/update', 'operate/migrate-from-reference', 'reference/troubleshooting', 'scale/postgres'],
+			excludes: ['start/native', 'connect/mcp'],
+		},
+		{
+			name: 'clients',
+			includes: ['connect/mcp', 'connect/console', 'reference/binaries', 'scale/sidecars'],
+			excludes: ['start/native', 'operate/backup'],
+		},
+	]) {
+		const file = `llms-${name}.txt`;
+		const bundle = await page(file);
+		assert.ok(index.includes(`https://pds.linkjar.io/${file}`), `${file} is missing from the index`);
+		assert.ok(guide.includes(`https://pds.linkjar.io/${file}`), `${file} is missing from the guide`);
+		assert.ok(bundle.length < full.length, `${file} must be smaller than the complete export`);
+		for (const slug of includes) {
+			assert.ok(bundle.includes((await page(`${slug}.md.txt`)).trim()), `${file}: missing ${slug}`);
+		}
+		for (const slug of excludes) {
+			assert.ok(!bundle.includes(`[Source](https://pds.linkjar.io/${slug}/)`), `${file}: unexpected ${slug}`);
+		}
+		assert.doesNotMatch(bundle, /\]\((?:\/|#)/, `${file}: links must be portable`);
+	}
+});
+
+test('native setup exports preserve language labels and configuration text without UI markup', async () => {
+	const markdown = await page('start/native.md.txt');
+	for (const language of ['bash', 'nix', 'dotenv', 'ini', 'caddyfile']) {
+		assert.ok(markdown.includes(`\`\`\`${language}\n`), `missing ${language} fence`);
+	}
+	assert.match(markdown, /reverse_proxy 127\.0\.0\.1:2583/);
+	assert.match(markdown, /PDS_HOSTNAME=pds\.example\.com/);
+	assert.doesNotMatch(markdown, /<span|--0:|Copy to clipboard|data-language=/);
 });
 
 test('rendered Astro text stays readable and utility controls stay out of the copied content', async () => {

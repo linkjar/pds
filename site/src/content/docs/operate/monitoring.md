@@ -63,14 +63,14 @@ format. Keep it private and outside the public proxy routes.
 
 For a native service, bind directly to loopback in its runtime environment:
 
-```ini
+```dotenv
 PDS_METRICS_ADDRESS=127.0.0.1:9464
 ```
 
 For Compose only, bind inside the container and publish on host loopback.
 In `pds.env`:
 
-```ini
+```dotenv
 PDS_METRICS_ADDRESS=0.0.0.0:9464
 ```
 

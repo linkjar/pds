@@ -18,7 +18,7 @@ forgotten password.
 
 Add these settings to your runtime environment file:
 
-```ini
+```dotenv
 PDS_EMAIL_SMTP_URL=smtps://user:password@smtp.example.com/
 PDS_EMAIL_FROM_ADDRESS=pds@example.com
 ```

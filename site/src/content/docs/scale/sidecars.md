@@ -39,7 +39,7 @@ through an SSH tunnel, never under a public name.
 
 On the server's side, in `pds.env`:
 
-```ini
+```dotenv
 PDS_OPS_ADDRESS=0.0.0.0:2584
 ```
 

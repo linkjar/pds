@@ -10,7 +10,30 @@ export default function llmDocs() {
 		linkAlternate: true,
 		llmsTxt: {
 			title: 'LinkJar PDS',
-			promote: ['index', 'start/overview', 'start/**'],
+			description:
+				'Official guides for installing, configuring, and operating LinkJar PDS, an AT Protocol Personal Data Server written in Rust. Start with the overview, then choose NixOS, a native binary, or Docker Compose. MCP and the operations console are optional services.',
+			promote: [
+				'index', 'start/overview', 'start/requirements', 'start/builds',
+				'reference/binaries', 'start/dns', 'start/native', 'start/install',
+				'start/verify', 'start/first-account',
+			],
+			subsets: [
+				{
+					label: 'Setup',
+					description: 'Requirements, builds, installation, configuration, and verification.',
+					paths: ['start/**', 'configure/**', 'reference/binaries', 'operate/cli'],
+				},
+				{
+					label: 'Operations',
+					description: 'Accounts, backups, updates, migration, monitoring, scaling, and troubleshooting.',
+					paths: ['operate/**', 'scale/**', 'configure/environment', 'reference/troubleshooting', 'reference/architecture'],
+				},
+				{
+					label: 'Clients',
+					description: 'MCP, OAuth, the operations console, sidecar builds, and network ports.',
+					paths: ['connect/**', 'reference/binaries', 'scale/sidecars'],
+				},
+			],
 		},
 		actions: {
 			copyMarkdown: false,

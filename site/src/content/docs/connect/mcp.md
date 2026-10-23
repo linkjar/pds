@@ -80,7 +80,7 @@ MCP does not need access to the PDS data directory.
 
 Proxy the **whole MCP origin**, including OAuth discovery and callbacks:
 
-```text title="Caddyfile — native services on the same host"
+```caddyfile title="Caddyfile — native services on the same host"
 mcp.example.com {
     reverse_proxy 127.0.0.1:2586
 }
