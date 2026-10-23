@@ -67,6 +67,12 @@ native and MCP guides. It covers the syntax in those examples; it does not
 validate proxy configuration. Code-copy controls preserve the original text.
 Built-site tests check token colours in both themes and the copy payload.
 
+`pnpm build` clears Astro's content cache with `--force`. Cached Markdown can
+retain an old Expressive Code stylesheet URL after a highlighting change, while
+the build emits only the new stylesheet. Rebuilding every page keeps those
+references current. Built-site tests also require every local stylesheet and
+script referenced by any page to exist in `dist/`.
+
 ## Markdown for AI assistants
 
 [starlight-llm-actions](https://holdenhewett.github.io/starlight-llm-actions/)
@@ -136,8 +142,9 @@ pnpm deploy:dry
 pnpm run deploy
 ```
 
-`deploy:dry` validates both Workers without publishing. `deploy` publishes the
-static asset Worker first, then the HTTP redirect Worker. These are separate
+`deploy:dry` validates both Workers without publishing. `deploy` rebuilds the
+site and runs the built-site tests before publishing the static asset Worker,
+then the HTTP redirect Worker. These are separate
 deployments; if a step fails, fix the failure and rerun the command. The publishing
 credential needs access to both Workers and the `linkjar.io` Worker route.
 

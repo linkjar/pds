@@ -9,13 +9,13 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "astro build --force",
     "preview": "astro preview",
     "check": "astro check",
     "test": "node --test tests/*.test.mjs",
     "test:built": "node --test tests/built/*.test.mjs",
     "deploy:dry": "wrangler deploy --dry-run && wrangler deploy --config redirect/wrangler.jsonc --dry-run",
-    "deploy": "wrangler deploy && wrangler deploy --config redirect/wrangler.jsonc"
+    "deploy": "pnpm build && pnpm test:built && wrangler deploy && wrangler deploy --config redirect/wrangler.jsonc"
   },
   "dependencies": {
     "@astrojs/mdx": "8.0.3",
