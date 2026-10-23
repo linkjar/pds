@@ -3,6 +3,7 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import starlightThemeBlack from 'starlight-theme-black';
 import llmDocs from './src/integrations/llm-docs.mjs';
+import caddyfile from './src/integrations/caddyfile.mjs';
 
 // The self-hosting guide of LinkJar PDS. Pages are Markdown under
 // src/content/docs/; the architecture diagrams come from
@@ -29,6 +30,7 @@ export default defineConfig({
 			favicon: '/favicon.ico',
 			routeMiddleware: './src/route-data.ts',
 			head: [
+				{ tag: 'link', attrs: { rel: 'describedby', type: 'text/plain', href: 'https://pds.linkjar.io/llms.txt' } },
 				{ tag: 'link', attrs: { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/logo/linkjar-32.png' } },
 				{ tag: 'link', attrs: { rel: 'apple-touch-icon', sizes: '180x180', href: '/logo/linkjar-180.png' } },
 				{ tag: 'meta', attrs: { property: 'og:locale', content: 'en_US' } },
@@ -47,28 +49,81 @@ export default defineConfig({
 				SiteTitle: './src/components/ThemeSiteTitle.astro',
 			},
 			customCss: ['./src/styles/custom.css'],
+			expressiveCode: {
+				themes: ['github-dark-default', 'github-light-default'],
+				minSyntaxHighlightingColorContrast: 4.5,
+				frames: { showCopyToClipboardButton: true },
+				shiki: { langs: [caddyfile] },
+			},
 			sidebar: [
 				{
-					label: 'Get started',
+					label: 'Start here',
 					items: [
 						{ label: 'Overview', slug: 'start/overview' },
 						{ label: 'Requirements', slug: 'start/requirements' },
-						{ label: 'DNS and domains', slug: 'start/dns' },
 						{ label: 'Builds and downloads', slug: 'start/builds' },
-						{ label: 'Install with Docker', slug: 'start/install' },
-						{ label: 'Install with Nix or a binary', slug: 'start/native' },
-						{ label: 'Verify the setup', slug: 'start/verify' },
-						{ label: 'Create an account', slug: 'start/first-account' },
+						{ label: 'Binaries and ports', slug: 'reference/binaries' },
 					],
 				},
-				{ label: 'Configure', items: [{ autogenerate: { directory: 'configure' } }] },
-				{ label: 'Operate', items: [{ autogenerate: { directory: 'operate' } }] },
+				{
+					label: 'Install a server',
+					items: [
+						{ label: 'DNS and domains', slug: 'start/dns' },
+						{ label: 'Nix or a native binary', slug: 'start/native' },
+						{ label: 'Docker Compose', slug: 'start/install' },
+						{ label: 'Verify the setup', slug: 'start/verify' },
+						{ label: 'Create an account', slug: 'start/first-account' },
+						{ label: 'Migrate an existing PDS', slug: 'operate/migrate-from-reference' },
+					],
+				},
+				{
+					label: 'Connect clients',
+					items: [
+						{ label: 'AI clients with MCP', slug: 'connect/mcp' },
+						{ label: 'Operations console', slug: 'connect/console' },
+						{ label: 'Use these docs with AI', slug: 'connect/ai-guidance' },
+					],
+				},
+				{
+					label: 'Configure',
+					collapsed: true,
+					items: [
+						{ label: 'Environment variables', slug: 'configure/environment' },
+						{ label: 'Profiles', slug: 'configure/profiles' },
+						{ label: 'Email', slug: 'configure/email' },
+						{ label: 'Blob storage', slug: 'configure/blob-storage' },
+						{ label: 'Custom handles', slug: 'configure/handles' },
+					],
+				},
+				{
+					label: 'Operate',
+					collapsed: true,
+					items: [
+						{ label: 'Accounts', slug: 'operate/accounts' },
+						{ label: 'Back up and restore', slug: 'operate/backup' },
+						{ label: 'Update and roll back', slug: 'operate/update' },
+						{ label: 'Monitoring', slug: 'operate/monitoring' },
+						{ label: 'Audit log', slug: 'operate/audit-log' },
+						{ label: 'Operator commands', slug: 'operate/cli' },
+					],
+				},
 				{
 					label: 'Scale',
 					collapsed: true,
-					items: [{ autogenerate: { directory: 'scale' } }],
+					items: [
+						{ label: 'Postgres', slug: 'scale/postgres' },
+						{ label: 'Entryway and members', slug: 'scale/entryway' },
+						{ label: 'Sidecars with Compose', slug: 'scale/sidecars' },
+					],
 				},
-				{ label: 'Reference', items: [{ autogenerate: { directory: 'reference' } }] },
+				{
+					label: 'Reference',
+					collapsed: true,
+					items: [
+						{ label: 'Architecture', slug: 'reference/architecture' },
+						{ label: 'Troubleshooting', slug: 'reference/troubleshooting' },
+					],
+				},
 			],
 		}),
 	],

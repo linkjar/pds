@@ -6,6 +6,7 @@ const { entry, hasSidebar } = Astro.locals.starlightRoute;
 const slug = entry.id || 'index';
 const source = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/${slug.split('/').map(encodeURIComponent).join('/')}.md.txt`;
 const showActions = hasSidebar && entry.id !== '404' && !entry.data.draft;
+const pagePath = Astro.url.pathname;
 ---
 
 <BlackPageTitle {...Astro.props}>
@@ -15,8 +16,34 @@ const showActions = hasSidebar && entry.id !== '404' && !entry.data.draft;
 	<div class="docs-page-actions" data-mdast="ignore">
 		<DocsCopy src={source} label="Copy page" />
 		<a href={source}>View Markdown</a>
+		<details class="ai-actions">
+			<summary>Use with AI <span aria-hidden="true">⌄</span></summary>
+			<div class="ai-actions-panel">
+				<p>Take the context you need.</p>
+				<DocsCopy src="/llms-full.txt" label="Copy all docs" />
+				<DocsCopy src={pagePath} label="Copy page link" kind="link" />
+				<a href="/llms.txt">Browse the llms.txt index</a>
+				<a href="/llms-full.txt">View all docs as Markdown</a>
+				<a href="/connect/ai-guidance/">Choose a bundle or get started <span aria-hidden="true">↗</span></a>
+			</div>
+		</details>
 	</div>
 )}
+
+<script>
+	document.addEventListener('keydown', (event) => {
+		if (event.key !== 'Escape') return;
+		const details = document.querySelector<HTMLDetailsElement>('.ai-actions[open]');
+		if (!details) return;
+		details.open = false;
+		details.querySelector('summary')?.focus();
+	});
+	document.addEventListener('click', (event) => {
+		if (!(event.target instanceof Node)) return;
+		const details = document.querySelector<HTMLDetailsElement>('.ai-actions[open]');
+		if (details && !details.contains(event.target)) details.open = false;
+	});
+</script>
 
 <style>
 	.docs-page-actions {
@@ -25,8 +52,12 @@ const showActions = hasSidebar && entry.id !== '404' && !entry.data.draft;
 		flex-wrap: wrap;
 		gap: 0.8rem;
 		margin-top: 1rem;
+		padding-bottom: 0.5rem;
 	}
 	.docs-page-actions a {
+		display: inline-flex;
+		align-items: center;
+		min-height: 2.75rem;
 		font-size: 0.8125rem;
 		color: var(--sl-color-gray-2);
 		text-decoration: none;
@@ -35,9 +66,46 @@ const showActions = hasSidebar && entry.id !== '404' && !entry.data.draft;
 		color: var(--sl-color-text);
 		text-decoration: underline;
 	}
-	.docs-page-actions a:focus-visible {
+	.docs-page-actions :is(a, summary):focus-visible {
 		outline: 2px solid var(--sl-color-text-accent);
 		outline-offset: 3px;
+	}
+	.ai-actions { position: relative; }
+	summary {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-height: 2.75rem;
+		padding: 0.5rem 0.75rem;
+		border: 1px solid var(--sl-color-hairline);
+		border-radius: 0.5rem;
+		list-style: none;
+		font-size: 0.8125rem;
+		cursor: pointer;
+	}
+	summary::-webkit-details-marker { display: none; }
+	.ai-actions[open] summary { background: var(--sl-color-bg-nav); }
+	.ai-actions-panel {
+		position: absolute;
+		top: calc(100% + 0.5rem);
+		right: 0;
+		z-index: 10;
+		display: grid;
+		gap: 0.5rem;
+		width: 18rem;
+		max-width: calc(100vw - 3rem);
+		padding: 1rem;
+		border: 1px solid var(--sl-color-hairline);
+		border-radius: 0.75rem;
+		background: var(--sl-color-bg-nav);
+		box-shadow: 0 8px 24px #0002;
+	}
+	.ai-actions-panel p { margin: 0 0 0.25rem; font-size: 0.8125rem; }
+	.ai-actions-panel a { line-height: 1.5; }
+	@media (max-width: 35rem) {
+		.ai-actions { width: 100%; }
+		summary { width: fit-content; }
+		.ai-actions-panel { right: auto; left: 0; }
 	}
 	@media print {
 		.docs-page-actions {

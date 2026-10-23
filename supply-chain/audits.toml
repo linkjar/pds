@@ -1,6 +1,31 @@
 
 # cargo-vet audits file
 
+[[audits.ctutils]]
+who = "Codex (AI agent; no human certification)"
+criteria = "safe-to-deploy"
+delta = "0.4.3 -> 0.4.4"
+notes = """
+Automated source-delta review on 2026-10-23, against the existing 0.4.3
+bootstrap exemption. This does not claim a full audit of the base version.
+Reviewed the published-crate diff and RUSTSEC-2026-0385. Downloaded archive
+SHA-256 matches both workspace and fuzz lockfiles:
+12218662ccac37d9714f2191252553d67585b97df8c839cbe49e0bde278dc865.
+The package identifies upstream commit a993c0ba50db6510d8db15a6219572de65115438.
+
+Mask generation now uses Choice::to_u8(), which applies the existing
+optimization barrier, before wrapping negation. On 32-bit targets, u128
+comparison combines opaque high-half and low-half predicates instead of a
+full-width subtraction. CtLt/CtGt delegate to that implementation. Reviewed
+the added boundary and randomized comparison tests. Constant-time machine-code
+verification is supplied upstream; this review does not independently prove
+constant-time behavior on every supported target.
+
+No runtime dependency, feature, build script, unsafe block, I/O, or allocation
+was added. Other changes affect package metadata, changelog, tests, and the
+crate's development lockfile. This review supports this exact patch delta.
+"""
+
 [[audits.rustls-webpki]]
 who = "Codex (AI agent; no human certification)"
 criteria = "safe-to-deploy"
@@ -25,6 +50,39 @@ tests were inspected, not executed as part of this delta review.
 No new dependency, feature, build script, unsafe block, I/O, or unbounded work
 was added. Other published changes are version/commit metadata and the package's
 own lockfile version. This review supports this exact patch delta only.
+"""
+
+[[audits.tokio]]
+who = "Codex (AI agent; no human certification)"
+criteria = "safe-to-deploy"
+delta = "1.53.2 -> 1.53.3"
+notes = """
+Automated source-delta review on 2026-10-23, against the existing 1.53.2
+bootstrap exemption. This does not claim a full audit of the base version.
+Reviewed the runtime source and manifest changes, release notes, and
+RUSTSEC-2026-0386. Downloaded archive SHA-256 matches both lockfiles:
+ce3335fa71841cda333a58d7615b03901380ecf09d59b3296d21f8bbac0dde4e.
+The package identifies upstream commit a85c3f5baa298a6b554fd3700daf0342289881af.
+
+AsyncFd registration gains unsafe constructors with explicit descriptor lifetime
+and identity requirements. The old safe constructors remain deprecated for
+compatibility; consumers must uphold those requirements when using them. No
+first-party workspace code uses AsyncFd. The AsFd implementation documents the
+same invariant and registration failures preserve ownership of the inner object.
+
+Other runtime fixes defer DuplexStream and semaphore wake/drop operations until
+after releasing locks, preserve I/O resources after an io_uring submission that
+may have reached the kernel, and notify the time driver for current-thread
+wakes. Reviewed cancellation ownership, optional returned buffers, interrupted
+submission retries, bounded wake batches, and readiness/cooperative scheduling.
+The join macro changes handle uninhabited output types without changing the
+successful output path. An atomic wrapper suppresses a standard-library
+deprecation while preserving the existing operation and ordering.
+
+Dependency declarations, features, and the Rust minimum are unchanged. There is
+no build script or new external I/O destination. The unstable io_uring path is
+not enabled by this workspace. This review supports this exact patch delta;
+it does not certify the base runtime or all possible downstream AsyncFd uses.
 """
 
 [[audits.webpki-root-certs]]

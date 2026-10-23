@@ -31,7 +31,7 @@ server's:
 Set the bucket and remove `PDS_BLOBSTORE_DISK_LOCATION`: the server
 refuses both at once.
 
-```ini
+```dotenv
 PDS_BLOBSTORE_S3_BUCKET=pds-blobs
 PDS_BLOBSTORE_S3_REGION=auto
 PDS_BLOBSTORE_S3_ENDPOINT=https://<account>.r2.cloudflarestorage.com

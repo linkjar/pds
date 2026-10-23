@@ -5,6 +5,11 @@ sidebar:
   order: 3
 ---
 
+For a first setup, use the dedicated [MCP guide](/connect/mcp/) or
+[operations console guide](/connect/console/). This page keeps the Compose
+examples and existing links together. The [binary and port map](/reference/binaries/)
+explains the native equivalents.
+
 Both sidecars talk to the server over its APIs. Neither holds a database
 connection, a signing key or a secret of the server, so each can be added
 and removed without touching the data directory, and every action they
@@ -34,7 +39,7 @@ through an SSH tunnel, never under a public name.
 
 On the server's side, in `pds.env`:
 
-```ini
+```dotenv
 PDS_OPS_ADDRESS=0.0.0.0:2584
 ```
 
