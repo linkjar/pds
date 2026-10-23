@@ -5,6 +5,11 @@ sidebar:
   order: 3
 ---
 
+For a first setup, use the dedicated [MCP guide](/connect/mcp/) or
+[operations console guide](/connect/console/). This page keeps the Compose
+examples and existing links together. The [binary and port map](/reference/binaries/)
+explains the native equivalents.
+
 Both sidecars talk to the server over its APIs. Neither holds a database
 connection, a signing key or a secret of the server, so each can be added
 and removed without touching the data directory, and every action they

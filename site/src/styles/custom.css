@@ -187,3 +187,26 @@ header.header :is(a, button, select):focus-visible {
 	font-size: var(--sl-text-sm);
 	color: var(--muted-foreground);
 }
+
+/* Keep command copying discoverable without a hover gesture. */
+.expressive-code .frame .copy button {
+	opacity: 1;
+	width: 2.75rem;
+	height: 2.75rem;
+}
+.expressive-code .frame pre { padding-inline-end: 3.5rem; }
+
+/* Long guide names must wrap instead of widening the mobile page. */
+.pagination-links {
+	flex-wrap: wrap;
+	gap: 1rem;
+}
+.pagination-links a {
+	max-width: 100%;
+	min-height: 2.75rem;
+	height: auto;
+	white-space: normal;
+}
+@media print {
+	.expressive-code .copy { display: none; }
+}

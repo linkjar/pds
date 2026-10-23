@@ -56,17 +56,24 @@ test('copied Markdown identifies its public source and keeps links, images, and 
 	assert.doesNotMatch(await page('llms-full.txt'), /\]\((?:\/|#)/);
 });
 
-test('documentation pages render one working copy control and a link to that page’s Markdown', async () => {
+test('documentation pages offer page copying, complete context, and a Markdown fallback', async () => {
 	for (const slug of [
 		'start/overview',
 		'start/install',
 		'reference/architecture',
+		'connect/mcp',
+		'connect/console',
+		'connect/ai-guidance',
+		'reference/binaries',
 	]) {
 		const html = await page(`${slug}/index.html`);
 		const controls = [
 			...html.matchAll(/<docs-copy\b([^>]*)>([\s\S]*?)<\/docs-copy>/g),
 		];
-		assert.equal(controls.length, 1, slug);
+		assert.equal(controls.length, 3, slug);
+		assert.match(controls[1][1], /data-src="\/llms-full\.txt"/);
+		assert.match(controls[2][1], /data-kind="link"/);
+		assert.match(html, /<summary[^>]*>Use with AI/);
 		assert.match(controls[0][1], new RegExp(`data-src="/${slug}\\.md\\.txt"`));
 		assert.match(
 			controls[0][2],

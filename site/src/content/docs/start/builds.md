@@ -18,7 +18,8 @@ then follow [native installation](/start/native/) for configuration and startup.
 The Linux packages are built on their own architectures. Apple Silicon supports
 the normal Nix package for local use. There is no Intel macOS package or portable
 macOS archive. The packages contain the PDS server; console and MCP sidecars
-are separate builds.
+are separate builds. See [binaries and ports](/reference/binaries/) for their
+build commands, runtime files, and network connections.
 
 ## Download a portable Linux build
 
