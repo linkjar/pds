@@ -25,10 +25,22 @@ const pages = new Map(
 				const tree = parser.parse(await readFile(join(output, file), 'utf8'));
 				const ids = new Set();
 				const links = [];
+				const assets = [];
 				let headings = 0;
 				visit(tree, 'element', (node) => {
 					if (node.properties.id) ids.add(String(node.properties.id));
 					if (node.tagName === 'h1') headings++;
+					if (node.tagName === 'script' && typeof node.properties.src === 'string') {
+						assets.push(node.properties.src);
+					}
+					if (
+						node.tagName === 'link' &&
+						Array.isArray(node.properties.rel) &&
+						node.properties.rel.includes('stylesheet') &&
+						typeof node.properties.href === 'string'
+					) {
+						assets.push(node.properties.href);
+					}
 					if (
 						node.tagName === 'a' &&
 						typeof node.properties.href === 'string'
@@ -37,7 +49,7 @@ const pages = new Map(
 					}
 				});
 				const route = `/${file.endsWith('index.html') ? file.slice(0, -'index.html'.length) : file}`;
-				return [file, { ids, links, headings, route }];
+				return [file, { ids, links, assets, headings, route }];
 			}),
 	),
 );
@@ -89,6 +101,20 @@ test('every generated HTML page has one primary heading', () => {
 	for (const [file, page] of pages) {
 		assert.equal(page.headings, 1, `${file}: expected one h1`);
 	}
+});
+
+test('every page includes its published stylesheets and scripts', () => {
+	const missing = [];
+	for (const [file, page] of pages) {
+		for (const asset of page.assets) {
+			const url = new URL(asset, new URL(page.route, origin));
+			if (url.origin !== origin) continue;
+			if (!files.has(decodeURIComponent(url.pathname.slice(1)))) {
+				missing.push(`${file}: missing asset ${asset}`);
+			}
+		}
+	}
+	assert.deepEqual(missing, []);
 });
 
 test('internal links resolve to published files and existing page fragments', () => {
