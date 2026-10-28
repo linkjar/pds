@@ -1,6 +1,37 @@
 
 # cargo-vet audits file
 
+[[audits.crypto-bigint]]
+who = "AI agent (no human certification)"
+criteria = "safe-to-deploy"
+delta = "0.7.5 -> 0.7.10"
+notes = """
+Automated source-delta review on 2026-10-28, against the existing 0.7.5
+bootstrap exemption. This does not claim a full audit of the base version.
+Reviewed the published-crate diff, changelog and RUSTSEC-2026-0387 (0.7.5 is
+yanked; 0.7.6 to 0.7.8 are yanked for the NonZero Mul API break in #1373).
+Downloaded archive SHA-256 matches both workspace and fuzz lockfiles:
+9c035cb64cba03dad2fb921f3e218785e8cf9a41790da5eb3a1400f62fa2be11.
+The package identifies upstream commit 55af01b1957b1f90d718bf697ea9a6db7287151c.
+
+The changes remove secret-dependent timing: Choice-to-mask conversion no longer
+uses to_u8_vartime, wide-word equality and non-zero checks go through ctutils
+comparison primitives, borrowing_sub, CTZ, div_rem, nlimbs and Montgomery
+multiplication drop data-dependent branches, BoxedMontyForm::invert no longer
+branches on invertibility, and UintRef equality is constant-time. Correctness
+fixes cover Montgomery reduction in repeated squaring, invert_odd_mod
+truncation, mul_mod_special boundaries, exact division and GCD edge cases.
+Remaining to_bool() branches are on public values (sign for Display, Jacobi
+symbol, odd-modulus preconditions) or gated on the VARTIME const parameter.
+Constant-time verification is supplied upstream (cargo checkct); this review
+does not independently prove constant-time behavior on every target.
+
+No unsafe block, build script, I/O, process or network access was added.
+Runtime dependencies are unchanged apart from ctutils moving to 0.4.6; the
+num-bigint and num-modular bumps are dev-dependencies. MSRV rises to 1.87.
+This review supports this exact delta only.
+"""
+
 [[audits.ctutils]]
 who = "Codex (AI agent; no human certification)"
 criteria = "safe-to-deploy"
@@ -24,6 +55,28 @@ constant-time behavior on every supported target.
 No runtime dependency, feature, build script, unsafe block, I/O, or allocation
 was added. Other changes affect package metadata, changelog, tests, and the
 crate's development lockfile. This review supports this exact patch delta.
+"""
+
+[[audits.ctutils]]
+who = "AI agent (no human certification)"
+criteria = "safe-to-deploy"
+delta = "0.4.4 -> 0.4.6"
+notes = """
+Automated source-delta review on 2026-10-28, chained on the 0.4.3 -> 0.4.4
+review above. Downloaded archive SHA-256 matches both lockfiles:
+fe3e9d21d39e6f39ff46e03d5b621424f88ee23d8a1672c6bfc9ccc7f2da4f6a.
+The package identifies upstream commit 79275f704220fe32574c2a61973af40e4e1925b2.
+
+The bitle/bitlt/bitnz macros move unchanged into a new public primitives
+module, with bitlt expressed through a shared bitborrow formula. New
+borrowing_sub_u32/u64 and _mask variants compute the borrow-out with that
+formula behind core::hint::black_box. On Thumb-1 (arm without pointer-width
+atomics), comparisons pass through black_box and are kept out of line, and
+Choice AND composes through to_u8() so the optimizer cannot branch on it.
+Reviewed the added primitive and proptest comparison tests.
+
+No dependency, feature, build script, unsafe block, I/O, or allocation was
+added. This review supports this exact delta only.
 """
 
 [[audits.rustls-webpki]]
