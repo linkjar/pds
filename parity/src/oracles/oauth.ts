@@ -93,6 +93,9 @@ export async function driveAuthorization(page: Page, url: string, opts: DriveOpt
         if (opts.signUp.inviteCode !== undefined && (await invite.count()) > 0 && (await invite.first().isVisible())) await invite.first().fill(opts.signUp.inviteCode)
         await email.first().fill(opts.signUp.email)
         await page.locator('input[type=password]').first().fill(opts.signUp.password)
+        // The Candidate asks for the password twice (SPEC 2.3); the Reference has one field.
+        const confirm = page.locator('input[name=passwordConfirm]')
+        if ((await confirm.count()) > 0) await confirm.first().fill(opts.signUp.password)
         facts.steps.push('sign-up:credentials')
         signUpStep = 1
         await page.locator('button[type=submit]').first().click({ timeout: 5_000 }).catch(() => undefined)

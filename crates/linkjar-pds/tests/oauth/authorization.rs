@@ -336,3 +336,100 @@ async fn a_client_is_authorized_and_its_session_is_used_refreshed_and_revoked() 
         .await;
     assert_eq!(replay.json()["error"], "invalid_grant");
 }
+
+/// Posts the first step of a sign-up for `carol@example.com`.
+async fn post_sign_up(
+    server: &mut Server,
+    page: &[(&str, &str)],
+    password: &str,
+    confirm: Option<&str>,
+) -> Answer {
+    let mut form = page.to_vec();
+    form.extend([("email", "carol@example.com"), ("password", password)]);
+    if let Some(confirm) = confirm {
+        form.push(("passwordConfirm", confirm));
+    }
+    server
+        .send(
+            reqwest::Method::POST,
+            "/oauth/authorize/sign-up",
+            Some(&form),
+            &[],
+        )
+        .await
+}
+
+// The sign-up page asks for the password twice, and the server makes the
+// check itself: a form posted without the script of the page is refused
+// when the two differ (SPEC section 2.3).
+#[tokio::test]
+async fn a_sign_up_asks_for_the_password_twice() {
+    let mut server = Server::start().await;
+    // The first request learns the nonce.
+    server.push(&[]).await;
+    let pushed = server.push(&[]).await;
+    assert_eq!(pushed.status, 201, "{}", pushed.text);
+    let request_uri = pushed.json()["request_uri"].as_str().unwrap().to_owned();
+    let id = client_id();
+    let query = url::form_urlencoded::Serializer::new(String::new())
+        .append_pair("client_id", &id)
+        .append_pair("request_uri", &request_uri)
+        .finish();
+    let page = server
+        .send(
+            reqwest::Method::GET,
+            &format!("/oauth/authorize?{query}&view=sign-up"),
+            None,
+            &[],
+        )
+        .await;
+    assert_eq!(page.status, 200, "{}", page.text);
+    assert!(
+        page.text.contains("name=\"password\"") && page.text.contains("name=\"passwordConfirm\""),
+        "{}",
+        page.text
+    );
+    let csrf = page.field("csrf").unwrap();
+    let fields = [
+        ("client_id", id.as_str()),
+        ("request_uri", request_uri.as_str()),
+        ("csrf", csrf.as_str()),
+    ];
+    let password = "correct horse battery staple";
+
+    // No confirmation, an empty one and a mistyped one are all refused, and
+    // the page comes back with the address.
+    for confirm in [None, Some(""), Some("correct horse battery stapel")] {
+        let refused = post_sign_up(&mut server, &fields, password, confirm).await;
+        assert_eq!(refused.status, 400, "{confirm:?}: {}", refused.text);
+        assert!(
+            refused.text.contains(
+                "<div role=\"alert\">The passwords do not match. Enter your password again in both fields.</div>"
+            ),
+            "{confirm:?}: {}",
+            refused.text
+        );
+        assert!(
+            refused.text.contains("value=\"carol@example.com\""),
+            "{confirm:?}: {}",
+            refused.text
+        );
+    }
+
+    // The length is counted in characters: seven of two bytes each are too few.
+    let refused = post_sign_up(&mut server, &fields, "пароль1", Some("пароль1")).await;
+    assert_eq!(refused.status, 400, "{}", refused.text);
+    assert!(
+        refused
+            .text
+            .contains("<div role=\"alert\">The password must have at least 8 characters</div>"),
+        "{}",
+        refused.text
+    );
+
+    // The same password in both fields moves on to the handle.
+    let next = post_sign_up(&mut server, &fields, password, Some(password)).await;
+    assert_eq!(next.status, 200, "{}", next.text);
+    assert!(next.field("pending").is_some(), "{}", next.text);
+    assert!(next.text.contains("name=\"handle\""), "{}", next.text);
+}

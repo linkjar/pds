@@ -250,6 +250,16 @@ has not been run for these cases.
 | Member token validation | Check entryway recovery and OAuth session state on each validated request; fail closed if unavailable (§21.3). |
 | Incorrect OAuth session cookie during rotation | Accept only the exact recorded predecessor during the five-second overlap; preserve the legitimate device (§11.3). |
 
+The owner decided on 2026-11-13 that the sign-up page asks for the password
+twice (§11.4). A test of the server covers the case
+(`crates/linkjar-pds/tests/oauth/authorization.rs`). The Harness fills the
+second field where a page has one, so its transcripts do not record the
+difference.
+
+| Case | Reference at the pin | Candidate |
+|---|---|---|
+| The first step of a sign-up on the pages, posted without `passwordConfirm` or with a value that differs from `password` (§11.4) | The page has one password field, and the step passes | 400 on the page: "The passwords do not match. Enter your password again in both fields." |
+
 ## 3. Architecture
 
 ### 3.1 Crates
@@ -1323,6 +1333,12 @@ emitting `#identity`.
   `PDS_TERMS_OF_SERVICE_URL`, `PDS_PRIVACY_POLICY_URL` and `PDS_SUPPORT_URL`
   name the brand; what is unset falls back to the host name and to the mark
   of the profile.
+- The sign-up page asks for the password twice. The server refuses the first
+  step when the two values differ, also for a form posted without the page's
+  script (§2.3). The minimum of 8 is counted in characters and the maximum
+  of 256 in bytes (§5.2). An inline script reports the length and the match
+  while the user types, shows both passwords on request and warns of Caps
+  Lock; the page works without it.
 - The UI's JSON routes keep the Reference's CSRF, `Origin`, fetch-metadata,
   ephemeral-token and device checks.
 
@@ -2516,3 +2532,4 @@ New in the Candidate:
 | Client errors answered with 400 | Where the Reference answers 500 to a client error, the Candidate answers 400 `InvalidRequest`. 2026-10-09: four cases, `createRecord` and `applyWrites` on a key that exists, `createAppPassword` with a name in use, and an `atproto-proxy` value that does not start with a DID (§2.3). 2026-10-13: three more, `importRepo` with bytes that are not a CAR and `createAccount` with the handle or the email of a deactivated or taken-down account (§2.3). | Decided 2026-10-09 and 2026-10-13, units 4 and 5 |
 | Hardenings a client can observe | Hardenings that the pin does not have and a client could observe. 2026-10-09: the Candidate refuses a replayed service token (§5.4, §2.3). 2026-10-12: the Candidate collects an upload that no record references after one hour (§6.4, §2.3), and it keeps no grace period before a dereferenced blob is deleted, as the pin. | Decided 2026-10-09 and 2026-10-12, unit 4 |
 | Stricter checks on data from elsewhere | Where the Candidate is stricter than the Reference at the pin on data from elsewhere, it keeps its check, and each case is a deliberate difference with a scenario that records what the pin does (§2.3): a tree that references a node more than once, a malformed tree, record blocks that are not canonical DAG-CBOR, a blob reference with size zero or an empty MIME type, handle verification, the strict checks of a DID document, and a version-2 commit. 2026-10-13: the import also checks that the commit names the account and that the account's key signed it (§2.3). The pin stays at 0.5.34 and the legacy build carries upstream's shared-node refusal of 0.5.37 as a ninth patch (§13). | Decided 2026-10-12 and 2026-10-13, units 4, 5 and 8 |
+| Password confirmation on sign-up | The sign-up page asks for the password twice, and the server refuses a first step whose two values differ. The Reference's page has one field, so this is a deliberate difference (§2.3, §11.4). | Decided 2026-11-13 |

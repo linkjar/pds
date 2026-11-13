@@ -94,6 +94,47 @@ if(f){f.value=c;if(w)w.hidden=true;}\
 var a=document.querySelectorAll('a[data-provider]');\
 for(var i=0;i<a.length;i++){a[i].href+=(a[i].href.indexOf('?')<0?'?':'&')+'invite='+encodeURIComponent(c);}})();";
 
+/// Progressive enhancement: the server also checks confirmation without JavaScript.
+const SIGN_UP_PASSWORD: &str = r"(function(){
+var password=document.getElementById('password'),confirm=document.getElementById('passwordConfirm');
+var status=document.getElementById('password-match'),length=document.getElementById('password-length');
+var reveal=document.getElementById('password-reveal'),caps=document.getElementById('password-caps');
+var touched=false;
+function update(){
+var count=Array.from(password.value).length;
+var tooLong=new TextEncoder().encode(password.value).length>256;
+var valid=count>=8&&!tooLong;
+password.setCustomValidity(tooLong?'This password is too long. Try a shorter passphrase.':password.value&&count<8?'Use at least 8 characters.':'');
+length.textContent=tooLong?'This password is too long. Try a shorter passphrase.':valid?'✓ At least 8 characters':count?'Use at least 8 characters · '+count+' entered':'Use at least 8 characters.';
+length.dataset.state=valid?'ready':tooLong?'error':'';
+var matches=confirm.value!==''&&confirm.value===password.value;
+confirm.setCustomValidity(confirm.value&&!matches?'The passwords do not match. Check both entries.':'');
+var mismatch=touched&&confirm.value!==''&&!matches;
+confirm.setAttribute('aria-invalid',String(mismatch));
+var message=matches?'✓ Passwords match':mismatch?'The passwords do not match yet.':'Enter the same password again to catch typos.';
+if(status.textContent!==message)status.textContent=message;
+status.dataset.state=matches?'ready':mismatch?'error':'';
+}
+[password,confirm].forEach(function(input){
+input.addEventListener('input',update);input.addEventListener('change',update);
+input.addEventListener('keydown',function(event){caps.hidden=!event.getModifierState('CapsLock')});
+input.addEventListener('keyup',function(event){caps.hidden=!event.getModifierState('CapsLock')});
+input.addEventListener('blur',function(){caps.hidden=true});
+});
+confirm.addEventListener('blur',function(){touched=true;update()});
+confirm.addEventListener('invalid',function(){touched=true;update()});
+reveal.hidden=false;
+reveal.addEventListener('click',function(){
+var visible=password.type==='password';
+password.type=confirm.type=visible?'text':'password';
+reveal.textContent=visible?'Hide passwords':'Show passwords';
+reveal.setAttribute('aria-pressed',String(visible));
+});
+password.form.addEventListener('submit',function(event){update();if(!password.form.reportValidity())event.preventDefault()});
+window.addEventListener('pageshow',function(){password.type=confirm.type='password';reveal.textContent='Show passwords';reveal.setAttribute('aria-pressed','false');update()});
+update();
+})();";
+
 /// Marks the section in view in the side list of the account page. The
 /// page reads the same without it.
 const SECTION_IN_VIEW: &str = "(function(){if(!('IntersectionObserver' in window))return;\
@@ -571,12 +612,21 @@ pub fn sign_up_credentials(
             ),
             None
         ),
-        field(
-            "password",
-            "Password",
-            "<input id=\"password\" type=\"password\" name=\"password\" autocomplete=\"new-password\" minlength=\"8\" required>",
-            Some("At least 8 characters.")
-        ),
+        r#"<div class="lj-field">
+<label for="password">Password</label>
+<input id="password" type="password" name="password" autocomplete="new-password" minlength="8" autocapitalize="none" spellcheck="false" aria-describedby="password-length password-advice password-caps" required>
+<p id="password-length" class="lj-hint">Use at least 8 characters.</p>
+<p id="password-advice" class="lj-hint">A few unrelated words work well. You can also use your password manager.</p>
+</div>
+<div class="lj-field">
+<label for="passwordConfirm">Confirm password</label>
+<input id="passwordConfirm" type="password" name="passwordConfirm" autocomplete="new-password" autocapitalize="none" spellcheck="false" aria-describedby="password-match password-caps" required>
+<p id="password-match" class="lj-hint lj-password-status" aria-live="polite" aria-atomic="true">Enter the same password again to catch typos.</p>
+</div>
+<div class="lj-password-tools">
+<button id="password-reveal" class="lj-quiet" type="button" aria-controls="password passwordConfirm" aria-pressed="false" hidden>Show passwords</button>
+<p id="password-caps" class="lj-hint" role="status" hidden>Caps Lock is on.</p>
+</div>"#,
         button(Kind::Primary, "", "Continue"),
         fine_link(flow.brand.terms, "Terms of Service"),
         fine_link(flow.brand.privacy, "Privacy Policy"),
@@ -590,7 +640,7 @@ pub fn sign_up_credentials(
         flow.shell(),
         "Create a new account",
         &stage(&panel),
-        Some(INVITE_HANDOFF),
+        Some(&format!("{INVITE_HANDOFF}{SIGN_UP_PASSWORD}")),
     )
 }
 
@@ -1307,7 +1357,13 @@ mod tests {
         let google = page.find("Continue with Google").unwrap();
         let fine = page.find("<p class=\"lj-fine\">By continuing you agree to the Terms of Service and the Privacy Policy.</p>").unwrap();
         assert!(email < divider && divider < google && google < fine);
-        assert!(page.contains("<p class=\"lj-hint\">At least 8 characters.</p>"));
+        assert!(
+            page.contains(
+                "id=\"password-length\" class=\"lj-hint\">Use at least 8 characters.</p>"
+            )
+        );
+        assert!(page.contains("name=\"passwordConfirm\" autocomplete=\"new-password\""));
+        assert!(page.contains("aria-describedby=\"password-match password-caps\" required"));
         assert!(page.contains(
             "<p>Step 1 of 2</p><div class=\"lj-track\"><i class=\"done\"></i><i></i></div>"
         ));

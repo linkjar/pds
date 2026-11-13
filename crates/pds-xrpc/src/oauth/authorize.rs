@@ -1139,11 +1139,14 @@ async fn sign_up_credentials(state: &AppState, posted: &Posted) -> Result<Respon
     if !crate::api::account::email_is_valid(&email) {
         return refused("This email address is not supported, please use a different email.");
     }
-    if password.len() < 8 {
+    if password.chars().count() < 8 {
         return refused("The password must have at least 8 characters");
     }
     if password.len() > crate::password::NEW_PASSWORD_MAX_LENGTH {
         return refused("The password is too long");
+    }
+    if posted.field("passwordConfirm") != password {
+        return refused("The passwords do not match. Enter your password again in both fields.");
     }
     if required && invite.is_empty() {
         return refused("An invite code is required");

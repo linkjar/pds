@@ -79,6 +79,13 @@ input:focus-visible{outline:0;background:#c9dcff1c;box-shadow:inset 0 0 0 1.5px 
 .lj-affix span{padding-right:14px;color:var(--lj-ink-3);font-size:17px;white-space:nowrap}
 .lj-hint{margin:8px 0 0;color:var(--lj-ink-3);font-size:14px;line-height:1.45}
 .lj-hint strong{color:var(--lj-ink-2);font-weight:500}
+.lj-password-tools{display:flex;align-items:center;flex-wrap:wrap;gap:0 12px;margin:-8px 0 12px}
+.lj-password-tools .lj-quiet{margin:0;padding:0 8px}
+.lj-password-tools [hidden]{display:none}
+.lj-password-status{min-height:2.9em}
+.lj-hint[data-state=ready]{color:#b8dfcb}
+.lj-hint[data-state=error],.lj-password-tools .lj-hint{color:#f5b5b5}
+input[aria-invalid=true]:not(:focus-visible){box-shadow:inset 0 0 0 1.5px #f5b5b5}
 .lj-check{display:flex;align-items:center;gap:10px;min-height:44px;margin:-8px 0 10px;color:var(--lj-ink-2);font-size:14px;cursor:pointer}
 .lj-check input{width:18px;height:18px;margin:0;accent-color:#b4bbea}
 .lj-actions{display:grid;gap:10px;margin-top:4px}

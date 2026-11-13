@@ -247,6 +247,7 @@ ones still open.
 | 2026-10-15 | The Candidate replaces the reference image on the invite-only pilot host, on its own data directory, ahead of a staging restore. |
 | 2026-10-15 | Every handle under `linkjar.social` resolves through a wildcard DNS record and tunnel rule; sign-up stays invite-only. |
 | 2026-10-15 | The legacy build and its documents leave the repository while the watch runs; the published image `ghcr.io/linkjar/pds` stays the Reference of the Harness and the rollback image on the host. |
+| 2026-11-13 | The sign-up page asks for the password twice, and the server makes the check. A deliberate difference (SPEC §2.3). |
 
 ## Research
 
