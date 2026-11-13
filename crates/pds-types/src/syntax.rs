@@ -186,7 +186,9 @@ fn validate_handle(s: &str) -> Result<(), SyntaxError> {
 string_newtype!(
     /// An atproto handle: a DNS name with at least two labels and a TLD that
     /// starts with a letter. Syntax only; see [`Handle::is_disallowed_tld`].
-    Handle, "Handle", validate_handle
+    Handle,
+    "Handle",
+    validate_handle
 );
 
 impl Handle {
@@ -250,7 +252,9 @@ fn validate_did(s: &str) -> Result<(), SyntaxError> {
 string_newtype!(
     /// A decentralized identifier. Any method parses; the server supports
     /// `did:plc` and `did:web` (SPEC §9.1).
-    Did, "Did", validate_did
+    Did,
+    "Did",
+    validate_did
 );
 
 impl Did {
@@ -317,7 +321,9 @@ fn validate_nsid(s: &str) -> Result<(), SyntaxError> {
 
 string_newtype!(
     /// A namespaced identifier such as `com.atproto.repo.createRecord`.
-    Nsid, "Nsid", validate_nsid
+    Nsid,
+    "Nsid",
+    validate_nsid
 );
 
 impl Nsid {
@@ -355,7 +361,9 @@ fn validate_tid(s: &str) -> Result<(), SyntaxError> {
 string_newtype!(
     /// A timestamp identifier: 53 bits of microseconds and a 10-bit clock
     /// id, base32-sortable, 13 characters, top bit zero.
-    Tid, "Tid", validate_tid
+    Tid,
+    "Tid",
+    validate_tid
 );
 
 impl Tid {
@@ -493,7 +501,9 @@ fn validate_record_key(s: &str) -> Result<(), SyntaxError> {
 
 string_newtype!(
     /// A record key: 1 to 512 characters of `A-Za-z0-9._:~-`, never `.` or `..`.
-    RecordKey, "RecordKey", validate_record_key
+    RecordKey,
+    "RecordKey",
+    validate_record_key
 );
 
 // ---------------------------------------------------------------------------
@@ -641,7 +651,9 @@ fn validate_at_uri(s: &str) -> Result<(), SyntaxError> {
 string_newtype!(
     /// An `at://` URI: authority, optional collection, optional record key,
     /// optional fragment.
-    AtUri, "AtUri", validate_at_uri
+    AtUri,
+    "AtUri",
+    validate_at_uri
 );
 
 impl AtUri {
@@ -707,7 +719,9 @@ fn validate_datetime(s: &str) -> Result<(), SyntaxError> {
 string_newtype!(
     /// An atproto datetime: RFC 3339 with an uppercase `T`, a required
     /// timezone, whole seconds, no `-00:00`.
-    Datetime, "Datetime", validate_datetime
+    Datetime,
+    "Datetime",
+    validate_datetime
 );
 
 impl Datetime {
@@ -817,7 +831,9 @@ fn validate_language(s: &str) -> Result<(), SyntaxError> {
 string_newtype!(
     /// A BCP 47 language tag, syntax-checked and with the RFC 5646 rule that
     /// variants and extension singletons do not repeat.
-    Language, "Language", validate_language
+    Language,
+    "Language",
+    validate_language
 );
 
 // ---------------------------------------------------------------------------
@@ -843,7 +859,9 @@ fn validate_uri(s: &str) -> Result<(), SyntaxError> {
 
 string_newtype!(
     /// A generic URI with a scheme, as the lexicon `uri` string format.
-    Uri, "Uri", validate_uri
+    Uri,
+    "Uri",
+    validate_uri
 );
 
 // ---------------------------------------------------------------------------
@@ -870,7 +888,9 @@ string_newtype!(
     /// at most 100 bytes in binary (SPEC §6.1). This is the lexicon `cid`
     /// string format; the repository rules (dag-cbor or raw, SHA-256) are in
     /// [`crate::content`].
-    CidString, "CidString", validate_cid_string
+    CidString,
+    "CidString",
+    validate_cid_string
 );
 
 impl CidString {
