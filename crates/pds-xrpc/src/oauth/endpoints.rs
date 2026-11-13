@@ -262,8 +262,7 @@ fn checked_parameters(
     // What the client may ask for.
     let declared = client.client.scopes();
     let requested: Vec<&str> = get("scope")
-        .map(|scope| scope.split(' ').filter(|scope| !scope.is_empty()).collect())
-        .unwrap_or_default();
+        .map_or_default(|scope| scope.split(' ').filter(|scope| !scope.is_empty()).collect());
     if let Some(scope) = requested.iter().find(|scope| !declared.contains(scope)) {
         return Err(OAuthError::new(
             "invalid_scope",

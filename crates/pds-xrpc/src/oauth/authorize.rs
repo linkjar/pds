@@ -336,8 +336,7 @@ impl Pending {
 
     pub(super) fn scopes(&self) -> Vec<&str> {
         self.text("scope")
-            .map(|scope| scope.split(' ').collect())
-            .unwrap_or_default()
+            .map_or_default(|scope| scope.split(' ').collect())
     }
 }
 
@@ -424,8 +423,7 @@ pub(super) fn consent_required(pending: &Pending, authorized: Option<&str>) -> b
     let granted: Vec<&str> = data
         .get("authorizedScopes")
         .and_then(Value::as_array)
-        .map(|scopes| scopes.iter().filter_map(Value::as_str).collect())
-        .unwrap_or_default();
+        .map_or_default(|scopes| scopes.iter().filter_map(Value::as_str).collect());
     !pending.scopes().iter().all(|scope| granted.contains(scope))
 }
 

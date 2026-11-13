@@ -171,8 +171,7 @@ pub fn client_ip(headers: &HeaderMap, peer: Option<IpAddr>) -> String {
     let forwarded: Vec<&str> = headers
         .get("x-forwarded-for")
         .and_then(|value| value.to_str().ok())
-        .map(|value| value.split(',').map(str::trim).collect())
-        .unwrap_or_default();
+        .map_or_default(|value| value.split(',').map(str::trim).collect());
     // A connection without an address is one inside a test process.
     let peer_trusted = peer.is_none_or(trusted);
     let peer_text = peer.map_or_else(|| "127.0.0.1".to_owned(), |peer| peer.to_string());

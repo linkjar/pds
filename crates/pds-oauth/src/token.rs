@@ -98,12 +98,10 @@ fn sign(secret: &[u8], header: &Value, claims: &Value) -> String {
         URL_SAFE_NO_PAD.encode(header.to_string()),
         URL_SAFE_NO_PAD.encode(claims.to_string())
     );
-    let signature = Hmac::<Sha256>::new_from_slice(secret)
-        .map(|mut mac| {
-            mac.update(input.as_bytes());
-            mac.finalize().into_bytes().to_vec()
-        })
-        .unwrap_or_default();
+    let signature = Hmac::<Sha256>::new_from_slice(secret).map_or_default(|mut mac| {
+        mac.update(input.as_bytes());
+        mac.finalize().into_bytes().to_vec()
+    });
     format!("{input}.{}", URL_SAFE_NO_PAD.encode(signature))
 }
 

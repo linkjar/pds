@@ -146,8 +146,7 @@ async fn published(state: &AppState, did: &str) -> Result<Published, XrpcError> 
             rotation_keys: Some(
                 data["rotationKeys"]
                     .as_array()
-                    .map(|keys| keys.iter().filter_map(text).collect())
-                    .unwrap_or_default(),
+                    .map_or_default(|keys| keys.iter().filter_map(text).collect()),
             ),
         });
     }

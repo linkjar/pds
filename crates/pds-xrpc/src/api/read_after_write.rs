@@ -233,7 +233,7 @@ fn images_view(state: &AppState, did: &str, embed: &Value) -> Value {
     let images: Vec<Value> = embed
         .get("images")
         .and_then(Value::as_array)
-        .map(|images| {
+        .map_or_default(|images| {
             images
                 .iter()
                 .map(|image| {
@@ -249,8 +249,7 @@ fn images_view(state: &AppState, did: &str, embed: &Value) -> Value {
                     view
                 })
                 .collect()
-        })
-        .unwrap_or_default();
+        });
     json!({ "$type": "app.bsky.embed.images#view", "images": images })
 }
 

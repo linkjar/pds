@@ -83,12 +83,11 @@ pub async fn atproto_did(state: &AppState, headers: &HeaderMap) -> Response {
     let host = headers
         .get(header::HOST)
         .and_then(|value| value.to_str().ok())
-        .map(|host| {
+        .map_or_default(|host| {
             host.rsplit_once(':')
                 .map_or(host, |(name, _port)| name)
                 .to_owned()
-        })
-        .unwrap_or_default();
+        });
     if !state.config().is_hosted_handle(&host) {
         return not_found();
     }
@@ -145,8 +144,7 @@ fn host_of(headers: &HeaderMap) -> String {
     headers
         .get(header::HOST)
         .and_then(|value| value.to_str().ok())
-        .map(|host| host.rsplit_once(':').map_or(host, |(name, _port)| name))
-        .unwrap_or_default()
+        .map_or_default(|host| host.rsplit_once(':').map_or(host, |(name, _port)| name))
         .to_ascii_lowercase()
 }
 

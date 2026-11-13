@@ -445,12 +445,8 @@ impl World {
     }
 
     async fn send(&self, request: Request<Body>) -> Result<Answer, Failure> {
-        let response = self
-            .router
-            .clone()
-            .oneshot(request)
-            .await
-            .map_err(|error| Failure::Setup(error.to_string()))?;
+        // The router cannot fail: its error type is `Infallible`.
+        let Ok(response) = self.router.clone().oneshot(request).await;
         let status = response.status().as_u16();
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await

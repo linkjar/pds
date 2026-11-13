@@ -332,8 +332,7 @@ pub async fn read_fields(headers: &HeaderMap, body: Body) -> Result<Fields, OAut
         .get(header::CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.split(';').next())
-        .map(|value| value.trim().to_ascii_lowercase())
-        .unwrap_or_default();
+        .map_or_default(|value| value.trim().to_ascii_lowercase());
     let bytes = crate::body::collect(body, BODY_LIMIT)
         .await
         .map_err(|error| OAuthError::invalid_request(error.message))?;

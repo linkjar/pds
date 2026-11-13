@@ -305,11 +305,10 @@ fn consent_page(id: &str, request: &Request, did: &str) -> Response {
     let name = request.client.name.as_deref().unwrap_or("An application");
     let host = Url::parse(&request.redirect_uri)
         .ok()
-        .map(|url| match url.host_str() {
+        .map_or_default(|url| match url.host_str() {
             Some(host) => host.to_owned(),
             None => format!("{}:", url.scheme()),
-        })
-        .unwrap_or_default();
+        });
     let mut scopes = String::new();
     for scope in &request.scopes {
         let text = match scope.as_str() {

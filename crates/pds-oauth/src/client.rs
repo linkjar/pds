@@ -153,8 +153,7 @@ impl Client {
         self.metadata
             .get(key)
             .and_then(Value::as_array)
-            .map(|items| items.iter().filter_map(Value::as_str).collect())
-            .unwrap_or_default()
+            .map_or_default(|items| items.iter().filter_map(Value::as_str).collect())
     }
 
     fn has(&self, key: &str) -> bool {

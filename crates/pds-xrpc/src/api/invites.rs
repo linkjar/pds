@@ -231,8 +231,7 @@ pub async fn get_invite_codes(state: &AppState, query: &Query<'_>) -> Result<Res
             last.uses.len().to_string()
         } else {
             chrono::DateTime::parse_from_rfc3339(&last.created_at)
-                .map(|at| at.timestamp_millis().to_string())
-                .unwrap_or_default()
+                .map_or_default(|at| at.timestamp_millis().to_string())
         };
         out.insert(
             "cursor".to_owned(),

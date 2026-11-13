@@ -365,11 +365,7 @@ fn sessions_of(card: &Value) -> Vec<SessionRow> {
 pub async fn account(who: Who, card: Value, #[default] done: Option<String>) -> Result<impl View> {
     let did = card["did"].as_str().unwrap_or_default().to_owned();
     let title = text(&card["handle"]).unwrap_or_else(|| did.clone());
-    let initial: String = title
-        .chars()
-        .next()
-        .map(|c| c.to_string())
-        .unwrap_or_default();
+    let initial: String = title.chars().next().map_or_default(|c| c.to_string());
     let status = show(&card["status"]);
     let role = text(&card["role"]);
     let taken_down = !card["takedownRef"].is_null();

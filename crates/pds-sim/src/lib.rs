@@ -373,17 +373,13 @@ impl Sim {
         self.outcome.power_losses += 1;
         self.outcome.writes_lost += u32::try_from(lost.writes).unwrap_or(u32::MAX);
 
-        let before: BTreeMap<String, String> = self
-            .expected
-            .repos
-            .get(did)
-            .map(|records| {
+        let before: BTreeMap<String, String> =
+            self.expected.repos.get(did).map_or_default(|records| {
                 records
                     .iter()
                     .map(|(path, entry)| (path.clone(), entry.cid.clone()))
                     .collect()
-            })
-            .unwrap_or_default();
+            });
         let mut after = before.clone();
         for (path, entry) in &changes {
             match entry {
@@ -755,17 +751,13 @@ impl Sim {
         self.relay_read().await?;
         for did in self.world.dids.clone() {
             let (rev, _, records) = self.stored(&did).await?;
-            let want: BTreeMap<String, String> = self
-                .expected
-                .repos
-                .get(&did)
-                .map(|records| {
+            let want: BTreeMap<String, String> =
+                self.expected.repos.get(&did).map_or_default(|records| {
                     records
                         .iter()
                         .map(|(path, entry)| (path.clone(), entry.cid.clone()))
                         .collect()
-                })
-                .unwrap_or_default();
+                });
             let have: BTreeMap<String, String> = records
                 .iter()
                 .map(|(path, cid)| (path.clone(), cid.to_string()))

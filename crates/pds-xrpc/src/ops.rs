@@ -179,8 +179,7 @@ fn reason(headers: &HeaderMap) -> Result<String, Box<Response>> {
     let given = headers
         .get(REASON_HEADER)
         .and_then(|value| value.to_str().ok())
-        .map(str::trim)
-        .unwrap_or_default();
+        .map_or_default(str::trim);
     if given.is_empty() {
         return Err(Box::new(
             XrpcError::invalid_request("An action needs a reason in the X-Ops-Reason header")

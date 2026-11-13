@@ -309,18 +309,15 @@ impl Params {
 
     /// Every value of a list parameter, in order.
     pub fn list(&self, name: &str) -> Vec<&str> {
-        self.values
-            .get(name)
-            .map(|values| {
-                values
-                    .iter()
-                    .filter_map(|value| match value {
-                        Value::Text(text) => Some(text.as_str()),
-                        _ => None,
-                    })
-                    .collect()
-            })
-            .unwrap_or_default()
+        self.values.get(name).map_or_default(|values| {
+            values
+                .iter()
+                .filter_map(|value| match value {
+                    Value::Text(text) => Some(text.as_str()),
+                    _ => None,
+                })
+                .collect()
+        })
     }
 
     /// The value of an integer parameter, or its default when the request

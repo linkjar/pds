@@ -303,8 +303,7 @@ fn validate_for_entryway(
         operation
             .get(key)
             .and_then(Value::as_array)
-            .map(|values| values.iter().filter_map(Value::as_str).collect())
-            .unwrap_or_default()
+            .map_or_default(|values| values.iter().filter_map(Value::as_str).collect())
     };
     if !listed("rotationKeys").contains(&entryway.plc_rotation_key.as_str()) {
         return Err(incompatible(

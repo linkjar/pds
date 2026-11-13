@@ -524,13 +524,12 @@ impl Env<'_> {
             bypass_key: self.text("PDS_RATE_LIMIT_BYPASS_KEY"),
             bypass_ips: self
                 .text("PDS_RATE_LIMIT_BYPASS_IPS")
-                .map(|list| {
+                .map_or_default(|list| {
                     list.split(',')
                         .map(|ip| ip.trim().to_owned())
                         .filter(|ip| !ip.is_empty())
                         .collect()
-                })
-                .unwrap_or_default(),
+                }),
         })
     }
 
@@ -644,13 +643,12 @@ impl Env<'_> {
             dpop_secret: self.text("PDS_DPOP_SECRET"),
             trusted_clients: self
                 .text("PDS_OAUTH_TRUSTED_CLIENTS")
-                .map(|list| {
+                .map_or_default(|list| {
                     list.split(',')
                         .map(|client| client.trim().to_owned())
                         .filter(|client| !client.is_empty())
                         .collect()
-                })
-                .unwrap_or_default(),
+                }),
             disable_ssrf_protection: self
                 .boolean("PDS_DISABLE_SSRF_PROTECTION")?
                 .unwrap_or(false),
@@ -832,14 +830,12 @@ impl Env<'_> {
 
     /// The values of a variable that holds a list with commas.
     fn list(&self, name: &'static str) -> Vec<String> {
-        self.text(name)
-            .map(|list| {
-                list.split(',')
-                    .map(|item| item.trim().to_owned())
-                    .filter(|item| !item.is_empty())
-                    .collect()
-            })
-            .unwrap_or_default()
+        self.text(name).map_or_default(|list| {
+            list.split(',')
+                .map(|item| item.trim().to_owned())
+                .filter(|item| !item.is_empty())
+                .collect()
+        })
     }
 
     /// `PDS_OAUTH_KNOWN_CLIENTS_FILE`: a JSON object from each client id
